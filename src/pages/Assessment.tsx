@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Question {
   id: string;
@@ -22,7 +23,7 @@ interface Question {
 
 interface SessionInfo {
   taxpayer_name: string;
-  fiscal_year: string;
+  tax_year: string;
   is_custom_period: boolean;
   period_start_date?: string;
   period_end_date?: string;
@@ -35,7 +36,7 @@ const Assessment = () => {
   
   const [sessionInfo, setSessionInfo] = useState<SessionInfo>({
     taxpayer_name: "",
-    fiscal_year: "",
+    tax_year: "",
     is_custom_period: false
   });
   const [sessionStarted, setSessionStarted] = useState(false);
@@ -75,7 +76,7 @@ const Assessment = () => {
   };
 
   const startSession = async () => {
-    if (!sessionInfo.taxpayer_name || !sessionInfo.fiscal_year) {
+    if (!sessionInfo.taxpayer_name || !sessionInfo.tax_year) {
       toast({
         title: "Missing information",
         description: "Please fill in all required fields",
@@ -93,7 +94,7 @@ const Assessment = () => {
         .insert({
           session_id: newSessionId,
           taxpayer_name: sessionInfo.taxpayer_name,
-          fiscal_year: sessionInfo.fiscal_year,
+          fiscal_year: sessionInfo.tax_year,
           is_custom_period: sessionInfo.is_custom_period,
           period_start_date: sessionInfo.period_start_date || null,
           period_end_date: sessionInfo.period_end_date || null,
@@ -210,14 +211,47 @@ const Assessment = () => {
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="fiscal_year">Fiscal year</Label>
-                <Input
-                  id="fiscal_year"
-                  value={sessionInfo.fiscal_year}
-                  onChange={(e) => setSessionInfo({...sessionInfo, fiscal_year: e.target.value})}
-                  placeholder="e.g., 2024"
-                  required
-                />
+                <Label htmlFor="tax_year">Tax year</Label>
+                <Select 
+                  value={sessionInfo.tax_year} 
+                  onValueChange={(value) => setSessionInfo({...sessionInfo, tax_year: value})}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select tax year" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 10 }, (_, i) => {
+                      const year = new Date().getFullYear() - i;
+                      return (
+                        <SelectItem key={year} value={year.toString()}>
+                          {year}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-3">
+                <Label>Tax year period</Label>
+                <RadioGroup 
+                  value={sessionInfo.is_custom_period ? "custom" : "calendar"} 
+                  onValueChange={(value) => setSessionInfo({
+                    ...sessionInfo, 
+                    is_custom_period: value === "custom",
+                    period_start_date: value === "calendar" ? undefined : sessionInfo.period_start_date,
+                    period_end_date: value === "calendar" ? undefined : sessionInfo.period_end_date
+                  })}
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="calendar" id="calendar" />
+                    <Label htmlFor="calendar">Tax year equals calendar year</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="custom" id="custom" />
+                    <Label htmlFor="custom">Tax year does not equal calendar year</Label>
+                  </div>
+                </RadioGroup>
               </div>
 
               {sessionInfo.is_custom_period && (
