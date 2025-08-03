@@ -77,7 +77,7 @@ const Assessment = () => {
   const startSession = async () => {
     if (!sessionInfo.taxpayer_name || !sessionInfo.fiscal_year) {
       toast({
-        title: "Missing Information",
+        title: "Missing information",
         description: "Please fill in all required fields",
         variant: "destructive",
       });
@@ -161,7 +161,7 @@ const Assessment = () => {
       } else {
         // Assessment completed
         toast({
-          title: "Assessment Complete",
+          title: "Assessment complete",
           description: "Your risk assessment has been completed successfully.",
         });
         navigate("/");
@@ -186,20 +186,20 @@ const Assessment = () => {
         <div className="max-w-2xl mx-auto">
           <div className="mb-8">
             <Button variant="outline" onClick={() => navigate("/")}>
-              ← Back to Dashboard
+              ← Back to dashboard
             </Button>
           </div>
           
           <Card>
             <CardHeader>
-              <CardTitle>Start Risk Assessment</CardTitle>
+              <CardTitle>Start risk assessment</CardTitle>
               <CardDescription>
                 Please provide some basic information to begin your ATAD2 risk assessment
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="taxpayer_name">Taxpayer Name</Label>
+                <Label htmlFor="taxpayer_name">Taxpayer name</Label>
                 <Input
                   id="taxpayer_name"
                   value={sessionInfo.taxpayer_name}
@@ -210,7 +210,7 @@ const Assessment = () => {
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="fiscal_year">Fiscal Year</Label>
+                <Label htmlFor="fiscal_year">Fiscal year</Label>
                 <Input
                   id="fiscal_year"
                   value={sessionInfo.fiscal_year}
@@ -223,7 +223,7 @@ const Assessment = () => {
               {sessionInfo.is_custom_period && (
                 <>
                   <div className="space-y-2">
-                    <Label htmlFor="period_start">Period Start Date</Label>
+                    <Label htmlFor="period_start">Period start date</Label>
                     <Input
                       id="period_start"
                       type="date"
@@ -233,7 +233,7 @@ const Assessment = () => {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="period_end">Period End Date</Label>
+                    <Label htmlFor="period_end">Period end date</Label>
                     <Input
                       id="period_end"
                       type="date"
@@ -245,7 +245,7 @@ const Assessment = () => {
               )}
               
               <Button onClick={startSession} disabled={loading} className="w-full">
-                {loading ? "Starting Assessment..." : "Start Assessment"}
+                {loading ? "Starting assessment..." : "Start assessment"}
               </Button>
             </CardContent>
           </Card>
@@ -272,7 +272,7 @@ const Assessment = () => {
       <div className="max-w-2xl mx-auto">
         <div className="mb-8">
           <Button variant="outline" onClick={() => navigate("/")}>
-            ← Back to Dashboard
+            ← Back to dashboard
           </Button>
         </div>
         
@@ -301,7 +301,7 @@ const Assessment = () => {
                 disabled={!selectedAnswer || loading}
                 className="w-full"
               >
-                {loading ? "Submitting..." : "Next Question"}
+                {loading ? "Submitting..." : "Next question"}
               </Button>
             </div>
           </CardContent>

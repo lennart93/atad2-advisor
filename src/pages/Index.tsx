@@ -39,7 +39,7 @@ const Index = () => {
             </p>
           </div>
           <Button variant="outline" onClick={signOut}>
-            Sign Out
+            Sign out
           </Button>
         </div>
         
@@ -52,7 +52,7 @@ const Index = () => {
           </CardHeader>
           <CardContent>
             <Button size="lg" onClick={() => navigate("/assessment")}>
-              Start Assessment
+              Start assessment
             </Button>
           </CardContent>
         </Card>
