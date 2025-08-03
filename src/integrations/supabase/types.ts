@@ -14,7 +14,140 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      atad2_answers: {
+        Row: {
+          answer: string
+          answered_at: string
+          created_at: string
+          difficult_term: string | null
+          explanation: string
+          id: string
+          question_id: string
+          question_text: string
+          risk_points: number
+          session_id: string
+          term_explanation: string | null
+        }
+        Insert: {
+          answer: string
+          answered_at?: string
+          created_at?: string
+          difficult_term?: string | null
+          explanation: string
+          id?: string
+          question_id: string
+          question_text: string
+          risk_points?: number
+          session_id: string
+          term_explanation?: string | null
+        }
+        Update: {
+          answer?: string
+          answered_at?: string
+          created_at?: string
+          difficult_term?: string | null
+          explanation?: string
+          id?: string
+          question_id?: string
+          question_text?: string
+          risk_points?: number
+          session_id?: string
+          term_explanation?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "atad2_answers_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "atad2_sessions"
+            referencedColumns: ["session_id"]
+          },
+        ]
+      }
+      atad2_questions: {
+        Row: {
+          answer_option: string
+          created_at: string
+          difficult_term: string | null
+          id: string
+          next_question_id: string | null
+          question: string
+          question_id: string
+          risk_points: number
+          term_explanation: string | null
+          updated_at: string
+        }
+        Insert: {
+          answer_option: string
+          created_at?: string
+          difficult_term?: string | null
+          id?: string
+          next_question_id?: string | null
+          question: string
+          question_id: string
+          risk_points?: number
+          term_explanation?: string | null
+          updated_at?: string
+        }
+        Update: {
+          answer_option?: string
+          created_at?: string
+          difficult_term?: string | null
+          id?: string
+          next_question_id?: string | null
+          question?: string
+          question_id?: string
+          risk_points?: number
+          term_explanation?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      atad2_sessions: {
+        Row: {
+          created_at: string
+          date_filled: string
+          final_score: number | null
+          fiscal_year: string
+          id: string
+          is_custom_period: boolean
+          period_end_date: string | null
+          period_start_date: string | null
+          session_id: string
+          status: string
+          taxpayer_name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          date_filled?: string
+          final_score?: number | null
+          fiscal_year: string
+          id?: string
+          is_custom_period?: boolean
+          period_end_date?: string | null
+          period_start_date?: string | null
+          session_id: string
+          status?: string
+          taxpayer_name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          date_filled?: string
+          final_score?: number | null
+          fiscal_year?: string
+          id?: string
+          is_custom_period?: boolean
+          period_end_date?: string | null
+          period_start_date?: string | null
+          session_id?: string
+          status?: string
+          taxpayer_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
