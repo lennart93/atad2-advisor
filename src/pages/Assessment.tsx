@@ -417,29 +417,72 @@ const Assessment = () => {
             </div>
           </CardHeader>
           <CardContent className="pt-6">
-            <div className="space-y-3 mb-8">
-              <RadioGroup value={selectedAnswer} onValueChange={setSelectedAnswer} className="space-y-3">
-                {currentQuestionOptions.map((option, index) => (
-                  <div 
-                    key={index} 
-                    className="flex items-center gap-3 p-3 rounded-lg border border-border hover:border-primary/50 hover:bg-accent/50 transition-colors cursor-pointer"
-                    onClick={() => setSelectedAnswer(option.answer_option)}
-                  >
-                    <RadioGroupItem 
-                      value={option.answer_option} 
-                      id={`option-${index}`} 
-                      className="h-5 w-5"
-                    />
-                    <Label 
-                      htmlFor={`option-${index}`} 
-                      className="cursor-pointer text-base leading-relaxed flex-1"
-                    >
-                      {option.answer_option}
-                    </Label>
+            {/* Difficult term explanation (if available and not an example) */}
+            {currentQuestion.difficult_term && !currentQuestion.difficult_term.toLowerCase().startsWith('example') && (
+              <div className="bg-slate-50 border rounded-md px-4 py-3 mt-4 mb-6 max-w-prose">
+                <div className="flex items-start gap-2">
+                  <span className="text-lg">💡</span>
+                  <div>
+                    <span className="font-semibold text-slate-800">{currentQuestion.difficult_term}</span>
+                    {currentQuestion.term_explanation && (
+                      <p className="text-sm leading-relaxed text-slate-700 mt-1">
+                        {currentQuestion.term_explanation}
+                      </p>
+                    )}
                   </div>
-                ))}
-              </RadioGroup>
+                </div>
+              </div>
+            )}
+
+            {/* Answer options as button-like choices */}
+            <div className="space-y-3 mb-8">
+              {currentQuestionOptions.map((option, index) => {
+                const isSelected = selectedAnswer === option.answer_option;
+                const isYes = option.answer_option.toLowerCase() === 'yes';
+                
+                return (
+                  <button
+                    key={index}
+                    type="button"
+                    onClick={() => setSelectedAnswer(option.answer_option)}
+                    className={`
+                      w-full p-4 rounded-lg border-2 transition-all duration-200 text-left
+                      ${isSelected 
+                        ? 'border-primary bg-primary/5 shadow-md' 
+                        : 'border-border hover:border-primary/50 hover:bg-accent/50'
+                      }
+                      focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
+                    `}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-xl">
+                        {isYes ? '✅' : '❌'}
+                      </span>
+                      <span className="text-base font-medium">
+                        {option.answer_option}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
+
+            {/* Example explanation (if available) */}
+            {currentQuestion.difficult_term && currentQuestion.difficult_term.toLowerCase().startsWith('example') && (
+              <div className="bg-yellow-50 border-l-4 border-yellow-400 px-4 py-3 mt-6 mb-6 max-w-prose">
+                <div className="flex items-start gap-2">
+                  <span className="text-lg">📘</span>
+                  <div>
+                    <span className="font-semibold text-yellow-800">{currentQuestion.difficult_term}</span>
+                    {currentQuestion.term_explanation && (
+                      <p className="text-sm leading-snug text-yellow-700 mt-1">
+                        {currentQuestion.term_explanation}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
             
             <Button 
               onClick={submitAnswer} 
