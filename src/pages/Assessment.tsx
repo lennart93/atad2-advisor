@@ -251,8 +251,8 @@ const Assessment = () => {
                     <SelectValue placeholder="Select tax year" />
                   </SelectTrigger>
                   <SelectContent>
-                    {Array.from({ length: 10 }, (_, i) => {
-                      const year = new Date().getFullYear() - i;
+                    {Array.from({ length: 6 }, (_, i) => {
+                      const year = 2025 - i; // 2025, 2024, 2023, 2022, 2021, 2020
                       return (
                         <SelectItem key={year} value={year.toString()}>
                           {year}
@@ -263,7 +263,7 @@ const Assessment = () => {
                 </Select>
               </div>
 
-              <div className="space-y-4">
+              <div className="border border-border rounded-lg p-4 space-y-4">
                 <TooltipProvider>
                   <div className="flex items-center space-x-2">
                     <Checkbox 
@@ -281,43 +281,43 @@ const Assessment = () => {
                     </Label>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <InfoIcon className="h-4 w-4 text-muted-foreground cursor-help" />
+                        <InfoIcon className="h-4 w-4 text-muted-foreground cursor-pointer ml-1" />
                       </TooltipTrigger>
                       <TooltipContent>
                         <p className="max-w-xs">
-                          Normally, the tax year is the same as the calendar year. If this is not the case, please provide the actual period.
+                          Only fill in a start and end date if the tax year deviates from the calendar year.
                         </p>
                       </TooltipContent>
                     </Tooltip>
                   </div>
                 </TooltipProvider>
-              </div>
 
-              {sessionInfo.tax_year_not_equals_calendar && (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="period_start">Start date</Label>
-                    <Input
-                      id="period_start"
-                      type="date"
-                      value={sessionInfo.period_start_date || ""}
-                      onChange={(e) => setSessionInfo({...sessionInfo, period_start_date: e.target.value})}
-                      required
-                    />
+                {sessionInfo.tax_year_not_equals_calendar && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="period_start">Start date</Label>
+                      <Input
+                        id="period_start"
+                        type="date"
+                        value={sessionInfo.period_start_date || ""}
+                        onChange={(e) => setSessionInfo({...sessionInfo, period_start_date: e.target.value})}
+                        required
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="period_end">End date</Label>
+                      <Input
+                        id="period_end"
+                        type="date"
+                        value={sessionInfo.period_end_date || ""}
+                        onChange={(e) => setSessionInfo({...sessionInfo, period_end_date: e.target.value})}
+                        required
+                      />
+                    </div>
                   </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="period_end">End date</Label>
-                    <Input
-                      id="period_end"
-                      type="date"
-                      value={sessionInfo.period_end_date || ""}
-                      onChange={(e) => setSessionInfo({...sessionInfo, period_end_date: e.target.value})}
-                      required
-                    />
-                  </div>
-                </div>
-              )}
+                )}
+              </div>
               
               <Button onClick={startSession} disabled={loading} className="w-full">
                 {loading ? "Starting assessment..." : "Start assessment"}
