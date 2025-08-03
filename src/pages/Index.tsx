@@ -18,7 +18,7 @@ const Index = () => {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
-          <p className="text-xl text-muted-foreground">Laden...</p>
+          <p className="text-xl text-muted-foreground">Loading...</p>
         </div>
       </div>
     );
@@ -35,19 +35,19 @@ const Index = () => {
           <div>
             <h1 className="text-4xl font-bold">ATAD2 Risk Assessment</h1>
             <p className="text-xl text-muted-foreground mt-2">
-              Welkom, {user.email}
+              Welcome, {user.email}
             </p>
           </div>
           <Button variant="outline" onClick={signOut}>
-            Uitloggen
+            Sign Out
           </Button>
         </div>
         
         <Card>
           <CardHeader>
-            <CardTitle>Start je risicobeoordeling</CardTitle>
+            <CardTitle>Start your risk assessment</CardTitle>
             <CardDescription>
-              Beantwoord de vragen om je ATAD2 risicoscore te bepalen
+              Answer the questions to determine your ATAD2 risk score
             </CardDescription>
           </CardHeader>
           <CardContent>
