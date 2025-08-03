@@ -231,7 +231,19 @@ const Assessment = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="taxpayer_name">Taxpayer name</Label>
+                <div className="flex items-center">
+                  <Label htmlFor="taxpayer_name">Taxpayer name</Label>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="text-red-500 text-sm ml-1 cursor-default">*</span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>This field is required</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
                 <Input
                   id="taxpayer_name"
                   value={sessionInfo.taxpayer_name}
@@ -242,7 +254,19 @@ const Assessment = () => {
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="tax_year">Tax year</Label>
+                <div className="flex items-center">
+                  <Label htmlFor="tax_year">Tax year</Label>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="text-red-500 text-sm ml-1 cursor-default">*</span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>This field is required</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
                 <Select 
                   value={sessionInfo.tax_year} 
                   onValueChange={(value) => setSessionInfo({...sessionInfo, tax_year: value})}
@@ -295,7 +319,19 @@ const Assessment = () => {
                 {sessionInfo.tax_year_not_equals_calendar && (
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="period_start">Start date</Label>
+                      <div className="flex items-center">
+                        <Label htmlFor="period_start">Start date</Label>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="text-red-500 text-sm ml-1 cursor-default">*</span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>This field is required</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
                       <Input
                         id="period_start"
                         type="date"
@@ -306,7 +342,19 @@ const Assessment = () => {
                     </div>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="period_end">End date</Label>
+                      <div className="flex items-center">
+                        <Label htmlFor="period_end">End date</Label>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="text-red-500 text-sm ml-1 cursor-default">*</span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>This field is required</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
                       <Input
                         id="period_end"
                         type="date"
