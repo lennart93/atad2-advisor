@@ -51,7 +51,7 @@ const Index = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Button size="lg">
+            <Button size="lg" onClick={() => navigate("/assessment")}>
               Start Assessment
             </Button>
           </CardContent>
