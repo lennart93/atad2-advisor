@@ -9,6 +9,9 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { InfoIcon } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface Question {
   id: string;
@@ -24,7 +27,7 @@ interface Question {
 interface SessionInfo {
   taxpayer_name: string;
   tax_year: string;
-  is_custom_period: boolean;
+  tax_year_not_equals_calendar: boolean;
   period_start_date?: string;
   period_end_date?: string;
 }
@@ -37,7 +40,7 @@ const Assessment = () => {
   const [sessionInfo, setSessionInfo] = useState<SessionInfo>({
     taxpayer_name: "",
     tax_year: "",
-    is_custom_period: false
+    tax_year_not_equals_calendar: false
   });
   const [sessionStarted, setSessionStarted] = useState(false);
   const [sessionId, setSessionId] = useState<string>("");
@@ -85,19 +88,47 @@ const Assessment = () => {
       return;
     }
 
+    if (sessionInfo.tax_year_not_equals_calendar && (!sessionInfo.period_start_date || !sessionInfo.period_end_date)) {
+      toast({
+        title: "Missing information",
+        description: "Please provide start and end dates for the tax period",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (sessionInfo.tax_year_not_equals_calendar && sessionInfo.period_start_date && sessionInfo.period_end_date) {
+      if (new Date(sessionInfo.period_end_date) < new Date(sessionInfo.period_start_date)) {
+        toast({
+          title: "Invalid date range",
+          description: "End date cannot be before start date",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       const newSessionId = crypto.randomUUID();
       
+      const startDate = sessionInfo.tax_year_not_equals_calendar 
+        ? sessionInfo.period_start_date 
+        : `${sessionInfo.tax_year}-01-01`;
+      
+      const endDate = sessionInfo.tax_year_not_equals_calendar 
+        ? sessionInfo.period_end_date 
+        : `${sessionInfo.tax_year}-12-31`;
+
       const { error } = await supabase
         .from('atad2_sessions')
         .insert({
           session_id: newSessionId,
           taxpayer_name: sessionInfo.taxpayer_name,
           fiscal_year: sessionInfo.tax_year,
-          is_custom_period: sessionInfo.is_custom_period,
-          period_start_date: sessionInfo.period_start_date || null,
-          period_end_date: sessionInfo.period_end_date || null,
+          is_custom_period: sessionInfo.tax_year_not_equals_calendar,
+          period_start_date: startDate,
+          period_end_date: endDate,
           status: 'in_progress'
         });
 
@@ -232,50 +263,60 @@ const Assessment = () => {
                 </Select>
               </div>
 
-              <div className="space-y-3">
-                <Label>Tax year period</Label>
-                <RadioGroup 
-                  value={sessionInfo.is_custom_period ? "custom" : "calendar"} 
-                  onValueChange={(value) => setSessionInfo({
-                    ...sessionInfo, 
-                    is_custom_period: value === "custom",
-                    period_start_date: value === "calendar" ? undefined : sessionInfo.period_start_date,
-                    period_end_date: value === "calendar" ? undefined : sessionInfo.period_end_date
-                  })}
-                >
+              <div className="space-y-4">
+                <TooltipProvider>
                   <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="calendar" id="calendar" />
-                    <Label htmlFor="calendar">Tax year equals calendar year</Label>
+                    <Checkbox 
+                      id="tax-year-different"
+                      checked={sessionInfo.tax_year_not_equals_calendar}
+                      onCheckedChange={(checked) => setSessionInfo({
+                        ...sessionInfo, 
+                        tax_year_not_equals_calendar: !!checked,
+                        period_start_date: checked ? sessionInfo.period_start_date : undefined,
+                        period_end_date: checked ? sessionInfo.period_end_date : undefined
+                      })}
+                    />
+                    <Label htmlFor="tax-year-different" className="cursor-pointer">
+                      The tax year does not equal the calendar year
+                    </Label>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <InfoIcon className="h-4 w-4 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="max-w-xs">
+                          Normally, the tax year is the same as the calendar year. If this is not the case, please provide the actual period.
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="custom" id="custom" />
-                    <Label htmlFor="custom">Tax year does not equal calendar year</Label>
-                  </div>
-                </RadioGroup>
+                </TooltipProvider>
               </div>
 
-              {sessionInfo.is_custom_period && (
-                <>
+              {sessionInfo.tax_year_not_equals_calendar && (
+                <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="period_start">Period start date</Label>
+                    <Label htmlFor="period_start">Start date</Label>
                     <Input
                       id="period_start"
                       type="date"
                       value={sessionInfo.period_start_date || ""}
                       onChange={(e) => setSessionInfo({...sessionInfo, period_start_date: e.target.value})}
+                      required
                     />
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="period_end">Period end date</Label>
+                    <Label htmlFor="period_end">End date</Label>
                     <Input
                       id="period_end"
                       type="date"
                       value={sessionInfo.period_end_date || ""}
                       onChange={(e) => setSessionInfo({...sessionInfo, period_end_date: e.target.value})}
+                      required
                     />
                   </div>
-                </>
+                </div>
               )}
               
               <Button onClick={startSession} disabled={loading} className="w-full">
