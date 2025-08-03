@@ -281,7 +281,7 @@ const Assessment = () => {
                     </Label>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <InfoIcon className="h-4 w-4 text-muted-foreground cursor-pointer ml-1" />
+                        <InfoIcon className="h-4 w-4 text-muted-foreground cursor-help ml-1" />
                       </TooltipTrigger>
                       <TooltipContent>
                         <p className="max-w-xs">
