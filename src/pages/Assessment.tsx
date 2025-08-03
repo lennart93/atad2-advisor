@@ -396,6 +396,9 @@ const Assessment = () => {
       return 0;
     });
 
+  // Get the most complete question data (with difficult_term and term_explanation)
+  const questionWithTerms = currentQuestionOptions.find(q => q.difficult_term && q.term_explanation) || currentQuestion;
+
   return (
     <div className="min-h-screen bg-background p-4">
       <div className="max-w-2xl mx-auto">
@@ -418,15 +421,15 @@ const Assessment = () => {
           </CardHeader>
           <CardContent className="pt-6">
             {/* Difficult term explanation (if available and not an example) */}
-            {currentQuestion.difficult_term && !currentQuestion.difficult_term.toLowerCase().startsWith('example') && (
+            {questionWithTerms.difficult_term && !questionWithTerms.difficult_term.toLowerCase().startsWith('example') && (
               <div className="bg-slate-50 border rounded-md px-4 py-3 mt-4 mb-6 max-w-prose">
                 <div className="flex items-start gap-2">
                   <span className="text-lg">💡</span>
                   <div>
-                    <span className="font-semibold text-slate-800">{currentQuestion.difficult_term}</span>
-                    {currentQuestion.term_explanation && (
+                    <span className="font-semibold text-slate-800">{questionWithTerms.difficult_term}</span>
+                    {questionWithTerms.term_explanation && (
                       <p className="text-sm leading-relaxed text-slate-700 mt-1">
-                        {currentQuestion.term_explanation}
+                        {questionWithTerms.term_explanation}
                       </p>
                     )}
                   </div>
@@ -468,15 +471,15 @@ const Assessment = () => {
             </div>
 
             {/* Example explanation (if available) */}
-            {currentQuestion.difficult_term && currentQuestion.difficult_term.toLowerCase().startsWith('example') && (
+            {questionWithTerms.difficult_term && questionWithTerms.difficult_term.toLowerCase().startsWith('example') && (
               <div className="bg-yellow-50 border-l-4 border-yellow-400 px-4 py-3 mt-6 mb-6 max-w-prose">
                 <div className="flex items-start gap-2">
                   <span className="text-lg">📘</span>
                   <div>
-                    <span className="font-semibold text-yellow-800">{currentQuestion.difficult_term}</span>
-                    {currentQuestion.term_explanation && (
+                    <span className="font-semibold text-yellow-800">{questionWithTerms.difficult_term}</span>
+                    {questionWithTerms.term_explanation && (
                       <p className="text-sm leading-snug text-yellow-700 mt-1">
-                        {currentQuestion.term_explanation}
+                        {questionWithTerms.term_explanation}
                       </p>
                     )}
                   </div>
