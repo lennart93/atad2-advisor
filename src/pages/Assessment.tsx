@@ -385,10 +385,16 @@ const Assessment = () => {
     );
   }
 
-  // Get unique answer options for current question
-  const currentQuestionOptions = questions.filter(
-    q => q.question_id === currentQuestion.question_id
-  );
+  // Get unique answer options for current question and sort them (Yes first, then No)
+  const currentQuestionOptions = questions
+    .filter(q => q.question_id === currentQuestion.question_id)
+    .sort((a, b) => {
+      if (a.answer_option.toLowerCase() === 'yes') return -1;
+      if (b.answer_option.toLowerCase() === 'yes') return 1;
+      if (a.answer_option.toLowerCase() === 'no') return -1;
+      if (b.answer_option.toLowerCase() === 'no') return 1;
+      return 0;
+    });
 
   return (
     <div className="min-h-screen bg-background p-4">
@@ -399,34 +405,49 @@ const Assessment = () => {
           </Button>
         </div>
         
-        <Card>
-          <CardHeader>
-            <CardTitle>Question {currentQuestion.question_id}</CardTitle>
-            <CardDescription className="text-lg">
-              {currentQuestion.question}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <RadioGroup value={selectedAnswer} onValueChange={setSelectedAnswer}>
-              {currentQuestionOptions.map((option, index) => (
-                <div key={index} className="flex items-center space-x-2">
-                  <RadioGroupItem value={option.answer_option} id={`option-${index}`} />
-                  <Label htmlFor={`option-${index}`} className="cursor-pointer">
-                    {option.answer_option}
-                  </Label>
-                </div>
-              ))}
-            </RadioGroup>
-            
-            <div className="pt-4">
-              <Button 
-                onClick={submitAnswer} 
-                disabled={!selectedAnswer || loading}
-                className="w-full"
-              >
-                {loading ? "Submitting..." : "Next question"}
-              </Button>
+        <Card className="border-0 shadow-lg">
+          <CardHeader className="pb-2">
+            <div className="text-sm text-muted-foreground uppercase tracking-wide mb-3">
+              Question {currentQuestion.question_id}
             </div>
+            <div className="max-w-prose">
+              <p className="text-xl leading-relaxed text-foreground font-medium">
+                {currentQuestion.question}
+              </p>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="space-y-3 mb-8">
+              <RadioGroup value={selectedAnswer} onValueChange={setSelectedAnswer} className="space-y-3">
+                {currentQuestionOptions.map((option, index) => (
+                  <div 
+                    key={index} 
+                    className="flex items-center gap-3 p-3 rounded-lg border border-border hover:border-primary/50 hover:bg-accent/50 transition-colors cursor-pointer"
+                    onClick={() => setSelectedAnswer(option.answer_option)}
+                  >
+                    <RadioGroupItem 
+                      value={option.answer_option} 
+                      id={`option-${index}`} 
+                      className="h-5 w-5"
+                    />
+                    <Label 
+                      htmlFor={`option-${index}`} 
+                      className="cursor-pointer text-base leading-relaxed flex-1"
+                    >
+                      {option.answer_option}
+                    </Label>
+                  </div>
+                ))}
+              </RadioGroup>
+            </div>
+            
+            <Button 
+              onClick={submitAnswer} 
+              disabled={!selectedAnswer || loading}
+              className="w-full px-6 py-3 rounded-xl transition-all duration-200 hover:shadow-lg disabled:opacity-50"
+            >
+              {loading ? "Submitting..." : "Next question"}
+            </Button>
           </CardContent>
         </Card>
       </div>
