@@ -47,37 +47,34 @@ const Auth = () => {
         email,
         password,
         options: {
-          emailRedirectTo: redirectUrl,
-          data: {
-            full_name: fullName,
-          }
+          emailRedirectTo: redirectUrl
         }
       });
 
       if (error) {
         if (error.message.includes("User already registered")) {
           toast({
-            title: "Account bestaat al",
-            description: "Er bestaat al een account met dit e-mailadres. Probeer in te loggen.",
+            title: "Account already exists",
+            description: "An account with this email already exists. Try signing in instead.",
             variant: "destructive",
           });
         } else {
           toast({
-            title: "Registratie mislukt",
+            title: "Registration failed",
             description: error.message,
             variant: "destructive",
           });
         }
       } else {
         toast({
-          title: "Registratie succesvol",
-          description: "Controleer je e-mail voor bevestiging.",
+          title: "Registration successful",
+          description: "Please check your email for confirmation.",
         });
       }
     } catch (error) {
       toast({
-        title: "Er ging iets mis",
-        description: "Probeer het opnieuw.",
+        title: "Something went wrong",
+        description: "Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -98,13 +95,13 @@ const Auth = () => {
       if (error) {
         if (error.message.includes("Invalid login credentials")) {
           toast({
-            title: "Inloggen mislukt",
-            description: "Ongeldig e-mailadres of wachtwoord.",
+            title: "Sign in failed",
+            description: "Invalid email or password.",
             variant: "destructive",
           });
         } else {
           toast({
-            title: "Inloggen mislukt",
+            title: "Sign in failed",
             description: error.message,
             variant: "destructive",
           });
@@ -112,8 +109,8 @@ const Auth = () => {
       }
     } catch (error) {
       toast({
-        title: "Er ging iets mis",
-        description: "Probeer het opnieuw.",
+        title: "Something went wrong",
+        description: "Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -127,31 +124,31 @@ const Auth = () => {
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">ATAD2 Risk Assessment</CardTitle>
           <CardDescription>
-            Log in of maak een account aan om te beginnen
+            Sign in or create an account to get started
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="signin" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="signin">Inloggen</TabsTrigger>
-              <TabsTrigger value="signup">Registreren</TabsTrigger>
+              <TabsTrigger value="signin">Sign In</TabsTrigger>
+              <TabsTrigger value="signup">Sign Up</TabsTrigger>
             </TabsList>
             
             <TabsContent value="signin">
               <form onSubmit={handleSignIn} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="signin-email">E-mailadres</Label>
+                  <Label htmlFor="signin-email">Email</Label>
                   <Input
                     id="signin-email"
                     type="email"
-                    placeholder="je@email.com"
+                    placeholder="you@email.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="signin-password">Wachtwoord</Label>
+                  <Label htmlFor="signin-password">Password</Label>
                   <Input
                     id="signin-password"
                     type="password"
@@ -161,7 +158,7 @@ const Auth = () => {
                   />
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? "Bezig met inloggen..." : "Inloggen"}
+                  {loading ? "Signing in..." : "Sign In"}
                 </Button>
               </form>
             </TabsContent>
@@ -169,33 +166,22 @@ const Auth = () => {
             <TabsContent value="signup">
               <form onSubmit={handleSignUp} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="signup-name">Volledige naam</Label>
-                  <Input
-                    id="signup-name"
-                    type="text"
-                    placeholder="Je volledige naam"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-email">E-mailadres</Label>
+                  <Label htmlFor="signup-email">Email</Label>
                   <Input
                     id="signup-email"
                     type="email"
-                    placeholder="je@email.com"
+                    placeholder="you@email.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="signup-password">Wachtwoord</Label>
+                  <Label htmlFor="signup-password">Password</Label>
                   <Input
                     id="signup-password"
                     type="password"
-                    placeholder="Minimaal 6 karakters"
+                    placeholder="At least 6 characters"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
@@ -203,7 +189,7 @@ const Auth = () => {
                   />
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? "Bezig met registreren..." : "Account aanmaken"}
+                  {loading ? "Creating account..." : "Create Account"}
                 </Button>
               </form>
             </TabsContent>
