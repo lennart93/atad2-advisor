@@ -96,7 +96,7 @@ const QuestionText = ({ question, difficultTerm, termExplanation, exampleText }:
 
   return (
     <div className="mb-6">
-      <p className="text-lg leading-relaxed text-gray-900 text-justify">
+      <p className="text-lg text-gray-800 leading-relaxed text-left">
         {renderQuestionWithTerms()}
         {exampleText && (
           <TooltipProvider>
@@ -911,7 +911,7 @@ const Assessment = () => {
           <div className="lg:col-span-3">
             <Card className="border-0 shadow-lg">
               <CardHeader className="pb-2">
-                <div className="max-w-[600px] mx-auto">
+                <div className="max-w-[640px] mx-auto">
                   <div className="text-sm text-muted-foreground uppercase tracking-wide mb-1">
                     Question {currentQuestion.question_id}
                   </div>
@@ -929,7 +929,7 @@ const Assessment = () => {
                 </div>
               </CardHeader>
           <CardContent className="pt-6">
-            <div className="max-w-[600px] mx-auto">
+            <div className="max-w-[640px] mx-auto">
             {isViewingAnsweredQuestion ? (
               /* Viewing a previously answered question - show read-only with continue option */
               <>
