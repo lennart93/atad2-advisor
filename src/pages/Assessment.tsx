@@ -163,6 +163,7 @@ const Assessment = () => {
   const [questionHistory, setQuestionHistory] = useState<{question: Question, answer: string}[]>([]);
   const [questionFlow, setQuestionFlow] = useState<{question: Question, answer: string}[]>([]); // Actual answered sequence
   const [navigationIndex, setNavigationIndex] = useState<number>(-1); // Current position in questionFlow (-1 = at new question)
+  const [furthestQuestion, setFurthestQuestion] = useState<Question | null>(null); // Track furthest reached question
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [showFlowChangeDialog, setShowFlowChangeDialog] = useState(false);
@@ -260,6 +261,7 @@ const Assessment = () => {
       const firstQuestion = questions.find(q => q.question_id === "1");
       if (firstQuestion) {
         setCurrentQuestion(firstQuestion);
+        setFurthestQuestion(firstQuestion); // Set initial furthest question
       }
     } catch (error) {
       console.error('Error starting session:', error);
@@ -461,6 +463,7 @@ const Assessment = () => {
     setCurrentQuestion(targetEntry.question);
     setSelectedAnswer(targetEntry.answer);
     setNavigationIndex(questionIndex);
+    // Don't update furthestQuestion here - we want to keep the furthest reached question visible
   };
 
   const handleAnswerSelect = async (answer: string) => {
@@ -594,6 +597,7 @@ const Assessment = () => {
           setIsTransitioning(true);
           setTimeout(() => {
             setCurrentQuestion(nextQuestion);
+            setFurthestQuestion(nextQuestion); // Update furthest reached question
             setSelectedAnswer("");
             setIsTransitioning(false);
           }, 300);
@@ -651,6 +655,9 @@ const Assessment = () => {
         });
         return newAnswers;
       });
+
+      // Reset furthest question to current question since the flow changed
+      setFurthestQuestion(currentQuestion);
 
       // Now proceed with the answer change
       setSelectedAnswer(pendingAnswerChange.answer);
@@ -902,6 +909,11 @@ const Assessment = () => {
                 question_id: currentQuestion.question_id,
                 question_title: currentQuestion.question_title,
                 risk_points: currentQuestion.risk_points
+              } : null}
+              furthestQuestion={furthestQuestion ? {
+                question_id: furthestQuestion.question_id,
+                question_title: furthestQuestion.question_title,
+                risk_points: furthestQuestion.risk_points
               } : null}
               onQuestionClick={goToSpecificQuestion}
             />

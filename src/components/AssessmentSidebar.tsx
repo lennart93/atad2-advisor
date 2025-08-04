@@ -16,10 +16,15 @@ interface AssessmentSidebarProps {
     question_title: string | null;
     risk_points: number;
   } | null;
+  furthestQuestion: {
+    question_id: string;
+    question_title: string | null;
+    risk_points: number;
+  } | null;
   onQuestionClick?: (questionIndex: number) => void;
 }
 
-export function AssessmentSidebar({ answers, questionHistory, currentQuestion, onQuestionClick }: AssessmentSidebarProps) {
+export function AssessmentSidebar({ answers, questionHistory, currentQuestion, furthestQuestion, onQuestionClick }: AssessmentSidebarProps) {
   const totalAnswered = questionHistory.length;
   
   return (
@@ -99,8 +104,41 @@ export function AssessmentSidebar({ answers, questionHistory, currentQuestion, o
           );
         })}
         
-        {/* Show current question if it's not already in the answered flow (new question) */}
-        {currentQuestion && !questionHistory.find(entry => entry.question.question_id === currentQuestion.question_id) && (
+        {/* Show furthest question if it's not already in the answered flow and is different from current question */}
+        {furthestQuestion && 
+         !questionHistory.find(entry => entry.question.question_id === furthestQuestion.question_id) && 
+         (!currentQuestion || currentQuestion.question_id !== furthestQuestion.question_id) && (
+          <div className="p-3 rounded-md border border-orange-200 bg-orange-50 transition-all duration-300 animate-fade-in">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0 mt-0.5">
+                <Circle className="h-4 w-4 text-orange-600" />
+              </div>
+              
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-muted-foreground">
+                    Q{furthestQuestion.question_id}
+                  </span>
+                </div>
+                
+                <h4 className="text-sm font-semibold leading-tight mt-1 text-orange-700">
+                  {furthestQuestion.question_title || `Question ${furthestQuestion.question_id}`}
+                </h4>
+                
+                <div className="mt-2">
+                  <span className="text-xs text-orange-600 font-medium">
+                    Waiting for input...
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Show current question if it's not already in the answered flow and is different from furthest question */}
+        {currentQuestion && 
+         !questionHistory.find(entry => entry.question.question_id === currentQuestion.question_id) && 
+         (!furthestQuestion || currentQuestion.question_id !== furthestQuestion.question_id) && (
           <div className="p-3 rounded-md border border-primary bg-primary/5 transition-all duration-300 animate-fade-in">
             <div className="flex items-start gap-3">
               <div className="flex-shrink-0 mt-0.5">
