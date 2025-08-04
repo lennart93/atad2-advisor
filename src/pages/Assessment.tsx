@@ -32,6 +32,70 @@ interface SessionInfo {
   period_end_date?: string;
 }
 
+interface QuestionTextProps {
+  question: string;
+  difficultTerm: string | null;
+  termExplanation: string | null;
+}
+
+const QuestionText = ({ question, difficultTerm, termExplanation }: QuestionTextProps) => {
+  if (!difficultTerm || !termExplanation || difficultTerm.toLowerCase().startsWith('example')) {
+    return (
+      <p className="text-xl leading-relaxed text-foreground font-medium">
+        {question}
+      </p>
+    );
+  }
+
+  // Find the difficult term in the question text (case insensitive)
+  const termRegex = new RegExp(`\\b${difficultTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
+  const parts = question.split(termRegex);
+  const matches = question.match(termRegex);
+
+  if (!matches || parts.length === 1) {
+    // Term not found in question, show original
+    return (
+      <p className="text-xl leading-relaxed text-foreground font-medium">
+        {question}
+      </p>
+    );
+  }
+
+  return (
+    <p className="text-xl leading-relaxed text-foreground font-medium">
+      {parts.map((part, index) => (
+        <span key={index}>
+          {part}
+          {index < matches.length && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="underline decoration-dotted decoration-2 cursor-pointer text-primary hover:text-primary/80 transition-colors">
+                    {matches[index]}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-[400px] p-4 bg-slate-50 border shadow-lg">
+                  <div className="flex items-start gap-2">
+                    <span className="text-lg">💡</span>
+                    <div>
+                      <span className="font-semibold text-slate-800 block mb-1">
+                        {difficultTerm}
+                      </span>
+                      <p className="text-sm leading-relaxed text-slate-700">
+                        {termExplanation}
+                      </p>
+                    </div>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </span>
+      ))}
+    </p>
+  );
+};
+
 const Assessment = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -444,28 +508,14 @@ const Assessment = () => {
               Question {currentQuestion.question_id}
             </div>
             <div className="max-w-prose">
-              <p className="text-xl leading-relaxed text-foreground font-medium">
-                {currentQuestion.question}
-              </p>
+              <QuestionText 
+                question={currentQuestion.question}
+                difficultTerm={questionWithTerms.difficult_term}
+                termExplanation={questionWithTerms.term_explanation}
+              />
             </div>
           </CardHeader>
           <CardContent className="pt-6">
-            {/* Difficult term explanation (if available and not an example) */}
-            {questionWithTerms.difficult_term && !questionWithTerms.difficult_term.toLowerCase().startsWith('example') && (
-              <div className="bg-slate-50 border rounded-md px-4 py-3 mt-4 mb-6 max-w-prose">
-                <div className="flex items-start gap-2">
-                  <span className="text-lg">💡</span>
-                  <div>
-                    <span className="font-semibold text-slate-800">{questionWithTerms.difficult_term}</span>
-                    {questionWithTerms.term_explanation && (
-                      <p className="text-sm leading-relaxed text-slate-700 mt-1">
-                        {questionWithTerms.term_explanation}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* Answer options as button-like choices */}
             <div className="space-y-3 mb-8">
