@@ -72,7 +72,7 @@ const QuestionText = ({ question, difficultTerm, termExplanation }: QuestionText
                 <TooltipTrigger asChild>
                   <span className="font-semibold text-blue-800 hover:bg-blue-50 px-1 rounded-sm cursor-pointer transition-all duration-200 relative group">
                     {matches[index]}
-                    <span className="inline-block ml-1 text-xs text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    <span className="absolute top-0 -right-3 text-xs text-gray-400 hidden group-hover:inline-block">
                       ⓘ
                     </span>
                   </span>
