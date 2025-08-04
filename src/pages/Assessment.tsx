@@ -95,28 +95,26 @@ const QuestionText = ({ question, difficultTerm, termExplanation, exampleText }:
   };
 
   return (
-    <div>
-      <p className="text-lg text-gray-800 leading-relaxed text-left">
-        {renderQuestionWithTerms()}
-        {exampleText && (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={() => setShowExample(!showExample)}
-                  className="ml-2 text-blue-700 text-base cursor-pointer hover:bg-blue-50 rounded-sm px-1 transition-colors duration-200"
-                  type="button"
-                >
-                  📘
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Click to view example</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        )}
-      </p>
+    <>
+      {renderQuestionWithTerms()}
+      {exampleText && (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => setShowExample(!showExample)}
+                className="ml-2 text-blue-700 text-base cursor-pointer hover:bg-blue-50 rounded-sm px-1 transition-colors duration-200"
+                type="button"
+              >
+                📘
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Click to view example</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      )}
       
       {showExample && exampleText && (
         <div className="w-full bg-amber-50 border-l-4 border-yellow-400 rounded-md p-4 mt-4">
@@ -140,7 +138,7 @@ const QuestionText = ({ question, difficultTerm, termExplanation, exampleText }:
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 };
 
@@ -910,152 +908,156 @@ const Assessment = () => {
           {/* Main Content */}
           <div className="lg:col-span-3">
             <Card className="border-0 shadow-lg">
-              <div className="max-w-[640px] mx-auto p-6">
-                <div className="text-sm text-muted-foreground uppercase tracking-wide mb-1">
-                  Question {currentQuestion.question_id}
-                </div>
-                {currentQuestion.question_title && (
-                  <h2 className="text-lg md:text-xl font-semibold text-gray-800 mb-4">
-                    {currentQuestion.question_title}
-                  </h2>
-                )}
-                <div className="mb-6">
-                  <QuestionText 
-                    question={currentQuestion.question}
-                    difficultTerm={questionWithTerms.difficult_term}
-                    termExplanation={questionWithTerms.term_explanation}
-                    exampleText={exampleText}
-                  />
-                </div>
-            {isViewingAnsweredQuestion ? (
-              /* Viewing a previously answered question - show read-only with continue option */
-              <>
-                <div className="space-y-3 mb-8">
-                  {currentQuestionOptions.map((option, index) => {
-                    const isSelected = selectedAnswer === option.answer_option;
-                    const isYes = option.answer_option.toLowerCase() === 'yes';
-                    
-                    return (
-                      <button
-                        key={index}
-                        type="button"
-                        onClick={() => handleAnswerSelect(option.answer_option)}
-                        disabled={loading || isTransitioning}
-                        className={`
-                          w-full p-4 rounded-lg border-2 transition-all duration-200 text-left
-                          ${isSelected 
-                            ? 'border-primary bg-primary/10 shadow-md ring-2 ring-primary/20' 
-                            : 'border-border hover:border-primary/50 hover:bg-accent/50'
-                          }
-                          ${loading || isTransitioning ? 'opacity-50 cursor-not-allowed' : ''}
-                          focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
-                        `}
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className="text-xl">
-                            {isYes ? '✅' : '❌'}
-                          </span>
-                          <span className="text-base font-medium">
-                            {option.answer_option}
-                          </span>
-                          {isSelected && (
-                            <span className="ml-auto text-sm text-muted-foreground font-medium">
-                              Previously answered
-                            </span>
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
+              <CardContent className="p-6">
+                <div className="max-w-[640px] mx-auto">
+                  <div className="text-sm text-muted-foreground uppercase tracking-wide mb-1">
+                    Question {currentQuestion.question_id}
+                  </div>
+                  {currentQuestion.question_title && (
+                    <h2 className="text-lg md:text-xl font-semibold text-gray-800 mb-4">
+                      {currentQuestion.question_title}
+                    </h2>
+                  )}
+                  <div className="mb-6">
+                    <p className="text-lg leading-relaxed text-left">
+                      <QuestionText 
+                        question={currentQuestion.question}
+                        difficultTerm={questionWithTerms.difficult_term}
+                        termExplanation={questionWithTerms.term_explanation}
+                        exampleText={exampleText}
+                      />
+                    </p>
+                  </div>
+                  {isViewingAnsweredQuestion ? (
+                    /* Viewing a previously answered question - show read-only with continue option */
+                    <>
+                      <div className="space-y-3 mb-8">
+                        {currentQuestionOptions.map((option, index) => {
+                          const isSelected = selectedAnswer === option.answer_option;
+                          const isYes = option.answer_option.toLowerCase() === 'yes';
+                          
+                          return (
+                            <button
+                              key={index}
+                              type="button"
+                              onClick={() => handleAnswerSelect(option.answer_option)}
+                              disabled={loading || isTransitioning}
+                              className={`
+                                w-full p-4 rounded-lg border-2 transition-all duration-200 text-left
+                                ${isSelected 
+                                  ? 'border-primary bg-primary/10 shadow-md ring-2 ring-primary/20' 
+                                  : 'border-border hover:border-primary/50 hover:bg-accent/50'
+                                }
+                                ${loading || isTransitioning ? 'opacity-50 cursor-not-allowed' : ''}
+                                focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
+                              `}
+                            >
+                              <div className="flex items-center gap-3">
+                                <span className="text-xl">
+                                  {isYes ? '✅' : '❌'}
+                                </span>
+                                <span className="text-base font-medium">
+                                  {option.answer_option}
+                                </span>
+                                {isSelected && (
+                                  <span className="ml-auto text-sm text-muted-foreground font-medium">
+                                    Previously answered
+                                  </span>
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
 
-                {/* Continue button for answered questions */}
-                <div className="flex items-center gap-3">
-                  <Button 
-                    onClick={goToPreviousQuestion}
-                    disabled={questionFlow.length === 0 || (navigationIndex !== -1 && navigationIndex === 0) || loading || isTransitioning}
-                    variant="outline"
-                    className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    ← Previous
-                  </Button>
-                  
-                  {/* Next button - only show when reviewing within the flow */}
-                  {navigationIndex !== -1 && navigationIndex < questionFlow.length - 1 && (
-                    <Button 
-                      onClick={goToNextQuestion}
-                      disabled={loading || isTransitioning}
-                      variant="outline"
-                      className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Next →
-                    </Button>
+                      {/* Continue button for answered questions */}
+                      <div className="flex items-center gap-3">
+                        <Button 
+                          onClick={goToPreviousQuestion}
+                          disabled={questionFlow.length === 0 || (navigationIndex !== -1 && navigationIndex === 0) || loading || isTransitioning}
+                          variant="outline"
+                          className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          ← Previous
+                        </Button>
+                        
+                        {/* Next button - only show when reviewing within the flow */}
+                        {navigationIndex !== -1 && navigationIndex < questionFlow.length - 1 && (
+                          <Button 
+                            onClick={goToNextQuestion}
+                            disabled={loading || isTransitioning}
+                            variant="outline"
+                            className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            Next →
+                          </Button>
+                        )}
+                        
+                        {/* Continue to next question */}
+                        {navigationIndex === questionFlow.length - 1 && (
+                          <Button 
+                            onClick={continueToNextUnanswered}
+                            disabled={loading || isTransitioning}
+                            variant="outline"
+                            className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            Next →
+                          </Button>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    /* New question - show interactive answer options */
+                    <>
+                      <div className="space-y-3 mb-8">
+                        {currentQuestionOptions.map((option, index) => {
+                          const isSelected = selectedAnswer === option.answer_option;
+                          const isYes = option.answer_option.toLowerCase() === 'yes';
+                          
+                          return (
+                            <button
+                              key={index}
+                              type="button"
+                              onClick={() => handleAnswerSelect(option.answer_option)}
+                              disabled={loading || isTransitioning}
+                              className={`
+                                w-full p-4 rounded-lg border-2 transition-all duration-200 text-left
+                                ${isSelected 
+                                  ? 'border-primary bg-primary/10 shadow-md ring-2 ring-primary/20' 
+                                  : 'border-border hover:border-primary/50 hover:bg-accent/50'
+                                }
+                                ${loading || isTransitioning ? 'opacity-50 cursor-not-allowed' : ''}
+                                focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
+                              `}
+                            >
+                              <div className="flex items-center gap-3">
+                                <span className="text-xl">
+                                  {isYes ? '✅' : '❌'}
+                                </span>
+                                <span className="text-base font-medium">
+                                  {option.answer_option}
+                                </span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      
+                      {/* Navigation buttons for new questions */}
+                      <div className="flex items-center gap-3">
+                        <Button 
+                          onClick={goToPreviousQuestion}
+                          disabled={questionFlow.length === 0 || loading || isTransitioning}
+                          variant="outline"
+                          className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          ← Previous
+                        </Button>
+                      </div>
+                    </>
                   )}
-                  
-                  {/* Continue to next question */}
-                  {navigationIndex === questionFlow.length - 1 && (
-                    <Button 
-                      onClick={continueToNextUnanswered}
-                      disabled={loading || isTransitioning}
-                      variant="outline"
-                      className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Next →
-                    </Button>
-                  )}
                 </div>
-              </>
-            ) : (
-              /* New question - show interactive answer options */
-              <>
-                <div className="space-y-3 mb-8">
-                  {currentQuestionOptions.map((option, index) => {
-                    const isSelected = selectedAnswer === option.answer_option;
-                    const isYes = option.answer_option.toLowerCase() === 'yes';
-                    
-                    return (
-                      <button
-                        key={index}
-                        type="button"
-                        onClick={() => handleAnswerSelect(option.answer_option)}
-                        disabled={loading || isTransitioning}
-                        className={`
-                          w-full p-4 rounded-lg border-2 transition-all duration-200 text-left
-                          ${isSelected 
-                            ? 'border-primary bg-primary/10 shadow-md ring-2 ring-primary/20' 
-                            : 'border-border hover:border-primary/50 hover:bg-accent/50'
-                          }
-                          ${loading || isTransitioning ? 'opacity-50 cursor-not-allowed' : ''}
-                          focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
-                        `}
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className="text-xl">
-                            {isYes ? '✅' : '❌'}
-                          </span>
-                          <span className="text-base font-medium">
-                            {option.answer_option}
-                          </span>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-                
-                {/* Navigation buttons for new questions */}
-                <div className="flex items-center gap-3">
-                  <Button 
-                    onClick={goToPreviousQuestion}
-                    disabled={questionFlow.length === 0 || loading || isTransitioning}
-                    variant="outline"
-                    className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    ← Previous
-                  </Button>
-                </div>
-              </>
-            )}
-              </div>
+              </CardContent>
             </Card>
           </div>
         </div>
