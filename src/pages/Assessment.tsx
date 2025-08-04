@@ -163,6 +163,7 @@ const Assessment = () => {
   const [loading, setLoading] = useState(false);
   const [questionHistory, setQuestionHistory] = useState<{question: Question, answer: string}[]>([]);
   const [questionFlow, setQuestionFlow] = useState<{question: Question, answer: string}[]>([]); // Actual answered sequence
+  const [navigationIndex, setNavigationIndex] = useState<number>(-1); // Current position in questionFlow (-1 = at new question)
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [answers, setAnswers] = useState<Record<string, string>>({});
 
@@ -302,6 +303,7 @@ const Assessment = () => {
       // Add current question and answer to both history and flow
       setQuestionHistory(prev => [...prev, { question: currentQuestion, answer: selectedAnswer }]);
       setQuestionFlow(prev => [...prev, { question: currentQuestion, answer: selectedAnswer }]);
+      setNavigationIndex(-1); // Reset to new question mode
       setAnswers(prev => ({ ...prev, [currentQuestion.question_id]: selectedAnswer }));
 
       // Move to next question
@@ -339,24 +341,44 @@ const Assessment = () => {
   const goToPreviousQuestion = () => {
     if (questionFlow.length === 0) return;
     
-    // Navigate to the previous question in the actual answered flow
-    const previousEntry = questionFlow[questionFlow.length - 1];
-    setCurrentQuestion(previousEntry.question);
-    setSelectedAnswer(previousEntry.answer);
+    let targetIndex: number;
     
-    // This is just navigation - no data changes
-    // All answers and flow remain intact
+    if (navigationIndex === -1) {
+      // We're at a new question, go to the last answered question
+      targetIndex = questionFlow.length - 1;
+    } else if (navigationIndex > 0) {
+      // We're reviewing, go one step back in the flow
+      targetIndex = navigationIndex - 1;
+    } else {
+      // We're at the first question, can't go back further
+      return;
+    }
+    
+    const targetEntry = questionFlow[targetIndex];
+    setCurrentQuestion(targetEntry.question);
+    setSelectedAnswer(targetEntry.answer);
+    setNavigationIndex(targetIndex);
+  };
+
+  const goToNextQuestion = () => {
+    // Only allow "next" if we're reviewing within the answered flow
+    if (navigationIndex === -1 || navigationIndex >= questionFlow.length - 1) return;
+    
+    const targetIndex = navigationIndex + 1;
+    const targetEntry = questionFlow[targetIndex];
+    setCurrentQuestion(targetEntry.question);
+    setSelectedAnswer(targetEntry.answer);
+    setNavigationIndex(targetIndex);
   };
 
   const goToSpecificQuestion = (questionIndex: number) => {
     if (questionIndex >= questionFlow.length) return;
     
-    // Navigate to the specific question from flow without affecting flow history
+    // Navigate to the specific question from flow and set navigationIndex
     const targetEntry = questionFlow[questionIndex];
     setCurrentQuestion(targetEntry.question);
     setSelectedAnswer(targetEntry.answer);
-    
-    // This is pure navigation - questionFlow and answers remain unchanged
+    setNavigationIndex(questionIndex);
   };
 
   const handleAnswerSelect = async (answer: string) => {
@@ -401,6 +423,7 @@ const Assessment = () => {
       // Add current question and answer to both history and flow
       setQuestionHistory(prev => [...prev, { question: currentQuestion, answer }]);
       setQuestionFlow(prev => [...prev, { question: currentQuestion, answer }]);
+      setNavigationIndex(-1); // Reset to new question mode
       setAnswers(prev => ({ ...prev, [currentQuestion.question_id]: answer }));
 
       // Move to next question
@@ -720,12 +743,24 @@ const Assessment = () => {
             <div className="flex items-center gap-3">
               <Button 
                 onClick={goToPreviousQuestion}
-                disabled={questionFlow.length === 0 || loading || isTransitioning}
+                disabled={questionFlow.length === 0 || (navigationIndex === 0) || loading || isTransitioning}
                 variant="outline"
                 className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 ← Previous
               </Button>
+              
+              {/* Next button - only show when reviewing within the flow */}
+              {navigationIndex !== -1 && navigationIndex < questionFlow.length - 1 && (
+                <Button 
+                  onClick={goToNextQuestion}
+                  disabled={loading || isTransitioning}
+                  variant="outline"
+                  className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Next →
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
