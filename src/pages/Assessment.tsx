@@ -36,63 +36,110 @@ interface QuestionTextProps {
   question: string;
   difficultTerm: string | null;
   termExplanation: string | null;
+  exampleText: string | null;
 }
 
-const QuestionText = ({ question, difficultTerm, termExplanation }: QuestionTextProps) => {
-  if (!difficultTerm || !termExplanation || difficultTerm.toLowerCase().startsWith('example')) {
-    return (
-      <p className="text-xl leading-relaxed text-foreground font-medium">
-        {question}
-      </p>
-    );
-  }
+const QuestionText = ({ question, difficultTerm, termExplanation, exampleText }: QuestionTextProps) => {
+  const [showExample, setShowExample] = useState(false);
 
-  // Find the difficult term in the question text (case insensitive)
-  const termRegex = new RegExp(`\\b${difficultTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
-  const parts = question.split(termRegex);
-  const matches = question.match(termRegex);
+  const renderQuestionWithTerms = () => {
+    if (!difficultTerm || !termExplanation || difficultTerm.toLowerCase().startsWith('example')) {
+      return question;
+    }
 
-  if (!matches || parts.length === 1) {
-    // Term not found in question, show original
+    // Find the difficult term in the question text (case insensitive)
+    const termRegex = new RegExp(`\\b${difficultTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
+    const parts = question.split(termRegex);
+    const matches = question.match(termRegex);
+
+    if (!matches || parts.length === 1) {
+      return question;
+    }
+
     return (
-      <p className="text-xl leading-relaxed text-foreground font-medium">
-        {question}
-      </p>
+      <>
+        {parts.map((part, index) => (
+          <span key={index}>
+            {part}
+            {index < matches.length && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="font-semibold text-blue-800 hover:bg-blue-50 rounded-sm px-1 cursor-pointer transition-colors duration-200">
+                      {matches[index]}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-sm p-3 bg-white border shadow-md rounded">
+                    <div className="flex items-start gap-2">
+                      <span className="text-lg">💡</span>
+                      <div>
+                        <span className="font-semibold text-slate-800 block mb-1">
+                          {difficultTerm}
+                        </span>
+                        <p className="text-sm leading-relaxed text-slate-700">
+                          {termExplanation}
+                        </p>
+                      </div>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+          </span>
+        ))}
+      </>
     );
-  }
+  };
 
   return (
-    <p className="text-xl leading-relaxed text-foreground font-medium">
-      {parts.map((part, index) => (
-        <span key={index}>
-          {part}
-          {index < matches.length && (
+    <div className="max-w-prose">
+      <div className="flex items-start gap-2">
+        <p className="text-xl leading-relaxed text-foreground font-medium flex-1">
+          {renderQuestionWithTerms()}
+          {exampleText && (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <span className="font-semibold text-blue-800 hover:bg-blue-50 rounded-sm px-1 cursor-pointer transition-colors duration-200">
-                    {matches[index]}
-                  </span>
+                  <button
+                    onClick={() => setShowExample(!showExample)}
+                    className="ml-2 text-blue-800 hover:bg-blue-100 rounded-sm px-1 transition cursor-pointer text-base"
+                    type="button"
+                  >
+                    📘
+                  </button>
                 </TooltipTrigger>
-                <TooltipContent className="max-w-sm p-3 bg-white border shadow-md rounded">
-                  <div className="flex items-start gap-2">
-                    <span className="text-lg">💡</span>
-                    <div>
-                      <span className="font-semibold text-slate-800 block mb-1">
-                        {difficultTerm}
-                      </span>
-                      <p className="text-sm leading-relaxed text-slate-700">
-                        {termExplanation}
-                      </p>
-                    </div>
-                  </div>
+                <TooltipContent>
+                  <p>Click to view example</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
           )}
-        </span>
-      ))}
-    </p>
+        </p>
+      </div>
+      
+      {showExample && exampleText && (
+        <div className="bg-amber-50 border-l-4 border-yellow-400 rounded-md p-4 mt-4 max-w-prose">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-start gap-2 flex-1">
+              <span className="text-lg">📘</span>
+              <div className="flex-1">
+                <span className="font-semibold text-amber-800 block mb-2">Example</span>
+                <p className="text-sm leading-relaxed text-amber-700">
+                  {exampleText}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowExample(false)}
+              className="text-amber-600 hover:text-amber-800 text-sm font-medium transition"
+              type="button"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 
@@ -554,6 +601,12 @@ const Assessment = () => {
 
   // Get the most complete question data (with difficult_term and term_explanation)
   const questionWithTerms = currentQuestionOptions.find(q => q.difficult_term && q.term_explanation) || currentQuestion;
+  
+  // Get example text if it exists
+  const exampleOption = currentQuestionOptions.find(q => 
+    q.difficult_term && q.difficult_term.toLowerCase().startsWith('example')
+  );
+  const exampleText = exampleOption ? exampleOption.term_explanation : null;
 
   return (
     <div className="min-h-screen bg-background p-4">
@@ -569,16 +622,14 @@ const Assessment = () => {
             <div className="text-sm text-muted-foreground uppercase tracking-wide mb-3">
               Question {currentQuestion.question_id}
             </div>
-            <div className="max-w-prose">
-              <QuestionText 
-                question={currentQuestion.question}
-                difficultTerm={questionWithTerms.difficult_term}
-                termExplanation={questionWithTerms.term_explanation}
-              />
-            </div>
+            <QuestionText 
+              question={currentQuestion.question}
+              difficultTerm={questionWithTerms.difficult_term}
+              termExplanation={questionWithTerms.term_explanation}
+              exampleText={exampleText}
+            />
           </CardHeader>
           <CardContent className="pt-6">
-
             {/* Answer options as button-like choices */}
             <div className="space-y-3 mb-8">
               {currentQuestionOptions.map((option, index) => {
@@ -613,23 +664,6 @@ const Assessment = () => {
                 );
               })}
             </div>
-
-            {/* Example explanation (if available) */}
-            {questionWithTerms.difficult_term && questionWithTerms.difficult_term.toLowerCase().startsWith('example') && (
-              <div className="bg-yellow-50 border-l-4 border-yellow-400 px-4 py-3 mt-6 mb-6 max-w-prose">
-                <div className="flex items-start gap-2">
-                  <span className="text-lg">📘</span>
-                  <div>
-                    <span className="font-semibold text-yellow-800">{questionWithTerms.difficult_term}</span>
-                    {questionWithTerms.term_explanation && (
-                      <p className="text-sm leading-snug text-yellow-700 mt-1">
-                        {questionWithTerms.term_explanation}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
             
             {/* Navigation buttons */}
             <div className="flex items-center gap-3">
