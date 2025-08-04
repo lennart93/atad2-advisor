@@ -94,11 +94,9 @@ const QuestionText = ({ question, difficultTerm, termExplanation, exampleText }:
     );
   };
 
-  const isShortText = question.length < 80;
-  
   return (
     <div className="mb-6">
-      <p className={`text-lg text-gray-800 leading-relaxed max-w-[600px] ${isShortText ? 'text-left' : 'text-justify'}`}>
+      <p className="text-lg text-gray-800 leading-relaxed text-left">
         {renderQuestionWithTerms()}
         {exampleText && (
           <TooltipProvider>
