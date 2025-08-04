@@ -95,30 +95,28 @@ const QuestionText = ({ question, difficultTerm, termExplanation, exampleText }:
   };
 
   return (
-    <div>
-      <div className="flex items-start gap-2">
-        <p className="text-lg leading-relaxed text-gray-900 max-w-prose flex-1">
-          {renderQuestionWithTerms()}
-          {exampleText && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => setShowExample(!showExample)}
-                    className="ml-2 text-blue-800 hover:bg-blue-100 rounded-sm px-1 transition cursor-pointer text-base"
-                    type="button"
-                  >
-                    📘
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Click to view example</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
-        </p>
-      </div>
+    <div className="max-w-prose mx-auto">
+      <p className="text-lg text-left leading-relaxed text-gray-900">
+        {renderQuestionWithTerms()}
+        {exampleText && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => setShowExample(!showExample)}
+                  className="ml-2 text-blue-700 text-base cursor-pointer hover:bg-blue-50 rounded-sm px-1 transition-colors duration-200"
+                  type="button"
+                >
+                  📘
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Click to view example</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+      </p>
       
       {showExample && exampleText && (
         <div className="w-full bg-amber-50 border-l-4 border-yellow-400 rounded-md p-4 mt-4">
