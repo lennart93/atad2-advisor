@@ -1,4 +1,4 @@
-import { CheckCircle, Circle, AlertTriangle } from "lucide-react";
+import { CheckCircle, Circle, AlertTriangle, Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface AssessmentSidebarProps {
@@ -16,9 +16,10 @@ interface AssessmentSidebarProps {
     question_title: string | null;
     risk_points: number;
   } | null;
+  onQuestionClick?: (questionIndex: number) => void;
 }
 
-export function AssessmentSidebar({ answers, questionHistory, currentQuestion }: AssessmentSidebarProps) {
+export function AssessmentSidebar({ answers, questionHistory, currentQuestion, onQuestionClick }: AssessmentSidebarProps) {
   const totalAnswered = questionHistory.length;
   
   return (
@@ -36,9 +37,17 @@ export function AssessmentSidebar({ answers, questionHistory, currentQuestion }:
           const hasRisk = entry.question.risk_points > 0 && entry.answer === "Yes";
           
           return (
-            <div
+            <button
               key={`${entry.question.question_id}-${index}`}
-              className="p-3 rounded-md border border-muted-foreground/20 bg-card transition-colors"
+              onClick={() => onQuestionClick?.(index)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onQuestionClick?.(index);
+                }
+              }}
+              className="w-full p-3 rounded-md border border-muted-foreground/20 bg-card transition-all hover:bg-muted/50 cursor-pointer text-left focus:outline-none focus:ring-2 focus:ring-primary/50"
+              aria-label={`Return to question ${entry.question.question_id}: ${entry.question.question_title || `Question ${entry.question.question_id}`}`}
             >
               <div className="flex items-start gap-3">
                 <div className="flex-shrink-0 mt-0.5">
@@ -60,14 +69,19 @@ export function AssessmentSidebar({ answers, questionHistory, currentQuestion }:
                   </h4>
                   
                   <div className="flex items-center gap-2 mt-2">
-                    <span className={cn(
-                      "text-xs px-2 py-0.5 rounded",
+                    <div className={cn(
+                      "flex items-center gap-1 text-xs px-2 py-0.5 rounded",
                       entry.answer === "Yes"
                         ? "bg-destructive/10 text-destructive"
                         : "bg-primary/10 text-primary"
                     )}>
-                      {entry.answer}
-                    </span>
+                      {entry.answer === "Yes" ? (
+                        <Check className="h-3 w-3" />
+                      ) : (
+                        <X className="h-3 w-3" />
+                      )}
+                      <span>{entry.answer}</span>
+                    </div>
                     {hasRisk && (
                       <span className="text-xs text-muted-foreground">
                         {entry.question.risk_points} risk points
@@ -76,7 +90,7 @@ export function AssessmentSidebar({ answers, questionHistory, currentQuestion }:
                   </div>
                 </div>
               </div>
-            </div>
+            </button>
           );
         })}
         

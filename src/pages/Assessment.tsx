@@ -348,6 +348,25 @@ const Assessment = () => {
     setAnswers(newAnswers);
   };
 
+  const goToSpecificQuestion = (questionIndex: number) => {
+    if (questionIndex >= questionHistory.length) return;
+    
+    // Remove all questions after the selected index
+    const newHistory = questionHistory.slice(0, questionIndex);
+    const targetEntry = questionHistory[questionIndex];
+    
+    setQuestionHistory(newHistory);
+    setCurrentQuestion(targetEntry.question);
+    setSelectedAnswer(targetEntry.answer);
+    
+    // Update answers state to only include questions up to this point
+    const newAnswers: Record<string, string> = {};
+    newHistory.forEach(entry => {
+      newAnswers[entry.question.question_id] = entry.answer;
+    });
+    setAnswers(newAnswers);
+  };
+
   const handleAnswerSelect = async (answer: string) => {
     if (loading || isTransitioning) return;
     
@@ -645,6 +664,7 @@ const Assessment = () => {
                 question_title: currentQuestion.question_title,
                 risk_points: currentQuestion.risk_points
               } : null}
+              onQuestionClick={goToSpecificQuestion}
             />
           </div>
           
