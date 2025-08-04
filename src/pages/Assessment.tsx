@@ -371,6 +371,34 @@ const Assessment = () => {
     setNavigationIndex(targetIndex);
   };
 
+  const continueToNextUnanswered = () => {
+    // Find the next question that should be asked based on current flow
+    if (questionFlow.length === 0) return;
+    
+    // Get the last answered question and find its next question
+    const lastAnsweredEntry = questionFlow[questionFlow.length - 1];
+    const lastAnsweredQuestionOption = questions.find(
+      q => q.question_id === lastAnsweredEntry.question.question_id && 
+           q.answer_option === lastAnsweredEntry.answer
+    );
+    
+    if (lastAnsweredQuestionOption?.next_question_id) {
+      const nextQuestion = questions.find(q => q.question_id === lastAnsweredQuestionOption.next_question_id);
+      if (nextQuestion) {
+        setCurrentQuestion(nextQuestion);
+        setSelectedAnswer("");
+        setNavigationIndex(-1); // Back to new question mode
+      }
+    } else {
+      // Assessment completed
+      toast({
+        title: "Assessment complete",
+        description: "Your risk assessment has been completed successfully.",
+      });
+      navigate("/");
+    }
+  };
+
   const goToSpecificQuestion = (questionIndex: number) => {
     if (questionIndex >= questionFlow.length) return;
     
@@ -652,6 +680,9 @@ const Assessment = () => {
     q.difficult_term && q.difficult_term.toLowerCase().startsWith('example')
   );
   const exampleText = exampleOption ? exampleOption.term_explanation : null;
+  
+  // Check if we're viewing an already answered question
+  const isViewingAnsweredQuestion = navigationIndex !== -1;
 
   return (
     <div className="min-h-screen bg-background p-4">
@@ -704,64 +735,128 @@ const Assessment = () => {
                 />
               </CardHeader>
           <CardContent className="pt-6">
-            {/* Answer options as button-like choices */}
-            <div className="space-y-3 mb-8">
-              {currentQuestionOptions.map((option, index) => {
-                const isSelected = selectedAnswer === option.answer_option;
-                const isYes = option.answer_option.toLowerCase() === 'yes';
-                
-                return (
-                  <button
-                    key={index}
-                    type="button"
-                    onClick={() => handleAnswerSelect(option.answer_option)}
-                    disabled={loading || isTransitioning}
-                    className={`
-                      w-full p-4 rounded-lg border-2 transition-all duration-200 text-left
-                      ${isSelected 
-                        ? 'border-primary bg-primary/10 shadow-md ring-2 ring-primary/20' 
-                        : 'border-border hover:border-primary/50 hover:bg-accent/50'
-                      }
-                      ${loading || isTransitioning ? 'opacity-50 cursor-not-allowed' : ''}
-                      focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
-                    `}
+            {isViewingAnsweredQuestion ? (
+              /* Viewing a previously answered question - show read-only with continue option */
+              <>
+                <div className="space-y-3 mb-8">
+                  {currentQuestionOptions.map((option, index) => {
+                    const isSelected = selectedAnswer === option.answer_option;
+                    const isYes = option.answer_option.toLowerCase() === 'yes';
+                    
+                    return (
+                      <div
+                        key={index}
+                        className={`
+                          w-full p-4 rounded-lg border-2 transition-all duration-200 text-left
+                          ${isSelected 
+                            ? 'border-primary bg-primary/10 shadow-md ring-2 ring-primary/20' 
+                            : 'border-border bg-muted/30'
+                          }
+                        `}
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="text-xl">
+                            {isYes ? '✅' : '❌'}
+                          </span>
+                          <span className="text-base font-medium">
+                            {option.answer_option}
+                          </span>
+                          {isSelected && (
+                            <span className="ml-auto text-sm text-muted-foreground font-medium">
+                              Previously answered
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Continue button for answered questions */}
+                <div className="flex items-center gap-3">
+                  <Button 
+                    onClick={goToPreviousQuestion}
+                    disabled={questionFlow.length === 0 || (navigationIndex !== -1 && navigationIndex === 0) || loading || isTransitioning}
+                    variant="outline"
+                    className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <div className="flex items-center gap-3">
-                      <span className="text-xl">
-                        {isYes ? '✅' : '❌'}
-                      </span>
-                      <span className="text-base font-medium">
-                        {option.answer_option}
-                      </span>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-            
-            {/* Navigation buttons */}
-            <div className="flex items-center gap-3">
-              <Button 
-                onClick={goToPreviousQuestion}
-                disabled={questionFlow.length === 0 || (navigationIndex === 0) || loading || isTransitioning}
-                variant="outline"
-                className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                ← Previous
-              </Button>
-              
-              {/* Next button - only show when reviewing within the flow */}
-              {navigationIndex !== -1 && navigationIndex < questionFlow.length - 1 && (
-                <Button 
-                  onClick={goToNextQuestion}
-                  disabled={loading || isTransitioning}
-                  variant="outline"
-                  className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Next →
-                </Button>
-              )}
-            </div>
+                    ← Previous
+                  </Button>
+                  
+                  {/* Next button - only show when reviewing within the flow */}
+                  {navigationIndex !== -1 && navigationIndex < questionFlow.length - 1 && (
+                    <Button 
+                      onClick={goToNextQuestion}
+                      disabled={loading || isTransitioning}
+                      variant="outline"
+                      className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Next →
+                    </Button>
+                  )}
+                  
+                  {/* Continue to next unanswered question */}
+                  {navigationIndex === questionFlow.length - 1 && (
+                    <Button 
+                      onClick={continueToNextUnanswered}
+                      disabled={loading || isTransitioning}
+                      className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ml-auto"
+                    >
+                      Continue to next unanswered question →
+                    </Button>
+                  )}
+                </div>
+              </>
+            ) : (
+              /* New question - show interactive answer options */
+              <>
+                <div className="space-y-3 mb-8">
+                  {currentQuestionOptions.map((option, index) => {
+                    const isSelected = selectedAnswer === option.answer_option;
+                    const isYes = option.answer_option.toLowerCase() === 'yes';
+                    
+                    return (
+                      <button
+                        key={index}
+                        type="button"
+                        onClick={() => handleAnswerSelect(option.answer_option)}
+                        disabled={loading || isTransitioning}
+                        className={`
+                          w-full p-4 rounded-lg border-2 transition-all duration-200 text-left
+                          ${isSelected 
+                            ? 'border-primary bg-primary/10 shadow-md ring-2 ring-primary/20' 
+                            : 'border-border hover:border-primary/50 hover:bg-accent/50'
+                          }
+                          ${loading || isTransitioning ? 'opacity-50 cursor-not-allowed' : ''}
+                          focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
+                        `}
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="text-xl">
+                            {isYes ? '✅' : '❌'}
+                          </span>
+                          <span className="text-base font-medium">
+                            {option.answer_option}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+                
+                {/* Navigation buttons for new questions */}
+                <div className="flex items-center gap-3">
+                  <Button 
+                    onClick={goToPreviousQuestion}
+                    disabled={questionFlow.length === 0 || loading || isTransitioning}
+                    variant="outline"
+                    className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    ← Previous
+                  </Button>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
           </div>
