@@ -114,7 +114,6 @@ const Assessment = () => {
   const [loading, setLoading] = useState(false);
   const [questionHistory, setQuestionHistory] = useState<{question: Question, answer: string}[]>([]);
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const [autoAdvance, setAutoAdvance] = useState(true);
 
   useEffect(() => {
     if (!user) {
@@ -296,12 +295,10 @@ const Assessment = () => {
   const handleAnswerSelect = (answer: string) => {
     setSelectedAnswer(answer);
     
-    if (autoAdvance) {
-      // Auto-advance after 500ms
-      setTimeout(() => {
-        submitAnswer();
-      }, 500);
-    }
+    // Auto-advance after 300ms
+    setTimeout(() => {
+      submitAnswer();
+    }, 300);
   };
 
   if (!user) return null;
@@ -579,41 +576,6 @@ const Assessment = () => {
               >
                 ← Previous
               </Button>
-              
-              {!autoAdvance && (
-                <Button 
-                  onClick={submitAnswer} 
-                  disabled={!selectedAnswer || loading || isTransitioning}
-                  className={`
-                    flex-1 px-6 py-3 rounded-xl transition-all duration-200 hover:shadow-lg
-                    ${!selectedAnswer || loading || isTransitioning 
-                      ? 'bg-muted text-muted-foreground cursor-not-allowed' 
-                      : 'bg-primary text-primary-foreground hover:bg-primary/90'
-                    }
-                  `}
-                >
-                  {loading ? "Submitting..." : "Next question"}
-                </Button>
-              )}
-              
-              {autoAdvance && selectedAnswer && (
-                <div className="flex-1 px-6 py-3 text-center text-sm text-muted-foreground">
-                  Auto-advancing in 0.5s...
-                </div>
-              )}
-            </div>
-            
-            {/* Auto-advance toggle */}
-            <div className="mt-4 pt-4 border-t border-border">
-              <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={autoAdvance}
-                  onChange={(e) => setAutoAdvance(e.target.checked)}
-                  className="rounded"
-                />
-                Auto-advance after selecting answer
-              </label>
             </div>
           </CardContent>
         </Card>
