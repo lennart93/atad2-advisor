@@ -632,18 +632,19 @@ const Assessment = () => {
           <div className="lg:col-span-1">
             <AssessmentSidebar 
               answers={answers}
-              questions={questions.reduce((acc, q) => {
-                const existing = acc.find(item => item.question_id === q.question_id);
-                if (!existing) {
-                  acc.push({
-                    question_id: q.question_id,
-                    question_title: q.question_title || `Question ${q.question_id}`,
-                    risk_points: q.risk_points
-                  });
-                }
-                return acc;
-              }, [] as Array<{question_id: string; question_title: string; risk_points: number}>)}
-              currentQuestionId={currentQuestion.question_id}
+              questionHistory={questionHistory.map(entry => ({
+                question: {
+                  question_id: entry.question.question_id,
+                  question_title: entry.question.question_title,
+                  risk_points: entry.question.risk_points
+                },
+                answer: entry.answer
+              }))}
+              currentQuestion={currentQuestion ? {
+                question_id: currentQuestion.question_id,
+                question_title: currentQuestion.question_title,
+                risk_points: currentQuestion.risk_points
+              } : null}
             />
           </div>
           
