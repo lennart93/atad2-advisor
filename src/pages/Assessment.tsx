@@ -10,8 +10,9 @@ import { useToast } from "@/hooks/use-toast";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { InfoIcon } from "lucide-react";
+import { InfoIcon, ArrowLeft } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { AssessmentSidebar } from "@/components/AssessmentSidebar";
 
 interface Question {
   id: string;
@@ -22,6 +23,7 @@ interface Question {
   next_question_id: string | null;
   difficult_term: string | null;
   term_explanation: string | null;
+  question_title?: string | null;
 }
 
 interface SessionInfo {
@@ -610,25 +612,42 @@ const Assessment = () => {
 
   return (
     <div className="min-h-screen bg-background p-4">
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         <div className="mb-8">
           <Button variant="outline" onClick={() => navigate("/")}>
             ← Back to dashboard
           </Button>
         </div>
         
-        <Card className="border-0 shadow-lg">
-          <CardHeader className="pb-2">
-            <div className="text-sm text-muted-foreground uppercase tracking-wide mb-3">
-              Question {currentQuestion.question_id}
-            </div>
-            <QuestionText 
-              question={currentQuestion.question}
-              difficultTerm={questionWithTerms.difficult_term}
-              termExplanation={questionWithTerms.term_explanation}
-              exampleText={exampleText}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Sidebar */}
+          <div className="lg:col-span-1">
+            <AssessmentSidebar 
+              questionHistory={questionHistory}
+              currentQuestion={currentQuestion}
+              allQuestions={questions}
             />
-          </CardHeader>
+          </div>
+          
+          {/* Main Content */}
+          <div className="lg:col-span-3">
+            <Card className="border-0 shadow-lg">
+              <CardHeader className="pb-2">
+                <div className="text-sm text-muted-foreground uppercase tracking-wide mb-1">
+                  Question {currentQuestion.question_id}
+                </div>
+                {currentQuestion.question_title && (
+                  <div className="text-lg font-semibold text-primary mb-3">
+                    {currentQuestion.question_title}
+                  </div>
+                )}
+                <QuestionText 
+                  question={currentQuestion.question}
+                  difficultTerm={questionWithTerms.difficult_term}
+                  termExplanation={questionWithTerms.term_explanation}
+                  exampleText={exampleText}
+                />
+              </CardHeader>
           <CardContent className="pt-6">
             {/* Answer options as button-like choices */}
             <div className="space-y-3 mb-8">
@@ -678,6 +697,8 @@ const Assessment = () => {
             </div>
           </CardContent>
         </Card>
+          </div>
+        </div>
       </div>
     </div>
   );
