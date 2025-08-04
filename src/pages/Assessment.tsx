@@ -795,14 +795,15 @@ const Assessment = () => {
                     </Button>
                   )}
                   
-                  {/* Continue to next unanswered question */}
+                  {/* Continue to next question */}
                   {navigationIndex === questionFlow.length - 1 && (
                     <Button 
                       onClick={continueToNextUnanswered}
                       disabled={loading || isTransitioning}
+                      variant="outline"
                       className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ml-auto"
                     >
-                      Continue to next unanswered question →
+                      Next →
                     </Button>
                   )}
                 </div>
