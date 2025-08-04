@@ -292,13 +292,78 @@ const Assessment = () => {
     setSelectedAnswer(lastEntry.answer);
   };
 
-  const handleAnswerSelect = (answer: string) => {
-    setSelectedAnswer(answer);
+  const handleAnswerSelect = async (answer: string) => {
+    if (loading || isTransitioning) return;
     
-    // Auto-advance after 300ms
-    setTimeout(() => {
-      submitAnswer();
+    setSelectedAnswer(answer);
+    setLoading(true);
+    
+    // Brief visual feedback, then auto-advance
+    setTimeout(async () => {
+      await submitAnswerDirectly(answer);
     }, 300);
+  };
+
+  const submitAnswerDirectly = async (answer: string) => {
+    if (!currentQuestion || !sessionId) return;
+
+    try {
+      const selectedQuestionOption = questions.find(
+        q => q.question_id === currentQuestion.question_id && q.answer_option === answer
+      );
+
+      if (!selectedQuestionOption) {
+        throw new Error("Selected answer not found");
+      }
+
+      const { error } = await supabase
+        .from('atad2_answers')
+        .insert({
+          session_id: sessionId,
+          question_id: currentQuestion.question_id,
+          question_text: currentQuestion.question,
+          answer: answer,
+          explanation: selectedQuestionOption.answer_option,
+          risk_points: selectedQuestionOption.risk_points,
+          difficult_term: selectedQuestionOption.difficult_term,
+          term_explanation: selectedQuestionOption.term_explanation
+        });
+
+      if (error) throw error;
+
+      // Add current question and answer to history
+      setQuestionHistory(prev => [...prev, { question: currentQuestion, answer }]);
+
+      // Move to next question
+      const nextQuestionId = selectedQuestionOption.next_question_id;
+      if (nextQuestionId) {
+        const nextQuestion = questions.find(q => q.question_id === nextQuestionId);
+        if (nextQuestion) {
+          setIsTransitioning(true);
+          setTimeout(() => {
+            setCurrentQuestion(nextQuestion);
+            setSelectedAnswer("");
+            setIsTransitioning(false);
+          }, 300);
+        }
+      } else {
+        // Assessment completed
+        toast({
+          title: "Assessment complete",
+          description: "Your risk assessment has been completed successfully.",
+        });
+        navigate("/");
+      }
+    } catch (error) {
+      console.error('Error submitting answer:', error);
+      toast({
+        title: "Error",
+        description: "Failed to submit answer",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (!user) return null;
