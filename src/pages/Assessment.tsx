@@ -801,7 +801,7 @@ const Assessment = () => {
                       onClick={continueToNextUnanswered}
                       disabled={loading || isTransitioning}
                       variant="outline"
-                      className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ml-auto"
+                      className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Next →
                     </Button>
