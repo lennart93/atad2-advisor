@@ -285,24 +285,77 @@ const Assessment = () => {
         throw new Error("Selected answer not found");
       }
 
-      const { error } = await supabase
+      // Check if answer already exists for this question in this session
+      const { data: existingAnswer } = await supabase
         .from('atad2_answers')
-        .insert({
-          session_id: sessionId,
-          question_id: currentQuestion.question_id,
-          question_text: currentQuestion.question,
-          answer: selectedAnswer,
-          explanation: selectedQuestionOption.answer_option,
-          risk_points: selectedQuestionOption.risk_points,
-          difficult_term: selectedQuestionOption.difficult_term,
-          term_explanation: selectedQuestionOption.term_explanation
-        });
+        .select('id')
+        .eq('session_id', sessionId)
+        .eq('question_id', currentQuestion.question_id)
+        .single();
 
-      if (error) throw error;
+      if (existingAnswer) {
+        // Update existing answer
+        const { error } = await supabase
+          .from('atad2_answers')
+          .update({
+            question_text: currentQuestion.question,
+            answer: selectedAnswer,
+            explanation: selectedQuestionOption.answer_option,
+            risk_points: selectedQuestionOption.risk_points,
+            difficult_term: selectedQuestionOption.difficult_term,
+            term_explanation: selectedQuestionOption.term_explanation,
+            answered_at: new Date().toISOString()
+          })
+          .eq('id', existingAnswer.id);
 
-      // Add current question and answer to both history and flow
-      setQuestionHistory(prev => [...prev, { question: currentQuestion, answer: selectedAnswer }]);
-      setQuestionFlow(prev => [...prev, { question: currentQuestion, answer: selectedAnswer }]);
+        if (error) throw error;
+      } else {
+        // Insert new answer
+        const { error } = await supabase
+          .from('atad2_answers')
+          .insert({
+            session_id: sessionId,
+            question_id: currentQuestion.question_id,
+            question_text: currentQuestion.question,
+            answer: selectedAnswer,
+            explanation: selectedQuestionOption.answer_option,
+            risk_points: selectedQuestionOption.risk_points,
+            difficult_term: selectedQuestionOption.difficult_term,
+            term_explanation: selectedQuestionOption.term_explanation
+          });
+
+        if (error) throw error;
+      }
+
+      // Update or add current question and answer to both history and flow
+      const questionEntry = { question: currentQuestion, answer: selectedAnswer };
+      
+      setQuestionHistory(prev => {
+        const existingIndex = prev.findIndex(entry => entry.question.question_id === currentQuestion.question_id);
+        if (existingIndex !== -1) {
+          // Replace existing entry
+          const updated = [...prev];
+          updated[existingIndex] = questionEntry;
+          return updated;
+        } else {
+          // Add new entry
+          return [...prev, questionEntry];
+        }
+      });
+      
+      setQuestionFlow(prev => {
+        const existingIndex = prev.findIndex(entry => entry.question.question_id === currentQuestion.question_id);
+        if (existingIndex !== -1) {
+          // Replace existing entry
+          const updated = [...prev];
+          updated[existingIndex] = questionEntry;
+          return updated;
+        } else {
+          // Add new entry
+          return [...prev, questionEntry];
+        }
+      });
+      
       setNavigationIndex(-1); // Reset to new question mode
       setAnswers(prev => ({ ...prev, [currentQuestion.question_id]: selectedAnswer }));
 
@@ -433,24 +486,77 @@ const Assessment = () => {
         throw new Error("Selected answer not found");
       }
 
-      const { error } = await supabase
+      // Check if answer already exists for this question in this session
+      const { data: existingAnswer } = await supabase
         .from('atad2_answers')
-        .insert({
-          session_id: sessionId,
-          question_id: currentQuestion.question_id,
-          question_text: currentQuestion.question,
-          answer: answer,
-          explanation: selectedQuestionOption.answer_option,
-          risk_points: selectedQuestionOption.risk_points,
-          difficult_term: selectedQuestionOption.difficult_term,
-          term_explanation: selectedQuestionOption.term_explanation
-        });
+        .select('id')
+        .eq('session_id', sessionId)
+        .eq('question_id', currentQuestion.question_id)
+        .single();
 
-      if (error) throw error;
+      if (existingAnswer) {
+        // Update existing answer
+        const { error } = await supabase
+          .from('atad2_answers')
+          .update({
+            question_text: currentQuestion.question,
+            answer: answer,
+            explanation: selectedQuestionOption.answer_option,
+            risk_points: selectedQuestionOption.risk_points,
+            difficult_term: selectedQuestionOption.difficult_term,
+            term_explanation: selectedQuestionOption.term_explanation,
+            answered_at: new Date().toISOString()
+          })
+          .eq('id', existingAnswer.id);
 
-      // Add current question and answer to both history and flow
-      setQuestionHistory(prev => [...prev, { question: currentQuestion, answer }]);
-      setQuestionFlow(prev => [...prev, { question: currentQuestion, answer }]);
+        if (error) throw error;
+      } else {
+        // Insert new answer
+        const { error } = await supabase
+          .from('atad2_answers')
+          .insert({
+            session_id: sessionId,
+            question_id: currentQuestion.question_id,
+            question_text: currentQuestion.question,
+            answer: answer,
+            explanation: selectedQuestionOption.answer_option,
+            risk_points: selectedQuestionOption.risk_points,
+            difficult_term: selectedQuestionOption.difficult_term,
+            term_explanation: selectedQuestionOption.term_explanation
+          });
+
+        if (error) throw error;
+      }
+
+      // Update or add current question and answer to both history and flow
+      const questionEntry = { question: currentQuestion, answer };
+      
+      setQuestionHistory(prev => {
+        const existingIndex = prev.findIndex(entry => entry.question.question_id === currentQuestion.question_id);
+        if (existingIndex !== -1) {
+          // Replace existing entry
+          const updated = [...prev];
+          updated[existingIndex] = questionEntry;
+          return updated;
+        } else {
+          // Add new entry
+          return [...prev, questionEntry];
+        }
+      });
+      
+      setQuestionFlow(prev => {
+        const existingIndex = prev.findIndex(entry => entry.question.question_id === currentQuestion.question_id);
+        if (existingIndex !== -1) {
+          // Replace existing entry
+          const updated = [...prev];
+          updated[existingIndex] = questionEntry;
+          return updated;
+        } else {
+          // Add new entry
+          return [...prev, questionEntry];
+        }
+      });
+      
       setNavigationIndex(-1); // Reset to new question mode
       setAnswers(prev => ({ ...prev, [currentQuestion.question_id]: answer }));
 
