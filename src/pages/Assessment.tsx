@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { InfoIcon, ArrowLeft } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { AssessmentSidebar } from "@/components/AssessmentSidebar";
 
 interface Question {
@@ -166,6 +167,8 @@ const Assessment = () => {
   const [navigationIndex, setNavigationIndex] = useState<number>(-1); // Current position in questionFlow (-1 = at new question)
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [showFlowChangeDialog, setShowFlowChangeDialog] = useState(false);
+  const [pendingAnswerChange, setPendingAnswerChange] = useState<{answer: string, newNextQuestionId: string | null} | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -465,6 +468,31 @@ const Assessment = () => {
   const handleAnswerSelect = async (answer: string) => {
     if (loading || isTransitioning) return;
     
+    // Check if this is a previously answered question and if the answer would change the flow
+    if (navigationIndex !== -1 && currentQuestion) {
+      const newSelectedOption = questions.find(
+        q => q.question_id === currentQuestion.question_id && q.answer_option === answer
+      );
+      
+      const currentAnswerEntry = questionFlow.find(entry => entry.question.question_id === currentQuestion.question_id);
+      const oldSelectedOption = questions.find(
+        q => q.question_id === currentQuestion.question_id && q.answer_option === currentAnswerEntry?.answer
+      );
+      
+      // Compare next_question_id to detect flow changes
+      if (newSelectedOption && oldSelectedOption && 
+          newSelectedOption.next_question_id !== oldSelectedOption.next_question_id) {
+        
+        // Show confirmation dialog
+        setPendingAnswerChange({
+          answer,
+          newNextQuestionId: newSelectedOption.next_question_id
+        });
+        setShowFlowChangeDialog(true);
+        return;
+      }
+    }
+    
     setSelectedAnswer(answer);
     setLoading(true);
     
@@ -590,6 +618,66 @@ const Assessment = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleFlowChangeConfirm = async () => {
+    if (!pendingAnswerChange || !currentQuestion) return;
+    
+    setShowFlowChangeDialog(false);
+    setLoading(true);
+
+    try {
+      // Remove subsequent answers from database
+      const currentQuestionIndex = questionFlow.findIndex(entry => entry.question.question_id === currentQuestion.question_id);
+      const subsequentQuestions = questionFlow.slice(currentQuestionIndex + 1);
+      
+      for (const entry of subsequentQuestions) {
+        await supabase
+          .from('atad2_answers')
+          .delete()
+          .eq('session_id', sessionId)
+          .eq('question_id', entry.question.question_id);
+      }
+
+      // Update questionFlow to remove subsequent questions with animation
+      setQuestionFlow(prev => {
+        const currentIndex = prev.findIndex(entry => entry.question.question_id === currentQuestion.question_id);
+        return prev.slice(0, currentIndex + 1);
+      });
+
+      // Update answers state
+      setAnswers(prev => {
+        const newAnswers = { ...prev };
+        subsequentQuestions.forEach(entry => {
+          delete newAnswers[entry.question.question_id];
+        });
+        return newAnswers;
+      });
+
+      // Now proceed with the answer change
+      setSelectedAnswer(pendingAnswerChange.answer);
+      
+      // Brief visual feedback, then auto-advance
+      setTimeout(async () => {
+        await submitAnswerDirectly(pendingAnswerChange.answer);
+        setPendingAnswerChange(null);
+      }, 300);
+
+    } catch (error) {
+      console.error('Error handling flow change:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update assessment flow",
+        variant: "destructive",
+      });
+      setLoading(false);
+      setPendingAnswerChange(null);
+    }
+  };
+
+  const handleFlowChangeCancel = () => {
+    setShowFlowChangeDialog(false);
+    setPendingAnswerChange(null);
   };
 
   if (!user) return null;
@@ -974,6 +1062,22 @@ const Assessment = () => {
           </div>
         </div>
       </div>
+
+      {/* Flow Change Confirmation Dialog */}
+      <AlertDialog open={showFlowChangeDialog} onOpenChange={setShowFlowChangeDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Answer Change</AlertDialogTitle>
+            <AlertDialogDescription>
+              Changing this answer will affect the questions that follow. Some of your answers will be removed because the flow continues differently from here.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleFlowChangeCancel}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleFlowChangeConfirm}>Confirm and continue</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

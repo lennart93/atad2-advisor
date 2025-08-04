@@ -47,7 +47,7 @@ export function AssessmentSidebar({ answers, questionHistory, currentQuestion, o
                 }
               }}
               className={cn(
-                "w-full p-3 rounded-md border transition-all cursor-pointer text-left focus:outline-none focus:ring-2 focus:ring-primary/50",
+                "w-full p-3 rounded-md border transition-all duration-300 cursor-pointer text-left focus:outline-none focus:ring-2 focus:ring-primary/50 animate-fade-in",
                 isCurrentlyViewing 
                   ? "border-primary bg-primary/5 font-semibold" 
                   : "border-muted-foreground/20 bg-card hover:bg-muted/50"
@@ -101,7 +101,7 @@ export function AssessmentSidebar({ answers, questionHistory, currentQuestion, o
         
         {/* Show current question if it's not already in the answered flow (new question) */}
         {currentQuestion && !questionHistory.find(entry => entry.question.question_id === currentQuestion.question_id) && (
-          <div className="p-3 rounded-md border border-primary bg-primary/5 transition-colors">
+          <div className="p-3 rounded-md border border-primary bg-primary/5 transition-all duration-300 animate-fade-in">
             <div className="flex items-start gap-3">
               <div className="flex-shrink-0 mt-0.5">
                 <Circle className="h-4 w-4 text-primary" />
