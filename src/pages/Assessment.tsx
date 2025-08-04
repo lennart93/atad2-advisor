@@ -97,7 +97,7 @@ const QuestionText = ({ question, difficultTerm, termExplanation, exampleText }:
   return (
     <div>
       <div className="flex items-start gap-2">
-        <p className="text-xl leading-relaxed text-foreground font-medium flex-1">
+        <p className="text-lg leading-relaxed text-gray-900 max-w-prose flex-1">
           {renderQuestionWithTerms()}
           {exampleText && (
             <TooltipProvider>
@@ -917,9 +917,9 @@ const Assessment = () => {
                   Question {currentQuestion.question_id}
                 </div>
                 {currentQuestion.question_title && (
-                  <div className="text-lg font-semibold text-primary mb-3">
+                  <h2 className="text-lg md:text-xl font-semibold text-gray-800 mb-2">
                     {currentQuestion.question_title}
-                  </div>
+                  </h2>
                 )}
                 <QuestionText 
                   question={currentQuestion.question}
