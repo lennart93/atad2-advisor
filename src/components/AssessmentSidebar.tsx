@@ -108,7 +108,7 @@ export function AssessmentSidebar({ answers, questionHistory, currentQuestion, o
           );
         })}
         
-        {/* Show current question if it's not already in history (new question) */}
+        {/* Show current question if it's not already in the answered flow (new question) */}
         {currentQuestion && !questionHistory.find(entry => entry.question.question_id === currentQuestion.question_id) && (
           <div className="p-3 rounded-md border border-primary bg-primary/5 transition-colors">
             <div className="flex items-start gap-3">

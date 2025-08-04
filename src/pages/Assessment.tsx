@@ -162,6 +162,7 @@ const Assessment = () => {
   const [selectedAnswer, setSelectedAnswer] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [questionHistory, setQuestionHistory] = useState<{question: Question, answer: string}[]>([]);
+  const [questionFlow, setQuestionFlow] = useState<{question: Question, answer: string}[]>([]); // Actual answered sequence
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [answers, setAnswers] = useState<Record<string, string>>({});
 
@@ -298,8 +299,9 @@ const Assessment = () => {
 
       if (error) throw error;
 
-      // Add current question and answer to history
+      // Add current question and answer to both history and flow
       setQuestionHistory(prev => [...prev, { question: currentQuestion, answer: selectedAnswer }]);
+      setQuestionFlow(prev => [...prev, { question: currentQuestion, answer: selectedAnswer }]);
       setAnswers(prev => ({ ...prev, [currentQuestion.question_id]: selectedAnswer }));
 
       // Move to next question
@@ -335,28 +337,26 @@ const Assessment = () => {
   };
 
   const goToPreviousQuestion = () => {
-    if (questionHistory.length === 0) return;
+    if (questionFlow.length === 0) return;
     
-    // Navigate to the previous question without removing it from history
-    // This preserves all answers and allows for review/correction
-    const lastEntry = questionHistory[questionHistory.length - 1];
-    setCurrentQuestion(lastEntry.question);
-    setSelectedAnswer(lastEntry.answer);
+    // Navigate to the previous question in the actual answered flow
+    const previousEntry = questionFlow[questionFlow.length - 1];
+    setCurrentQuestion(previousEntry.question);
+    setSelectedAnswer(previousEntry.answer);
     
-    // Keep all answers intact - just navigate for review
-    // The questionHistory and answers state remain unchanged
+    // This is just navigation - no data changes
+    // All answers and flow remain intact
   };
 
   const goToSpecificQuestion = (questionIndex: number) => {
-    if (questionIndex >= questionHistory.length) return;
+    if (questionIndex >= questionFlow.length) return;
     
-    // Navigate to the specific question without removing subsequent answers
-    const targetEntry = questionHistory[questionIndex];
+    // Navigate to the specific question from flow without affecting flow history
+    const targetEntry = questionFlow[questionIndex];
     setCurrentQuestion(targetEntry.question);
     setSelectedAnswer(targetEntry.answer);
     
-    // Keep all answers intact - just navigate for review/correction
-    // The questionHistory and answers state remain unchanged
+    // This is pure navigation - questionFlow and answers remain unchanged
   };
 
   const handleAnswerSelect = async (answer: string) => {
@@ -398,8 +398,9 @@ const Assessment = () => {
 
       if (error) throw error;
 
-      // Add current question and answer to history
+      // Add current question and answer to both history and flow
       setQuestionHistory(prev => [...prev, { question: currentQuestion, answer }]);
+      setQuestionFlow(prev => [...prev, { question: currentQuestion, answer }]);
       setAnswers(prev => ({ ...prev, [currentQuestion.question_id]: answer }));
 
       // Move to next question
@@ -643,7 +644,7 @@ const Assessment = () => {
           <div className="lg:col-span-1">
             <AssessmentSidebar 
               answers={answers}
-              questionHistory={questionHistory.map(entry => ({
+              questionHistory={questionFlow.map(entry => ({
                 question: {
                   question_id: entry.question.question_id,
                   question_title: entry.question.question_title,
@@ -719,7 +720,7 @@ const Assessment = () => {
             <div className="flex items-center gap-3">
               <Button 
                 onClick={goToPreviousQuestion}
-                disabled={questionHistory.length === 0 || loading || isTransitioning}
+                disabled={questionFlow.length === 0 || loading || isTransitioning}
                 variant="outline"
                 className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
