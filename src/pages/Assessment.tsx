@@ -351,20 +351,13 @@ const Assessment = () => {
   const goToSpecificQuestion = (questionIndex: number) => {
     if (questionIndex >= questionHistory.length) return;
     
-    // Remove all questions after the selected index
-    const newHistory = questionHistory.slice(0, questionIndex);
+    // Navigate to the specific question without removing subsequent answers
     const targetEntry = questionHistory[questionIndex];
-    
-    setQuestionHistory(newHistory);
     setCurrentQuestion(targetEntry.question);
     setSelectedAnswer(targetEntry.answer);
     
-    // Update answers state to only include questions up to this point
-    const newAnswers: Record<string, string> = {};
-    newHistory.forEach(entry => {
-      newAnswers[entry.question.question_id] = entry.answer;
-    });
-    setAnswers(newAnswers);
+    // Keep all answers intact - just navigate for review/correction
+    // The questionHistory and answers state remain unchanged
   };
 
   const handleAnswerSelect = async (answer: string) => {
