@@ -70,11 +70,14 @@ const QuestionText = ({ question, difficultTerm, termExplanation }: QuestionText
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <span className="underline decoration-dotted decoration-2 cursor-pointer text-primary hover:text-primary/80 transition-colors">
+                  <span className="font-semibold text-blue-800 hover:bg-blue-50 px-1 rounded-sm cursor-pointer transition-all duration-200 relative group">
                     {matches[index]}
+                    <span className="inline-block ml-1 text-xs text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                      ⓘ
+                    </span>
                   </span>
                 </TooltipTrigger>
-                <TooltipContent className="max-w-[400px] p-4 bg-slate-50 border shadow-lg">
+                <TooltipContent className="max-w-sm p-3 bg-white border shadow-md rounded">
                   <div className="flex items-start gap-2">
                     <span className="text-lg">💡</span>
                     <div>
