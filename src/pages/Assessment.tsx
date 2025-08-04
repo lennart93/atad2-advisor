@@ -337,15 +337,14 @@ const Assessment = () => {
   const goToPreviousQuestion = () => {
     if (questionHistory.length === 0) return;
     
+    // Navigate to the previous question without removing it from history
+    // This preserves all answers and allows for review/correction
     const lastEntry = questionHistory[questionHistory.length - 1];
-    setQuestionHistory(prev => prev.slice(0, -1));
     setCurrentQuestion(lastEntry.question);
     setSelectedAnswer(lastEntry.answer);
     
-    // Remove the answer from answers state
-    const newAnswers = { ...answers };
-    delete newAnswers[lastEntry.question.question_id];
-    setAnswers(newAnswers);
+    // Keep all answers intact - just navigate for review
+    // The questionHistory and answers state remain unchanged
   };
 
   const goToSpecificQuestion = (questionIndex: number) => {

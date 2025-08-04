@@ -25,7 +25,7 @@ export function AssessmentSidebar({ answers, questionHistory, currentQuestion, o
   return (
     <div className="w-full bg-muted/30 border border-border rounded-lg p-6 overflow-y-auto max-h-[calc(100vh-200px)] sticky top-6">
       <div className="pb-4 mb-4 border-b border-border">
-        <h3 className="text-lg font-semibold text-foreground">ATAD2 Progress</h3>
+        <h3 className="text-lg font-semibold text-foreground">ATAD2 progress</h3>
         <p className="text-sm text-muted-foreground mt-1">
           {totalAnswered} questions answered
         </p>
