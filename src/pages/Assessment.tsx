@@ -95,8 +95,8 @@ const QuestionText = ({ question, difficultTerm, termExplanation, exampleText }:
   };
 
   return (
-    <div className="max-w-prose mx-auto">
-      <p className="text-lg text-left leading-relaxed text-gray-900">
+    <div className="mb-6">
+      <p className="text-lg leading-relaxed text-gray-900 text-justify">
         {renderQuestionWithTerms()}
         {exampleText && (
           <TooltipProvider>
@@ -911,22 +911,25 @@ const Assessment = () => {
           <div className="lg:col-span-3">
             <Card className="border-0 shadow-lg">
               <CardHeader className="pb-2">
-                <div className="text-sm text-muted-foreground uppercase tracking-wide mb-1">
-                  Question {currentQuestion.question_id}
+                <div className="max-w-[600px] mx-auto">
+                  <div className="text-sm text-muted-foreground uppercase tracking-wide mb-1">
+                    Question {currentQuestion.question_id}
+                  </div>
+                  {currentQuestion.question_title && (
+                    <h2 className="text-lg md:text-xl font-semibold text-gray-800 mb-2">
+                      {currentQuestion.question_title}
+                    </h2>
+                  )}
+                  <QuestionText 
+                    question={currentQuestion.question}
+                    difficultTerm={questionWithTerms.difficult_term}
+                    termExplanation={questionWithTerms.term_explanation}
+                    exampleText={exampleText}
+                  />
                 </div>
-                {currentQuestion.question_title && (
-                  <h2 className="text-lg md:text-xl font-semibold text-gray-800 mb-2">
-                    {currentQuestion.question_title}
-                  </h2>
-                )}
-                <QuestionText 
-                  question={currentQuestion.question}
-                  difficultTerm={questionWithTerms.difficult_term}
-                  termExplanation={questionWithTerms.term_explanation}
-                  exampleText={exampleText}
-                />
               </CardHeader>
           <CardContent className="pt-6">
+            <div className="max-w-[600px] mx-auto">
             {isViewingAnsweredQuestion ? (
               /* Viewing a previously answered question - show read-only with continue option */
               <>
@@ -1055,6 +1058,7 @@ const Assessment = () => {
                 </div>
               </>
             )}
+            </div>
           </CardContent>
         </Card>
           </div>
