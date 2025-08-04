@@ -1,90 +1,93 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle2, Circle } from "lucide-react";
+import { CheckCircle, Circle, AlertTriangle } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface AssessmentSidebarProps {
-  questionHistory: {question: any, answer: string}[];
-  currentQuestion: any;
-  allQuestions: any[];
+  answers: Record<string, string>;
+  questions: Array<{
+    question_id: string;
+    question_title: string;
+    risk_points: number;
+  }>;
+  currentQuestionId: string;
 }
 
-export const AssessmentSidebar = ({ questionHistory, currentQuestion, allQuestions }: AssessmentSidebarProps) => {
-  // Group questions by their titles to show overview
-  const getQuestionTitle = (questionId: string) => {
-    const question = allQuestions.find(q => q.question_id === questionId);
-    return question?.question_title || `Question ${questionId}`;
-  };
-
-  // Create a map of answered questions
-  const answeredQuestions = new Map();
-  questionHistory.forEach(item => {
-    answeredQuestions.set(item.question.question_id, item.answer);
-  });
-
-  // Get unique question titles from history and current question
-  const coveredQuestionIds = new Set([
-    ...questionHistory.map(h => h.question.question_id),
-    ...(currentQuestion ? [currentQuestion.question_id] : [])
-  ]);
-
-  const coveredTitles = Array.from(coveredQuestionIds)
-    .map(id => ({
-      id,
-      title: getQuestionTitle(id),
-      answer: answeredQuestions.get(id),
-      isCurrent: currentQuestion?.question_id === id
-    }))
-    .sort((a, b) => parseInt(a.id) - parseInt(b.id));
-
+export function AssessmentSidebar({ answers, questions, currentQuestionId }: AssessmentSidebarProps) {
   return (
-    <Card className="h-fit sticky top-4">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-lg">Assessment Progress</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {coveredTitles.map((item) => (
-          <div
-            key={item.id}
-            className={`flex items-start gap-3 p-3 rounded-lg transition-colors ${
-              item.isCurrent 
-                ? 'bg-blue-50 border border-blue-200' 
-                : item.answer 
-                  ? 'bg-green-50 border border-green-200' 
-                  : 'bg-gray-50 border border-gray-200'
-            }`}
-          >
-            <div className="flex-shrink-0 mt-0.5">
-              {item.answer ? (
-                <CheckCircle2 className="h-4 w-4 text-green-600" />
-              ) : (
-                <Circle className={`h-4 w-4 ${item.isCurrent ? 'text-blue-600' : 'text-gray-400'}`} />
+    <div className="w-full bg-muted/30 border border-border rounded-lg p-6 overflow-y-auto max-h-[calc(100vh-200px)] sticky top-6">
+      <div className="pb-4 mb-4 border-b border-border">
+        <h3 className="text-lg font-semibold text-foreground">ATAD2 Progress</h3>
+        <p className="text-sm text-muted-foreground mt-1">
+          {Object.keys(answers).length} of {questions.length} answered
+        </p>
+      </div>
+      
+      <div className="space-y-3">
+        {questions.map((question) => {
+          const isAnswered = answers[question.question_id];
+          const isCurrent = question.question_id === currentQuestionId;
+          const hasRisk = question.risk_points > 0 && isAnswered === "Yes";
+          
+          return (
+            <div
+              key={question.question_id}
+              className={cn(
+                "p-3 rounded-md border transition-colors",
+                isCurrent
+                  ? "border-primary bg-primary/5"
+                  : isAnswered
+                  ? "border-muted-foreground/20 bg-card"
+                  : "border-muted-foreground/10 bg-muted/20"
               )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className={`text-sm font-medium ${
-                item.isCurrent ? 'text-blue-800' : item.answer ? 'text-green-800' : 'text-gray-700'
-              }`}>
-                {item.title}
+            >
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 mt-0.5">
+                  {isAnswered ? (
+                    <CheckCircle className="h-4 w-4 text-primary" />
+                  ) : (
+                    <Circle className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </div>
+                
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      Q{question.question_id}
+                    </span>
+                    {hasRisk && (
+                      <AlertTriangle className="h-3 w-3 text-destructive" />
+                    )}
+                  </div>
+                  
+                  <h4 className={cn(
+                    "text-sm font-medium leading-tight mt-1",
+                    isCurrent ? "text-primary" : "text-foreground"
+                  )}>
+                    {question.question_title}
+                  </h4>
+                  
+                  {isAnswered && (
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className={cn(
+                        "text-xs px-2 py-0.5 rounded",
+                        isAnswered === "Yes"
+                          ? "bg-destructive/10 text-destructive"
+                          : "bg-primary/10 text-primary"
+                      )}>
+                        {isAnswered}
+                      </span>
+                      {hasRisk && (
+                        <span className="text-xs text-muted-foreground">
+                          {question.risk_points} risk points
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
-              {item.answer && (
-                <div className="text-xs text-gray-600 mt-1">
-                  Answer: <span className="font-medium">{item.answer}</span>
-                </div>
-              )}
-              {item.isCurrent && !item.answer && (
-                <div className="text-xs text-blue-600 mt-1 font-medium">
-                  Current question
-                </div>
-              )}
             </div>
-          </div>
-        ))}
-        
-        {coveredTitles.length === 0 && (
-          <div className="text-center text-gray-500 text-sm py-4">
-            Questions will appear here as you progress
-          </div>
-        )}
-      </CardContent>
-    </Card>
+          );
+        })}
+      </div>
+    </div>
   );
-};
+}

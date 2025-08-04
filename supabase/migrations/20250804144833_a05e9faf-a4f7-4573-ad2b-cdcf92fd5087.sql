@@ -1,0 +1,45 @@
+-- Add question_title column to atad2_questions table
+ALTER TABLE atad2_questions ADD COLUMN question_title text;
+
+-- Update all records with their corresponding question titles
+UPDATE atad2_questions SET question_title = 'Resident taxpayer' WHERE question_id = '1';
+UPDATE atad2_questions SET question_title = 'Non-resident taxpayer' WHERE question_id = '2';
+UPDATE atad2_questions SET question_title = 'International structure' WHERE question_id = '3';
+UPDATE atad2_questions SET question_title = 'Transparent treatment' WHERE question_id = '4';
+UPDATE atad2_questions SET question_title = 'Associated payments' WHERE question_id = '5';
+UPDATE atad2_questions SET question_title = 'Hybrid recipient' WHERE question_id = '6';
+UPDATE atad2_questions SET question_title = 'Non-EU recipient' WHERE question_id = '7';
+UPDATE atad2_questions SET question_title = 'Inclusion in recipient state' WHERE question_id = '8';
+UPDATE atad2_questions SET question_title = 'Pass-through payment' WHERE question_id = '9';
+UPDATE atad2_questions SET question_title = 'Non-EU associated enterprise' WHERE question_id = '10';
+UPDATE atad2_questions SET question_title = 'Exclusion from tax' WHERE question_id = '11';
+UPDATE atad2_questions SET question_title = 'Recipient has PE' WHERE question_id = '12';
+UPDATE atad2_questions SET question_title = 'Attribution to PE' WHERE question_id = '13';
+UPDATE atad2_questions SET question_title = 'PE recognition' WHERE question_id = '14';
+UPDATE atad2_questions SET question_title = 'Foreign PE of taxpayer' WHERE question_id = '15';
+UPDATE atad2_questions SET question_title = 'Non-EU PE' WHERE question_id = '16';
+UPDATE atad2_questions SET question_title = 'Multiple non-EU PEs' WHERE question_id = '17';
+UPDATE atad2_questions SET question_title = 'Deemed payment from PE to HQ' WHERE question_id = '18a';
+UPDATE atad2_questions SET question_title = 'Included in Dutch tax base' WHERE question_id = '18b';
+UPDATE atad2_questions SET question_title = 'Hybrid entity participation' WHERE question_id = '19a';
+UPDATE atad2_questions SET question_title = 'Deductible payment to hybrid' WHERE question_id = '19b';
+UPDATE atad2_questions SET question_title = 'Structured arrangement' WHERE question_id = '20a';
+UPDATE atad2_questions SET question_title = 'Dual residency' WHERE question_id = '20b';
+UPDATE atad2_questions SET question_title = 'Hybrid transfer' WHERE question_id = '21a';
+UPDATE atad2_questions SET question_title = 'Non-EU head office' WHERE question_id = '21b';
+UPDATE atad2_questions SET question_title = 'Double deduction HO+PE' WHERE question_id = '22a';
+UPDATE atad2_questions SET question_title = 'Deemed payment by PE' WHERE question_id = '22b';
+UPDATE atad2_questions SET question_title = 'Taxation of the deemed payment' WHERE question_id = '23a';
+UPDATE atad2_questions SET question_title = 'Non-EU PE payment to NL PE' WHERE question_id = '23b';
+UPDATE atad2_questions SET question_title = 'Recognition of all PEs' WHERE question_id = '24';
+UPDATE atad2_questions SET question_title = 'Recognition of the PE' WHERE question_id = '25';
+UPDATE atad2_questions SET question_title = 'Double deduction (multiple PEs)' WHERE question_id = '26';
+UPDATE atad2_questions SET question_title = 'Double deduction (single PE)' WHERE question_id = '27';
+UPDATE atad2_questions SET question_title = 'Deemed payment to PE' WHERE question_id = '28';
+UPDATE atad2_questions SET question_title = 'Deemed payment to PE' WHERE question_id = '29';
+UPDATE atad2_questions SET question_title = 'Disregarded payment' WHERE question_id = '30';
+UPDATE atad2_questions SET question_title = 'Disregarded payment' WHERE question_id = '31';
+UPDATE atad2_questions SET question_title = 'Inbound payment from non-EU' WHERE question_id = '32';
+UPDATE atad2_questions SET question_title = 'Inbound payment from non-EU' WHERE question_id = '33';
+UPDATE atad2_questions SET question_title = 'Allocated to foreign PE' WHERE question_id = '34';
+UPDATE atad2_questions SET question_title = 'Allocated to foreign PE' WHERE question_id = '35';

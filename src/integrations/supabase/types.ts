@@ -73,6 +73,7 @@ export type Database = {
           next_question_id: string | null
           question: string
           question_id: string
+          question_title: string | null
           risk_points: number
           term_explanation: string | null
           updated_at: string
@@ -85,6 +86,7 @@ export type Database = {
           next_question_id?: string | null
           question: string
           question_id: string
+          question_title?: string | null
           risk_points?: number
           term_explanation?: string | null
           updated_at?: string
@@ -97,6 +99,7 @@ export type Database = {
           next_question_id?: string | null
           question?: string
           question_id?: string
+          question_title?: string | null
           risk_points?: number
           term_explanation?: string | null
           updated_at?: string

@@ -23,7 +23,7 @@ interface Question {
   next_question_id: string | null;
   difficult_term: string | null;
   term_explanation: string | null;
-  question_title?: string | null;
+  question_title: string | null;
 }
 
 interface SessionInfo {
@@ -163,6 +163,7 @@ const Assessment = () => {
   const [loading, setLoading] = useState(false);
   const [questionHistory, setQuestionHistory] = useState<{question: Question, answer: string}[]>([]);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!user) {
@@ -299,6 +300,7 @@ const Assessment = () => {
 
       // Add current question and answer to history
       setQuestionHistory(prev => [...prev, { question: currentQuestion, answer: selectedAnswer }]);
+      setAnswers(prev => ({ ...prev, [currentQuestion.question_id]: selectedAnswer }));
 
       // Move to next question
       const nextQuestionId = selectedQuestionOption.next_question_id;
@@ -339,6 +341,11 @@ const Assessment = () => {
     setQuestionHistory(prev => prev.slice(0, -1));
     setCurrentQuestion(lastEntry.question);
     setSelectedAnswer(lastEntry.answer);
+    
+    // Remove the answer from answers state
+    const newAnswers = { ...answers };
+    delete newAnswers[lastEntry.question.question_id];
+    setAnswers(newAnswers);
   };
 
   const handleAnswerSelect = async (answer: string) => {
@@ -382,6 +389,7 @@ const Assessment = () => {
 
       // Add current question and answer to history
       setQuestionHistory(prev => [...prev, { question: currentQuestion, answer }]);
+      setAnswers(prev => ({ ...prev, [currentQuestion.question_id]: answer }));
 
       // Move to next question
       const nextQuestionId = selectedQuestionOption.next_question_id;
@@ -623,9 +631,19 @@ const Assessment = () => {
           {/* Sidebar */}
           <div className="lg:col-span-1">
             <AssessmentSidebar 
-              questionHistory={questionHistory}
-              currentQuestion={currentQuestion}
-              allQuestions={questions}
+              answers={answers}
+              questions={questions.reduce((acc, q) => {
+                const existing = acc.find(item => item.question_id === q.question_id);
+                if (!existing) {
+                  acc.push({
+                    question_id: q.question_id,
+                    question_title: q.question_title || `Question ${q.question_id}`,
+                    risk_points: q.risk_points
+                  });
+                }
+                return acc;
+              }, [] as Array<{question_id: string; question_title: string; risk_points: number}>)}
+              currentQuestionId={currentQuestion.question_id}
             />
           </div>
           
