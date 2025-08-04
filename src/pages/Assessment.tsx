@@ -92,7 +92,7 @@ const QuestionText = ({ question, difficultTerm, termExplanation, exampleText }:
   };
 
   return (
-    <div className="max-w-prose">
+    <div>
       <div className="flex items-start gap-2">
         <p className="text-xl leading-relaxed text-foreground font-medium flex-1">
           {renderQuestionWithTerms()}
@@ -118,7 +118,7 @@ const QuestionText = ({ question, difficultTerm, termExplanation, exampleText }:
       </div>
       
       {showExample && exampleText && (
-        <div className="bg-amber-50 border-l-4 border-yellow-400 rounded-md p-4 mt-4 max-w-3xl mx-auto">
+        <div className="w-full bg-amber-50 border-l-4 border-yellow-400 rounded-md p-4 mt-4">
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-start gap-2 flex-1">
               <span className="text-lg">📘</span>
