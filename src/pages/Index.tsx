@@ -33,7 +33,7 @@ const Index = () => {
       <div className="max-w-4xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-4xl font-bold">ATAD2 Risk Assessment</h1>
+            <h1 className="text-4xl font-bold">ATAD2 risk assessment</h1>
             <p className="text-xl text-muted-foreground mt-2">
               Welcome, {user.email}
             </p>

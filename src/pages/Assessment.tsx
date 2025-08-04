@@ -1067,7 +1067,7 @@ const Assessment = () => {
       <AlertDialog open={showFlowChangeDialog} onOpenChange={setShowFlowChangeDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirm Answer Change</AlertDialogTitle>
+            <AlertDialogTitle>Confirm change of answer</AlertDialogTitle>
             <AlertDialogDescription>
               Changing this answer will affect the questions that follow. Some of your answers will be removed because the flow continues differently from here.
             </AlertDialogDescription>
