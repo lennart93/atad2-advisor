@@ -911,7 +911,7 @@ const Assessment = () => {
           <div className="lg:col-span-3">
             <Card className="border-0 shadow-lg">
               <CardHeader className="pb-2">
-                <div className="max-w-[640px] mx-auto">
+                <div className="max-w-[640px] mx-auto text-left">
                   <div className="text-sm text-muted-foreground uppercase tracking-wide mb-1">
                     Question {currentQuestion.question_id}
                   </div>
@@ -920,12 +920,14 @@ const Assessment = () => {
                       {currentQuestion.question_title}
                     </h2>
                   )}
-                  <QuestionText 
-                    question={currentQuestion.question}
-                    difficultTerm={questionWithTerms.difficult_term}
-                    termExplanation={questionWithTerms.term_explanation}
-                    exampleText={exampleText}
-                  />
+                  <div className="w-full">
+                    <QuestionText 
+                      question={currentQuestion.question}
+                      difficultTerm={questionWithTerms.difficult_term}
+                      termExplanation={questionWithTerms.term_explanation}
+                      exampleText={exampleText}
+                    />
+                  </div>
                 </div>
               </CardHeader>
           <CardContent className="pt-6">
