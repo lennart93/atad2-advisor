@@ -48,6 +48,9 @@ const Assessment = () => {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [selectedAnswer, setSelectedAnswer] = useState<string>("");
   const [loading, setLoading] = useState(false);
+  const [questionHistory, setQuestionHistory] = useState<{question: Question, answer: string}[]>([]);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [autoAdvance, setAutoAdvance] = useState(true);
 
   useEffect(() => {
     if (!user) {
@@ -182,13 +185,20 @@ const Assessment = () => {
 
       if (error) throw error;
 
+      // Add current question and answer to history
+      setQuestionHistory(prev => [...prev, { question: currentQuestion, answer: selectedAnswer }]);
+
       // Move to next question
       const nextQuestionId = selectedQuestionOption.next_question_id;
       if (nextQuestionId) {
         const nextQuestion = questions.find(q => q.question_id === nextQuestionId);
         if (nextQuestion) {
-          setCurrentQuestion(nextQuestion);
-          setSelectedAnswer("");
+          setIsTransitioning(true);
+          setTimeout(() => {
+            setCurrentQuestion(nextQuestion);
+            setSelectedAnswer("");
+            setIsTransitioning(false);
+          }, 300);
         }
       } else {
         // Assessment completed
@@ -207,6 +217,26 @@ const Assessment = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const goToPreviousQuestion = () => {
+    if (questionHistory.length === 0) return;
+    
+    const lastEntry = questionHistory[questionHistory.length - 1];
+    setQuestionHistory(prev => prev.slice(0, -1));
+    setCurrentQuestion(lastEntry.question);
+    setSelectedAnswer(lastEntry.answer);
+  };
+
+  const handleAnswerSelect = (answer: string) => {
+    setSelectedAnswer(answer);
+    
+    if (autoAdvance) {
+      // Auto-advance after 500ms
+      setTimeout(() => {
+        submitAnswer();
+      }, 500);
     }
   };
 
@@ -447,13 +477,15 @@ const Assessment = () => {
                   <button
                     key={index}
                     type="button"
-                    onClick={() => setSelectedAnswer(option.answer_option)}
+                    onClick={() => handleAnswerSelect(option.answer_option)}
+                    disabled={loading || isTransitioning}
                     className={`
                       w-full p-4 rounded-lg border-2 transition-all duration-200 text-left
                       ${isSelected 
-                        ? 'border-primary bg-primary/5 shadow-md' 
+                        ? 'border-primary bg-primary/10 shadow-md ring-2 ring-primary/20' 
                         : 'border-border hover:border-primary/50 hover:bg-accent/50'
                       }
+                      ${loading || isTransitioning ? 'opacity-50 cursor-not-allowed' : ''}
                       focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
                     `}
                   >
@@ -487,13 +519,52 @@ const Assessment = () => {
               </div>
             )}
             
-            <Button 
-              onClick={submitAnswer} 
-              disabled={!selectedAnswer || loading}
-              className="w-full px-6 py-3 rounded-xl transition-all duration-200 hover:shadow-lg disabled:opacity-50"
-            >
-              {loading ? "Submitting..." : "Next question"}
-            </Button>
+            {/* Navigation buttons */}
+            <div className="flex items-center gap-3">
+              <Button 
+                onClick={goToPreviousQuestion}
+                disabled={questionHistory.length === 0 || loading || isTransitioning}
+                variant="outline"
+                className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                ← Previous
+              </Button>
+              
+              {!autoAdvance && (
+                <Button 
+                  onClick={submitAnswer} 
+                  disabled={!selectedAnswer || loading || isTransitioning}
+                  className={`
+                    flex-1 px-6 py-3 rounded-xl transition-all duration-200 hover:shadow-lg
+                    ${!selectedAnswer || loading || isTransitioning 
+                      ? 'bg-muted text-muted-foreground cursor-not-allowed' 
+                      : 'bg-primary text-primary-foreground hover:bg-primary/90'
+                    }
+                  `}
+                >
+                  {loading ? "Submitting..." : "Next question"}
+                </Button>
+              )}
+              
+              {autoAdvance && selectedAnswer && (
+                <div className="flex-1 px-6 py-3 text-center text-sm text-muted-foreground">
+                  Auto-advancing in 0.5s...
+                </div>
+              )}
+            </div>
+            
+            {/* Auto-advance toggle */}
+            <div className="mt-4 pt-4 border-t border-border">
+              <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={autoAdvance}
+                  onChange={(e) => setAutoAdvance(e.target.checked)}
+                  className="rounded"
+                />
+                Auto-advance after selecting answer
+              </label>
+            </div>
           </CardContent>
         </Card>
       </div>
