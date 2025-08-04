@@ -744,14 +744,19 @@ const Assessment = () => {
                     const isYes = option.answer_option.toLowerCase() === 'yes';
                     
                     return (
-                      <div
+                      <button
                         key={index}
+                        type="button"
+                        onClick={() => handleAnswerSelect(option.answer_option)}
+                        disabled={loading || isTransitioning}
                         className={`
                           w-full p-4 rounded-lg border-2 transition-all duration-200 text-left
                           ${isSelected 
                             ? 'border-primary bg-primary/10 shadow-md ring-2 ring-primary/20' 
-                            : 'border-border bg-muted/30'
+                            : 'border-border hover:border-primary/50 hover:bg-accent/50'
                           }
+                          ${loading || isTransitioning ? 'opacity-50 cursor-not-allowed' : ''}
+                          focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
                         `}
                       >
                         <div className="flex items-center gap-3">
@@ -767,7 +772,7 @@ const Assessment = () => {
                             </span>
                           )}
                         </div>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>

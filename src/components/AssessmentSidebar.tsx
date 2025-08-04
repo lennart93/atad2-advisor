@@ -1,4 +1,4 @@
-import { CheckCircle, Circle, AlertTriangle, Check, X } from "lucide-react";
+import { CheckCircle, Circle, Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface AssessmentSidebarProps {
@@ -34,7 +34,6 @@ export function AssessmentSidebar({ answers, questionHistory, currentQuestion, o
       <div className="space-y-3">
         {/* Show answered questions in order */}
         {questionHistory.map((entry, index) => {
-          const hasRisk = entry.question.risk_points > 0 && entry.answer === "Yes";
           const isCurrentlyViewing = currentQuestion?.question_id === entry.question.question_id;
           
           return (
@@ -68,9 +67,6 @@ export function AssessmentSidebar({ answers, questionHistory, currentQuestion, o
                     <span className="text-xs font-medium text-muted-foreground">
                       Q{entry.question.question_id}
                     </span>
-                    {hasRisk && (
-                      <AlertTriangle className="h-3 w-3 text-destructive" />
-                    )}
                   </div>
                   
                   <h4 className={cn(
@@ -96,11 +92,6 @@ export function AssessmentSidebar({ answers, questionHistory, currentQuestion, o
                         {entry.answer}
                       </span>
                     </div>
-                    {hasRisk && (
-                      <span className="text-xs text-muted-foreground">
-                        {entry.question.risk_points} risk points
-                      </span>
-                    )}
                   </div>
                 </div>
               </div>
