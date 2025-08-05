@@ -1,5 +1,6 @@
 import { CheckCircle, Circle, Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useEffect, useRef } from "react";
 
 interface AssessmentSidebarProps {
   answers: Record<string, string>;
@@ -21,19 +22,33 @@ interface AssessmentSidebarProps {
 
 export function AssessmentSidebar({ answers, questionHistory, currentQuestion, onQuestionClick }: AssessmentSidebarProps) {
   const totalAnswered = questionHistory.length;
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  
+  // Auto-scroll to bottom when new questions are added
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+    }
+  }, [questionHistory.length]);
   
   return (
-    <div className="w-full bg-muted/30 border border-border rounded-lg p-6 overflow-y-auto max-h-[calc(100vh-200px)] sticky top-6">
-      <div className="pb-4 mb-4 border-b border-border">
+    <div className="w-full bg-muted/30 border border-border rounded-lg sticky top-6 max-h-[calc(100vh-200px)] flex flex-col overflow-hidden">
+      {/* Sticky header */}
+      <div className="sticky top-0 bg-muted/30 z-10 p-6 pb-4 border-b border-border">
         <h3 className="text-lg font-semibold text-foreground">ATAD2 progress</h3>
         <p className="text-sm text-muted-foreground mt-1">
           {totalAnswered} questions answered
         </p>
       </div>
       
-      <div className="space-y-3">
-        {/* Show answered questions in order */}
-        {questionHistory.map((entry, index) => {
+      {/* Scrollable content */}
+      <div 
+        ref={scrollContainerRef}
+        className="overflow-y-auto flex-1 p-6 pt-4 scroll-smooth"
+      >
+        <div className="space-y-3">
+          {/* Show answered questions in order */}
+          {questionHistory.map((entry, index) => {
           const isCurrentlyViewing = currentQuestion?.question_id === entry.question.question_id;
           
           return (
@@ -126,7 +141,8 @@ export function AssessmentSidebar({ answers, questionHistory, currentQuestion, o
               </div>
             </div>
           </div>
-        )}
+         )}
+        </div>
       </div>
     </div>
   );
