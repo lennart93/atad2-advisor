@@ -529,6 +529,13 @@ const Assessment = () => {
         throw new Error("Selected answer not found");
       }
 
+      console.log(`DIRECT SUBMIT DEBUG:`, {
+        questionId: currentQuestion.question_id,
+        answer,
+        nextQuestionId: selectedQuestionOption.next_question_id,
+        hasNextQuestion: !!selectedQuestionOption.next_question_id
+      });
+
       const { data: existingAnswer } = await supabase
         .from('atad2_answers')
         .select('id')
@@ -597,8 +604,6 @@ const Assessment = () => {
 
       const nextQuestionId = selectedQuestionOption.next_question_id;
       
-      console.log(`Direct submit - Current question: ${currentQuestion.question_id}, Selected answer: ${answer}, Next question ID: ${nextQuestionId}`);
-      
       if (nextQuestionId) {
         const nextQuestion = questions.find(q => q.question_id === nextQuestionId);
         if (nextQuestion) {
@@ -610,9 +615,16 @@ const Assessment = () => {
           }, 300);
         }
       } else {
-        // This is the end of the flow - keep the answer selected so finish button shows
-        console.log("End of flow reached in direct submit - keeping answer selected");
-        // Don't clear selectedAnswer here, we need it for the finish button to show
+        // This is the end of the flow - keep the answer selected
+        console.log("END OF FLOW REACHED - Setting selectedAnswer to:", answer);
+        setSelectedAnswer(answer);
+        
+        // Force a re-render to check button visibility
+        setTimeout(() => {
+          console.log("After timeout - selectedAnswer:", answer);
+          console.log("After timeout - currentQuestion:", currentQuestion.question_id);
+          console.log("After timeout - navigationIndex:", -1);
+        }, 100);
       }
     } catch (error) {
       console.error('Error submitting answer:', error);
@@ -683,8 +695,12 @@ const Assessment = () => {
 
   // Check if we're at the end of the flow
   const isAtEndOfFlow = () => {
+    console.log("=== isAtEndOfFlow CHECK ===");
+    console.log("currentQuestion:", currentQuestion?.question_id);
+    console.log("selectedAnswer:", selectedAnswer);
+    
     if (!currentQuestion || !selectedAnswer) {
-      console.log("isAtEndOfFlow: false - missing currentQuestion or selectedAnswer", { currentQuestion: !!currentQuestion, selectedAnswer });
+      console.log("isAtEndOfFlow: FALSE - missing data");
       return false;
     }
     
@@ -693,30 +709,26 @@ const Assessment = () => {
       q => q.question_id === currentQuestion.question_id && q.answer_option === selectedAnswer
     );
     
-    console.log("isAtEndOfFlow check:", {
-      questionId: currentQuestion.question_id,
-      selectedAnswer,
-      selectedQuestionOption: selectedQuestionOption ? {
-        answer_option: selectedQuestionOption.answer_option,
-        next_question_id: selectedQuestionOption.next_question_id
-      } : null
-    });
+    console.log("selectedQuestionOption:", selectedQuestionOption);
+    console.log("next_question_id:", selectedQuestionOption?.next_question_id);
     
     // Return true if there's no next question ID (null or undefined)
     const isAtEnd = selectedQuestionOption && !selectedQuestionOption.next_question_id;
-    console.log("isAtEndOfFlow result:", isAtEnd);
+    console.log("isAtEndOfFlow RESULT:", isAtEnd);
+    console.log("=== END isAtEndOfFlow CHECK ===");
     return isAtEnd;
   };
 
   // Check if we should show the finish button
   const shouldShowFinishButton = () => {
+    console.log("=== shouldShowFinishButton CHECK ===");
+    console.log("navigationIndex:", navigationIndex);
+    console.log("selectedAnswer:", selectedAnswer);
+    console.log("isAtEndOfFlow():", isAtEndOfFlow());
+    
     const shouldShow = navigationIndex === -1 && selectedAnswer && isAtEndOfFlow();
-    console.log("shouldShowFinishButton:", {
-      navigationIndex,
-      selectedAnswer,
-      isAtEndOfFlow: isAtEndOfFlow(),
-      result: shouldShow
-    });
+    console.log("shouldShowFinishButton RESULT:", shouldShow);
+    console.log("=== END shouldShowFinishButton CHECK ===");
     return shouldShow;
   };
 
