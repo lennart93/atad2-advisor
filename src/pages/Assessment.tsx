@@ -386,8 +386,11 @@ const Assessment = () => {
       setNavigationIndex(-1);
       setAnswers(prev => ({ ...prev, [currentQuestion.question_id]: selectedAnswer }));
 
-      // Move to next question
+      // Move to next question or finish if this is the end
       const nextQuestionId = selectedQuestionOption.next_question_id;
+      
+      console.log(`Current question: ${currentQuestion.question_id}, Selected answer: ${selectedAnswer}, Next question ID: ${nextQuestionId}`);
+      
       if (nextQuestionId) {
         const nextQuestion = questions.find(q => q.question_id === nextQuestionId);
         if (nextQuestion) {
@@ -399,16 +402,9 @@ const Assessment = () => {
           }, 300);
         }
       } else {
-        await supabase
-          .from('atad2_sessions')
-          .update({ completed: true, status: 'completed' })
-          .eq('session_id', sessionId);
-
-        toast({
-          title: "Assessment complete",
-          description: "Your risk assessment has been completed successfully.",
-        });
-        navigate("/");
+        // This is the end of the flow - just stay on current question and let finish button appear
+        console.log("End of flow reached - staying on current question");
+        setSelectedAnswer(selectedAnswer); // Keep the selected answer so finish button shows
       }
     } catch (error) {
       console.error('Error submitting answer:', error);
@@ -600,6 +596,9 @@ const Assessment = () => {
       setAnswers(prev => ({ ...prev, [currentQuestion.question_id]: answer }));
 
       const nextQuestionId = selectedQuestionOption.next_question_id;
+      
+      console.log(`Direct submit - Current question: ${currentQuestion.question_id}, Selected answer: ${answer}, Next question ID: ${nextQuestionId}`);
+      
       if (nextQuestionId) {
         const nextQuestion = questions.find(q => q.question_id === nextQuestionId);
         if (nextQuestion) {
@@ -611,16 +610,9 @@ const Assessment = () => {
           }, 300);
         }
       } else {
-        await supabase
-          .from('atad2_sessions')
-          .update({ completed: true, status: 'completed' })
-          .eq('session_id', sessionId);
-
-        toast({
-          title: "Assessment complete",
-          description: "Your risk assessment has been completed successfully.",
-        });
-        navigate("/");
+        // This is the end of the flow - keep the answer selected so finish button shows
+        console.log("End of flow reached in direct submit - keeping answer selected");
+        // Don't clear selectedAnswer here, we need it for the finish button to show
       }
     } catch (error) {
       console.error('Error submitting answer:', error);
@@ -691,20 +683,41 @@ const Assessment = () => {
 
   // Check if we're at the end of the flow
   const isAtEndOfFlow = () => {
-    if (!currentQuestion || !selectedAnswer) return false;
+    if (!currentQuestion || !selectedAnswer) {
+      console.log("isAtEndOfFlow: false - missing currentQuestion or selectedAnswer", { currentQuestion: !!currentQuestion, selectedAnswer });
+      return false;
+    }
     
     // Find the selected question option
     const selectedQuestionOption = questions.find(
       q => q.question_id === currentQuestion.question_id && q.answer_option === selectedAnswer
     );
     
+    console.log("isAtEndOfFlow check:", {
+      questionId: currentQuestion.question_id,
+      selectedAnswer,
+      selectedQuestionOption: selectedQuestionOption ? {
+        answer_option: selectedQuestionOption.answer_option,
+        next_question_id: selectedQuestionOption.next_question_id
+      } : null
+    });
+    
     // Return true if there's no next question ID (null or undefined)
-    return selectedQuestionOption && !selectedQuestionOption.next_question_id;
+    const isAtEnd = selectedQuestionOption && !selectedQuestionOption.next_question_id;
+    console.log("isAtEndOfFlow result:", isAtEnd);
+    return isAtEnd;
   };
 
   // Check if we should show the finish button
   const shouldShowFinishButton = () => {
-    return navigationIndex === -1 && selectedAnswer && isAtEndOfFlow();
+    const shouldShow = navigationIndex === -1 && selectedAnswer && isAtEndOfFlow();
+    console.log("shouldShowFinishButton:", {
+      navigationIndex,
+      selectedAnswer,
+      isAtEndOfFlow: isAtEndOfFlow(),
+      result: shouldShow
+    });
+    return shouldShow;
   };
 
   if (!user) return null;
