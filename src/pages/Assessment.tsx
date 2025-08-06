@@ -165,6 +165,7 @@ const Assessment = () => {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [showFlowChangeDialog, setShowFlowChangeDialog] = useState(false);
   const [pendingAnswerChange, setPendingAnswerChange] = useState<{answer: string, newNextQuestionId: string | null} | null>(null);
+  const [autoAdvance, setAutoAdvance] = useState(true);
 
   useEffect(() => {
     if (!user) {
@@ -510,11 +511,14 @@ const Assessment = () => {
     }
     
     setSelectedAnswer(answer);
-    setLoading(true);
     
-    setTimeout(async () => {
-      await submitAnswerDirectly(answer);
-    }, 300);
+    // Only auto-advance when not navigating and auto-advance is enabled
+    if (autoAdvance && navigationIndex === -1) {
+      setLoading(true);
+      setTimeout(async () => {
+        await submitAnswerDirectly(answer);
+      }, 300);
+    }
   };
 
   const submitAnswerDirectly = async (answer: string) => {
@@ -944,7 +948,7 @@ const Assessment = () => {
                     </p>
                   </div>
                   
-                  {/* Answer options - keep existing code */}
+                  {/* Answer options */}
                   <div className="space-y-3 mb-8">
                     {currentQuestionOptions.map((option, index) => {
                       const isSelected = selectedAnswer === option.answer_option;
@@ -995,8 +999,8 @@ const Assessment = () => {
                       ← Previous
                     </Button>
                     
-                    {/* Show Next button for navigation */}
-                    {navigationIndex !== -1 && navigationIndex < questionFlow.length - 1 && (
+                    {/* Show Next button only when auto-advance is disabled and navigating */}
+                    {!autoAdvance && navigationIndex !== -1 && navigationIndex < questionFlow.length - 1 && (
                       <Button 
                         onClick={goToNextQuestion}
                         disabled={loading || isTransitioning}
@@ -1007,8 +1011,8 @@ const Assessment = () => {
                       </Button>
                     )}
                     
-                    {/* Show Continue button when at last answered question */}
-                    {navigationIndex === questionFlow.length - 1 && (
+                    {/* Show Continue button when at last answered question and auto-advance is disabled */}
+                    {!autoAdvance && navigationIndex === questionFlow.length - 1 && (
                       <Button 
                         onClick={continueToNextUnanswered}
                         disabled={loading || isTransitioning}
@@ -1020,7 +1024,7 @@ const Assessment = () => {
                     )}
 
                     {/* Show Finish Assessment button when at end of flow */}
-                    {!isViewingAnsweredQuestion && selectedAnswer && isAtEndOfFlow() && (
+                    {navigationIndex === -1 && selectedAnswer && isAtEndOfFlow() && (
                       <Button 
                         onClick={finishAssessment}
                         disabled={loading || isTransitioning}
