@@ -693,11 +693,18 @@ const Assessment = () => {
   const isAtEndOfFlow = () => {
     if (!currentQuestion || !selectedAnswer) return false;
     
+    // Find the selected question option
     const selectedQuestionOption = questions.find(
       q => q.question_id === currentQuestion.question_id && q.answer_option === selectedAnswer
     );
     
+    // Return true if there's no next question ID (null or undefined)
     return selectedQuestionOption && !selectedQuestionOption.next_question_id;
+  };
+
+  // Check if we should show the finish button
+  const shouldShowFinishButton = () => {
+    return navigationIndex === -1 && selectedAnswer && isAtEndOfFlow();
   };
 
   if (!user) return null;
@@ -1024,7 +1031,7 @@ const Assessment = () => {
                     )}
 
                     {/* Show Finish Assessment button when at end of flow */}
-                    {(navigationIndex === -1 || !autoAdvance) && selectedAnswer && isAtEndOfFlow() && (
+                    {shouldShowFinishButton() && (
                       <Button 
                         onClick={finishAssessment}
                         disabled={loading || isTransitioning}
