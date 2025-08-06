@@ -29,6 +29,7 @@ interface Question {
 
 interface SessionInfo {
   taxpayer_name: string;
+  entity_name: string;
   tax_year: string;
   tax_year_not_equals_calendar: boolean;
   period_start_date?: string;
@@ -149,6 +150,7 @@ const Assessment = () => {
   
   const [sessionInfo, setSessionInfo] = useState<SessionInfo>({
     taxpayer_name: "",
+    entity_name: "",
     tax_year: "",
     tax_year_not_equals_calendar: false
   });
@@ -159,8 +161,8 @@ const Assessment = () => {
   const [selectedAnswer, setSelectedAnswer] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [questionHistory, setQuestionHistory] = useState<{question: Question, answer: string}[]>([]);
-  const [questionFlow, setQuestionFlow] = useState<{question: Question, answer: string}[]>([]); // Actual answered sequence
-  const [navigationIndex, setNavigationIndex] = useState<number>(-1); // Current position in questionFlow (-1 = at new question)
+  const [questionFlow, setQuestionFlow] = useState<{question: Question, answer: string}[]>([]); 
+  const [navigationIndex, setNavigationIndex] = useState<number>(-1); 
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [showFlowChangeDialog, setShowFlowChangeDialog] = useState(false);
@@ -196,7 +198,7 @@ const Assessment = () => {
   };
 
   const startSession = async () => {
-    if (!sessionInfo.taxpayer_name || !sessionInfo.tax_year) {
+    if (!sessionInfo.taxpayer_name || !sessionInfo.entity_name || !sessionInfo.tax_year) {
       toast({
         title: "Missing information",
         description: "Please fill in all required fields",
@@ -241,12 +243,15 @@ const Assessment = () => {
         .from('atad2_sessions')
         .insert({
           session_id: newSessionId,
+          user_id: user?.id || null,
           taxpayer_name: sessionInfo.taxpayer_name,
+          entity_name: sessionInfo.entity_name,
           fiscal_year: sessionInfo.tax_year,
           is_custom_period: sessionInfo.tax_year_not_equals_calendar,
           period_start_date: startDate,
           period_end_date: endDate,
-          status: 'in_progress'
+          status: 'in_progress',
+          completed: false
         });
 
       if (error) throw error;
@@ -332,12 +337,10 @@ const Assessment = () => {
       setQuestionHistory(prev => {
         const existingIndex = prev.findIndex(entry => entry.question.question_id === currentQuestion.question_id);
         if (existingIndex !== -1) {
-          // Replace existing entry
           const updated = [...prev];
           updated[existingIndex] = questionEntry;
           return updated;
         } else {
-          // Add new entry
           return [...prev, questionEntry];
         }
       });
@@ -345,17 +348,15 @@ const Assessment = () => {
       setQuestionFlow(prev => {
         const existingIndex = prev.findIndex(entry => entry.question.question_id === currentQuestion.question_id);
         if (existingIndex !== -1) {
-          // Replace existing entry
           const updated = [...prev];
           updated[existingIndex] = questionEntry;
           return updated;
         } else {
-          // Add new entry
           return [...prev, questionEntry];
         }
       });
       
-      setNavigationIndex(-1); // Reset to new question mode
+      setNavigationIndex(-1);
       setAnswers(prev => ({ ...prev, [currentQuestion.question_id]: selectedAnswer }));
 
       // Move to next question
@@ -371,7 +372,12 @@ const Assessment = () => {
           }, 300);
         }
       } else {
-        // Assessment completed
+        // Assessment completed - mark as completed
+        await supabase
+          .from('atad2_sessions')
+          .update({ completed: true, status: 'completed' })
+          .eq('session_id', sessionId);
+
         toast({
           title: "Assessment complete",
           description: "Your risk assessment has been completed successfully.",
@@ -396,13 +402,10 @@ const Assessment = () => {
     let targetIndex: number;
     
     if (navigationIndex === -1) {
-      // We're at a new question, go to the last answered question
       targetIndex = questionFlow.length - 1;
     } else if (navigationIndex > 0) {
-      // We're reviewing, go one step back in the flow
       targetIndex = navigationIndex - 1;
     } else {
-      // We're at the first question, can't go back further
       return;
     }
     
@@ -413,7 +416,6 @@ const Assessment = () => {
   };
 
   const goToNextQuestion = () => {
-    // Only allow "next" if we're reviewing within the answered flow
     if (navigationIndex === -1 || navigationIndex >= questionFlow.length - 1) return;
     
     const targetIndex = navigationIndex + 1;
@@ -424,10 +426,8 @@ const Assessment = () => {
   };
 
   const continueToNextUnanswered = () => {
-    // Find the next question that should be asked based on current flow
     if (questionFlow.length === 0) return;
     
-    // Get the last answered question and find its next question
     const lastAnsweredEntry = questionFlow[questionFlow.length - 1];
     const lastAnsweredQuestionOption = questions.find(
       q => q.question_id === lastAnsweredEntry.question.question_id && 
@@ -439,10 +439,9 @@ const Assessment = () => {
       if (nextQuestion) {
         setCurrentQuestion(nextQuestion);
         setSelectedAnswer("");
-        setNavigationIndex(-1); // Back to new question mode
+        setNavigationIndex(-1);
       }
     } else {
-      // Assessment completed
       toast({
         title: "Assessment complete",
         description: "Your risk assessment has been completed successfully.",
@@ -454,7 +453,6 @@ const Assessment = () => {
   const goToSpecificQuestion = (questionIndex: number) => {
     if (questionIndex >= questionFlow.length) return;
     
-    // Navigate to the specific question from flow and set navigationIndex
     const targetEntry = questionFlow[questionIndex];
     setCurrentQuestion(targetEntry.question);
     setSelectedAnswer(targetEntry.answer);
@@ -464,7 +462,6 @@ const Assessment = () => {
   const handleAnswerSelect = async (answer: string) => {
     if (loading || isTransitioning) return;
     
-    // Check if this is a previously answered question and if the answer would change the flow
     if (navigationIndex !== -1 && currentQuestion) {
       const newSelectedOption = questions.find(
         q => q.question_id === currentQuestion.question_id && q.answer_option === answer
@@ -475,11 +472,9 @@ const Assessment = () => {
         q => q.question_id === currentQuestion.question_id && q.answer_option === currentAnswerEntry?.answer
       );
       
-      // Compare next_question_id to detect flow changes
       if (newSelectedOption && oldSelectedOption && 
           newSelectedOption.next_question_id !== oldSelectedOption.next_question_id) {
         
-        // Show confirmation dialog
         setPendingAnswerChange({
           answer,
           newNextQuestionId: newSelectedOption.next_question_id
@@ -492,7 +487,6 @@ const Assessment = () => {
     setSelectedAnswer(answer);
     setLoading(true);
     
-    // Brief visual feedback, then auto-advance
     setTimeout(async () => {
       await submitAnswerDirectly(answer);
     }, 300);
@@ -510,7 +504,6 @@ const Assessment = () => {
         throw new Error("Selected answer not found");
       }
 
-      // Check if answer already exists for this question in this session
       const { data: existingAnswer } = await supabase
         .from('atad2_answers')
         .select('id')
@@ -519,7 +512,6 @@ const Assessment = () => {
         .single();
 
       if (existingAnswer) {
-        // Update existing answer
         const { error } = await supabase
           .from('atad2_answers')
           .update({
@@ -535,7 +527,6 @@ const Assessment = () => {
 
         if (error) throw error;
       } else {
-        // Insert new answer
         const { error } = await supabase
           .from('atad2_answers')
           .insert({
@@ -552,18 +543,15 @@ const Assessment = () => {
         if (error) throw error;
       }
 
-      // Update or add current question and answer to both history and flow
       const questionEntry = { question: currentQuestion, answer };
       
       setQuestionHistory(prev => {
         const existingIndex = prev.findIndex(entry => entry.question.question_id === currentQuestion.question_id);
         if (existingIndex !== -1) {
-          // Replace existing entry
           const updated = [...prev];
           updated[existingIndex] = questionEntry;
           return updated;
         } else {
-          // Add new entry
           return [...prev, questionEntry];
         }
       });
@@ -571,20 +559,17 @@ const Assessment = () => {
       setQuestionFlow(prev => {
         const existingIndex = prev.findIndex(entry => entry.question.question_id === currentQuestion.question_id);
         if (existingIndex !== -1) {
-          // Replace existing entry
           const updated = [...prev];
           updated[existingIndex] = questionEntry;
           return updated;
         } else {
-          // Add new entry
           return [...prev, questionEntry];
         }
       });
       
-      setNavigationIndex(-1); // Reset to new question mode
+      setNavigationIndex(-1);
       setAnswers(prev => ({ ...prev, [currentQuestion.question_id]: answer }));
 
-      // Move to next question
       const nextQuestionId = selectedQuestionOption.next_question_id;
       if (nextQuestionId) {
         const nextQuestion = questions.find(q => q.question_id === nextQuestionId);
@@ -597,7 +582,11 @@ const Assessment = () => {
           }, 300);
         }
       } else {
-        // Assessment completed
+        await supabase
+          .from('atad2_sessions')
+          .update({ completed: true, status: 'completed' })
+          .eq('session_id', sessionId);
+
         toast({
           title: "Assessment complete",
           description: "Your risk assessment has been completed successfully.",
@@ -623,7 +612,6 @@ const Assessment = () => {
     setLoading(true);
 
     try {
-      // Remove subsequent answers from database
       const currentQuestionIndex = questionFlow.findIndex(entry => entry.question.question_id === currentQuestion.question_id);
       const subsequentQuestions = questionFlow.slice(currentQuestionIndex + 1);
       
@@ -635,13 +623,11 @@ const Assessment = () => {
           .eq('question_id', entry.question.question_id);
       }
 
-      // Update questionFlow to remove subsequent questions with animation
       setQuestionFlow(prev => {
         const currentIndex = prev.findIndex(entry => entry.question.question_id === currentQuestion.question_id);
         return prev.slice(0, currentIndex + 1);
       });
 
-      // Update answers state
       setAnswers(prev => {
         const newAnswers = { ...prev };
         subsequentQuestions.forEach(entry => {
@@ -650,10 +636,8 @@ const Assessment = () => {
         return newAnswers;
       });
 
-      // Now proceed with the answer change
       setSelectedAnswer(pendingAnswerChange.answer);
       
-      // Brief visual feedback, then auto-advance
       setTimeout(async () => {
         await submitAnswerDirectly(pendingAnswerChange.answer);
         setPendingAnswerChange(null);
@@ -718,6 +702,29 @@ const Assessment = () => {
                   required
                 />
               </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center">
+                  <Label htmlFor="entity_name">Entity name</Label>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="text-red-500 text-sm ml-1 cursor-default">*</span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>This field is required</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+                <Input
+                  id="entity_name"
+                  value={sessionInfo.entity_name}
+                  onChange={(e) => setSessionInfo({...sessionInfo, entity_name: e.target.value})}
+                  placeholder="Enter entity name"
+                  required
+                />
+              </div>
               
               <div className="space-y-2">
                 <div className="flex items-center">
@@ -742,7 +749,7 @@ const Assessment = () => {
                   </SelectTrigger>
                   <SelectContent>
                     {Array.from({ length: 6 }, (_, i) => {
-                      const year = 2025 - i; // 2025, 2024, 2023, 2022, 2021, 2020
+                      const year = 2025 - i;
                       return (
                         <SelectItem key={year} value={year.toString()}>
                           {year}
@@ -862,16 +869,13 @@ const Assessment = () => {
       return 0;
     });
 
-  // Get the most complete question data (with difficult_term and term_explanation)
   const questionWithTerms = currentQuestionOptions.find(q => q.difficult_term && q.term_explanation) || currentQuestion;
   
-  // Get example text if it exists
   const exampleOption = currentQuestionOptions.find(q => 
     q.difficult_term && q.difficult_term.toLowerCase().startsWith('example')
   );
   const exampleText = exampleOption ? exampleOption.term_explanation : null;
   
-  // Check if we're viewing an already answered question
   const isViewingAnsweredQuestion = navigationIndex !== -1;
 
   return (
@@ -884,7 +888,6 @@ const Assessment = () => {
         </div>
         
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Sidebar */}
           <div className="lg:col-span-1">
             <AssessmentSidebar 
               answers={answers}
@@ -905,7 +908,6 @@ const Assessment = () => {
             />
           </div>
           
-          {/* Main Content */}
           <div className="lg:col-span-3">
             <Card className="border-0 shadow-lg">
               <CardContent className="p-6">
@@ -929,7 +931,6 @@ const Assessment = () => {
                     </p>
                   </div>
                   {isViewingAnsweredQuestion ? (
-                    /* Viewing a previously answered question - show read-only with continue option */
                     <>
                       <div className="space-y-3 mb-8">
                         {currentQuestionOptions.map((option, index) => {
@@ -970,7 +971,6 @@ const Assessment = () => {
                         })}
                       </div>
 
-                      {/* Continue button for answered questions */}
                       <div className="flex items-center gap-3">
                         <Button 
                           onClick={goToPreviousQuestion}
@@ -981,7 +981,6 @@ const Assessment = () => {
                           ← Previous
                         </Button>
                         
-                        {/* Next button - only show when reviewing within the flow */}
                         {navigationIndex !== -1 && navigationIndex < questionFlow.length - 1 && (
                           <Button 
                             onClick={goToNextQuestion}
@@ -993,7 +992,6 @@ const Assessment = () => {
                           </Button>
                         )}
                         
-                        {/* Continue to next question */}
                         {navigationIndex === questionFlow.length - 1 && (
                           <Button 
                             onClick={continueToNextUnanswered}
@@ -1007,7 +1005,6 @@ const Assessment = () => {
                       </div>
                     </>
                   ) : (
-                    /* New question - show interactive answer options */
                     <>
                       <div className="space-y-3 mb-8">
                         {currentQuestionOptions.map((option, index) => {
@@ -1043,7 +1040,6 @@ const Assessment = () => {
                         })}
                       </div>
                       
-                      {/* Navigation buttons for new questions */}
                       <div className="flex items-center gap-3">
                         <Button 
                           onClick={goToPreviousQuestion}
@@ -1063,7 +1059,6 @@ const Assessment = () => {
         </div>
       </div>
 
-      {/* Flow Change Confirmation Dialog */}
       <AlertDialog open={showFlowChangeDialog} onOpenChange={setShowFlowChangeDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>

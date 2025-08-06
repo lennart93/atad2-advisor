@@ -108,8 +108,10 @@ export type Database = {
       }
       atad2_sessions: {
         Row: {
+          completed: boolean | null
           created_at: string
           date_filled: string
+          entity_name: string | null
           final_score: number | null
           fiscal_year: string
           id: string
@@ -120,10 +122,13 @@ export type Database = {
           status: string
           taxpayer_name: string
           updated_at: string
+          user_id: string | null
         }
         Insert: {
+          completed?: boolean | null
           created_at?: string
           date_filled?: string
+          entity_name?: string | null
           final_score?: number | null
           fiscal_year: string
           id?: string
@@ -134,10 +139,13 @@ export type Database = {
           status?: string
           taxpayer_name: string
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
+          completed?: boolean | null
           created_at?: string
           date_filled?: string
+          entity_name?: string | null
           final_score?: number | null
           fiscal_year?: string
           id?: string
@@ -148,6 +156,7 @@ export type Database = {
           status?: string
           taxpayer_name?: string
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
