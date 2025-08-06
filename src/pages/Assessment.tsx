@@ -29,7 +29,6 @@ interface Question {
 
 interface SessionInfo {
   taxpayer_name: string;
-  entity_name: string;
   tax_year: string;
   tax_year_not_equals_calendar: boolean;
   period_start_date?: string;
@@ -150,7 +149,6 @@ const Assessment = () => {
   
   const [sessionInfo, setSessionInfo] = useState<SessionInfo>({
     taxpayer_name: "",
-    entity_name: "",
     tax_year: "",
     tax_year_not_equals_calendar: false
   });
@@ -198,7 +196,7 @@ const Assessment = () => {
   };
 
   const startSession = async () => {
-    if (!sessionInfo.taxpayer_name || !sessionInfo.entity_name || !sessionInfo.tax_year) {
+    if (!sessionInfo.taxpayer_name || !sessionInfo.tax_year) {
       toast({
         title: "Missing information",
         description: "Please fill in all required fields",
@@ -245,7 +243,6 @@ const Assessment = () => {
           session_id: newSessionId,
           user_id: user?.id || null,
           taxpayer_name: sessionInfo.taxpayer_name,
-          entity_name: sessionInfo.entity_name,
           fiscal_year: sessionInfo.tax_year,
           is_custom_period: sessionInfo.tax_year_not_equals_calendar,
           period_start_date: startDate,
@@ -269,6 +266,35 @@ const Assessment = () => {
       toast({
         title: "Error",
         description: "Failed to start assessment",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const finishAssessment = async () => {
+    if (!sessionId) return;
+
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('atad2_sessions')
+        .update({ completed: true, status: 'completed' })
+        .eq('session_id', sessionId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Assessment complete",
+        description: "Your risk assessment has been completed successfully.",
+      });
+      navigate("/");
+    } catch (error) {
+      console.error('Error completing assessment:', error);
+      toast({
+        title: "Error",
+        description: "Failed to complete assessment",
         variant: "destructive",
       });
     } finally {
@@ -372,7 +398,6 @@ const Assessment = () => {
           }, 300);
         }
       } else {
-        // Assessment completed - mark as completed
         await supabase
           .from('atad2_sessions')
           .update({ completed: true, status: 'completed' })
@@ -660,6 +685,17 @@ const Assessment = () => {
     setPendingAnswerChange(null);
   };
 
+  // Check if we're at the end of the flow
+  const isAtEndOfFlow = () => {
+    if (!currentQuestion || !selectedAnswer) return false;
+    
+    const selectedQuestionOption = questions.find(
+      q => q.question_id === currentQuestion.question_id && q.answer_option === selectedAnswer
+    );
+    
+    return selectedQuestionOption && !selectedQuestionOption.next_question_id;
+  };
+
   if (!user) return null;
 
   if (!sessionStarted) {
@@ -699,29 +735,6 @@ const Assessment = () => {
                   value={sessionInfo.taxpayer_name}
                   onChange={(e) => setSessionInfo({...sessionInfo, taxpayer_name: e.target.value})}
                   placeholder="Enter taxpayer name"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center">
-                  <Label htmlFor="entity_name">Entity name</Label>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="text-red-500 text-sm ml-1 cursor-default">*</span>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>This field is required</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-                <Input
-                  id="entity_name"
-                  value={sessionInfo.entity_name}
-                  onChange={(e) => setSessionInfo({...sessionInfo, entity_name: e.target.value})}
-                  placeholder="Enter entity name"
                   required
                 />
               </div>
@@ -930,128 +943,93 @@ const Assessment = () => {
                       />
                     </p>
                   </div>
-                  {isViewingAnsweredQuestion ? (
-                    <>
-                      <div className="space-y-3 mb-8">
-                        {currentQuestionOptions.map((option, index) => {
-                          const isSelected = selectedAnswer === option.answer_option;
-                          const isYes = option.answer_option.toLowerCase() === 'yes';
-                          
-                          return (
-                            <button
-                              key={index}
-                              type="button"
-                              onClick={() => handleAnswerSelect(option.answer_option)}
-                              disabled={loading || isTransitioning}
-                              className={`
-                                w-full p-4 rounded-lg border-2 transition-all duration-200 text-left
-                                ${isSelected 
-                                  ? 'border-primary bg-primary/10 shadow-md ring-2 ring-primary/20' 
-                                  : 'border-border hover:border-primary/50 hover:bg-accent/50'
-                                }
-                                ${loading || isTransitioning ? 'opacity-50 cursor-not-allowed' : ''}
-                                focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
-                              `}
-                            >
-                              <div className="flex items-center gap-3">
-                                <span className="text-xl">
-                                  {isYes ? '✅' : '❌'}
-                                </span>
-                                <span className="text-base font-medium">
-                                  {option.answer_option}
-                                </span>
-                                {isSelected && (
-                                  <span className="ml-auto text-sm text-muted-foreground font-medium">
-                                    Previously answered
-                                  </span>
-                                )}
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      <div className="flex items-center gap-3">
-                        <Button 
-                          onClick={goToPreviousQuestion}
-                          disabled={questionFlow.length === 0 || (navigationIndex !== -1 && navigationIndex === 0) || loading || isTransitioning}
-                          variant="outline"
-                          className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          ← Previous
-                        </Button>
-                        
-                        {navigationIndex !== -1 && navigationIndex < questionFlow.length - 1 && (
-                          <Button 
-                            onClick={goToNextQuestion}
-                            disabled={loading || isTransitioning}
-                            variant="outline"
-                            className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            Next →
-                          </Button>
-                        )}
-                        
-                        {navigationIndex === questionFlow.length - 1 && (
-                          <Button 
-                            onClick={continueToNextUnanswered}
-                            disabled={loading || isTransitioning}
-                            variant="outline"
-                            className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            Next →
-                          </Button>
-                        )}
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="space-y-3 mb-8">
-                        {currentQuestionOptions.map((option, index) => {
-                          const isSelected = selectedAnswer === option.answer_option;
-                          const isYes = option.answer_option.toLowerCase() === 'yes';
-                          
-                          return (
-                            <button
-                              key={index}
-                              type="button"
-                              onClick={() => handleAnswerSelect(option.answer_option)}
-                              disabled={loading || isTransitioning}
-                              className={`
-                                w-full p-4 rounded-lg border-2 transition-all duration-200 text-left
-                                ${isSelected 
-                                  ? 'border-primary bg-primary/10 shadow-md ring-2 ring-primary/20' 
-                                  : 'border-border hover:border-primary/50 hover:bg-accent/50'
-                                }
-                                ${loading || isTransitioning ? 'opacity-50 cursor-not-allowed' : ''}
-                                focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
-                              `}
-                            >
-                              <div className="flex items-center gap-3">
-                                <span className="text-xl">
-                                  {isYes ? '✅' : '❌'}
-                                </span>
-                                <span className="text-base font-medium">
-                                  {option.answer_option}
-                                </span>
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
+                  
+                  {/* Answer options - keep existing code */}
+                  <div className="space-y-3 mb-8">
+                    {currentQuestionOptions.map((option, index) => {
+                      const isSelected = selectedAnswer === option.answer_option;
+                      const isYes = option.answer_option.toLowerCase() === 'yes';
                       
-                      <div className="flex items-center gap-3">
-                        <Button 
-                          onClick={goToPreviousQuestion}
-                          disabled={questionFlow.length === 0 || loading || isTransitioning}
-                          variant="outline"
-                          className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                      return (
+                        <button
+                          key={index}
+                          type="button"
+                          onClick={() => handleAnswerSelect(option.answer_option)}
+                          disabled={loading || isTransitioning}
+                          className={`
+                            w-full p-4 rounded-lg border-2 transition-all duration-200 text-left
+                            ${isSelected 
+                              ? 'border-primary bg-primary/10 shadow-md ring-2 ring-primary/20' 
+                              : 'border-border hover:border-primary/50 hover:bg-accent/50'
+                            }
+                            ${loading || isTransitioning ? 'opacity-50 cursor-not-allowed' : ''}
+                            focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
+                          `}
                         >
-                          ← Previous
-                        </Button>
-                      </div>
-                    </>
-                  )}
+                          <div className="flex items-center gap-3">
+                            <span className="text-xl">
+                              {isYes ? '✅' : '❌'}
+                            </span>
+                            <span className="text-base font-medium">
+                              {option.answer_option}
+                            </span>
+                            {isSelected && isViewingAnsweredQuestion && (
+                              <span className="ml-auto text-sm text-muted-foreground font-medium">
+                                Previously answered
+                              </span>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Navigation buttons */}
+                  <div className="flex items-center gap-3">
+                    <Button 
+                      onClick={goToPreviousQuestion}
+                      disabled={questionFlow.length === 0 || (navigationIndex !== -1 && navigationIndex === 0) || loading || isTransitioning}
+                      variant="outline"
+                      className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      ← Previous
+                    </Button>
+                    
+                    {/* Show Next button for navigation */}
+                    {navigationIndex !== -1 && navigationIndex < questionFlow.length - 1 && (
+                      <Button 
+                        onClick={goToNextQuestion}
+                        disabled={loading || isTransitioning}
+                        variant="outline"
+                        className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Next →
+                      </Button>
+                    )}
+                    
+                    {/* Show Continue button when at last answered question */}
+                    {navigationIndex === questionFlow.length - 1 && (
+                      <Button 
+                        onClick={continueToNextUnanswered}
+                        disabled={loading || isTransitioning}
+                        variant="outline"
+                        className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Next →
+                      </Button>
+                    )}
+
+                    {/* Show Finish Assessment button when at end of flow */}
+                    {!isViewingAnsweredQuestion && selectedAnswer && isAtEndOfFlow() && (
+                      <Button 
+                        onClick={finishAssessment}
+                        disabled={loading || isTransitioning}
+                        className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {loading ? "Finishing..." : "Finish assessment"}
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </Card>
