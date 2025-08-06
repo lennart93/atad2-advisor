@@ -96,13 +96,7 @@ const Index = () => {
 
   const deleteSession = async (sessionId: string, sessionUuid: string) => {
     try {
-      // Delete answers first (due to foreign key relationship)
-      await supabase
-        .from('atad2_answers')
-        .delete()
-        .eq('session_id', sessionId);
-
-      // Then delete the session
+      // Delete the session - answers will be automatically deleted via CASCADE
       const { error } = await supabase
         .from('atad2_sessions')
         .delete()
@@ -110,13 +104,13 @@ const Index = () => {
 
       if (error) throw error;
 
+      // Remove from UI state immediately (no need to reload)
+      setSessions(prev => prev.filter(session => session.id !== sessionUuid));
+
       toast({
-        title: "Session deleted",
-        description: "The assessment session has been deleted successfully.",
+        title: "Assessment deleted",
+        description: "The assessment has been permanently deleted.",
       });
-      
-      // Reload sessions
-      loadCompletedSessions();
     } catch (error) {
       console.error('Error deleting session:', error);
       toast({
@@ -217,10 +211,10 @@ const Index = () => {
                           <AlertDialogContent>
                             <AlertDialogHeader>
                               <AlertDialogTitle>Delete assessment</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Are you sure you want to delete this assessment for {session.taxpayer_name}? 
-                                This action cannot be undone.
-                              </AlertDialogDescription>
+                               <AlertDialogDescription>
+                                Are you sure you want to permanently delete this assessment for {session.taxpayer_name}? 
+                                This will delete all answers and cannot be undone.
+                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                               <AlertDialogCancel>Cancel</AlertDialogCancel>

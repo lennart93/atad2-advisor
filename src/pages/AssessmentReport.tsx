@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ArrowLeft } from "lucide-react";
+import { EditableAnswer } from "@/components/EditableAnswer";
 
 interface SessionData {
   session_id: string;
@@ -20,6 +21,7 @@ interface SessionData {
 }
 
 interface AnswerData {
+  id: string;
   question_id: string;
   question_text: string;
   answer: string;
@@ -67,7 +69,7 @@ const AssessmentReport = () => {
       // Load answers
       const { data: answersData, error: answersError } = await supabase
         .from('atad2_answers')
-        .select('*')
+        .select('id, question_id, question_text, answer, explanation, risk_points, answered_at')
         .eq('session_id', sessionId)
         .order('answered_at');
 
@@ -88,6 +90,14 @@ const AssessmentReport = () => {
   };
 
   const totalRiskPoints = answers.reduce((sum, answer) => sum + answer.risk_points, 0);
+
+  const handleAnswerUpdate = (answerId: string, newAnswer: string, newExplanation: string) => {
+    setAnswers(prev => prev.map(answer => 
+      answer.id === answerId 
+        ? { ...answer, answer: newAnswer, explanation: newExplanation }
+        : answer
+    ));
+  };
 
   if (loading) {
     return (
@@ -158,39 +168,23 @@ const AssessmentReport = () => {
             <CardHeader>
               <CardTitle>Question Responses</CardTitle>
               <CardDescription>
-                Detailed breakdown of your responses
+                Click the edit button next to any answer to make changes
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-6">
-                {answers.map((answer, index) => (
-                  <div key={answer.question_id} className="border-b border-border last:border-b-0 pb-4 last:pb-0">
-                    <div className="flex items-start justify-between mb-2">
-                      <h4 className="font-medium text-sm text-muted-foreground">
-                        Question {answer.question_id}
-                      </h4>
-                      <div className="flex items-center gap-2">
-                        <span className={`text-lg ${answer.answer.toLowerCase() === 'yes' ? '✅' : '❌'}`}>
-                          {answer.answer.toLowerCase() === 'yes' ? '✅' : '❌'}
-                        </span>
-                        <span className="text-sm font-medium px-2 py-1 rounded bg-muted">
-                          {answer.risk_points} points
-                        </span>
-                      </div>
-                    </div>
-                    <p className="text-sm mb-2">{answer.question_text}</p>
-                    <div className="text-sm">
-                      <span className="font-medium">Answer:</span> {answer.answer}
-                    </div>
-                    {answer.explanation && (
-                      <div className="text-sm text-muted-foreground">
-                        <span className="font-medium">Explanation:</span> {answer.explanation}
-                      </div>
-                    )}
-                    <div className="text-xs text-muted-foreground mt-2">
-                      Answered: {format(new Date(answer.answered_at), 'MMM d, yyyy HH:mm')}
-                    </div>
-                  </div>
+                {answers.map((answer) => (
+                  <EditableAnswer
+                    key={answer.id}
+                    answerId={answer.id}
+                    questionText={answer.question_text}
+                    currentAnswer={answer.answer}
+                    currentExplanation={answer.explanation}
+                    riskPoints={answer.risk_points}
+                    onUpdate={(newAnswer, newExplanation) => 
+                      handleAnswerUpdate(answer.id, newAnswer, newExplanation)
+                    }
+                  />
                 ))}
               </div>
             </CardContent>
