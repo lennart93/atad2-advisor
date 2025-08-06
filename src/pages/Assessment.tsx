@@ -712,8 +712,8 @@ const Assessment = () => {
     console.log("selectedQuestionOption:", selectedQuestionOption);
     console.log("next_question_id:", selectedQuestionOption?.next_question_id);
     
-    // Return true if there's no next question ID (null or undefined)
-    const isAtEnd = selectedQuestionOption && !selectedQuestionOption.next_question_id;
+    // Return true if there's no next question ID (null, undefined, or "end")
+    const isAtEnd = selectedQuestionOption && (!selectedQuestionOption.next_question_id || selectedQuestionOption.next_question_id === "end");
     console.log("isAtEndOfFlow RESULT:", isAtEnd);
     console.log("=== END isAtEndOfFlow CHECK ===");
     return isAtEnd;
