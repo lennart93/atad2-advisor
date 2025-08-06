@@ -6,9 +6,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { format } from "date-fns";
-import { Trash2, Eye } from "lucide-react";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Trash2, FileText } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface CompletedSession {
   id: string;
@@ -20,17 +29,17 @@ interface CompletedSession {
 }
 
 const Index = () => {
-  const { user, loading, signOut } = useAuth();
+  const { user, loading: authLoading, signOut } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [completedSessions, setCompletedSessions] = useState<CompletedSession[]>([]);
-  const [loadingSessions, setLoadingSessions] = useState(true);
+  const [sessions, setSessions] = useState<CompletedSession[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (!authLoading && !user) {
       navigate("/auth");
     }
-  }, [user, loading, navigate]);
+  }, [user, authLoading, navigate]);
 
   useEffect(() => {
     if (user) {
@@ -39,15 +48,19 @@ const Index = () => {
   }, [user]);
 
   const loadCompletedSessions = async () => {
-    if (!user) return;
-    
-    setLoadingSessions(true);
     try {
+      setLoading(true);
+      
       // Get completed sessions with answer counts
-      const { data: sessions, error: sessionsError } = await supabase
+      const { data: sessionsData, error: sessionsError } = await supabase
         .from('atad2_sessions')
-        .select('id, session_id, taxpayer_name, fiscal_year, created_at')
-        .eq('user_id', user.id)
+        .select(`
+          id,
+          session_id,
+          taxpayer_name,
+          fiscal_year,
+          created_at
+        `)
         .eq('completed', true)
         .order('created_at', { ascending: false });
 
@@ -55,94 +68,93 @@ const Index = () => {
 
       // Get answer counts for each session
       const sessionsWithCounts = await Promise.all(
-        (sessions || []).map(async (session) => {
-          const { count, error: countError } = await supabase
+        (sessionsData || []).map(async (session) => {
+          const { count } = await supabase
             .from('atad2_answers')
             .select('*', { count: 'exact', head: true })
             .eq('session_id', session.session_id);
 
-          if (countError) {
-            console.error('Error counting answers:', countError);
-            return { ...session, answer_count: 0 };
-          }
-
-          return { ...session, answer_count: count || 0 };
+          return {
+            ...session,
+            answer_count: count || 0
+          };
         })
       );
 
-      setCompletedSessions(sessionsWithCounts);
+      setSessions(sessionsWithCounts);
     } catch (error) {
-      console.error('Error loading completed sessions:', error);
+      console.error('Error loading sessions:', error);
       toast({
         title: "Error",
-        description: "Failed to load completed assessments",
+        description: "Failed to load assessment sessions",
         variant: "destructive",
       });
     } finally {
-      setLoadingSessions(false);
+      setLoading(false);
     }
   };
 
-  const deleteSession = async (sessionId: string) => {
+  const deleteSession = async (sessionId: string, sessionUuid: string) => {
     try {
-      // Delete answers first (due to foreign key constraint)
-      const { error: answersError } = await supabase
+      // Delete answers first (due to foreign key relationship)
+      await supabase
         .from('atad2_answers')
         .delete()
         .eq('session_id', sessionId);
 
-      if (answersError) throw answersError;
-
-      // Delete session
-      const { error: sessionError } = await supabase
+      // Then delete the session
+      const { error } = await supabase
         .from('atad2_sessions')
         .delete()
-        .eq('session_id', sessionId);
+        .eq('id', sessionUuid);
 
-      if (sessionError) throw sessionError;
+      if (error) throw error;
 
       toast({
-        title: "Assessment deleted",
-        description: "The assessment has been deleted successfully.",
+        title: "Session deleted",
+        description: "The assessment session has been deleted successfully.",
       });
-
+      
       // Reload sessions
       loadCompletedSessions();
     } catch (error) {
       console.error('Error deleting session:', error);
       toast({
         title: "Error",
-        description: "Failed to delete assessment",
+        description: "Failed to delete assessment session",
         variant: "destructive",
       });
     }
   };
 
-  if (loading) {
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      navigate("/auth");
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
+
+  if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center">
-          <p className="text-xl text-muted-foreground">Loading...</p>
-        </div>
+      <div className="min-h-screen flex items-center justify-center">
+        <p>Loading...</p>
       </div>
     );
   }
 
-  if (!user) {
-    return null; // Will redirect to auth
-  }
+  if (!user) return null;
 
   return (
     <div className="min-h-screen bg-background p-4">
       <div className="max-w-4xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-4xl font-bold">ATAD2 risk assessment</h1>
-            <p className="text-xl text-muted-foreground mt-2">
-              Welcome, {user.email}
-            </p>
+            <h1 className="text-3xl font-bold">ATAD2 Risk Assessment Dashboard</h1>
+            <p className="text-muted-foreground mt-2">Welcome back, {user.email}</p>
           </div>
-          <Button variant="outline" onClick={signOut}>
+          <Button variant="outline" onClick={handleSignOut}>
             Sign out
           </Button>
         </div>
@@ -152,11 +164,11 @@ const Index = () => {
             <CardHeader>
               <CardTitle>Start new assessment</CardTitle>
               <CardDescription>
-                Answer the questions to determine your ATAD2 risk score
+                Begin a new ATAD2 risk assessment for a taxpayer
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button size="lg" onClick={() => navigate("/assessment")}>
+              <Button onClick={() => navigate("/assessment")} size="lg">
                 Start assessment
               </Button>
             </CardContent>
@@ -165,56 +177,57 @@ const Index = () => {
           <Card>
             <CardHeader>
               <CardTitle>Completed assessments</CardTitle>
-              <CardDescription>
+              <CardDescription className="text-sm">
                 View or delete your previously completed assessments
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {loadingSessions ? (
+              {loading ? (
                 <p className="text-muted-foreground">Loading assessments...</p>
-              ) : completedSessions.length === 0 ? (
-                <p className="text-muted-foreground">No completed assessments yet.</p>
+              ) : sessions.length === 0 ? (
+                <p className="text-muted-foreground text-sm">No completed assessments yet.</p>
               ) : (
                 <div className="space-y-4">
-                  {completedSessions.map((session) => (
+                  {sessions.map((session) => (
                     <div key={session.id} className="flex items-center justify-between p-4 border rounded-lg">
                       <div className="flex-1">
-                        <h3 className="font-semibold">{session.taxpayer_name}</h3>
-                        <div className="text-sm text-muted-foreground mt-1">
-                          <p>Tax Year: {session.fiscal_year}</p>
-                          <p>Completed: {format(new Date(session.created_at), 'MMM d, yyyy')}</p>
+                        <h3 className="font-medium">{session.taxpayer_name}</h3>
+                        <div className="text-sm text-muted-foreground space-y-1">
+                          <p>Tax year: {session.fiscal_year}</p>
                           <p>Questions answered: {session.answer_count}</p>
+                          <p>Completed: {new Date(session.created_at).toLocaleDateString()}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
+                        <Button 
+                          variant="outline" 
                           size="sm"
                           onClick={() => navigate(`/assessment-report/${session.session_id}`)}
                         >
-                          <Eye className="h-4 w-4 mr-2" />
+                          <FileText className="h-4 w-4 mr-2" />
                           View report
                         </Button>
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                            >
+                            <Button variant="outline" size="sm">
                               <Trash2 className="h-4 w-4 mr-2" />
                               Delete
                             </Button>
                           </AlertDialogTrigger>
                           <AlertDialogContent>
                             <AlertDialogHeader>
-                              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                              <AlertDialogTitle>Delete assessment</AlertDialogTitle>
                               <AlertDialogDescription>
-                                This action cannot be undone. This will permanently delete the assessment for "{session.taxpayer_name}" and all associated answers.
+                                Are you sure you want to delete this assessment for {session.taxpayer_name}? 
+                                This action cannot be undone.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                               <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => deleteSession(session.session_id)}>
+                              <AlertDialogAction
+                                onClick={() => deleteSession(session.session_id, session.id)}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
                                 Delete
                               </AlertDialogAction>
                             </AlertDialogFooter>

@@ -1024,7 +1024,7 @@ const Assessment = () => {
                     )}
 
                     {/* Show Finish Assessment button when at end of flow */}
-                    {navigationIndex === -1 && selectedAnswer && isAtEndOfFlow() && (
+                    {(navigationIndex === -1 || !autoAdvance) && selectedAnswer && isAtEndOfFlow() && (
                       <Button 
                         onClick={finishAssessment}
                         disabled={loading || isTransitioning}
