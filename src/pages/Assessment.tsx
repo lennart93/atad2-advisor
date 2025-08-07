@@ -14,6 +14,7 @@ import { InfoIcon, ArrowLeft } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { AssessmentSidebar } from "@/components/AssessmentSidebar";
+import { Textarea } from "@/components/ui/textarea";
 
 interface Question {
   id: string;
@@ -167,6 +168,10 @@ const Assessment = () => {
   const [pendingAnswerChange, setPendingAnswerChange] = useState<{answer: string, newNextQuestionId: string | null} | null>(null);
   const [autoAdvance, setAutoAdvance] = useState(true);
   const [pendingQuestion, setPendingQuestion] = useState<Question | null>(null);
+  const [contextQuestion, setContextQuestion] = useState<string | null>(null);
+  const [hasContext, setHasContext] = useState(false);
+  const [explanationText, setExplanationText] = useState<string>("");
+  const [savingExplanation, setSavingExplanation] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -333,7 +338,7 @@ const Assessment = () => {
           .update({
             question_text: currentQuestion.question,
             answer: selectedAnswer,
-            explanation: selectedQuestionOption.answer_option,
+            explanation: explanationText,
             risk_points: selectedQuestionOption.risk_points,
             difficult_term: selectedQuestionOption.difficult_term,
             term_explanation: selectedQuestionOption.term_explanation,
@@ -351,7 +356,7 @@ const Assessment = () => {
             question_id: currentQuestion.question_id,
             question_text: currentQuestion.question,
             answer: selectedAnswer,
-            explanation: selectedQuestionOption.answer_option,
+            explanation: explanationText,
             risk_points: selectedQuestionOption.risk_points,
             difficult_term: selectedQuestionOption.difficult_term,
             term_explanation: selectedQuestionOption.term_explanation
@@ -521,13 +526,53 @@ const Assessment = () => {
     }
     
     setSelectedAnswer(answer);
-    
-    // Only auto-advance when not navigating and auto-advance is enabled
-    if (autoAdvance && navigationIndex === -1) {
-      setLoading(true);
-      setTimeout(async () => {
-        await submitAnswerDirectly(answer);
-      }, 300);
+    setLoading(true);
+
+    try {
+      // Check for context questions for this question + answer
+      if (currentQuestion) {
+        const { data: ctx, error: ctxError } = await supabase
+          .from('atad2_context_questions')
+          .select('context_question')
+          .eq('question_id', currentQuestion.question_id)
+          .eq('answer_trigger', answer);
+
+        if (ctxError) {
+          console.error('Error loading context questions:', ctxError);
+        }
+
+        const hasCtx = (ctx?.length || 0) > 0;
+        setHasContext(hasCtx);
+
+        if (hasCtx && ctx) {
+          const random = ctx[Math.floor(Math.random() * ctx.length)];
+          setContextQuestion(random.context_question);
+
+          // Prefill any previously saved explanation
+          const { data: existing } = await supabase
+            .from('atad2_answers')
+            .select('explanation')
+            .eq('session_id', sessionId)
+            .eq('question_id', currentQuestion.question_id)
+            .maybeSingle();
+
+          setExplanationText(existing?.explanation || "");
+
+          // Do not auto-advance when context exists
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Only auto-advance when not navigating and auto-advance is enabled and no context
+      if (autoAdvance && navigationIndex === -1) {
+        setTimeout(async () => {
+          await submitAnswerDirectly(answer);
+        }, 300);
+      }
+    } catch (e) {
+      console.error('Error during answer selection:', e);
+      setLoading(false);
     }
   };
 
@@ -563,7 +608,7 @@ const Assessment = () => {
           .update({
             question_text: currentQuestion.question,
             answer: answer,
-            explanation: selectedQuestionOption.answer_option,
+            explanation: explanationText,
             risk_points: selectedQuestionOption.risk_points,
             difficult_term: selectedQuestionOption.difficult_term,
             term_explanation: selectedQuestionOption.term_explanation,
