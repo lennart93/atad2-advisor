@@ -262,6 +262,7 @@ const Assessment = () => {
       const firstQuestion = questions.find(q => q.question_id === "1");
       if (firstQuestion) {
         setCurrentQuestion(firstQuestion);
+        setPendingQuestion(firstQuestion); // Set as pending initially
       }
     } catch (error) {
       console.error('Error starting session:', error);
@@ -483,6 +484,7 @@ const Assessment = () => {
     setCurrentQuestion(targetEntry.question);
     setSelectedAnswer(targetEntry.answer);
     setNavigationIndex(questionIndex);
+    // DON'T change pendingQuestion when navigating - it should stay the same
   };
 
   const handleAnswerSelect = async (answer: string) => {
