@@ -96,16 +96,16 @@ const Index = () => {
 
   const deleteSession = async (sessionId: string, sessionUuid: string) => {
     try {
-      // Delete the session - answers will be automatically deleted via CASCADE
+      // Delete the session by session_id - answers will be automatically deleted via CASCADE
       const { error } = await supabase
         .from('atad2_sessions')
         .delete()
-        .eq('id', sessionUuid);
+        .eq('session_id', sessionId); // Use session_id instead of id for CASCADE to work
 
       if (error) throw error;
 
       // Remove from UI state immediately (no need to reload)
-      setSessions(prev => prev.filter(session => session.id !== sessionUuid));
+      setSessions(prev => prev.filter(session => session.session_id !== sessionId));
 
       toast({
         title: "Assessment deleted",
