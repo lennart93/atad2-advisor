@@ -17,10 +17,15 @@ interface AssessmentSidebarProps {
     question_title: string | null;
     risk_points: number;
   } | null;
+  pendingQuestion: {
+    question_id: string;
+    question_title: string | null;
+    risk_points: number;
+  } | null;
   onQuestionClick?: (questionIndex: number) => void;
 }
 
-export function AssessmentSidebar({ answers, questionHistory, currentQuestion, onQuestionClick }: AssessmentSidebarProps) {
+export function AssessmentSidebar({ answers, questionHistory, currentQuestion, pendingQuestion, onQuestionClick }: AssessmentSidebarProps) {
   const totalAnswered = questionHistory.length;
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   
@@ -114,28 +119,31 @@ export function AssessmentSidebar({ answers, questionHistory, currentQuestion, o
           );
         })}
         
-        {/* Show current question if it's not already in the answered flow (new question) */}
-        {currentQuestion && !questionHistory.find(entry => entry.question.question_id === currentQuestion.question_id) && (
-          <div className="p-3 rounded-md border border-primary bg-primary/5 transition-all duration-300 animate-fade-in">
+        {/* Show pending question (always visible until answered or flow changes) */}
+        {pendingQuestion && !questionHistory.find(entry => entry.question.question_id === pendingQuestion.question_id) && (
+          <div className="p-3 rounded-md border border-muted-foreground/30 bg-muted/20 transition-all duration-300 animate-fade-in">
             <div className="flex items-start gap-3">
               <div className="flex-shrink-0 mt-0.5">
-                <Circle className="h-4 w-4 text-primary" />
+                <Circle className="h-4 w-4 text-muted-foreground" />
               </div>
               
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-medium text-muted-foreground">
-                    Q{currentQuestion.question_id}
+                    Q{pendingQuestion.question_id}
+                  </span>
+                  <span className="text-xs px-2 py-0.5 rounded bg-muted text-muted-foreground font-medium">
+                    Pending
                   </span>
                 </div>
                 
-                <h4 className="text-sm font-semibold leading-tight mt-1 text-primary">
-                  {currentQuestion.question_title || `Question ${currentQuestion.question_id}`}
+                <h4 className="text-sm font-medium leading-tight mt-1 text-muted-foreground">
+                  {pendingQuestion.question_title || `Question ${pendingQuestion.question_id}`}
                 </h4>
                 
                 <div className="mt-2">
-                  <span className="text-xs text-muted-foreground font-medium">
-                    Currently answering...
+                  <span className="text-xs text-muted-foreground/80 font-medium">
+                    Waiting for input...
                   </span>
                 </div>
               </div>

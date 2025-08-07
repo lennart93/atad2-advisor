@@ -166,6 +166,7 @@ const Assessment = () => {
   const [showFlowChangeDialog, setShowFlowChangeDialog] = useState(false);
   const [pendingAnswerChange, setPendingAnswerChange] = useState<{answer: string, newNextQuestionId: string | null} | null>(null);
   const [autoAdvance, setAutoAdvance] = useState(true);
+  const [pendingQuestion, setPendingQuestion] = useState<Question | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -391,18 +392,20 @@ const Assessment = () => {
       
       console.log(`Current question: ${currentQuestion.question_id}, Selected answer: ${selectedAnswer}, Next question ID: ${nextQuestionId}`);
       
-      if (nextQuestionId) {
+      if (nextQuestionId && nextQuestionId !== "end") {
         const nextQuestion = questions.find(q => q.question_id === nextQuestionId);
         if (nextQuestion) {
           setIsTransitioning(true);
           setTimeout(() => {
             setCurrentQuestion(nextQuestion);
+            setPendingQuestion(nextQuestion); // Update pending question
             setSelectedAnswer("");
             setIsTransitioning(false);
           }, 300);
         }
       } else {
-        // This is the end of the flow - just stay on current question and let finish button appear
+        // This is the end of the flow - clear pending and keep selected answer
+        setPendingQuestion(null);
         console.log("End of flow reached - staying on current question");
         setSelectedAnswer(selectedAnswer); // Keep the selected answer so finish button shows
       }
@@ -456,10 +459,11 @@ const Assessment = () => {
            q.answer_option === lastAnsweredEntry.answer
     );
     
-    if (lastAnsweredQuestionOption?.next_question_id) {
+    if (lastAnsweredQuestionOption?.next_question_id && lastAnsweredQuestionOption.next_question_id !== "end") {
       const nextQuestion = questions.find(q => q.question_id === lastAnsweredQuestionOption.next_question_id);
       if (nextQuestion) {
         setCurrentQuestion(nextQuestion);
+        setPendingQuestion(nextQuestion); // Update pending question
         setSelectedAnswer("");
         setNavigationIndex(-1);
       }
@@ -604,18 +608,22 @@ const Assessment = () => {
 
       const nextQuestionId = selectedQuestionOption.next_question_id;
       
-      if (nextQuestionId) {
+      console.log(`Direct submit - Current question: ${currentQuestion.question_id}, Selected answer: ${answer}, Next question ID: ${nextQuestionId}`);
+      
+      if (nextQuestionId && nextQuestionId !== "end") {
         const nextQuestion = questions.find(q => q.question_id === nextQuestionId);
         if (nextQuestion) {
           setIsTransitioning(true);
           setTimeout(() => {
             setCurrentQuestion(nextQuestion);
+            setPendingQuestion(nextQuestion); // Update pending question
             setSelectedAnswer("");
             setIsTransitioning(false);
           }, 300);
         }
       } else {
-        // This is the end of the flow - keep the answer selected
+        // This is the end of the flow - clear pending and keep selected answer
+        setPendingQuestion(null);
         console.log("END OF FLOW REACHED - Setting selectedAnswer to:", answer);
         setSelectedAnswer(answer);
         
@@ -952,6 +960,11 @@ const Assessment = () => {
                 question_id: currentQuestion.question_id,
                 question_title: currentQuestion.question_title,
                 risk_points: currentQuestion.risk_points
+              } : null}
+              pendingQuestion={pendingQuestion ? {
+                question_id: pendingQuestion.question_id,
+                question_title: pendingQuestion.question_title,
+                risk_points: pendingQuestion.risk_points
               } : null}
               onQuestionClick={goToSpecificQuestion}
             />
