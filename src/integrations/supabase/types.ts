@@ -62,6 +62,13 @@ export type Database = {
             referencedRelation: "atad2_sessions"
             referencedColumns: ["session_id"]
           },
+          {
+            foreignKeyName: "fk_atad2_answers_session"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "atad2_sessions"
+            referencedColumns: ["session_id"]
+          },
         ]
       }
       atad2_questions: {
