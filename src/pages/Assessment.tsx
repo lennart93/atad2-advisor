@@ -1093,18 +1093,13 @@ const Assessment = () => {
                    {hasContext && navigationIndex === -1 && (
                      <div className="bg-gray-50 rounded-lg px-4 py-3 mb-8">
                        <div className="text-sm text-gray-700 italic mb-3">
-                         <span className="text-lg mr-2">🧠</span>
-                         <span>Context (optional)</span>
+                         <span className="text-lg mr-2">💡</span>
+                         <span>Context</span>
                        </div>
-                       {contextQuestion && (
-                         <p className="text-sm text-gray-700 italic mb-3">
-                           "{contextQuestion}"
-                         </p>
-                       )}
                        <Textarea
                          value={explanationText}
                          onChange={(e) => setExplanationText(e.target.value)}
-                         placeholder="Your explanation..."
+                         placeholder={contextQuestion || "Your explanation..."}
                          className="w-full mt-2 min-h-[80px]"
                          disabled={savingExplanation}
                        />
