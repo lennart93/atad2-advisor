@@ -71,6 +71,30 @@ export type Database = {
           },
         ]
       }
+      atad2_context_questions: {
+        Row: {
+          answer_trigger: string
+          context_question: string
+          created_at: string | null
+          id: string
+          question_id: string
+        }
+        Insert: {
+          answer_trigger: string
+          context_question: string
+          created_at?: string | null
+          id?: string
+          question_id: string
+        }
+        Update: {
+          answer_trigger?: string
+          context_question?: string
+          created_at?: string | null
+          id?: string
+          question_id?: string
+        }
+        Relationships: []
+      }
       atad2_questions: {
         Row: {
           answer_option: string
