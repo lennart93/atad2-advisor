@@ -625,7 +625,7 @@ const Assessment = () => {
             question_id: currentQuestion.question_id,
             question_text: currentQuestion.question,
             answer: answer,
-            explanation: selectedQuestionOption.answer_option,
+            explanation: explanationText,
             risk_points: selectedQuestionOption.risk_points,
             difficult_term: selectedQuestionOption.difficult_term,
             term_explanation: selectedQuestionOption.term_explanation
@@ -1049,45 +1049,67 @@ const Assessment = () => {
                     </p>
                   </div>
                   
-                  {/* Answer options */}
-                  <div className="space-y-3 mb-8">
-                    {currentQuestionOptions.map((option, index) => {
-                      const isSelected = selectedAnswer === option.answer_option;
-                      const isYes = option.answer_option.toLowerCase() === 'yes';
-                      
-                      return (
-                        <button
-                          key={index}
-                          type="button"
-                          onClick={() => handleAnswerSelect(option.answer_option)}
-                          disabled={loading || isTransitioning}
-                          className={`
-                            w-full p-4 rounded-lg border-2 transition-all duration-200 text-left
-                            ${isSelected 
-                              ? 'border-primary bg-primary/10 shadow-md ring-2 ring-primary/20' 
-                              : 'border-border hover:border-primary/50 hover:bg-accent/50'
-                            }
-                            ${loading || isTransitioning ? 'opacity-50 cursor-not-allowed' : ''}
-                            focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
-                          `}
-                        >
-                          <div className="flex items-center gap-3">
-                            <span className="text-xl">
-                              {isYes ? '✅' : '❌'}
-                            </span>
-                            <span className="text-base font-medium">
-                              {option.answer_option}
-                            </span>
-                            {isSelected && isViewingAnsweredQuestion && (
-                              <span className="ml-auto text-sm text-muted-foreground font-medium">
-                                Previously answered
-                              </span>
-                            )}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
+                   {/* Answer options */}
+                   <div className="space-y-3 mb-8">
+                     {currentQuestionOptions.map((option, index) => {
+                       const isSelected = selectedAnswer === option.answer_option;
+                       const isYes = option.answer_option.toLowerCase() === 'yes';
+                       
+                       return (
+                         <button
+                           key={index}
+                           type="button"
+                           onClick={() => handleAnswerSelect(option.answer_option)}
+                           disabled={loading || isTransitioning}
+                           className={`
+                             w-full p-4 rounded-lg border-2 transition-all duration-200 text-left
+                             ${isSelected 
+                               ? 'border-primary bg-primary/10 shadow-md ring-2 ring-primary/20' 
+                               : 'border-border hover:border-primary/50 hover:bg-accent/50'
+                             }
+                             ${loading || isTransitioning ? 'opacity-50 cursor-not-allowed' : ''}
+                             focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
+                           `}
+                         >
+                           <div className="flex items-center gap-3">
+                             <span className="text-xl">
+                               {isYes ? '✅' : '❌'}
+                             </span>
+                             <span className="text-base font-medium">
+                               {option.answer_option}
+                             </span>
+                             {isSelected && isViewingAnsweredQuestion && (
+                               <span className="ml-auto text-sm text-muted-foreground font-medium">
+                                 Previously answered
+                               </span>
+                             )}
+                           </div>
+                         </button>
+                       );
+                     })}
+                   </div>
+
+                   {/* Context section - only show when hasContext and navigationIndex === -1 */}
+                   {hasContext && navigationIndex === -1 && (
+                     <div className="bg-gray-50 rounded-lg px-4 py-3 mb-8">
+                       <div className="text-sm text-gray-700 italic mb-3">
+                         <span className="text-lg mr-2">🧠</span>
+                         <span>Context (optional)</span>
+                       </div>
+                       {contextQuestion && (
+                         <p className="text-sm text-gray-700 italic mb-3">
+                           "{contextQuestion}"
+                         </p>
+                       )}
+                       <Textarea
+                         value={explanationText}
+                         onChange={(e) => setExplanationText(e.target.value)}
+                         placeholder="Your explanation..."
+                         className="w-full mt-2 min-h-[80px]"
+                         disabled={savingExplanation}
+                       />
+                     </div>
+                   )}
 
                   {/* Navigation buttons */}
                   <div className="flex items-center gap-3">
@@ -1124,16 +1146,34 @@ const Assessment = () => {
                       </Button>
                     )}
 
-                    {/* Show Finish Assessment button when at end of flow */}
-                    {shouldShowFinishButton() && (
-                      <Button 
-                        onClick={finishAssessment}
-                        disabled={loading || isTransitioning}
-                        className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {loading ? "Finishing..." : "Finish assessment"}
-                      </Button>
-                    )}
+                     {/* Show Finish Assessment button when at end of flow */}
+                     {shouldShowFinishButton() && !hasContext && (
+                       <Button 
+                         onClick={finishAssessment}
+                         disabled={loading || isTransitioning}
+                         className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                       >
+                         {loading ? "Finishing..." : "Finish assessment"}
+                       </Button>
+                     )}
+
+                     {/* Show Submit/Continue button when hasContext */}
+                     {hasContext && navigationIndex === -1 && selectedAnswer && (
+                       <Button 
+                         onClick={async () => {
+                           setSavingExplanation(true);
+                           await submitAnswerDirectly(selectedAnswer);
+                           setSavingExplanation(false);
+                           setHasContext(false);
+                           setContextQuestion(null);
+                           setExplanationText("");
+                         }}
+                         disabled={loading || isTransitioning || savingExplanation}
+                         className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                       >
+                         {savingExplanation ? "Saving..." : "Continue"}
+                       </Button>
+                     )}
                   </div>
                 </div>
               </CardContent>
