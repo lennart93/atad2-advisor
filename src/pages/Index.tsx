@@ -203,10 +203,10 @@ const Index = () => {
                         </Button>
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
-                            <Button variant="outline" size="sm">
-                              <Trash2 className="h-4 w-4 mr-2" />
+                            <button className="text-red-600 hover:text-red-800 text-sm flex items-center gap-1 transition-colors duration-200">
+                              <Trash2 className="h-4 w-4" />
                               Delete
-                            </Button>
+                            </button>
                           </AlertDialogTrigger>
                           <AlertDialogContent>
                             <AlertDialogHeader>
@@ -222,7 +222,7 @@ const Index = () => {
                                 onClick={() => deleteSession(session.session_id, session.id)}
                                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                               >
-                                Delete
+                                Delete permanently
                               </AlertDialogAction>
                             </AlertDialogFooter>
                           </AlertDialogContent>
