@@ -23,9 +23,10 @@ interface AssessmentSidebarProps {
     risk_points: number;
   } | null;
   onQuestionClick?: (questionIndex: number) => void;
+  onPendingQuestionClick?: () => void;
 }
 
-export function AssessmentSidebar({ answers, questionHistory, currentQuestion, pendingQuestion, onQuestionClick }: AssessmentSidebarProps) {
+export function AssessmentSidebar({ answers, questionHistory, currentQuestion, pendingQuestion, onQuestionClick, onPendingQuestionClick }: AssessmentSidebarProps) {
   const totalAnswered = questionHistory.length;
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   
@@ -121,7 +122,17 @@ export function AssessmentSidebar({ answers, questionHistory, currentQuestion, p
         
         {/* Show pending question (always visible until answered or flow changes) */}
         {pendingQuestion && !questionHistory.find(entry => entry.question.question_id === pendingQuestion.question_id) && (
-          <div className="p-3 rounded-md border border-muted-foreground/30 bg-muted/20 transition-all duration-300 animate-fade-in">
+          <button
+            onClick={() => onPendingQuestionClick?.()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onPendingQuestionClick?.();
+              }
+            }}
+            className="w-full p-3 rounded-md border border-muted-foreground/30 bg-muted/20 transition-all duration-300 animate-fade-in cursor-pointer text-left hover:bg-muted/30 focus:outline-none focus:ring-2 focus:ring-primary/50"
+            aria-label={`Navigate to pending question ${pendingQuestion.question_id}: ${pendingQuestion.question_title || `Question ${pendingQuestion.question_id}`}`}
+          >
             <div className="flex items-start gap-3">
               <div className="flex-shrink-0 mt-0.5">
                 <Circle className="h-4 w-4 text-muted-foreground" />
@@ -148,7 +159,7 @@ export function AssessmentSidebar({ answers, questionHistory, currentQuestion, p
                 </div>
               </div>
             </div>
-          </div>
+          </button>
          )}
         </div>
       </div>

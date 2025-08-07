@@ -487,6 +487,14 @@ const Assessment = () => {
     // DON'T change pendingQuestion when navigating - it should stay the same
   };
 
+  const goToPendingQuestion = () => {
+    if (!pendingQuestion) return;
+    
+    setCurrentQuestion(pendingQuestion);
+    setSelectedAnswer(""); // Clear any selected answer
+    setNavigationIndex(-1); // Set to -1 to indicate we're on the active question
+  };
+
   const handleAnswerSelect = async (answer: string) => {
     if (loading || isTransitioning) return;
     
@@ -969,6 +977,7 @@ const Assessment = () => {
                 risk_points: pendingQuestion.risk_points
               } : null}
               onQuestionClick={goToSpecificQuestion}
+              onPendingQuestionClick={goToPendingQuestion}
             />
           </div>
           
