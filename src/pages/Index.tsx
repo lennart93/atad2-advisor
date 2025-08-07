@@ -95,17 +95,39 @@ const Index = () => {
   };
 
   const deleteSession = async (sessionId: string, sessionUuid: string) => {
+    console.log('DELETE ATTEMPT:', { sessionId, sessionUuid });
+    
     try {
+      // First check if the session exists
+      const { data: existingSession, error: checkError } = await supabase
+        .from('atad2_sessions')
+        .select('session_id, id, user_id')
+        .eq('session_id', sessionId)
+        .single();
+      
+      console.log('EXISTING SESSION:', existingSession, 'CHECK ERROR:', checkError);
+      
       // Delete the session by session_id - answers will be automatically deleted via CASCADE
-      const { error } = await supabase
+      const { data: deleteData, error } = await supabase
         .from('atad2_sessions')
         .delete()
-        .eq('session_id', sessionId); // Use session_id instead of id for CASCADE to work
+        .eq('session_id', sessionId)
+        .select(); // Return deleted rows for debugging
+
+      console.log('DELETE RESULT:', { deleteData, error });
 
       if (error) throw error;
 
       // Remove from UI state immediately (no need to reload)
-      setSessions(prev => prev.filter(session => session.session_id !== sessionId));
+      setSessions(prev => {
+        const newSessions = prev.filter(session => session.session_id !== sessionId);
+        console.log('UI STATE UPDATE:', { 
+          before: prev.length, 
+          after: newSessions.length, 
+          removedSessionId: sessionId 
+        });
+        return newSessions;
+      });
 
       toast({
         title: "Assessment deleted",
