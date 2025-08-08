@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useDebounce } from "@/hooks/useDebounce";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -172,6 +173,7 @@ const Assessment = () => {
   const [hasContext, setHasContext] = useState(false);
   const [explanationText, setExplanationText] = useState<string>("");
   const [savingExplanation, setSavingExplanation] = useState(false);
+  const debouncedExplanation = useDebounce(explanationText, 1000);
 
   useEffect(() => {
     if (!user) {
@@ -182,6 +184,35 @@ const Assessment = () => {
   useEffect(() => {
     loadQuestions();
   }, []);
+
+  // Auto-save explanation when debounced value changes
+  useEffect(() => {
+    if (sessionId && currentQuestion && debouncedExplanation !== explanationText && debouncedExplanation) {
+      saveExplanationSilently();
+    }
+  }, [debouncedExplanation]);
+
+  const saveExplanationSilently = useCallback(async () => {
+    if (!sessionId || !currentQuestion) return;
+
+    try {
+      const { data: existingAnswer } = await supabase
+        .from('atad2_answers')
+        .select('id')
+        .eq('session_id', sessionId)
+        .eq('question_id', currentQuestion.question_id)
+        .single();
+
+      if (existingAnswer) {
+        await supabase
+          .from('atad2_answers')
+          .update({ explanation: debouncedExplanation })
+          .eq('id', existingAnswer.id);
+      }
+    } catch (error) {
+      console.error('Error auto-saving explanation:', error);
+    }
+  }, [sessionId, currentQuestion, debouncedExplanation]);
 
   const loadQuestions = async () => {
     try {
