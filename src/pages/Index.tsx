@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "@/components/ui/sonner";
 import { Trash2, FileText } from "lucide-react";
 import {
   AlertDialog,
@@ -31,7 +31,7 @@ interface CompletedSession {
 const Index = () => {
   const { user, loading: authLoading, signOut } = useAuth();
   const navigate = useNavigate();
-  const { toast } = useToast();
+  
   const [sessions, setSessions] = useState<CompletedSession[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -84,10 +84,8 @@ const Index = () => {
       setSessions(sessionsWithCounts);
     } catch (error) {
       console.error('Error loading sessions:', error);
-      toast({
-        title: "Error",
+      toast.error("Error", {
         description: "Failed to load assessment sessions",
-        variant: "destructive",
       });
     } finally {
       setLoading(false);
@@ -129,16 +127,13 @@ const Index = () => {
         return newSessions;
       });
 
-      toast({
-        title: "Assessment deleted",
+      toast.success("Assessment deleted", {
         description: "The assessment has been permanently deleted.",
       });
     } catch (error) {
       console.error('Error deleting session:', error);
-      toast({
-        title: "Error",
+      toast.error("Error", {
         description: "Failed to delete assessment session",
-        variant: "destructive",
       });
     }
   };

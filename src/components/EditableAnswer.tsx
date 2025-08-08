@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from "@/components/ui/sonner";
 import { Check, Edit } from 'lucide-react';
 
 interface EditableAnswerProps {
@@ -22,7 +22,7 @@ export const EditableAnswer: React.FC<EditableAnswerProps> = ({
   riskPoints,
   onUpdate,
 }) => {
-  const { toast } = useToast();
+  
   const [isEditing, setIsEditing] = useState(false);
   const [answer, setAnswer] = useState(currentAnswer);
   const [explanation, setExplanation] = useState(currentExplanation);
@@ -49,16 +49,13 @@ export const EditableAnswer: React.FC<EditableAnswerProps> = ({
       // Show saved indicator briefly
       setTimeout(() => setJustSaved(false), 2000);
 
-      toast({
-        title: "Answer updated",
+      toast.success("Answer updated", {
         description: "Your changes have been saved successfully.",
       });
     } catch (error) {
       console.error('Error updating answer:', error);
-      toast({
-        title: "Error",
+      toast.error("Error", {
         description: "Failed to save changes",
-        variant: "destructive",
       });
     } finally {
       setSaving(false);

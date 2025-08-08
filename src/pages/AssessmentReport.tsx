@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "@/components/ui/sonner";
 import { format } from "date-fns";
 import { ArrowLeft } from "lucide-react";
 import { EditableAnswer } from "@/components/EditableAnswer";
@@ -34,7 +34,7 @@ const AssessmentReport = () => {
   const { sessionId } = useParams<{ sessionId: string }>();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { toast } = useToast();
+  
   const [sessionData, setSessionData] = useState<SessionData | null>(null);
   const [answers, setAnswers] = useState<AnswerData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -78,10 +78,8 @@ const AssessmentReport = () => {
 
     } catch (error) {
       console.error('Error loading session data:', error);
-      toast({
-        title: "Error",
+      toast.error("Error", {
         description: "Failed to load assessment data",
-        variant: "destructive",
       });
       navigate("/");
     } finally {

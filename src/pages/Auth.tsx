@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "@/components/ui/sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const Auth = () => {
@@ -14,7 +14,7 @@ const Auth = () => {
   const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { toast } = useToast();
+  
 
   useEffect(() => {
     // Check if user is already logged in
@@ -53,29 +53,22 @@ const Auth = () => {
 
       if (error) {
         if (error.message.includes("User already registered")) {
-          toast({
-            title: "Account already exists",
+          toast.error("Account already exists", {
             description: "An account with this email already exists. Try signing in instead.",
-            variant: "destructive",
           });
         } else {
-          toast({
-            title: "Registration failed",
+          toast.error("Registration failed", {
             description: error.message,
-            variant: "destructive",
           });
         }
       } else {
-        toast({
-          title: "Registration successful",
+        toast.success("Registration successful", {
           description: "Please check your email for confirmation.",
         });
       }
     } catch (error) {
-      toast({
-        title: "Something went wrong",
+      toast.error("Something went wrong", {
         description: "Please try again.",
-        variant: "destructive",
       });
     } finally {
       setLoading(false);
@@ -94,24 +87,18 @@ const Auth = () => {
 
       if (error) {
         if (error.message.includes("Invalid login credentials")) {
-          toast({
-            title: "Sign in failed",
+          toast.error("Sign in failed", {
             description: "Invalid email or password.",
-            variant: "destructive",
           });
         } else {
-          toast({
-            title: "Sign in failed",
+          toast.error("Sign in failed", {
             description: error.message,
-            variant: "destructive",
           });
         }
       }
     } catch (error) {
-      toast({
-        title: "Something went wrong",
+      toast.error("Something went wrong", {
         description: "Please try again.",
-        variant: "destructive",
       });
     } finally {
       setLoading(false);

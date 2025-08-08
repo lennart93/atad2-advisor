@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "@/components/ui/sonner";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -147,7 +147,7 @@ const QuestionText = ({ question, difficultTerm, termExplanation, exampleText }:
 const Assessment = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { toast } = useToast();
+  
   
   const [sessionInfo, setSessionInfo] = useState<SessionInfo>({
     taxpayer_name: "",
@@ -225,39 +225,31 @@ const Assessment = () => {
       setQuestions(data || []);
     } catch (error) {
       console.error('Error loading questions:', error);
-      toast({
-        title: "Error",
+      toast.error("Error", {
         description: "Failed to load questions",
-        variant: "destructive",
       });
     }
   };
 
   const startSession = async () => {
     if (!sessionInfo.taxpayer_name || !sessionInfo.tax_year) {
-      toast({
-        title: "Missing information",
+      toast.error("Missing information", {
         description: "Please fill in all required fields",
-        variant: "destructive",
       });
       return;
     }
 
     if (sessionInfo.tax_year_not_equals_calendar && (!sessionInfo.period_start_date || !sessionInfo.period_end_date)) {
-      toast({
-        title: "Missing information",
+      toast.error("Missing information", {
         description: "Please provide start and end dates for the tax period",
-        variant: "destructive",
       });
       return;
     }
 
     if (sessionInfo.tax_year_not_equals_calendar && sessionInfo.period_start_date && sessionInfo.period_end_date) {
       if (new Date(sessionInfo.period_end_date) < new Date(sessionInfo.period_start_date)) {
-        toast({
-          title: "Invalid date range",
+        toast.error("Invalid date range", {
           description: "End date cannot be before start date",
-          variant: "destructive",
         });
         return;
       }
@@ -302,10 +294,8 @@ const Assessment = () => {
       }
     } catch (error) {
       console.error('Error starting session:', error);
-      toast({
-        title: "Error",
+      toast.error("Error", {
         description: "Failed to start assessment",
-        variant: "destructive",
       });
     } finally {
       setLoading(false);
@@ -324,17 +314,14 @@ const Assessment = () => {
 
       if (error) throw error;
 
-      toast({
-        title: "Assessment complete",
+      toast.success("Assessment complete", {
         description: "Your risk assessment has been completed successfully.",
       });
       navigate("/");
     } catch (error) {
       console.error('Error completing assessment:', error);
-      toast({
-        title: "Error",
+      toast.error("Error", {
         description: "Failed to complete assessment",
-        variant: "destructive",
       });
     } finally {
       setLoading(false);
@@ -448,10 +435,8 @@ const Assessment = () => {
       }
     } catch (error) {
       console.error('Error submitting answer:', error);
-      toast({
-        title: "Error",
+      toast.error("Error", {
         description: "Failed to submit answer",
-        variant: "destructive",
       });
     } finally {
       setLoading(false);
@@ -505,8 +490,7 @@ const Assessment = () => {
         setNavigationIndex(-1);
       }
     } else {
-      toast({
-        title: "Assessment complete",
+      toast.success("Assessment complete", {
         description: "Your risk assessment has been completed successfully.",
       });
       navigate("/");
@@ -722,10 +706,8 @@ const Assessment = () => {
       }
     } catch (error) {
       console.error('Error submitting answer:', error);
-      toast({
-        title: "Error",
+      toast.error("Error", {
         description: "Failed to submit answer",
-        variant: "destructive",
       });
     } finally {
       setLoading(false);
@@ -772,10 +754,8 @@ const Assessment = () => {
 
     } catch (error) {
       console.error('Error handling flow change:', error);
-      toast({
-        title: "Error",
+      toast.error("Error", {
         description: "Failed to update assessment flow",
-        variant: "destructive",
       });
       setLoading(false);
       setPendingAnswerChange(null);
