@@ -1,6 +1,7 @@
 
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,24 @@ const Index = () => {
   
   const [sessions, setSessions] = useState<CompletedSession[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const { data: isAdmin } = useQuery({
+    queryKey: ["is-admin", user?.id],
+    queryFn: async () => {
+      if (!user) return false;
+      const { data, error } = await supabase.rpc("has_role", {
+        _user_id: user.id,
+        _role: "admin",
+      });
+      if (error) {
+        console.error("has_role rpc error", error);
+        return false;
+      }
+      return Boolean(data);
+    },
+    enabled: !!user,
+    staleTime: 60_000,
+  });
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -165,9 +184,12 @@ const Index = () => {
             <h1 className="text-3xl font-bold">ATAD2 Risk Assessment Dashboard</h1>
             <p className="text-muted-foreground mt-2">Welcome back, {user.email}</p>
           </div>
-          <Button variant="outline" onClick={handleSignOut}>
-            Sign out
-          </Button>
+          <div className="flex items-center gap-2">
+            {isAdmin ? (
+              <Button variant="secondary" onClick={() => navigate("/admin")}>Admin</Button>
+            ) : null}
+            <Button variant="outline" onClick={handleSignOut}>Sign out</Button>
+          </div>
         </div>
         
         <div className="grid gap-6">
