@@ -8,6 +8,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import ProtectedRoute from "@/components/routing/ProtectedRoute";
 import PublicOnlyRoute from "@/components/routing/PublicOnlyRoute";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import AdminRoute from "@/components/routing/AdminRoute";
 
 // Route-based code splitting
 const Index = lazy(() => import("./pages/Index"));
@@ -15,6 +16,15 @@ const Auth = lazy(() => import("./pages/Auth"));
 const Assessment = lazy(() => import("./pages/Assessment"));
 const AssessmentReport = lazy(() => import("./pages/AssessmentReport"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+
+// Admin routes
+const AdminLayout = lazy(() => import("./pages/admin/AdminLayout"));
+const AdminDashboard = lazy(() => import("./pages/admin/Dashboard"));
+const AdminQuestions = lazy(() => import("./pages/admin/Questions"));
+const AdminContextQuestions = lazy(() => import("./pages/admin/ContextQuestions"));
+const AdminSessions = lazy(() => import("./pages/admin/Sessions"));
+const AdminUsers = lazy(() => import("./pages/admin/Users"));
+const NotAuthorized = lazy(() => import("./pages/NotAuthorized"));
 
 const queryClient = new QueryClient();
 
@@ -37,6 +47,17 @@ const App = () => (
                 <Route path="/auth" element={<PublicOnlyRoute><Auth /></PublicOnlyRoute>} />
                 <Route path="/assessment" element={<ProtectedRoute><Assessment /></ProtectedRoute>} />
                 <Route path="/assessment-report/:sessionId" element={<ProtectedRoute><AssessmentReport /></ProtectedRoute>} />
+
+                <Route path="/admin" element={<ProtectedRoute><AdminRoute><AdminLayout /></AdminRoute></ProtectedRoute>}>
+                  <Route index element={<AdminDashboard />} />
+                  <Route path="dashboard" element={<AdminDashboard />} />
+                  <Route path="questions" element={<AdminQuestions />} />
+                  <Route path="context-questions" element={<AdminContextQuestions />} />
+                  <Route path="sessions" element={<AdminSessions />} />
+                  <Route path="users" element={<AdminUsers />} />
+                  <Route path="*" element={<NotAuthorized />} />
+                </Route>
+
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
