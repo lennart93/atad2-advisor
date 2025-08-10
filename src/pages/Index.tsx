@@ -1,6 +1,6 @@
 
 import { useEffect, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -187,7 +187,9 @@ const Index = () => {
           </div>
           <div className="flex items-center gap-2">
             {isAdmin ? (
-              <Button variant="secondary" onClick={() => navigate("/admin", { state: { from: location.pathname } })}>Admin</Button>
+              <Button variant="secondary" asChild>
+                <Link to="/admin" state={{ from: location }}>Admin</Link>
+              </Button>
             ) : null}
             <Button variant="outline" onClick={handleSignOut}>Sign out</Button>
           </div>
