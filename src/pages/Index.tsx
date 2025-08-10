@@ -1,6 +1,6 @@
 
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -32,6 +32,7 @@ interface CompletedSession {
 const Index = () => {
   const { user, loading: authLoading, signOut } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   
   const [sessions, setSessions] = useState<CompletedSession[]>([]);
   const [loading, setLoading] = useState(true);
@@ -186,7 +187,7 @@ const Index = () => {
           </div>
           <div className="flex items-center gap-2">
             {isAdmin ? (
-              <Button variant="secondary" onClick={() => navigate("/admin")}>Admin</Button>
+              <Button variant="secondary" onClick={() => navigate("/admin", { state: { from: location.pathname } })}>Admin</Button>
             ) : null}
             <Button variant="outline" onClick={handleSignOut}>Sign out</Button>
           </div>
