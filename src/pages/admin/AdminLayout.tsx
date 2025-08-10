@@ -29,15 +29,6 @@ const AdminLayout = () => {
 
   return (
     <SidebarProvider>
-      <header className="h-12 flex items-center border-b px-2 justify-between">
-        <div className="flex items-center gap-2">
-          <SidebarTrigger className="ml-1" />
-          <h1 className="ml-1 text-sm font-medium text-foreground">Admin panel</h1>
-        </div>
-        <Button variant="outline" size="sm" onClick={handleBack} aria-label="Back">
-          Terug
-        </Button>
-      </header>
       <div className="flex min-h-screen w-full">
         <AppSidebar />
         <main className="flex-1 p-4">

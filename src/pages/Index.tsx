@@ -1,11 +1,10 @@
 
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/sonner";
 import { Trash2, FileText } from "lucide-react";
 import {
@@ -30,30 +29,12 @@ interface CompletedSession {
 }
 
 const Index = () => {
-  const { user, loading: authLoading, signOut } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
   
   const [sessions, setSessions] = useState<CompletedSession[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const { data: isAdmin } = useQuery({
-    queryKey: ["is-admin", user?.id],
-    queryFn: async () => {
-      if (!user) return false;
-      const { data, error } = await supabase.rpc("has_role", {
-        _user_id: user.id,
-        _role: "admin",
-      });
-      if (error) {
-        console.error("has_role rpc error", error);
-        return false;
-      }
-      return Boolean(data);
-    },
-    enabled: !!user,
-    staleTime: 60_000,
-  });
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -158,14 +139,6 @@ const Index = () => {
     }
   };
 
-  const handleSignOut = async () => {
-    try {
-      await signOut();
-      navigate("/auth");
-    } catch (error) {
-      console.error('Error signing out:', error);
-    }
-  };
 
   if (authLoading) {
     return (
