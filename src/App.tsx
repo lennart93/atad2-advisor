@@ -16,6 +16,7 @@ const Auth = lazy(() => import("./pages/Auth"));
 const Assessment = lazy(() => import("./pages/Assessment"));
 const AssessmentReport = lazy(() => import("./pages/AssessmentReport"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+const AppLayout = lazy(() => import("./pages/AppLayout"));
 
 // Admin routes
 const AdminLayout = lazy(() => import("./pages/admin/AdminLayout"));
@@ -43,24 +44,27 @@ const App = () => (
           <ScrollRestoration />
           <ErrorBoundary>
             <Suspense fallback={<LoadingSpinner />}>
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/auth" element={<PublicOnlyRoute><Auth /></PublicOnlyRoute>} />
-                <Route path="/assessment" element={<ProtectedRoute><Assessment /></ProtectedRoute>} />
-                <Route path="/assessment-report/:sessionId" element={<ProtectedRoute><AssessmentReport /></ProtectedRoute>} />
+                <Routes>
+                  <Route path="/auth" element={<PublicOnlyRoute><Auth /></PublicOnlyRoute>} />
 
-                <Route path="/admin" element={<ProtectedRoute><AdminRoute><AdminLayout /></AdminRoute></ProtectedRoute>}>
-                  <Route index element={<AdminDashboard />} />
-                  <Route path="dashboard" element={<AdminDashboard />} />
-                  <Route path="questions" element={<AdminQuestions />} />
-                  <Route path="context-questions" element={<AdminContextQuestions />} />
-                  <Route path="sessions" element={<AdminSessions />} />
-                  <Route path="users" element={<AdminUsers />} />
-                  <Route path="*" element={<NotAuthorized />} />
-                </Route>
+                  <Route element={<AppLayout />}>
+                    <Route path="/" element={<Index />} />
+                    <Route path="/assessment" element={<ProtectedRoute><Assessment /></ProtectedRoute>} />
+                    <Route path="/assessment-report/:sessionId" element={<ProtectedRoute><AssessmentReport /></ProtectedRoute>} />
 
-                <Route path="*" element={<NotFound />} />
-              </Routes>
+                    <Route path="/admin" element={<ProtectedRoute><AdminRoute><AdminLayout /></AdminRoute></ProtectedRoute>}>
+                      <Route index element={<AdminDashboard />} />
+                      <Route path="dashboard" element={<AdminDashboard />} />
+                      <Route path="questions" element={<AdminQuestions />} />
+                      <Route path="context-questions" element={<AdminContextQuestions />} />
+                      <Route path="sessions" element={<AdminSessions />} />
+                      <Route path="users" element={<AdminUsers />} />
+                      <Route path="*" element={<NotAuthorized />} />
+                    </Route>
+
+                    <Route path="*" element={<NotFound />} />
+                  </Route>
+                </Routes>
             </Suspense>
           </ErrorBoundary>
         </BrowserRouter>
