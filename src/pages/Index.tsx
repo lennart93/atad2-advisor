@@ -153,20 +153,6 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background p-4">
       <div className="max-w-4xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold">ATAD2 Risk Assessment Dashboard</h1>
-            <p className="text-muted-foreground mt-2">Welcome back, {user.email}</p>
-          </div>
-          <div className="flex items-center gap-2">
-            {isAdmin ? (
-              <Button variant="secondary" asChild>
-                <Link to="/admin" state={{ from: location }}>Admin</Link>
-              </Button>
-            ) : null}
-            <Button variant="outline" onClick={handleSignOut}>Sign out</Button>
-          </div>
-        </div>
         
         <div className="grid gap-6">
           <Card>
