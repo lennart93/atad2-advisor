@@ -1127,17 +1127,6 @@ const Assessment = () => {
                          className="w-full mt-2 min-h-[80px]"
                          disabled={savingStatus === 'saving'}
                        />
-                       {explanation.trim() && navigationIndex !== -1 && (
-                         <div className="flex items-center justify-between mt-2">
-                           <span className="text-xs text-blue-600">Context retained</span>
-                           <button 
-                             onClick={clearContext}
-                             className="text-xs text-red-600 hover:text-red-800"
-                           >
-                             Clear
-                           </button>
-                         </div>
-                       )}
                      </div>
                    )}
 
