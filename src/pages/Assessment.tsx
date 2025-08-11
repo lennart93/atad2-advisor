@@ -1083,13 +1083,13 @@ const Assessment = () => {
                              };
                             case 'unknown':
                               return { 
-                                emoji: '🤷‍♂️', 
+                                emoji: '❓', 
                                 selectedBg: 'border-blue-600 bg-blue-50 shadow-md ring-2 ring-blue-600/20',
                                 hoverBg: 'hover:border-blue-500 hover:bg-blue-50/50'
                               };
                             default:
                               return { 
-                                emoji: '🤷‍♂️', 
+                                emoji: '❓', 
                                 selectedBg: 'border-blue-600 bg-blue-50 shadow-md ring-2 ring-blue-600/20',
                                 hoverBg: 'hover:border-blue-500 hover:bg-blue-50/50'
                               };
@@ -1115,7 +1115,7 @@ const Assessment = () => {
                            `}
                          >
                             <div className="flex items-center gap-3">
-                              <span className="text-xl">{emoji}</span>
+                              <span className={`text-xl ${answerType === 'unknown' ? 'text-blue-600' : ''}`}>{emoji}</span>
                               <span className={`text-base font-medium ${
                                 answerType === 'unknown' ? 'text-gray-700' : ''
                               }`}>

@@ -132,7 +132,7 @@ export const EditableAnswer: React.FC<EditableAnswerProps> = ({
               <span className="text-lg">
                 {currentAnswer.toLowerCase() === 'yes' ? '✅' : 
                  currentAnswer.toLowerCase() === 'no' ? '❌' : 
-                 currentAnswer.toLowerCase() === 'unknown' ? '🤷‍♂️' : '🤷‍♂️'}
+                 currentAnswer.toLowerCase() === 'unknown' ? <span className="text-blue-600">❓</span> : <span className="text-blue-600">❓</span>}
               </span>
             </span>
           )}
