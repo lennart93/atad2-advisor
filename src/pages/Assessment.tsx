@@ -1115,24 +1115,22 @@ const Assessment = () => {
                            `}
                          >
                             <div className="flex items-center gap-3">
-                              <span className={`text-xl ${answerType === 'unknown' ? 'text-blue-600' : ''}`}>
-                                {emoji}
-                             </span>
-                             <span className={`text-base font-medium ${
-                               answerType === 'unknown' ? 'text-gray-700' : ''
-                             }`}>
-                               {option.answer_option}
-                             </span>
-                             {isSelected && isViewingAnsweredQuestion && (
-                               <span className="ml-auto text-sm text-muted-foreground font-medium">
-                                 Previously answered
-                               </span>
-                             )}
-                           </div>
-                         </button>
-                       );
-                     })}
-                   </div>
+                              <span className="text-xl">{emoji}</span>
+                              <span className={`text-base font-medium ${
+                                answerType === 'unknown' ? 'text-gray-700' : ''
+                              }`}>
+                                {option.answer_option}
+                              </span>
+                              {isSelected && isViewingAnsweredQuestion && (
+                                <span className="ml-auto text-sm text-muted-foreground font-medium">
+                                  Previously answered
+                                </span>
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
 
                    {/* Context section - only show when hasContext and navigationIndex === -1 */}
                    {hasContext && navigationIndex === -1 && (
