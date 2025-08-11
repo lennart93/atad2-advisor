@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { useDebounce } from "@/hooks/useDebounce";
+import { useContextPanel } from "@/hooks/useContextPanel";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -169,11 +169,22 @@ const Assessment = () => {
   const [pendingAnswerChange, setPendingAnswerChange] = useState<{answer: string, newNextQuestionId: string | null} | null>(null);
   const [autoAdvance, setAutoAdvance] = useState(true);
   const [pendingQuestion, setPendingQuestion] = useState<Question | null>(null);
-  const [contextQuestion, setContextQuestion] = useState<string | null>(null);
-  const [hasContext, setHasContext] = useState(false);
-  const [explanationText, setExplanationText] = useState<string>("");
-  const [savingExplanation, setSavingExplanation] = useState(false);
-  const debouncedExplanation = useDebounce(explanationText, 1000);
+  
+  // Use context panel hook for persistent state management
+  const {
+    explanation,
+    contextPrompt,
+    shouldShowContext,
+    savingStatus,
+    updateExplanation,
+    updateAnswer,
+    loadContextQuestions,
+    clearContext,
+  } = useContextPanel({
+    sessionId,
+    questionId: currentQuestion?.question_id || '',
+    selectedAnswer: selectedAnswer as 'Yes' | 'No' | 'Unknown' | '',
+  });
 
   useEffect(() => {
     if (!user) {
@@ -185,34 +196,7 @@ const Assessment = () => {
     loadQuestions();
   }, []);
 
-  // Auto-save explanation when debounced value changes
-  useEffect(() => {
-    if (sessionId && currentQuestion && debouncedExplanation !== explanationText && debouncedExplanation) {
-      saveExplanationSilently();
-    }
-  }, [debouncedExplanation]);
-
-  const saveExplanationSilently = useCallback(async () => {
-    if (!sessionId || !currentQuestion) return;
-
-    try {
-      const { data: existingAnswer } = await supabase
-        .from('atad2_answers')
-        .select('id')
-        .eq('session_id', sessionId)
-        .eq('question_id', currentQuestion.question_id)
-        .single();
-
-      if (existingAnswer) {
-        await supabase
-          .from('atad2_answers')
-          .update({ explanation: debouncedExplanation })
-          .eq('id', existingAnswer.id);
-      }
-    } catch (error) {
-      console.error('Error auto-saving explanation:', error);
-    }
-  }, [sessionId, currentQuestion, debouncedExplanation]);
+  // Context state is now managed by useContextPanel hook
 
   const loadQuestions = async () => {
     try {
@@ -356,7 +340,7 @@ const Assessment = () => {
           .update({
             question_text: currentQuestion.question,
             answer: selectedAnswer,
-            explanation: explanationText,
+            explanation: explanation,
             risk_points: selectedQuestionOption.risk_points,
             difficult_term: selectedQuestionOption.difficult_term,
             term_explanation: selectedQuestionOption.term_explanation,
@@ -374,7 +358,7 @@ const Assessment = () => {
             question_id: currentQuestion.question_id,
             question_text: currentQuestion.question,
             answer: selectedAnswer,
-            explanation: explanationText,
+            explanation: explanation,
             risk_points: selectedQuestionOption.risk_points,
             difficult_term: selectedQuestionOption.difficult_term,
             term_explanation: selectedQuestionOption.term_explanation
@@ -460,6 +444,9 @@ const Assessment = () => {
     setCurrentQuestion(targetEntry.question);
     setSelectedAnswer(targetEntry.answer);
     setNavigationIndex(targetIndex);
+    
+    // Update answer in store for persistence
+    updateAnswer(targetEntry.answer as 'Yes' | 'No' | 'Unknown');
   };
 
   const goToNextQuestion = () => {
@@ -470,6 +457,9 @@ const Assessment = () => {
     setCurrentQuestion(targetEntry.question);
     setSelectedAnswer(targetEntry.answer);
     setNavigationIndex(targetIndex);
+    
+    // Update answer in store for persistence
+    updateAnswer(targetEntry.answer as 'Yes' | 'No' | 'Unknown');
   };
 
   const continueToNextUnanswered = () => {
@@ -504,6 +494,9 @@ const Assessment = () => {
     setCurrentQuestion(targetEntry.question);
     setSelectedAnswer(targetEntry.answer);
     setNavigationIndex(questionIndex);
+    
+    // Update answer in store for persistence
+    updateAnswer(targetEntry.answer as 'Yes' | 'No' | 'Unknown');
     // DON'T change pendingQuestion when navigating - it should stay the same
   };
 
@@ -544,35 +537,11 @@ const Assessment = () => {
     setLoading(true);
 
     try {
-      // Check for context questions for this question + answer
+      // Check for context questions and update store
       if (currentQuestion) {
-        const { data: ctx, error: ctxError } = await supabase
-          .from('atad2_context_questions')
-          .select('context_question')
-          .eq('question_id', currentQuestion.question_id)
-          .eq('answer_trigger', answer);
-
-        if (ctxError) {
-          console.error('Error loading context questions:', ctxError);
-        }
-
-        const hasCtx = (ctx?.length || 0) > 0;
-        setHasContext(hasCtx);
-
-        if (hasCtx && ctx) {
-          const random = ctx[Math.floor(Math.random() * ctx.length)];
-          setContextQuestion(random.context_question);
-
-          // Prefill any previously saved explanation
-          const { data: existing } = await supabase
-            .from('atad2_answers')
-            .select('explanation')
-            .eq('session_id', sessionId)
-            .eq('question_id', currentQuestion.question_id)
-            .maybeSingle();
-
-          setExplanationText(existing?.explanation || "");
-
+        const contextPrompt = await loadContextQuestions(answer);
+        
+        if (contextPrompt) {
           // Do not auto-advance when context exists
           setLoading(false);
           return;
@@ -623,7 +592,7 @@ const Assessment = () => {
           .update({
             question_text: currentQuestion.question,
             answer: answer,
-            explanation: explanationText,
+             explanation: explanation,
             risk_points: selectedQuestionOption.risk_points,
             difficult_term: selectedQuestionOption.difficult_term,
             term_explanation: selectedQuestionOption.term_explanation,
@@ -640,7 +609,7 @@ const Assessment = () => {
             question_id: currentQuestion.question_id,
             question_text: currentQuestion.question,
             answer: answer,
-            explanation: explanationText,
+            explanation: explanation,
             risk_points: selectedQuestionOption.risk_points,
             difficult_term: selectedQuestionOption.difficult_term,
             term_explanation: selectedQuestionOption.term_explanation
@@ -1136,20 +1105,39 @@ const Assessment = () => {
                       })}
                     </div>
 
-                   {/* Context section - only show when hasContext and navigationIndex === -1 */}
-                   {hasContext && navigationIndex === -1 && (
+                   {/* Context section - persistent across navigation */}
+                   {shouldShowContext && (
                      <div className="bg-gray-50 rounded-lg px-4 py-3 mb-8">
-                       <div className="text-sm text-gray-700 italic mb-3">
-                         <span className="text-lg mr-2">💡</span>
-                         <span>Context</span>
+                       <div className="flex items-center justify-between mb-3">
+                         <div className="text-sm text-gray-700 italic">
+                           <span className="text-lg mr-2">💡</span>
+                           <span>Context</span>
+                         </div>
+                         {savingStatus === 'saving' && (
+                           <span className="text-xs text-blue-600">Saving...</span>
+                         )}
+                         {savingStatus === 'saved' && (
+                           <span className="text-xs text-green-600">Saved</span>
+                         )}
                        </div>
                        <Textarea
-                         value={explanationText}
-                         onChange={(e) => setExplanationText(e.target.value)}
-                         placeholder={contextQuestion || "Your explanation..."}
+                         value={explanation}
+                         onChange={(e) => updateExplanation(e.target.value)}
+                         placeholder={contextPrompt || "Your explanation..."}
                          className="w-full mt-2 min-h-[80px]"
-                         disabled={savingExplanation}
+                         disabled={savingStatus === 'saving'}
                        />
+                       {explanation.trim() && navigationIndex !== -1 && (
+                         <div className="flex items-center justify-between mt-2">
+                           <span className="text-xs text-blue-600">Context retained</span>
+                           <button 
+                             onClick={clearContext}
+                             className="text-xs text-red-600 hover:text-red-800"
+                           >
+                             Clear
+                           </button>
+                         </div>
+                       )}
                      </div>
                    )}
 
@@ -1189,7 +1177,7 @@ const Assessment = () => {
                     )}
 
                      {/* Show Finish Assessment button when at end of flow */}
-                     {shouldShowFinishButton() && !hasContext && (
+                     {shouldShowFinishButton() && navigationIndex === -1 && (
                        <Button 
                          onClick={finishAssessment}
                          disabled={loading || isTransitioning}
@@ -1199,21 +1187,16 @@ const Assessment = () => {
                        </Button>
                      )}
 
-                     {/* Show Submit/Continue button when hasContext */}
-                     {hasContext && navigationIndex === -1 && selectedAnswer && (
+                     {/* Show Submit/Continue button when context panel is visible and we're on active question */}
+                     {shouldShowContext && navigationIndex === -1 && selectedAnswer && (
                        <Button 
                          onClick={async () => {
-                           setSavingExplanation(true);
                            await submitAnswerDirectly(selectedAnswer);
-                           setSavingExplanation(false);
-                           setHasContext(false);
-                           setContextQuestion(null);
-                           setExplanationText("");
                          }}
-                         disabled={loading || isTransitioning || savingExplanation}
+                         disabled={loading || isTransitioning || savingStatus === 'saving'}
                          className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                        >
-                         {savingExplanation ? "Saving..." : "Continue"}
+                         {savingStatus === 'saving' ? "Saving..." : "Continue"}
                        </Button>
                      )}
                   </div>
