@@ -118,10 +118,10 @@ export const EditableAnswer: React.FC<EditableAnswerProps> = ({
                 No
               </Button>
               <Button
-                variant={answer === 'Unknown' ? 'default' : 'outline'}
+                variant={answer === 'Unknown' ? 'secondary' : 'outline'}
                 size="sm"
                 onClick={() => setAnswer('Unknown')}
-                className="bg-gray-500 hover:bg-gray-600 text-white border-gray-500 hover:border-gray-600"
+                className="text-gray-700 border-gray-300 hover:bg-gray-100"
               >
                 Unknown
               </Button>

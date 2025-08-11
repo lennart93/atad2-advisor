@@ -1066,21 +1066,37 @@ const Assessment = () => {
                        const isSelected = selectedAnswer === option.answer_option;
                        const answerType = option.answer_option.toLowerCase();
                        
-                       // Get emoji and color based on answer type
+                       // Get styling based on answer type
                        const getAnswerStyle = () => {
                          switch (answerType) {
                            case 'yes':
-                             return { emoji: '✅', color: 'text-green-700' };
+                             return { 
+                               emoji: '✅', 
+                               selectedBg: 'border-green-500 bg-green-50 shadow-md ring-2 ring-green-500/20',
+                               hoverBg: 'hover:border-green-400 hover:bg-green-50/50'
+                             };
                            case 'no':
-                             return { emoji: '❌', color: 'text-red-700' };
+                             return { 
+                               emoji: '❌', 
+                               selectedBg: 'border-red-500 bg-red-50 shadow-md ring-2 ring-red-500/20',
+                               hoverBg: 'hover:border-red-400 hover:bg-red-50/50'
+                             };
                            case 'unknown':
-                             return { emoji: '❓', color: 'text-gray-600' };
+                             return { 
+                               emoji: '❓', 
+                               selectedBg: 'border-gray-400 bg-gray-50 shadow-md ring-2 ring-gray-400/20',
+                               hoverBg: 'hover:border-gray-400 hover:bg-gray-50/50'
+                             };
                            default:
-                             return { emoji: '❓', color: 'text-gray-600' };
+                             return { 
+                               emoji: '❓', 
+                               selectedBg: 'border-gray-400 bg-gray-50 shadow-md ring-2 ring-gray-400/20',
+                               hoverBg: 'hover:border-gray-400 hover:bg-gray-50/50'
+                             };
                          }
                        };
                        
-                       const { emoji, color } = getAnswerStyle();
+                       const { emoji, selectedBg, hoverBg } = getAnswerStyle();
                        
                        return (
                          <button
@@ -1091,18 +1107,20 @@ const Assessment = () => {
                            className={`
                              w-full p-4 rounded-lg border-2 transition-all duration-200 text-left
                              ${isSelected 
-                               ? 'border-primary bg-primary/10 shadow-md ring-2 ring-primary/20' 
-                               : 'border-border hover:border-primary/50 hover:bg-accent/50'
+                               ? selectedBg
+                               : `border-border ${hoverBg}`
                              }
                              ${loading || isTransitioning ? 'opacity-50 cursor-not-allowed' : ''}
                              focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
                            `}
                          >
                            <div className="flex items-center gap-3">
-                             <span className={`text-xl ${color}`}>
+                             <span className="text-xl">
                                {emoji}
                              </span>
-                             <span className="text-base font-medium">
+                             <span className={`text-base font-medium ${
+                               answerType === 'unknown' ? 'text-gray-700' : ''
+                             }`}>
                                {option.answer_option}
                              </span>
                              {isSelected && isViewingAnsweredQuestion && (
