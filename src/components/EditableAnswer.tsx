@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from "@/components/ui/sonner";
-import { Check, Edit } from 'lucide-react';
+import { Check, Edit, HelpCircle } from 'lucide-react';
 
 interface EditableAnswerProps {
   answerId: string;
@@ -129,10 +129,10 @@ export const EditableAnswer: React.FC<EditableAnswerProps> = ({
           ) : (
             <span className="inline-flex items-center gap-1">
               {currentAnswer}
-              <span className="text-lg">
+              <span className="text-lg flex items-center">
                 {currentAnswer.toLowerCase() === 'yes' ? '✅' : 
                  currentAnswer.toLowerCase() === 'no' ? '❌' : 
-                 currentAnswer.toLowerCase() === 'unknown' ? <span className="text-blue-600">❓</span> : <span className="text-blue-600">❓</span>}
+                 currentAnswer.toLowerCase() === 'unknown' ? <HelpCircle className="w-5 h-5 text-blue-600" /> : <HelpCircle className="w-5 h-5 text-blue-600" />}
               </span>
             </span>
           )}

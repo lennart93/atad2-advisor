@@ -11,7 +11,7 @@ import { toast } from "@/components/ui/sonner";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { InfoIcon, ArrowLeft } from "lucide-react";
+import { InfoIcon, ArrowLeft, HelpCircle } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { AssessmentSidebar } from "@/components/AssessmentSidebar";
@@ -1083,13 +1083,13 @@ const Assessment = () => {
                              };
                             case 'unknown':
                               return { 
-                                emoji: '❓', 
+                                emoji: 'icon', 
                                 selectedBg: 'border-blue-600 bg-blue-50 shadow-md ring-2 ring-blue-600/20',
                                 hoverBg: 'hover:border-blue-500 hover:bg-blue-50/50'
                               };
                             default:
                               return { 
-                                emoji: '❓', 
+                                emoji: 'icon', 
                                 selectedBg: 'border-blue-600 bg-blue-50 shadow-md ring-2 ring-blue-600/20',
                                 hoverBg: 'hover:border-blue-500 hover:bg-blue-50/50'
                               };
@@ -1115,7 +1115,11 @@ const Assessment = () => {
                            `}
                          >
                             <div className="flex items-center gap-3">
-                              <span className={`text-xl ${answerType === 'unknown' ? 'text-blue-600' : ''}`}>{emoji}</span>
+                              {answerType === 'unknown' ? (
+                                <HelpCircle className="w-5 h-5 text-blue-600" />
+                              ) : (
+                                <span className="text-xl">{emoji}</span>
+                              )}
                               <span className={`text-base font-medium ${
                                 answerType === 'unknown' ? 'text-gray-700' : ''
                               }`}>
