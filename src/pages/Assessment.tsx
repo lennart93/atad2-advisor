@@ -1083,13 +1083,13 @@ const Assessment = () => {
                              };
                             case 'unknown':
                               return { 
-                                emoji: '❓', 
+                                emoji: '🤷‍♂️', 
                                 selectedBg: 'border-blue-600 bg-blue-50 shadow-md ring-2 ring-blue-600/20',
                                 hoverBg: 'hover:border-blue-500 hover:bg-blue-50/50'
                               };
                             default:
                               return { 
-                                emoji: '❓', 
+                                emoji: '🤷‍♂️', 
                                 selectedBg: 'border-blue-600 bg-blue-50 shadow-md ring-2 ring-blue-600/20',
                                 hoverBg: 'hover:border-blue-500 hover:bg-blue-50/50'
                               };
