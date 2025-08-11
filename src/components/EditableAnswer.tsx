@@ -121,7 +121,7 @@ export const EditableAnswer: React.FC<EditableAnswerProps> = ({
                 variant={answer === 'Unknown' ? 'secondary' : 'outline'}
                 size="sm"
                 onClick={() => setAnswer('Unknown')}
-                className="text-gray-700 border-gray-300 hover:bg-gray-100"
+                className="text-gray-700 border-blue-300 hover:bg-blue-50"
               >
                 Unknown
               </Button>
@@ -132,7 +132,7 @@ export const EditableAnswer: React.FC<EditableAnswerProps> = ({
               <span className="text-lg">
                 {currentAnswer.toLowerCase() === 'yes' ? '✅' : 
                  currentAnswer.toLowerCase() === 'no' ? '❌' : 
-                 currentAnswer.toLowerCase() === 'unknown' ? '❓' : '❓'}
+                 currentAnswer.toLowerCase() === 'unknown' ? <span className="text-blue-600">❓</span> : <span className="text-blue-600">❓</span>}
               </span>
             </span>
           )}

@@ -104,19 +104,19 @@ export function AssessmentSidebar({ answers, questionHistory, currentQuestion, p
                         ? "bg-green-50 text-green-700 border border-green-200"
                         : entry.answer === "No"
                         ? "bg-red-50 text-red-700 border border-red-200"
-                        : "bg-gray-50 text-gray-700 border border-gray-200"
+                        : "bg-blue-50 text-blue-700 border border-blue-200"
                     )}>
                       {entry.answer === "Yes" ? (
                         <Check className="h-3 w-3 text-green-600" />
                       ) : entry.answer === "No" ? (
                         <X className="h-3 w-3 text-red-600" />
                       ) : (
-                        <HelpCircle className="h-3 w-3 text-gray-600" />
+                        <HelpCircle className="h-3 w-3 text-blue-600" />
                       )}
                       <span className={
                         entry.answer === "Yes" ? "text-green-600" : 
                         entry.answer === "No" ? "text-red-600" : 
-                        "text-gray-600"
+                        "text-gray-700"
                       }>
                         {entry.answer}
                       </span>

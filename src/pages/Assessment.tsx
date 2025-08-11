@@ -1081,18 +1081,18 @@ const Assessment = () => {
                                selectedBg: 'border-red-500 bg-red-50 shadow-md ring-2 ring-red-500/20',
                                hoverBg: 'hover:border-red-400 hover:bg-red-50/50'
                              };
-                           case 'unknown':
-                             return { 
-                               emoji: '❓', 
-                               selectedBg: 'border-gray-400 bg-gray-50 shadow-md ring-2 ring-gray-400/20',
-                               hoverBg: 'hover:border-gray-400 hover:bg-gray-50/50'
-                             };
-                           default:
-                             return { 
-                               emoji: '❓', 
-                               selectedBg: 'border-gray-400 bg-gray-50 shadow-md ring-2 ring-gray-400/20',
-                               hoverBg: 'hover:border-gray-400 hover:bg-gray-50/50'
-                             };
+                            case 'unknown':
+                              return { 
+                                emoji: '❓', 
+                                selectedBg: 'border-blue-600 bg-blue-50 shadow-md ring-2 ring-blue-600/20',
+                                hoverBg: 'hover:border-blue-500 hover:bg-blue-50/50'
+                              };
+                            default:
+                              return { 
+                                emoji: '❓', 
+                                selectedBg: 'border-blue-600 bg-blue-50 shadow-md ring-2 ring-blue-600/20',
+                                hoverBg: 'hover:border-blue-500 hover:bg-blue-50/50'
+                              };
                          }
                        };
                        
@@ -1114,9 +1114,9 @@ const Assessment = () => {
                              focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
                            `}
                          >
-                           <div className="flex items-center gap-3">
-                             <span className="text-xl">
-                               {emoji}
+                            <div className="flex items-center gap-3">
+                              <span className={`text-xl ${answerType === 'unknown' ? 'text-blue-600' : ''}`}>
+                                {emoji}
                              </span>
                              <span className={`text-base font-medium ${
                                answerType === 'unknown' ? 'text-gray-700' : ''
