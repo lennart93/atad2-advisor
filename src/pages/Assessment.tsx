@@ -181,9 +181,12 @@ const Assessment = () => {
     loadContextQuestions,
     clearContext,
   } = useContextPanel({
-    sessionId,
+    sessionId: sessionId!,
     questionId: currentQuestion?.question_id || '',
-    selectedAnswer: selectedAnswer as 'Yes' | 'No' | 'Unknown' | '',
+    selectedAnswer: selectedAnswer as 'Yes' | 'No' | 'Unknown' | null,
+    onAnswerChange: (answer) => {
+      setSelectedAnswer(answer);
+    },
   });
 
   useEffect(() => {
@@ -508,7 +511,7 @@ const Assessment = () => {
     setNavigationIndex(-1); // Set to -1 to indicate we're on the active question
   };
 
-  const handleAnswerSelect = async (answer: string) => {
+  const handleAnswerSelect = async (answer: 'Yes' | 'No' | 'Unknown') => {
     if (loading || isTransitioning) return;
     
     if (navigationIndex !== -1 && currentQuestion) {
@@ -537,15 +540,12 @@ const Assessment = () => {
     setLoading(true);
 
     try {
-      // Check for context questions and update store
+      // Update the answer using the new system
+      updateAnswer(answer as 'Yes' | 'No' | 'Unknown');
+      
+      // Check for context questions
       if (currentQuestion) {
-        const contextPrompt = await loadContextQuestions(answer);
-        
-        if (contextPrompt) {
-          // Do not auto-advance when context exists
-          setLoading(false);
-          return;
-        }
+        await loadContextQuestions(currentQuestion.question_id, answer);
       }
 
       // Only auto-advance when not navigating and auto-advance is enabled and no context
@@ -1071,7 +1071,7 @@ const Assessment = () => {
                          <button
                            key={index}
                            type="button"
-                           onClick={() => handleAnswerSelect(option.answer_option)}
+                           onClick={() => handleAnswerSelect(option.answer_option as 'Yes' | 'No' | 'Unknown')}
                            disabled={loading || isTransitioning}
                            className={`
                              w-full p-4 rounded-lg border-2 transition-all duration-200 text-left
