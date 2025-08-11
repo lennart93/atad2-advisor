@@ -271,7 +271,7 @@ const Assessment = () => {
       setSessionStarted(true);
       
       // Load first question
-      const firstQuestion = questions.find(q => q.question_id === "1");
+      const firstQuestion = questions.find(q => q.question_id === "1" && q.answer_option === "Yes");
       if (firstQuestion) {
         setCurrentQuestion(firstQuestion);
         setPendingQuestion(firstQuestion); // Set as pending initially
@@ -401,7 +401,7 @@ const Assessment = () => {
       console.log(`Current question: ${currentQuestion.question_id}, Selected answer: ${selectedAnswer}, Next question ID: ${nextQuestionId}`);
       
       if (nextQuestionId && nextQuestionId !== "end") {
-        const nextQuestion = questions.find(q => q.question_id === nextQuestionId);
+        const nextQuestion = questions.find(q => q.question_id === nextQuestionId && q.answer_option === "Yes");
         if (nextQuestion) {
           setIsTransitioning(true);
           setTimeout(() => {
@@ -472,7 +472,7 @@ const Assessment = () => {
     );
     
     if (lastAnsweredQuestionOption?.next_question_id && lastAnsweredQuestionOption.next_question_id !== "end") {
-      const nextQuestion = questions.find(q => q.question_id === lastAnsweredQuestionOption.next_question_id);
+      const nextQuestion = questions.find(q => q.question_id === lastAnsweredQuestionOption.next_question_id && q.answer_option === "Yes");
       if (nextQuestion) {
         setCurrentQuestion(nextQuestion);
         setPendingQuestion(nextQuestion); // Update pending question
@@ -650,7 +650,7 @@ const Assessment = () => {
       console.log(`Direct submit - Current question: ${currentQuestion.question_id}, Selected answer: ${answer}, Next question ID: ${nextQuestionId}`);
       
       if (nextQuestionId && nextQuestionId !== "end") {
-        const nextQuestion = questions.find(q => q.question_id === nextQuestionId);
+        const nextQuestion = questions.find(q => q.question_id === nextQuestionId && q.answer_option === "Yes");
         if (nextQuestion) {
           setIsTransitioning(true);
           setTimeout(() => {
