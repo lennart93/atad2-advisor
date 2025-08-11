@@ -18,8 +18,9 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer }: UseCo
   const explanation = currentState?.explanation || '';
   const contextPrompt = currentState?.contextPrompt || '';
   
-  // Debounced explanation for auto-saving
+  // Debounced values for auto-saving
   const debouncedExplanation = useDebounce(explanation, 400);
+  const debouncedAnswer = useDebounce(selectedAnswer, 400);
   
   // Check if context panel should be shown
   const shouldShowContext = useMemo(() => {
@@ -66,47 +67,58 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer }: UseCo
     loadInitialData();
   }, [sessionId, questionId, currentState?.lastSyncedAt, store]);
 
-  // Auto-save explanation when debounced value changes
+  // Auto-save answer and explanation when debounced values change
   useEffect(() => {
-    const saveExplanation = async () => {
-      if (!sessionId || !questionId || !debouncedExplanation || debouncedExplanation === (currentState?.explanation || '')) {
+    const saveData = async () => {
+      // Only save if we have valid data and something has actually changed
+      if (!sessionId || !questionId || !debouncedAnswer) {
+        return;
+      }
+
+      // Check if we need to save (either answer or explanation changed)
+      const needsAnswerUpdate = debouncedAnswer !== (currentState?.answer || '');
+      const needsExplanationUpdate = debouncedExplanation !== (currentState?.explanation || '');
+      
+      if (!needsAnswerUpdate && !needsExplanationUpdate) {
         return;
       }
 
       setSavingStatus('saving');
       
       try {
-        // Upsert to atad2_answers
+        // Upsert to atad2_answers with all the data we have
         const { error } = await supabase
           .from('atad2_answers')
           .upsert({
             session_id: sessionId,
             question_id: questionId,
-            answer: selectedAnswer || currentState?.answer || 'Unknown',
-            explanation: debouncedExplanation,
-            question_text: '', // This will be filled by the main submit
-            risk_points: 0, // This will be filled by the main submit
+            answer: debouncedAnswer,
+            explanation: debouncedExplanation || '',
+            question_text: '', // This will be filled by navigation logic if needed
+            risk_points: 0, // This will be filled by navigation logic if needed
           }, {
             onConflict: 'session_id,question_id',
           });
 
         if (error) throw error;
 
-        // Update store with sync timestamp
+        // Update store with the saved data
         store.setQuestionState(sessionId, questionId, {
+          answer: debouncedAnswer as 'Yes' | 'No' | 'Unknown',
+          explanation: debouncedExplanation || '',
           lastSyncedAt: new Date().toISOString(),
         });
 
         setSavingStatus('saved');
         setTimeout(() => setSavingStatus('idle'), 2000);
       } catch (error) {
-        console.error('Error auto-saving explanation:', error);
+        console.error('Error auto-saving data:', error);
         setSavingStatus('idle');
       }
     };
 
-    saveExplanation();
-  }, [debouncedExplanation, sessionId, questionId, selectedAnswer, currentState, store]);
+    saveData();
+  }, [debouncedAnswer, debouncedExplanation, sessionId, questionId, currentState, store]);
 
   // Load context questions when answer changes
   const loadContextQuestions = useCallback(async (answer: string) => {
@@ -151,9 +163,11 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer }: UseCo
     store.updateExplanation(sessionId, questionId, newExplanation);
   }, [sessionId, questionId, store]);
 
-  // Update answer in store
+  // Update answer in store (immediate update for UI responsiveness)
   const updateAnswer = useCallback((answer: 'Yes' | 'No' | 'Unknown') => {
     store.updateAnswer(sessionId, questionId, answer);
+    // Track last visited question
+    store.setLastVisitedQuestion(sessionId, questionId);
   }, [sessionId, questionId, store]);
 
   // Clear context panel
@@ -173,5 +187,6 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer }: UseCo
     updateAnswer,
     loadContextQuestions,
     clearContext,
+    currentAnswer: currentState?.answer || null,
   };
 };

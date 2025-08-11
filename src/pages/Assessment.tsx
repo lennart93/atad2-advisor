@@ -533,7 +533,9 @@ const Assessment = () => {
       }
     }
     
+    // Immediately update UI and store via hook
     setSelectedAnswer(answer);
+    updateAnswer(answer as 'Yes' | 'No' | 'Unknown');
     setLoading(true);
 
     try {
@@ -553,9 +555,14 @@ const Assessment = () => {
         setTimeout(async () => {
           await submitAnswerDirectly(answer);
         }, 300);
+      } else {
+        setLoading(false);
       }
     } catch (e) {
       console.error('Error during answer selection:', e);
+      toast.error("Error", {
+        description: e instanceof Error ? e.message : "Failed to submit answer",
+      });
       setLoading(false);
     }
   };
@@ -579,43 +586,27 @@ const Assessment = () => {
         hasNextQuestion: !!selectedQuestionOption.next_question_id
       });
 
-      const { data: existingAnswer } = await supabase
+      // Update database with complete question data (risk points, terms, etc.)
+      // The hook handles basic answer/explanation saving, but we need the full metadata here
+      const { error } = await supabase
         .from('atad2_answers')
-        .select('id')
-        .eq('session_id', sessionId)
-        .eq('question_id', currentQuestion.question_id)
-        .single();
+        .upsert({
+          session_id: sessionId,
+          question_id: currentQuestion.question_id,
+          question_text: currentQuestion.question,
+          answer: answer,
+          explanation: explanation,
+          risk_points: selectedQuestionOption.risk_points,
+          difficult_term: selectedQuestionOption.difficult_term,
+          term_explanation: selectedQuestionOption.term_explanation,
+          answered_at: new Date().toISOString()
+        }, {
+          onConflict: 'session_id,question_id',
+        });
 
-      if (existingAnswer) {
-        const { error } = await supabase
-          .from('atad2_answers')
-          .update({
-            question_text: currentQuestion.question,
-            answer: answer,
-             explanation: explanation,
-            risk_points: selectedQuestionOption.risk_points,
-            difficult_term: selectedQuestionOption.difficult_term,
-            term_explanation: selectedQuestionOption.term_explanation,
-            answered_at: new Date().toISOString()
-          })
-          .eq('id', existingAnswer.id);
-
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from('atad2_answers')
-          .insert({
-            session_id: sessionId,
-            question_id: currentQuestion.question_id,
-            question_text: currentQuestion.question,
-            answer: answer,
-            explanation: explanation,
-            risk_points: selectedQuestionOption.risk_points,
-            difficult_term: selectedQuestionOption.difficult_term,
-            term_explanation: selectedQuestionOption.term_explanation
-          });
-
-        if (error) throw error;
+      if (error) {
+        console.error('Database error:', error);
+        throw new Error(`Database error: ${error.message}`);
       }
 
       const questionEntry = { question: currentQuestion, answer };
@@ -649,34 +640,29 @@ const Assessment = () => {
       
       console.log(`Direct submit - Current question: ${currentQuestion.question_id}, Selected answer: ${answer}, Next question ID: ${nextQuestionId}`);
       
-      if (nextQuestionId && nextQuestionId !== "end") {
+      if (nextQuestionId && nextQuestionId !== "END") {
         const nextQuestion = questions.find(q => q.question_id === nextQuestionId);
         if (nextQuestion) {
-          setIsTransitioning(true);
-          setTimeout(() => {
-            setCurrentQuestion(nextQuestion);
-            setPendingQuestion(nextQuestion); // Update pending question
-            setSelectedAnswer("");
-            setIsTransitioning(false);
-          }, 300);
+          setCurrentQuestion(nextQuestion);
+          setSelectedAnswer(""); // Clear previous selection
+          setPendingQuestion(null); // Clear any pending question
+        } else {
+          console.error(`Next question with ID ${nextQuestionId} not found`);
         }
       } else {
-        // This is the end of the flow - clear pending and keep selected answer
+        console.log('Assessment completed - no next question or END reached');
         setPendingQuestion(null);
-        console.log("END OF FLOW REACHED - Setting selectedAnswer to:", answer);
-        setSelectedAnswer(answer);
-        
-        // Force a re-render to check button visibility
-        setTimeout(() => {
-          console.log("After timeout - selectedAnswer:", answer);
-          console.log("After timeout - currentQuestion:", currentQuestion.question_id);
-          console.log("After timeout - navigationIndex:", -1);
-        }, 100);
       }
     } catch (error) {
       console.error('Error submitting answer:', error);
+      
+      // Provide specific error messages for Unknown answers
+      const errorMessage = answer === 'Unknown' && error instanceof Error && error.message.includes('check constraint')
+        ? "The 'Unknown' answer option is not currently supported for this question."
+        : error instanceof Error ? error.message : "Failed to submit answer";
+        
       toast.error("Error", {
-        description: "Failed to submit answer",
+        description: errorMessage,
       });
     } finally {
       setLoading(false);
