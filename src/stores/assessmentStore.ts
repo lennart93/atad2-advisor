@@ -13,7 +13,6 @@ export interface QAState {
 
 interface AssessmentStore {
   byKey: Record<QAKey, QAState>;
-  lastVisitedQuestion: Record<string, string>; // sessionId -> questionId
   
   // Actions
   setQuestionState: (sessionId: string, questionId: string, state: Partial<QAState>) => void;
@@ -22,8 +21,6 @@ interface AssessmentStore {
   updateAnswer: (sessionId: string, questionId: string, answer: 'Yes' | 'No' | 'Unknown') => void;
   setContextPrompt: (sessionId: string, questionId: string, prompt: string) => void;
   setShouldShowContext: (sessionId: string, questionId: string, show: boolean) => void;
-  setLastVisitedQuestion: (sessionId: string, questionId: string) => void;
-  getLastVisitedQuestion: (sessionId: string) => string | undefined;
   clearSession: (sessionId: string) => void;
 }
 
@@ -33,7 +30,6 @@ export const useAssessmentStore = create<AssessmentStore>()(
   devtools(
     (set, get) => ({
       byKey: {},
-      lastVisitedQuestion: {},
 
       setQuestionState: (sessionId, questionId, state) => {
         const key = createQAKey(sessionId, questionId);
@@ -105,35 +101,6 @@ export const useAssessmentStore = create<AssessmentStore>()(
         }), false, 'setShouldShowContext');
       },
 
-      setLastVisitedQuestion: (sessionId, questionId) => {
-        set((prev) => ({
-          lastVisitedQuestion: {
-            ...prev.lastVisitedQuestion,
-            [sessionId]: questionId,
-          },
-        }), false, 'setLastVisitedQuestion');
-        
-        // Also save to localStorage for hard refresh recovery
-        try {
-          localStorage.setItem(`lastVisited_${sessionId}`, questionId);
-        } catch (e) {
-          console.warn('Could not save to localStorage:', e);
-        }
-      },
-
-      getLastVisitedQuestion: (sessionId) => {
-        const fromStore = get().lastVisitedQuestion[sessionId];
-        if (fromStore) return fromStore;
-        
-        // Fallback to localStorage
-        try {
-          return localStorage.getItem(`lastVisited_${sessionId}`) || undefined;
-        } catch (e) {
-          console.warn('Could not read from localStorage:', e);
-          return undefined;
-        }
-      },
-
       clearSession: (sessionId) => {
         set((prev) => {
           const newByKey = { ...prev.byKey };
@@ -142,21 +109,8 @@ export const useAssessmentStore = create<AssessmentStore>()(
               delete newByKey[key];
             }
           });
-          const newLastVisited = { ...prev.lastVisitedQuestion };
-          delete newLastVisited[sessionId];
-          
-          return { 
-            byKey: newByKey,
-            lastVisitedQuestion: newLastVisited 
-          };
+          return { byKey: newByKey };
         }, false, 'clearSession');
-        
-        // Also clear from localStorage
-        try {
-          localStorage.removeItem(`lastVisited_${sessionId}`);
-        } catch (e) {
-          console.warn('Could not clear localStorage:', e);
-        }
       },
     }),
     { name: 'assessment-store' }
