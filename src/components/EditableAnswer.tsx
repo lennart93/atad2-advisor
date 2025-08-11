@@ -117,12 +117,22 @@ export const EditableAnswer: React.FC<EditableAnswerProps> = ({
               >
                 No
               </Button>
+              <Button
+                variant={answer === 'Unknown' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setAnswer('Unknown')}
+                className="bg-gray-500 hover:bg-gray-600 text-white border-gray-500 hover:border-gray-600"
+              >
+                Unknown
+              </Button>
             </div>
           ) : (
             <span className="inline-flex items-center gap-1">
               {currentAnswer}
               <span className="text-lg">
-                {currentAnswer.toLowerCase() === 'yes' ? '✅' : '❌'}
+                {currentAnswer.toLowerCase() === 'yes' ? '✅' : 
+                 currentAnswer.toLowerCase() === 'no' ? '❌' : 
+                 currentAnswer.toLowerCase() === 'unknown' ? '❓' : '❓'}
               </span>
             </span>
           )}

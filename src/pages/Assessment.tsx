@@ -1064,7 +1064,23 @@ const Assessment = () => {
                    <div className="space-y-3 mb-8">
                      {currentQuestionOptions.map((option, index) => {
                        const isSelected = selectedAnswer === option.answer_option;
-                       const isYes = option.answer_option.toLowerCase() === 'yes';
+                       const answerType = option.answer_option.toLowerCase();
+                       
+                       // Get emoji and color based on answer type
+                       const getAnswerStyle = () => {
+                         switch (answerType) {
+                           case 'yes':
+                             return { emoji: '✅', color: 'text-green-700' };
+                           case 'no':
+                             return { emoji: '❌', color: 'text-red-700' };
+                           case 'unknown':
+                             return { emoji: '❓', color: 'text-gray-600' };
+                           default:
+                             return { emoji: '❓', color: 'text-gray-600' };
+                         }
+                       };
+                       
+                       const { emoji, color } = getAnswerStyle();
                        
                        return (
                          <button
@@ -1083,8 +1099,8 @@ const Assessment = () => {
                            `}
                          >
                            <div className="flex items-center gap-3">
-                             <span className="text-xl">
-                               {isYes ? '✅' : '❌'}
+                             <span className={`text-xl ${color}`}>
+                               {emoji}
                              </span>
                              <span className="text-base font-medium">
                                {option.answer_option}
