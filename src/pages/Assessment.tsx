@@ -1126,6 +1126,18 @@ const Assessment = () => {
                                }`}>
                                  {option.answer_option}
                                </span>
+                               {/* Show "Previously answered" only for original submitted answers, not modified ones */}
+                               {isSelected && isViewingAnsweredQuestion && (() => {
+                                 const originalAnswer = questionFlow.find(entry => 
+                                   entry.question.question_id === currentQuestion?.question_id
+                                 )?.answer;
+                                 const isOriginalAnswer = selectedAnswer === originalAnswer;
+                                 return isOriginalAnswer && (
+                                   <span className="ml-auto text-sm text-muted-foreground font-medium">
+                                     Previously answered
+                                   </span>
+                                 );
+                               })()}
                              </div>
                            </button>
                          );
