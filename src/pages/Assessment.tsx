@@ -1121,20 +1121,15 @@ const Assessment = () => {
                               ) : (
                                 <span className="text-xl">{emoji}</span>
                               )}
-                              <span className={`text-base font-medium ${
-                                answerType === 'unknown' ? 'text-gray-700' : ''
-                              }`}>
-                                {option.answer_option}
-                              </span>
-                               {isSelected && isViewingAnsweredQuestion && (
-                                 <span className="ml-auto text-sm text-muted-foreground font-medium">
-                                   Previously answered
-                                 </span>
-                               )}
-                            </div>
-                          </button>
-                        );
-                      })}
+                               <span className={`text-base font-medium ${
+                                 answerType === 'unknown' ? 'text-gray-700' : ''
+                               }`}>
+                                 {option.answer_option}
+                               </span>
+                             </div>
+                           </button>
+                         );
+                       })}
                     </div>
 
                    {/* Context section - persistent across navigation */}
