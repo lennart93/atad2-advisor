@@ -530,9 +530,16 @@ const Assessment = () => {
     if (navigationIndex !== -1 && currentQuestion) {
       console.log(`🔄 Navigation mode: checking context for CURRENT question ${currentQuestion.question_id} with answer ${answer}`);
       
-      // Check for context questions for the CURRENT question
+      // Check for context questions for the CURRENT question EERST
       const contextPrompt = await loadContextQuestions(answer);
       
+      // Als er context is, direct stoppen - geen flow change check
+      if (contextPrompt) {
+        console.log(`🛑 Context found for Q${currentQuestion.question_id}, stopping here - no auto-advance`);
+        return;
+      }
+      
+      // Alleen als er GEEN context is, dan flow change check
       const newSelectedOption = questions.find(
         q => q.question_id === currentQuestion.question_id && q.answer_option === answer
       );
@@ -554,6 +561,7 @@ const Assessment = () => {
       }
       
       // Bij terugnavigatie stoppen we hier - geen auto-advance
+      console.log(`🔄 Navigation mode: no context, no flow change - staying on Q${currentQuestion.question_id}`);
       return;
     }
     
