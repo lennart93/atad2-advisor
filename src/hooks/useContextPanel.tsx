@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAssessmentStore } from '@/stores/assessmentStore';
 import { supabase } from '@/integrations/supabase/client';
 import { useDebounce } from '@/hooks/useDebounce';
+import { validateExplanation, validateSessionId, validateQuestionId } from '@/utils/inputValidation';
 
 interface UseContextPanelProps {
   sessionId: string;
@@ -148,7 +149,14 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer }: UseCo
 
   // Update explanation in store
   const updateExplanation = useCallback((newExplanation: string) => {
-    store.updateExplanation(sessionId, questionId, newExplanation);
+    try {
+      const sanitizedExplanation = validateExplanation(newExplanation);
+      store.updateExplanation(sessionId, questionId, sanitizedExplanation);
+    } catch (error) {
+      console.error('Invalid explanation input:', error);
+      // Still update but with original value for user experience
+      store.updateExplanation(sessionId, questionId, newExplanation);
+    }
   }, [sessionId, questionId, store]);
 
   // Update answer in store

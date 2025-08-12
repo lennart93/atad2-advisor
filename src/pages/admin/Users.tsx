@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "@/components/ui/sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 const Users = () => {
   const qc = useQueryClient();
@@ -35,18 +36,34 @@ const Users = () => {
   const grant = useMutation({
     mutationFn: async (user_id: string) => {
       const { error } = await supabase.from("user_roles").insert({ user_id, role: "admin" });
-      if (error) throw error;
+      if (error) {
+        if (error.message.includes('can_modify_admin_role')) {
+          throw new Error('Onvoldoende rechten om admin rol toe te kennen');
+        }
+        throw error;
+      }
     },
-    onSuccess: () => { toast.success("Admin toegekend"); qc.invalidateQueries({ queryKey: ["admin-roles"] }); },
+    onSuccess: () => { 
+      toast.success("Admin toegekend"); 
+      qc.invalidateQueries({ queryKey: ["admin-roles"] }); 
+    },
     onError: (e: any) => toast.error(e.message ?? "Mislukt"),
   });
 
   const revoke = useMutation({
     mutationFn: async (user_id: string) => {
       const { error } = await supabase.from("user_roles").delete().eq("user_id", user_id).eq("role", "admin");
-      if (error) throw error;
+      if (error) {
+        if (error.message.includes('can_modify_admin_role')) {
+          throw new Error('Kan laatste admin niet verwijderen of onvoldoende rechten');
+        }
+        throw error;
+      }
     },
-    onSuccess: () => { toast.success("Admin ingetrokken"); qc.invalidateQueries({ queryKey: ["admin-roles"] }); },
+    onSuccess: () => { 
+      toast.success("Admin ingetrokken"); 
+      qc.invalidateQueries({ queryKey: ["admin-roles"] }); 
+    },
     onError: (e: any) => toast.error(e.message ?? "Mislukt"),
   });
 
@@ -86,9 +103,47 @@ const Users = () => {
                     <TableCell>{isAdmin ? "Ja" : "Nee"}</TableCell>
                     <TableCell className="text-right">
                       {isAdmin ? (
-                        <Button variant="outline" size="sm" onClick={() => revoke.mutate(p.user_id)}>Intrekken</Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="outline" size="sm">Intrekken</Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Admin rechten intrekken</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Weet je zeker dat je de admin rechten wilt intrekken voor {p.email}?
+                                Deze actie wordt gelogd voor beveiligingsdoeleinden.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Annuleren</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => revoke.mutate(p.user_id)}>
+                                Intrekken
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       ) : (
-                        <Button size="sm" onClick={() => grant.mutate(p.user_id)}>Toekennen</Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button size="sm">Toekennen</Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Admin rechten toekennen</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Weet je zeker dat je admin rechten wilt toekennen aan {p.email}?
+                                Deze actie wordt gelogd voor beveiligingsdoeleinden.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Annuleren</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => grant.mutate(p.user_id)}>
+                                Toekennen
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       )}
                     </TableCell>
                   </TableRow>
