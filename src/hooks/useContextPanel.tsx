@@ -26,12 +26,15 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer }: UseCo
   const shouldShowContext = useMemo(() => {
     // Show if there's existing explanation
     if (explanation.trim().length > 0) {
+      console.log(`📝 Context showing for Q${questionId}: has explanation`);
       return true;
     }
     
     // Show if current answer would trigger context
-    return currentState?.shouldShowContext || false;
-  }, [explanation, currentState?.shouldShowContext]);
+    const showFromStore = currentState?.shouldShowContext || false;
+    console.log(`🔍 Context check for Q${questionId}: shouldShowContext=${showFromStore}, explanation="${explanation}"`);
+    return showFromStore;
+  }, [explanation, currentState?.shouldShowContext, questionId]);
 
   // Load initial data from Supabase when component mounts
   useEffect(() => {
@@ -113,6 +116,8 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer }: UseCo
   const loadContextQuestions = useCallback(async (answer: string) => {
     if (!sessionId || !questionId || !answer) return null;
 
+    console.log(`🔍 Loading context questions for Q${questionId}, answer: ${answer}`);
+
     try {
       const { data: contextQuestions, error } = await supabase
         .from('atad2_context_questions')
@@ -125,6 +130,8 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer }: UseCo
         return null;
       }
 
+      console.log(`📋 Found ${contextQuestions?.length || 0} context questions for Q${questionId}, answer: ${answer}`);
+
       if (contextQuestions && contextQuestions.length > 0) {
         // Cache a random context question in store
         const existingPrompt = store.getQuestionState(sessionId, questionId)?.contextPrompt;
@@ -133,13 +140,18 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer }: UseCo
         if (!selectedPrompt) {
           selectedPrompt = contextQuestions[Math.floor(Math.random() * contextQuestions.length)].context_question;
           store.setContextPrompt(sessionId, questionId, selectedPrompt);
+          console.log(`💡 Set new context prompt for Q${questionId}: ${selectedPrompt.substring(0, 50)}...`);
+        } else {
+          console.log(`📝 Using existing context prompt for Q${questionId}`);
         }
         
         store.setShouldShowContext(sessionId, questionId, true);
+        console.log(`✅ Context panel should show for Q${questionId}`);
         return selectedPrompt;
       }
       
       store.setShouldShowContext(sessionId, questionId, false);
+      console.log(`❌ No context triggers found, hiding panel for Q${questionId}`);
       return null;
     } catch (error) {
       console.error('Error loading context questions:', error);
