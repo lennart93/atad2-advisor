@@ -532,7 +532,13 @@ const Assessment = () => {
     // Update answer in store immediately for consistent state
     updateAnswer(answer as 'Yes' | 'No' | 'Unknown');
     
+    // Bij terugnavigatie: check context voor HUIDIGE vraag, niet volgende
     if (navigationIndex !== -1 && currentQuestion) {
+      console.log(`🔄 Navigation mode: checking context for CURRENT question ${currentQuestion.question_id} with answer ${answer}`);
+      
+      // Check for context questions for the CURRENT question
+      const contextPrompt = await loadContextQuestions(answer);
+      
       const newSelectedOption = questions.find(
         q => q.question_id === currentQuestion.question_id && q.answer_option === answer
       );
@@ -552,13 +558,17 @@ const Assessment = () => {
         setShowFlowChangeDialog(true);
         return;
       }
+      
+      // Bij terugnavigatie stoppen we hier - geen auto-advance
+      return;
     }
     
     setLoading(true);
 
     try {
-      // Check for context questions and update store
+      // Check for context questions and update store (alleen bij normale flow)
       if (currentQuestion) {
+        console.log(`➡️ Normal flow: checking context for question ${currentQuestion.question_id} with answer ${answer}`);
         const contextPrompt = await loadContextQuestions(answer);
         
         if (contextPrompt) {
