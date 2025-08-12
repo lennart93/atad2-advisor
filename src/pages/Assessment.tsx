@@ -445,13 +445,11 @@ const Assessment = () => {
     setSelectedAnswer(targetEntry.answer);
     setNavigationIndex(targetIndex);
     
-    // Update answer in store and trigger context check
+    // Update answer in store for persistence
     updateAnswer(targetEntry.answer as 'Yes' | 'No' | 'Unknown');
     
-    // Load context questions for the navigated answer to update context state
-    if (targetEntry.answer) {
-      await loadContextQuestions(targetEntry.answer);
-    }
+    // Context check will happen automatically in handleAnswerSelect when user changes answer
+    // No need to load context here - just navigate
   };
 
   const goToNextQuestion = async () => {
@@ -463,13 +461,11 @@ const Assessment = () => {
     setSelectedAnswer(targetEntry.answer);
     setNavigationIndex(targetIndex);
     
-    // Update answer in store and trigger context check
+    // Update answer in store for persistence
     updateAnswer(targetEntry.answer as 'Yes' | 'No' | 'Unknown');
     
-    // Load context questions for the navigated answer to update context state
-    if (targetEntry.answer) {
-      await loadContextQuestions(targetEntry.answer);
-    }
+    // Context check will happen automatically in handleAnswerSelect when user changes answer
+    // No need to load context here - just navigate
   };
 
   const continueToNextUnanswered = () => {
@@ -505,13 +501,11 @@ const Assessment = () => {
     setSelectedAnswer(targetEntry.answer);
     setNavigationIndex(questionIndex);
     
-    // Update answer in store and trigger context check
+    // Update answer in store for persistence
     updateAnswer(targetEntry.answer as 'Yes' | 'No' | 'Unknown');
     
-    // Load context questions for the navigated answer to update context state
-    if (targetEntry.answer) {
-      await loadContextQuestions(targetEntry.answer);
-    }
+    // Context check will happen automatically in handleAnswerSelect when user changes answer
+    // No need to load context here - just navigate
     // DON'T change pendingQuestion when navigating - it should stay the same
   };
 
