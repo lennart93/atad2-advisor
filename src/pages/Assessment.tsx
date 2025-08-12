@@ -427,7 +427,7 @@ const Assessment = () => {
     }
   };
 
-  const goToPreviousQuestion = () => {
+  const goToPreviousQuestion = async () => {
     if (questionFlow.length === 0) return;
     
     let targetIndex: number;
@@ -445,11 +445,16 @@ const Assessment = () => {
     setSelectedAnswer(targetEntry.answer);
     setNavigationIndex(targetIndex);
     
-    // Update answer in store for persistence
+    // Update answer in store and trigger context check
     updateAnswer(targetEntry.answer as 'Yes' | 'No' | 'Unknown');
+    
+    // Load context questions for the navigated answer to update context state
+    if (targetEntry.answer) {
+      await loadContextQuestions(targetEntry.answer);
+    }
   };
 
-  const goToNextQuestion = () => {
+  const goToNextQuestion = async () => {
     if (navigationIndex === -1 || navigationIndex >= questionFlow.length - 1) return;
     
     const targetIndex = navigationIndex + 1;
@@ -458,8 +463,13 @@ const Assessment = () => {
     setSelectedAnswer(targetEntry.answer);
     setNavigationIndex(targetIndex);
     
-    // Update answer in store for persistence
+    // Update answer in store and trigger context check
     updateAnswer(targetEntry.answer as 'Yes' | 'No' | 'Unknown');
+    
+    // Load context questions for the navigated answer to update context state
+    if (targetEntry.answer) {
+      await loadContextQuestions(targetEntry.answer);
+    }
   };
 
   const continueToNextUnanswered = () => {
@@ -487,7 +497,7 @@ const Assessment = () => {
     }
   };
 
-  const goToSpecificQuestion = (questionIndex: number) => {
+  const goToSpecificQuestion = async (questionIndex: number) => {
     if (questionIndex >= questionFlow.length) return;
     
     const targetEntry = questionFlow[questionIndex];
@@ -495,8 +505,13 @@ const Assessment = () => {
     setSelectedAnswer(targetEntry.answer);
     setNavigationIndex(questionIndex);
     
-    // Update answer in store for persistence
+    // Update answer in store and trigger context check
     updateAnswer(targetEntry.answer as 'Yes' | 'No' | 'Unknown');
+    
+    // Load context questions for the navigated answer to update context state
+    if (targetEntry.answer) {
+      await loadContextQuestions(targetEntry.answer);
+    }
     // DON'T change pendingQuestion when navigating - it should stay the same
   };
 
@@ -510,6 +525,12 @@ const Assessment = () => {
 
   const handleAnswerSelect = async (answer: string) => {
     if (loading || isTransitioning) return;
+    
+    // Always update the selected answer first
+    setSelectedAnswer(answer);
+    
+    // Update answer in store immediately for consistent state
+    updateAnswer(answer as 'Yes' | 'No' | 'Unknown');
     
     if (navigationIndex !== -1 && currentQuestion) {
       const newSelectedOption = questions.find(
@@ -533,7 +554,6 @@ const Assessment = () => {
       }
     }
     
-    setSelectedAnswer(answer);
     setLoading(true);
 
     try {

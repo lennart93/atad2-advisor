@@ -22,14 +22,14 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer }: UseCo
   // Debounced explanation for auto-saving
   const debouncedExplanation = useDebounce(explanation, 400);
   
-  // Check if context panel should be shown
+  // Check if context panel should be shown - compute on every render based on current state
   const shouldShowContext = useMemo(() => {
     // Show if there's existing explanation
     if (explanation.trim().length > 0) {
       return true;
     }
     
-    // Show if current answer would trigger context (handled by parent component)
+    // Show if current answer would trigger context
     return currentState?.shouldShowContext || false;
   }, [explanation, currentState?.shouldShowContext]);
 
