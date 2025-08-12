@@ -1126,11 +1126,11 @@ const Assessment = () => {
                               }`}>
                                 {option.answer_option}
                               </span>
-                              {isSelected && isViewingAnsweredQuestion && (
-                                <span className="ml-auto text-sm text-muted-foreground font-medium">
-                                  Previously answered
-                                </span>
-                              )}
+                               {isSelected && isViewingAnsweredQuestion && (
+                                 <span className="ml-auto text-sm text-muted-foreground font-medium">
+                                   Previously answered
+                                 </span>
+                               )}
                             </div>
                           </button>
                         );
@@ -1208,18 +1208,19 @@ const Assessment = () => {
                        </Button>
                      )}
 
-                     {/* Show Submit/Continue button when context panel is visible and we're on active question */}
-                     {shouldShowContext && navigationIndex === -1 && selectedAnswer && (
-                       <Button 
-                         onClick={async () => {
-                           await submitAnswerDirectly(selectedAnswer);
-                         }}
-                         disabled={loading || isTransitioning || savingStatus === 'saving'}
-                         className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                       >
-                         {savingStatus === 'saving' ? "Saving..." : "Continue"}
-                       </Button>
-                     )}
+                      {/* Show Submit/Continue button when context panel is visible and we have an answer */}
+                      {shouldShowContext && selectedAnswer && (
+                        <Button 
+                           onClick={async () => {
+                             // Bij zowel navigatie als normale flow: gewone submit
+                             await submitAnswerDirectly(selectedAnswer);
+                           }}
+                          disabled={loading || isTransitioning || savingStatus === 'saving'}
+                          className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {savingStatus === 'saving' ? "Saving..." : "Continue"}
+                        </Button>
+                      )}
                   </div>
                 </div>
               </CardContent>
