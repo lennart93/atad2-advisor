@@ -1215,19 +1215,19 @@ const Assessment = () => {
                        </Button>
                      )}
 
-                      {/* Show Submit/Continue button when context panel is visible and we have an answer */}
-                      {shouldShowContext && selectedAnswer && (
-                        <Button 
-                           onClick={async () => {
-                             // Bij zowel navigatie als normale flow: gewone submit
-                             await submitAnswerDirectly(selectedAnswer);
-                           }}
-                          disabled={loading || isTransitioning || savingStatus === 'saving'}
-                          className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {savingStatus === 'saving' ? "Saving..." : "Continue"}
-                        </Button>
-                      )}
+                       {/* Show Submit/Continue button when context panel is visible and we have an answer, but NOT when it's the last question */}
+                       {shouldShowContext && selectedAnswer && !shouldShowFinishButton() && (
+                         <Button 
+                            onClick={async () => {
+                              // Bij zowel navigatie als normale flow: gewone submit
+                              await submitAnswerDirectly(selectedAnswer);
+                            }}
+                           disabled={loading || isTransitioning || savingStatus === 'saving'}
+                           className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                         >
+                           {savingStatus === 'saving' ? "Saving..." : "Continue"}
+                         </Button>
+                       )}
                   </div>
                 </div>
               </CardContent>
