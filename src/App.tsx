@@ -15,6 +15,7 @@ const Index = lazy(() => import("./pages/Index"));
 const Auth = lazy(() => import("./pages/Auth"));
 const Assessment = lazy(() => import("./pages/Assessment"));
 const AssessmentReport = lazy(() => import("./pages/AssessmentReport"));
+const ReportDetail = lazy(() => import("./pages/ReportDetail"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const AppLayout = lazy(() => import("./pages/AppLayout"));
 
@@ -51,6 +52,7 @@ const App = () => (
                     <Route path="/" element={<Index />} />
                     <Route path="/assessment" element={<ProtectedRoute><Assessment /></ProtectedRoute>} />
                     <Route path="/assessment-report/:sessionId" element={<ProtectedRoute><AssessmentReport /></ProtectedRoute>} />
+                    <Route path="/report/:reportId" element={<ProtectedRoute><ReportDetail /></ProtectedRoute>} />
 
                     <Route path="/admin" element={<ProtectedRoute><AdminRoute><AdminLayout /></AdminRoute></ProtectedRoute>}>
                       <Route index element={<AdminDashboard />} />

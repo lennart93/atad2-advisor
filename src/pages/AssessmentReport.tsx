@@ -7,8 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/components/ui/sonner";
 import { format } from "date-fns";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, FileText } from "lucide-react";
 import { EditableAnswer } from "@/components/EditableAnswer";
+import { useQuery } from "@tanstack/react-query";
 
 interface SessionData {
   session_id: string;
@@ -30,6 +31,15 @@ interface AnswerData {
   answered_at: string;
 }
 
+interface ReportData {
+  id: string;
+  report_title: string;
+  generated_at: string;
+  model?: string;
+  total_risk?: number;
+  answers_count?: number;
+}
+
 const AssessmentReport = () => {
   const { sessionId } = useParams<{ sessionId: string }>();
   const { user } = useAuth();
@@ -38,6 +48,25 @@ const AssessmentReport = () => {
   const [sessionData, setSessionData] = useState<SessionData | null>(null);
   const [answers, setAnswers] = useState<AnswerData[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Query for related reports
+  const { data: reports } = useQuery({
+    queryKey: ["reports", sessionId],
+    queryFn: async () => {
+      if (!sessionId || !user) return [];
+      
+      const { data, error } = await supabase
+        .from("atad2_reports")
+        .select("id, report_title, generated_at, model, total_risk, answers_count")
+        .eq("session_id", sessionId)
+        .order("generated_at", { ascending: false })
+        .limit(3);
+
+      if (error) throw error;
+      return data as ReportData[];
+    },
+    enabled: !!sessionId && !!user,
+  });
 
   useEffect(() => {
     if (!user) {
@@ -160,6 +189,42 @@ const AssessmentReport = () => {
               </div>
             </CardContent>
           </Card>
+
+          {/* Generated Reports */}
+          {reports && reports.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Generated Reports</CardTitle>
+                <CardDescription>
+                  AI-generated reports based on this assessment
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {reports.map((report) => (
+                    <div key={report.id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div>
+                        <h4 className="font-medium">{report.report_title}</h4>
+                        <div className="text-sm text-muted-foreground">
+                          <p>Generated: {format(new Date(report.generated_at), 'MMM d, yyyy HH:mm')}</p>
+                          {report.model && <p>Model: {report.model}</p>}
+                          {report.total_risk !== null && <p>Risk: {report.total_risk} points</p>}
+                        </div>
+                      </div>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => navigate(`/report/${report.id}`)}
+                      >
+                        <FileText className="h-4 w-4 mr-2" />
+                        View Report
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Answers Detail */}
           <Card>

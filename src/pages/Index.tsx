@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/sonner";
-import { Trash2, FileText } from "lucide-react";
+import { Trash2, FileText, FileBarChart } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,12 +29,63 @@ interface CompletedSession {
   answer_count: number;
 }
 
+interface RecentReport {
+  id: string;
+  session_id: string;
+  report_title: string;
+  generated_at: string;
+  taxpayer_name: string;
+  model?: string;
+}
+
 const Index = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   
   const [sessions, setSessions] = useState<CompletedSession[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Query for recent reports
+  const { data: recentReports } = useQuery({
+    queryKey: ["recentReports"],
+    queryFn: async () => {
+      if (!user) return [];
+      
+      const { data, error } = await supabase
+        .from("atad2_reports")
+        .select(`
+          id,
+          session_id,
+          report_title,
+          generated_at,
+          model
+        `)
+        .eq("user_id", user.id)
+        .order("generated_at", { ascending: false })
+        .limit(3);
+
+      if (error) throw error;
+      
+      // Get taxpayer names for each report
+      const reportsWithTaxpayer = await Promise.all(
+        (data || []).map(async (report) => {
+          const { data: session } = await supabase
+            .from("atad2_sessions")
+            .select("taxpayer_name")
+            .eq("session_id", report.session_id)
+            .single();
+          
+          return {
+            ...report,
+            taxpayer_name: session?.taxpayer_name || "Unknown"
+          };
+        })
+      );
+      
+      return reportsWithTaxpayer as RecentReport[];
+    },
+    enabled: !!user,
+  });
 
 
   useEffect(() => {
@@ -168,6 +220,42 @@ const Index = () => {
               </Button>
             </CardContent>
           </Card>
+
+          {/* Recent Reports */}
+          {recentReports && recentReports.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent Reports</CardTitle>
+                <CardDescription>
+                  Latest AI-generated reports from your assessments
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {recentReports.map((report) => (
+                    <div key={report.id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div>
+                        <h4 className="font-medium">{report.report_title}</h4>
+                        <div className="text-sm text-muted-foreground">
+                          <p>For: {report.taxpayer_name}</p>
+                          <p>Generated: {new Date(report.generated_at).toLocaleDateString()}</p>
+                          {report.model && <p>Model: {report.model}</p>}
+                        </div>
+                      </div>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => navigate(`/report/${report.id}`)}
+                      >
+                        <FileBarChart className="h-4 w-4 mr-2" />
+                        View Report
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           <Card>
             <CardHeader>
