@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "13.0.4"
@@ -134,6 +134,48 @@ export type Database = {
           risk_points?: number
           term_explanation?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      atad2_reports: {
+        Row: {
+          answers_count: number | null
+          generated_at: string
+          id: string
+          model: string | null
+          report_json: Json | null
+          report_md: string
+          report_title: string | null
+          session_id: string
+          total_risk: number | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          answers_count?: number | null
+          generated_at?: string
+          id?: string
+          model?: string | null
+          report_json?: Json | null
+          report_md: string
+          report_title?: string | null
+          session_id: string
+          total_risk?: number | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          answers_count?: number | null
+          generated_at?: string
+          id?: string
+          model?: string | null
+          report_json?: Json | null
+          report_md?: string
+          report_title?: string | null
+          session_id?: string
+          total_risk?: number | null
+          updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -288,13 +330,13 @@ export type Database = {
         Returns: undefined
       }
       can_modify_admin_role: {
-        Args: { target_user_id: string; action: string }
+        Args: { action: string; target_user_id: string }
         Returns: boolean
       }
       has_role: {
         Args: {
-          _user_id: string
           _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
         }
         Returns: boolean
       }
