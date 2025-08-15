@@ -8,10 +8,6 @@ export interface TextareaProps
 const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
   ({ className, onKeyDown, ...props }, ref) => {
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      // Ensure spacebar and other typing keys work properly
-      if (e.key === ' ' || e.key === 'Spacebar') {
-        e.stopPropagation();
-      }
       // Call any custom onKeyDown handler
       onKeyDown?.(e);
     };

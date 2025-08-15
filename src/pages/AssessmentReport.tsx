@@ -277,20 +277,25 @@ const AssessmentReport = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button 
-                onClick={handleGenerateReport}
-                disabled={isGeneratingReport}
-                className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white"
-              >
-                {isGeneratingReport ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Generating report... this may take a few minutes
-                  </>
-                ) : (
-                  "Generate report"
+              <div className="space-y-3">
+                <Button 
+                  onClick={handleGenerateReport}
+                  disabled={isGeneratingReport}
+                  className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white"
+                >
+                  {isGeneratingReport ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Generating report...
+                    </>
+                  ) : (
+                    "Generate report"
+                  )}
+                </Button>
+                {isGeneratingReport && (
+                  <p className="text-sm text-muted-foreground">This may take a few minutes</p>
                 )}
-              </Button>
+              </div>
             </CardContent>
           </Card>
 
