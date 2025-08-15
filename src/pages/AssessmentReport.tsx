@@ -164,7 +164,10 @@ const AssessmentReport = () => {
         throw new Error(`n8n request failed: ${n8nResponse.status}`);
       }
 
-      const reportData: N8nReportResponse = await n8nResponse.json();
+      const n8nData = await n8nResponse.json();
+      
+      // Extract report data from the nested structure
+      const reportData = n8nData.report || n8nData;
 
       // Save report to Supabase
       const { error: insertError } = await supabase
