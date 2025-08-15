@@ -270,14 +270,14 @@ const AssessmentReport = () => {
             <CardHeader>
               <CardTitle>AI Report Generation</CardTitle>
               <CardDescription>
-                Generate an AI-powered ATAD2 report based on this assessment
+                Generate an AI-powered ATAD2 report based on this assessment.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <Button 
                 onClick={handleGenerateReport}
                 disabled={isGeneratingReport}
-                className="w-full sm:w-auto"
+                className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white"
               >
                 {isGeneratingReport ? (
                   <>
