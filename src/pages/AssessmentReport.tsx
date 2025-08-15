@@ -271,7 +271,7 @@ const AssessmentReport = () => {
           {/* Generate Report Button */}
           <Card>
             <CardHeader>
-              <CardTitle>AI Report Generation</CardTitle>
+              <CardTitle>Generate report</CardTitle>
               <CardDescription>
                 Generate an AI-powered ATAD2 report based on this assessment.
               </CardDescription>
@@ -288,10 +288,7 @@ const AssessmentReport = () => {
                     Generating report...
                   </>
                 ) : (
-                  <>
-                    <Bot className="h-4 w-4 mr-2" />
-                    Generate Report
-                  </>
+                  "Generate report"
                 )}
               </Button>
             </CardContent>
