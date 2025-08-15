@@ -307,8 +307,25 @@ const AssessmentReport = () => {
               </CardHeader>
               <CardContent>
                 {latestReport.report_md && (
-                  <div className="prose prose-sm max-w-none dark:prose-invert">
-                    <ReactMarkdown>{latestReport.report_md}</ReactMarkdown>
+                  <div className="prose prose-sm max-w-none dark:prose-invert text-justify leading-relaxed">
+                    <ReactMarkdown
+                      components={{
+                        h1: ({ children }) => (
+                          <h1 className="font-bold text-xl mb-6 text-center">{children}</h1>
+                        ),
+                        h2: ({ children }) => (
+                          <h2 className="underline font-normal text-lg mt-6 mb-4">{children}</h2>
+                        ),
+                        h3: ({ children }) => (
+                          <h3 className="underline font-normal text-base mt-4 mb-3">{children}</h3>
+                        ),
+                        p: ({ children }) => (
+                          <p className="mb-4 text-justify">{children}</p>
+                        ),
+                      }}
+                    >
+                      {latestReport.report_md}
+                    </ReactMarkdown>
                   </div>
                 )}
               </CardContent>
