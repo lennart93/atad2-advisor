@@ -239,7 +239,7 @@ const AssessmentReport = () => {
           {/* Session Summary */}
           <Card>
             <CardHeader>
-              <CardTitle>Assessment Report</CardTitle>
+              <CardTitle>Assessment report</CardTitle>
               <CardDescription>
                 ATAD2 Risk Assessment Results
               </CardDescription>
