@@ -45,7 +45,7 @@ const AppLayout = () => {
       <header className="border-b">
         <div className="mx-auto max-w-6xl px-4 h-14 flex items-center justify-between">
           <div>
-            <h1 className="text-base sm:text-lg font-semibold">ATAD2 Risk Assessment Dashboard</h1>
+            <h1 className="text-base sm:text-lg font-semibold">ATAD2 risk assessment</h1>
             {user && (
               <p className="text-xs sm:text-sm text-muted-foreground">Welcome back, {user.email}</p>
             )}

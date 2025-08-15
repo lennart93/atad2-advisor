@@ -211,7 +211,7 @@ const Index = () => {
             <CardHeader>
               <CardTitle>Start new assessment</CardTitle>
               <CardDescription>
-                Begin a new ATAD2 risk assessment for a taxpayer
+                Begin a new ATAD2 risk assessment for a taxpayer.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -221,41 +221,6 @@ const Index = () => {
             </CardContent>
           </Card>
 
-          {/* Recent Reports */}
-          {recentReports && recentReports.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Recent Reports</CardTitle>
-                <CardDescription>
-                  Latest AI-generated reports from your assessments
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {recentReports.map((report) => (
-                    <div key={report.id} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div>
-                        <h4 className="font-medium">{report.report_title}</h4>
-                        <div className="text-sm text-muted-foreground">
-                          <p>For: {report.taxpayer_name}</p>
-                          <p>Generated: {new Date(report.generated_at).toLocaleDateString()}</p>
-                          {report.model && <p>Model: {report.model}</p>}
-                        </div>
-                      </div>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => navigate(`/report/${report.id}`)}
-                      >
-                        <FileBarChart className="h-4 w-4 mr-2" />
-                        View Report
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
 
           <Card>
             <CardHeader>
