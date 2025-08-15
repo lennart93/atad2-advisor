@@ -8,6 +8,7 @@ export interface QAState {
   explanation: string;
   contextPrompt?: string; // cached context question
   lastSyncedAt?: string;
+  lastSyncedExplanation?: string; // last explanation that was saved to DB
   shouldShowContext?: boolean; // whether context panel should be visible
 }
 

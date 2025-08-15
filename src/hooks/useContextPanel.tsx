@@ -19,8 +19,8 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer }: UseCo
   const explanation = currentState?.explanation || '';
   const contextPrompt = currentState?.contextPrompt || '';
   
-  // Debounced explanation for auto-saving
-  const debouncedExplanation = useDebounce(explanation, 400);
+  // Debounced explanation for auto-saving (increased delay)
+  const debouncedExplanation = useDebounce(explanation, 1500);
   
   // Check if context panel should be shown - compute on every render based on current state
   const shouldShowContext = useMemo(() => {
@@ -60,6 +60,7 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer }: UseCo
             answer: existingAnswer.answer as 'Yes' | 'No' | 'Unknown',
             explanation: existingAnswer.explanation || '',
             lastSyncedAt: new Date().toISOString(),
+            lastSyncedExplanation: existingAnswer.explanation || '',
           });
         }
       } catch (error) {
@@ -73,7 +74,14 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer }: UseCo
   // Auto-save explanation when debounced value changes
   useEffect(() => {
     const saveExplanation = async () => {
-      if (!sessionId || !questionId || !debouncedExplanation || debouncedExplanation === (currentState?.explanation || '')) {
+      // Only save if we have meaningful content and it's actually different
+      if (!sessionId || !questionId || !debouncedExplanation.trim()) {
+        return;
+      }
+
+      // Check if the debounced value is actually different from what we last saved
+      const lastSyncedExplanation = currentState?.lastSyncedExplanation;
+      if (debouncedExplanation === lastSyncedExplanation) {
         return;
       }
 
@@ -96,9 +104,10 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer }: UseCo
 
         if (error) throw error;
 
-        // Update store with sync timestamp
+        // Update store with sync timestamp and the explanation we just saved
         store.setQuestionState(sessionId, questionId, {
           lastSyncedAt: new Date().toISOString(),
+          lastSyncedExplanation: debouncedExplanation,
         });
 
         setSavingStatus('saved');
@@ -110,7 +119,7 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer }: UseCo
     };
 
     saveExplanation();
-  }, [debouncedExplanation, sessionId, questionId, selectedAnswer, currentState, store]);
+  }, [debouncedExplanation, sessionId, questionId, selectedAnswer, currentState?.answer, currentState?.lastSyncedExplanation, store]);
 
   // Load context questions when answer changes
   const loadContextQuestions = useCallback(async (answer: string) => {
