@@ -285,7 +285,7 @@ const AssessmentReport = () => {
                 {isGeneratingReport ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Generating report...
+                    Generating report... this may take a few minutes
                   </>
                 ) : (
                   "Generate report"
