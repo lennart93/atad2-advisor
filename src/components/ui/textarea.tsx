@@ -6,7 +6,16 @@ export interface TextareaProps
   extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {}
 
 const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
-  ({ className, ...props }, ref) => {
+  ({ className, onKeyDown, ...props }, ref) => {
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      // Ensure spacebar and other typing keys work properly
+      if (e.key === ' ' || e.key === 'Spacebar') {
+        e.stopPropagation();
+      }
+      // Call any custom onKeyDown handler
+      onKeyDown?.(e);
+    };
+
     return (
       <textarea
         className={cn(
@@ -14,6 +23,7 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
           className
         )}
         ref={ref}
+        onKeyDown={handleKeyDown}
         {...props}
       />
     )
