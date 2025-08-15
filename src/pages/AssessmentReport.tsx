@@ -7,9 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/components/ui/sonner";
 import { format } from "date-fns";
-import { ArrowLeft, FileText } from "lucide-react";
+import { ArrowLeft, FileText, Bot, Loader2 } from "lucide-react";
 import { EditableAnswer } from "@/components/EditableAnswer";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import ReactMarkdown from "react-markdown";
 
 interface SessionData {
   session_id: string;
@@ -38,16 +39,29 @@ interface ReportData {
   model?: string;
   total_risk?: number;
   answers_count?: number;
+  report_md?: string;
+}
+
+interface N8nReportResponse {
+  session_id: string;
+  model: string;
+  total_risk: number;
+  answers_count: number;
+  report_md: string;
+  report_json?: any;
+  report_title: string;
 }
 
 const AssessmentReport = () => {
   const { sessionId } = useParams<{ sessionId: string }>();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   
   const [sessionData, setSessionData] = useState<SessionData | null>(null);
   const [answers, setAnswers] = useState<AnswerData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
   // Query for related reports
   const { data: reports } = useQuery({
@@ -57,7 +71,7 @@ const AssessmentReport = () => {
       
       const { data, error } = await supabase
         .from("atad2_reports")
-        .select("id, report_title, generated_at, model, total_risk, answers_count")
+        .select("id, report_title, generated_at, model, total_risk, answers_count, report_md")
         .eq("session_id", sessionId)
         .order("generated_at", { ascending: false })
         .limit(3);
@@ -67,6 +81,9 @@ const AssessmentReport = () => {
     },
     enabled: !!sessionId && !!user,
   });
+
+  // Get the most recent report for inline display
+  const latestReport = reports?.[0];
 
   useEffect(() => {
     if (!user) {
@@ -124,6 +141,64 @@ const AssessmentReport = () => {
         ? { ...answer, answer: newAnswer, explanation: newExplanation }
         : answer
     ));
+  };
+
+  const handleGenerateReport = async () => {
+    if (!sessionId || !user) return;
+
+    setIsGeneratingReport(true);
+    
+    try {
+      // Call n8n webhook
+      const n8nResponse = await fetch('https://lennartwilming.app.n8n.cloud/webhook/atad2/generate-report', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          session_id: sessionId
+        })
+      });
+
+      if (!n8nResponse.ok) {
+        throw new Error(`n8n request failed: ${n8nResponse.status}`);
+      }
+
+      const reportData: N8nReportResponse = await n8nResponse.json();
+
+      // Save report to Supabase
+      const { error: insertError } = await supabase
+        .from('atad2_reports')
+        .insert({
+          session_id: sessionId,
+          user_id: user.id,
+          model: reportData.model,
+          total_risk: reportData.total_risk,
+          answers_count: reportData.answers_count,
+          report_md: reportData.report_md,
+          report_json: reportData.report_json,
+          report_title: reportData.report_title
+        });
+
+      if (insertError) {
+        throw insertError;
+      }
+
+      // Refresh reports query
+      queryClient.invalidateQueries({ queryKey: ["reports", sessionId] });
+
+      toast.success("Success", {
+        description: "Report generated and saved successfully",
+      });
+
+    } catch (error) {
+      console.error('Error generating report:', error);
+      toast.error("Error", {
+        description: "Failed to generate report. Please try again.",
+      });
+    } finally {
+      setIsGeneratingReport(false);
+    }
   };
 
   if (loading) {
@@ -190,13 +265,63 @@ const AssessmentReport = () => {
             </CardContent>
           </Card>
 
-          {/* Generated Reports */}
+          {/* Generate Report Button */}
+          <Card>
+            <CardHeader>
+              <CardTitle>AI Report Generation</CardTitle>
+              <CardDescription>
+                Generate an AI-powered ATAD2 report based on this assessment
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                onClick={handleGenerateReport}
+                disabled={isGeneratingReport}
+                className="w-full sm:w-auto"
+              >
+                {isGeneratingReport ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Generating report...
+                  </>
+                ) : (
+                  <>
+                    <Bot className="h-4 w-4 mr-2" />
+                    Generate Report
+                  </>
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Latest Generated Report */}
+          {latestReport && (
+            <Card>
+              <CardHeader>
+                <CardTitle>{latestReport.report_title}</CardTitle>
+                <CardDescription>
+                  Generated: {format(new Date(latestReport.generated_at), 'MMM d, yyyy HH:mm')}
+                  {latestReport.model && ` • Model: ${latestReport.model}`}
+                  {latestReport.total_risk !== null && ` • Risk: ${latestReport.total_risk} points`}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {latestReport.report_md && (
+                  <div className="prose prose-sm max-w-none dark:prose-invert">
+                    <ReactMarkdown>{latestReport.report_md}</ReactMarkdown>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Generated Reports History */}
           {reports && reports.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle>Generated Reports</CardTitle>
+                <CardTitle>Report History</CardTitle>
                 <CardDescription>
-                  AI-generated reports based on this assessment
+                  Previously generated reports for this assessment
                 </CardDescription>
               </CardHeader>
               <CardContent>
