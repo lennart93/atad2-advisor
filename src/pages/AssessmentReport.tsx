@@ -144,11 +144,16 @@ const AssessmentReport = () => {
   };
 
   const handleGenerateReport = async () => {
-    if (!sessionId || !user) return;
+    if (!sessionId || !user) {
+      console.log('Missing sessionId or user:', { sessionId, user: !!user });
+      return;
+    }
 
     setIsGeneratingReport(true);
     
     try {
+      console.log('Starting report generation for session:', sessionId);
+      
       // Call n8n webhook
       const n8nResponse = await fetch('https://lennartwilming.app.n8n.cloud/webhook/atad2/generate-report', {
         method: 'POST',
@@ -160,14 +165,20 @@ const AssessmentReport = () => {
         })
       });
 
+      console.log('n8n response status:', n8nResponse.status);
+
       if (!n8nResponse.ok) {
-        throw new Error(`n8n request failed: ${n8nResponse.status}`);
+        const errorText = await n8nResponse.text();
+        console.error('n8n request failed:', n8nResponse.status, errorText);
+        throw new Error(`n8n request failed: ${n8nResponse.status} - ${errorText}`);
       }
 
       const n8nData = await n8nResponse.json();
+      console.log('n8n response data:', n8nData);
       
       // Extract report data from the nested structure
       const reportData = n8nData.report || n8nData;
+      console.log('Extracted report data:', reportData);
 
       // Save report to Supabase
       const { error: insertError } = await supabase
@@ -184,8 +195,11 @@ const AssessmentReport = () => {
         });
 
       if (insertError) {
+        console.error('Supabase insert error:', insertError);
         throw insertError;
       }
+
+      console.log('Report saved successfully');
 
       // Refresh reports query
       queryClient.invalidateQueries({ queryKey: ["reports", sessionId] });
@@ -197,7 +211,7 @@ const AssessmentReport = () => {
     } catch (error) {
       console.error('Error generating report:', error);
       toast.error("Error", {
-        description: "Failed to generate report. Please try again.",
+        description: `Failed to generate report: ${error.message}`,
       });
     } finally {
       setIsGeneratingReport(false);
