@@ -177,7 +177,15 @@ export type Database = {
           updated_at?: string
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fk_atad2_reports_session"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "atad2_sessions"
+            referencedColumns: ["session_id"]
+          },
+        ]
       }
       atad2_sessions: {
         Row: {
