@@ -121,8 +121,9 @@ export const validateRiskPoints = (points: number): number => {
     return 0;
   }
   
-  // Ensure risk points are within reasonable bounds
-  return Math.max(0, Math.min(100, Math.floor(points)));
+  // Ensure risk points are within reasonable bounds and round to 1 decimal place
+  const bounded = Math.max(0, Math.min(100, points));
+  return Math.round(bounded * 10) / 10;
 };
 
 // Date validation

@@ -12,7 +12,7 @@ const QuestionSchema = z.object({
   question: z.string().min(1),
   answer_option: z.string().min(1),
   next_question_id: z.string().optional().nullable(),
-  risk_points: z.coerce.number().int().min(0).default(0),
+  risk_points: z.coerce.number().min(0).multipleOf(0.1).default(0),
   difficult_term: z.string().optional().nullable(),
   term_explanation: z.string().optional().nullable(),
 });
