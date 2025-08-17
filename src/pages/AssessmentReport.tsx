@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,6 +11,7 @@ import { ArrowLeft, FileText, Bot, Loader2 } from "lucide-react";
 import { EditableAnswer } from "@/components/EditableAnswer";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import ReactMarkdown from "react-markdown";
+import rehypeRaw from "rehype-raw";
 
 interface SessionData {
   session_id: string;
@@ -328,19 +329,30 @@ const AssessmentReport = () => {
                 {latestReport.report_md && (
                   <div className="prose prose-sm max-w-none dark:prose-invert text-justify leading-relaxed">
                     <ReactMarkdown
+                      rehypePlugins={[rehypeRaw]}
                       components={{
-                        h1: ({ children }) => (
-                          <h1 className="font-bold text-xl mb-6 text-center">{children}</h1>
+                        u: ({ children }) => (
+                          <span className="underline" style={{ textDecorationLine: 'underline', textUnderlineOffset: '3px' }}>{children}</span>
                         ),
-                        h2: ({ children }) => (
-                          <h2 className="underline font-normal text-lg mt-6 mb-4">{children}</h2>
-                        ),
-                        h3: ({ children }) => (
-                          <h3 className="underline font-normal text-base mt-4 mb-3">{children}</h3>
-                        ),
-                        p: ({ children }) => (
-                          <p className="mb-4 text-justify">{children}</p>
-                        ),
+                        p: ({ children }) => {
+                          // Check if paragraph contains only underlined content (section title)
+                          const hasOnlyUnderlined = React.Children.toArray(children).some(child => 
+                            React.isValidElement(child) && child.type === 'u'
+                          );
+                          
+                          return (
+                            <p className={`mb-4 text-justify ${hasOnlyUnderlined ? 'mt-6' : ''}`}>
+                              {children}
+                            </p>
+                          );
+                        },
+                        // Remove h1, h2, h3 auto-wrapping - let content render as provided
+                        h1: ({ children }) => <p className="font-bold mb-4">{children}</p>,
+                        h2: ({ children }) => <p className="font-bold mb-4">{children}</p>,
+                        h3: ({ children }) => <p className="font-bold mb-4">{children}</p>,
+                        br: () => <br />,
+                        sup: ({ children }) => <sup>{children}</sup>,
+                        sub: ({ children }) => <sub>{children}</sub>,
                       }}
                     >
                       {latestReport.report_md}
