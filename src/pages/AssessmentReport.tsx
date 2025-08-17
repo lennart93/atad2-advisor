@@ -327,29 +327,20 @@ const AssessmentReport = () => {
               </CardHeader>
               <CardContent>
                 {latestReport.report_md && (
-                  <div className="prose prose-sm max-w-none dark:prose-invert text-justify leading-relaxed">
+                  <div className="markdown-body text-justify">
                     <ReactMarkdown
                       rehypePlugins={[rehypeRaw]}
                       components={{
                         u: ({ children }) => (
                           <span className="underline" style={{ textDecorationLine: 'underline', textUnderlineOffset: '3px' }}>{children}</span>
                         ),
-                        p: ({ children }) => {
-                          // Check if paragraph contains only underlined content (section title)
-                          const hasOnlyUnderlined = React.Children.toArray(children).some(child => 
-                            React.isValidElement(child) && child.type === 'u'
-                          );
-                          
-                          return (
-                            <p className={`mb-4 text-justify ${hasOnlyUnderlined ? 'mt-6' : ''}`}>
-                              {children}
-                            </p>
-                          );
-                        },
-                        // Remove h1, h2, h3 auto-wrapping - let content render as provided
-                        h1: ({ children }) => <p className="font-bold mb-4">{children}</p>,
-                        h2: ({ children }) => <p className="font-bold mb-4">{children}</p>,
-                        h3: ({ children }) => <p className="font-bold mb-4">{children}</p>,
+                        p: ({ children }) => <p>{children}</p>,
+                        h1: ({ children }) => <p className="font-bold">{children}</p>,
+                        h2: ({ children }) => <p className="font-bold">{children}</p>,
+                        h3: ({ children }) => <h3 className="font-bold">{children}</h3>,
+                        h4: ({ children }) => <h4 className="font-bold">{children}</h4>,
+                        ul: ({ children }) => <ul>{children}</ul>,
+                        li: ({ children }) => <li>{children}</li>,
                         br: () => <br />,
                         sup: ({ children }) => <sup>{children}</sup>,
                         sub: ({ children }) => <sub>{children}</sub>,
