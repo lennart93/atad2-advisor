@@ -982,14 +982,19 @@ const Assessment = () => {
     );
   }
 
-  // Get unique answer options for current question and sort them (Yes first, then No)
+  // Get unique answer options for current question and sort them (Yes first, No second, Unknown third)
   const currentQuestionOptions = questions
     .filter(q => q.question_id === currentQuestion.question_id)
     .sort((a, b) => {
-      if (a.answer_option.toLowerCase() === 'yes') return -1;
-      if (b.answer_option.toLowerCase() === 'yes') return 1;
-      if (a.answer_option.toLowerCase() === 'no') return -1;
-      if (b.answer_option.toLowerCase() === 'no') return 1;
+      const aLower = a.answer_option.toLowerCase();
+      const bLower = b.answer_option.toLowerCase();
+      
+      if (aLower === 'yes') return -1;
+      if (bLower === 'yes') return 1;
+      if (aLower === 'no') return -1;
+      if (bLower === 'no') return 1;
+      if (aLower === 'unknown') return -1;
+      if (bLower === 'unknown') return 1;
       return 0;
     });
 
