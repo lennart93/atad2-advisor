@@ -146,6 +146,7 @@ export type Database = {
           report_json: Json | null
           report_md: string
           report_title: string | null
+          risk_category: string | null
           session_id: string
           total_risk: number | null
           updated_at: string
@@ -159,6 +160,7 @@ export type Database = {
           report_json?: Json | null
           report_md: string
           report_title?: string | null
+          risk_category?: string | null
           session_id: string
           total_risk?: number | null
           updated_at?: string
@@ -172,6 +174,7 @@ export type Database = {
           report_json?: Json | null
           report_md?: string
           report_title?: string | null
+          risk_category?: string | null
           session_id?: string
           total_risk?: number | null
           updated_at?: string

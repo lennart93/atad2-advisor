@@ -14,6 +14,7 @@ interface N8nPayload {
   report_markdown: string;
   report_json?: any;
   report_title?: string;
+  risk_category?: string;
 }
 
 // Verify HMAC signature if signing secret is configured
@@ -125,6 +126,12 @@ serve(async (req) => {
       });
     }
 
+    // Validate and map risk_category
+    const validRiskCategories = ['low', 'medium', 'high', 'insufficient_information'];
+    const riskCategory = payload.risk_category && validRiskCategories.includes(payload.risk_category)
+      ? payload.risk_category
+      : null; // Allow null for backward compatibility
+
     // Insert report record
     const { data: report, error: insertError } = await supabase
       .from('atad2_reports')
@@ -136,6 +143,7 @@ serve(async (req) => {
         report_title: payload.report_title || 'ATAD2 Report',
         report_md: payload.report_markdown,
         report_json: payload.report_json,
+        risk_category: riskCategory,
       })
       .select()
       .single();
