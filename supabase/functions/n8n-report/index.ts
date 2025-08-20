@@ -18,107 +18,67 @@ interface N8nPayload {
   risk_category?: string;
 }
 
-// Verify HMAC signature (accept hex OR base64, 'sha256=' prefix allowed)
-async function verifySignature(
-  payload: string,
-  signature: string | null,
-  secret: string | null,
-): Promise<boolean> {
-  if (!secret) return true;      // geen secret ingesteld → skip verificatie
-  if (!signature) return false;  // secret wel ingesteld maar geen signature mee
-
+// Optional HMAC-check (alleen actief als N8N_SIGNING_SECRET gezet is)
+async function verifySignature(payload: string, signature: string | null, secret: string | null): Promise<boolean> {
+  if (!secret) return true;
+  if (!signature) return false;
   const provided = signature.replace(/^sha256=/, "").trim();
-
   const enc = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    "raw",
-    enc.encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
+  const key = await crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
   const mac = await crypto.subtle.sign("HMAC", key, enc.encode(payload));
   const bytes = new Uint8Array(mac);
-
-  // Verwachte MAC als hex
   const expectedHex = Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
-  // Verwachte MAC als base64
-  let bin = "";
-  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  let bin = ""; for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
   const expectedB64 = btoa(bin);
-
-  // timing-safe vergelijking
-  const safeEq = (a: string, b: string) => {
-    if (a.length !== b.length) return false;
-    let res = 0;
-    for (let i = 0; i < a.length; i++) res |= a.charCodeAt(i) ^ b.charCodeAt(i);
-    return res === 0;
-  };
-
+  const safeEq = (a: string, b: string) => { if (a.length !== b.length) return false; let r = 0; for (let i=0;i<a.length;i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i); return r === 0; };
   return safeEq(provided, expectedHex) || safeEq(provided, expectedB64);
 }
 
 serve(async (req) => {
-  // CORS preflight
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
-
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") {
-    return new Response(JSON.stringify({ error: "Method not allowed" }), {
-      status: 405,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(JSON.stringify({ error: "Method not allowed" }), { status: 405, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 
   try {
-    // Supabase client (service role)
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const signingSecret = Deno.env.get("N8N_SIGNING_SECRET"); // bv. 'svalneratlas'
+    const signingSecret = Deno.env.get("N8N_SIGNING_SECRET") ?? null;
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Raw body + signature header
-    const bodyText = await req.text();               // exact dezelfde bytes als n8n tekent
+    // Lees raw body (exact wat n8n verstuurt)
+    const bodyText = await req.text();
     const signature = req.headers.get("x-n8n-signature");
 
-    // HMAC check (alleen als secret gezet is)
+    // HMAC (alleen als secret aanwezig is)
     if (signingSecret && !(await verifySignature(bodyText, signature, signingSecret))) {
-      console.error("Invalid signature");
-      return new Response(JSON.stringify({ error: "Invalid signature" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(JSON.stringify({ error: "Invalid signature" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // JSON parse
+    // Parse
     let payload: N8nPayload;
     try {
       payload = JSON.parse(bodyText);
-    } catch (e) {
-      console.error("Invalid JSON:", e);
-      return new Response(JSON.stringify({ error: "Invalid JSON payload" }), {
+    } catch {
+      return new Response(JSON.stringify({ error: "Invalid JSON payload" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // Vereist: session_id
+    if (!payload.session_id || !String(payload.session_id).trim()) {
+      return new Response(JSON.stringify({ error: "session_id is required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // Vereist: report_markdown NIET leeg (harde stop als AI niets gaf)
+    const md = (payload.report_markdown ?? "").toString().trim();
+    if (!md) {
+      return new Response(JSON.stringify({ error: "report_markdown is empty (AI returned no content)" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Vereiste velden
-    if (!payload.session_id) {
-      return new Response(JSON.stringify({ error: "session_id is required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    if (!payload.report_markdown) {
-      return new Response(JSON.stringify({ error: "report_markdown is required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Session check
+    // Session bestaan
     const { data: session, error: sessionError } = await supabase
       .from("atad2_sessions")
       .select("session_id, user_id")
@@ -126,21 +86,14 @@ serve(async (req) => {
       .single();
 
     if (sessionError || !session) {
-      console.error("Session not found:", sessionError);
-      return new Response(JSON.stringify({ error: "Session not found" }), {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(JSON.stringify({ error: "Session not found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // risk_category valideren (optioneel)
-    const validRiskCategories = ["low", "medium", "high", "insufficient_information"];
-    const riskCategory =
-      payload.risk_category && validRiskCategories.includes(payload.risk_category)
-        ? payload.risk_category
-        : null; // backward compatible
+    // risk_category normaliseren (optioneel)
+    const validRisk = ["low", "medium", "high", "insufficient_information"];
+    const riskCategory = payload.risk_category && validRisk.includes(payload.risk_category) ? payload.risk_category : null;
 
-    // Insert report
+    // Insert
     const { data: report, error: insertError } = await supabase
       .from("atad2_reports")
       .insert({
@@ -149,32 +102,20 @@ serve(async (req) => {
         total_risk: payload.totalRisk,
         answers_count: payload.answersCount,
         report_title: payload.report_title || "ATAD2 Report",
-        report_md: payload.report_markdown,
-        report_json: payload.report_json,
+        report_md: md,                          // <-- gegarandeerd NIET leeg
+        report_json: payload.report_json ?? {},
         risk_category: riskCategory,
       })
       .select()
       .single();
 
     if (insertError) {
-      console.error("Failed to insert report:", insertError);
-      return new Response(JSON.stringify({ error: "Failed to create report" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(JSON.stringify({ error: "Failed to create report" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    console.log("Report created successfully:", report.id);
-
-    return new Response(JSON.stringify({ ok: true, report }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(JSON.stringify({ ok: true, report }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (error) {
     console.error("Unexpected error:", error);
-    return new Response(JSON.stringify({ error: "Internal server error" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(JSON.stringify({ error: "Internal server error" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });
