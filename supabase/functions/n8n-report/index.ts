@@ -105,14 +105,14 @@ serve(async (req) => {
     }
 
     // Vereiste velden
-    if (!payload.session_id || typeof payload.session_id !== 'string' || payload.session_id.trim() === '') {
-      return new Response(JSON.stringify({ error: "session_id is required and must be a non-empty string" }), {
+    if (!payload.session_id) {
+      return new Response(JSON.stringify({ error: "session_id is required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    if (!payload.report_markdown || typeof payload.report_markdown !== 'string' || payload.report_markdown.trim() === '') {
-      return new Response(JSON.stringify({ error: "report_markdown is required and must be a non-empty string" }), {
+    if (!payload.report_markdown) {
+      return new Response(JSON.stringify({ error: "report_markdown is required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
