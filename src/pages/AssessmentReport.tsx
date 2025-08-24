@@ -185,13 +185,13 @@ const AssessmentReport = () => {
       queryClient.invalidateQueries({ queryKey: ["reports", sessionId] });
 
       toast.success("Success", {
-        description: "Report generated and saved successfully",
+        description: "Memorandum generated and saved successfully",
       });
 
     } catch (error) {
       console.error('Error generating report:', error);
       toast.error("Error", {
-        description: `Failed to generate report: ${error.message}`,
+        description: `Failed to generate memorandum: ${error.message}`,
       });
     } finally {
       setIsGeneratingReport(false);
@@ -265,9 +265,9 @@ const AssessmentReport = () => {
           {/* Generate Report Button */}
           <Card>
             <CardHeader>
-              <CardTitle>Generate report</CardTitle>
+              <CardTitle>Generate memorandum</CardTitle>
               <CardDescription>
-                Generate an AI-powered ATAD2 report based on this assessment.
+                Generate an AI-powered ATAD2 memorandum based on this assessment.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -284,19 +284,19 @@ const AssessmentReport = () => {
                           {isGeneratingReport ? (
                             <>
                               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                              Generating report...
+                              Generating memorandum...
                             </>
                           ) : latestReport ? (
-                            "Report generated"
+                            "Memorandum generated"
                           ) : (
-                            "Generate report"
+                            "Generate memorandum"
                           )}
                         </Button>
                       </div>
                     </TooltipTrigger>
                     {latestReport && (
                       <TooltipContent>
-                        <p>This report has already been generated</p>
+                        <p>This memorandum has already been generated</p>
                       </TooltipContent>
                     )}
                   </Tooltip>
