@@ -26,7 +26,7 @@ export const sanitizeHtml = (input: string): string => {
 export const validateTextInput = (input: string, maxLength: number = 1000): string => {
   if (!input) return '';
   
-  // Remove null bytes and control characters except newlines and tabs
+  // Remove null bytes and control characters except spaces, newlines and tabs
   let cleaned = input.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
   
   // Limit length
@@ -67,8 +67,11 @@ export const validateEntityName = (name: string): string => {
 export const validateExplanation = (explanation: string): string => {
   if (!explanation) return '';
   
+  console.log('validateExplanation input:', JSON.stringify(explanation));
   const cleaned = validateTextInput(explanation, 5000);
+  console.log('validateExplanation after validateTextInput:', JSON.stringify(cleaned));
   const sanitized = sanitizeHtml(cleaned);
+  console.log('validateExplanation after sanitizeHtml:', JSON.stringify(sanitized));
   
   return sanitized;
 };
