@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useCallback, useMemo, memo, useRef } from "react";
+import React, { useState, useEffect, useLayoutEffect, useCallback, useMemo, memo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -192,9 +192,16 @@ const Assessment = () => {
     return navigationIndex === -1 && selectedAnswer && isAtEndOfFlow;
   }, [navigationIndex, selectedAnswer, isAtEndOfFlow]);
 
-  // ✅ HARD READINESS GATE
-  const hasFirstQuestion = !!currentQuestion?.question_id;
-  const pageReady = hasFirstQuestion && !loading && sessionStarted;
+  // ✅ HARD READINESS GATE - PREVENT RENDER UNTIL READY
+  const pageReady = !!currentQuestion?.question_id && !loading && sessionStarted;
+
+  // 🔒 GUARDS AFTER ALL HOOKS - SAFE TO RETURN
+  if (!user) return null;
+
+  // 🚧 HARD READINESS GATE - PREVENT RENDER UNTIL READY
+  if (!pageReady && sessionStarted) {
+    return <div className="p-6">Loading assessment...</div>;
+  }
 
   useEffect(() => {
     if (!user) {
@@ -869,13 +876,6 @@ const Assessment = () => {
 
 
 
-  // 🔒 GUARDS AFTER ALL HOOKS - SAFE TO RETURN
-  if (!user) return null;
-
-  // 🚧 HARD READINESS GATE - PREVENT RENDER UNTIL READY
-  if (!pageReady && sessionStarted) {
-    return <div data-testid="booting">Loading assessment...</div>;
-  }
 
   if (!sessionStarted) {
     return (
