@@ -155,7 +155,7 @@ const AssessmentReport = () => {
     try {
       console.log('Starting report generation for session:', sessionId);
       
-      // Call n8n webhook
+      // Call n8n webhook - n8n will process and the Edge Function will save the complete report
       const n8nResponse = await fetch('https://lennartwilming.app.n8n.cloud/webhook/atad2/generate-report', {
         method: 'POST',
         headers: {
@@ -176,33 +176,11 @@ const AssessmentReport = () => {
 
       const n8nData = await n8nResponse.json();
       console.log('n8n response data:', n8nData);
-      
-      // Extract report data from the nested structure
-      const reportData = n8nData.report || n8nData;
-      console.log('Extracted report data:', reportData);
 
-      // Save report to Supabase
-      const { error: insertError } = await supabase
-        .from('atad2_reports')
-        .insert({
-          session_id: sessionId,
-          user_id: user.id,
-          model: reportData.model,
-          total_risk: reportData.total_risk,
-          answers_count: reportData.answers_count,
-          report_md: reportData.report_md,
-          report_json: reportData.report_json,
-          report_title: reportData.report_title
-        });
+      // No need to save to Supabase here - the Edge Function handles the complete insert
+      console.log('Report processing completed successfully');
 
-      if (insertError) {
-        console.error('Supabase insert error:', insertError);
-        throw insertError;
-      }
-
-      console.log('Report saved successfully');
-
-      // Refresh reports query
+      // Refresh reports query to show the newly created report
       queryClient.invalidateQueries({ queryKey: ["reports", sessionId] });
 
       toast.success("Success", {
