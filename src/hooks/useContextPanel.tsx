@@ -88,6 +88,9 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer }: UseCo
       setSavingStatus('saving');
       
       try {
+        // Validate and sanitize before saving to database
+        const validatedExplanation = validateExplanation(debouncedExplanation);
+        
         // Upsert to atad2_answers
         const { error } = await supabase
           .from('atad2_answers')
@@ -95,7 +98,7 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer }: UseCo
             session_id: sessionId,
             question_id: questionId,
             answer: selectedAnswer || currentState?.answer || 'Unknown',
-            explanation: debouncedExplanation,
+            explanation: validatedExplanation,
             question_text: '', // This will be filled by the main submit
             risk_points: 0, // This will be filled by the main submit
           }, {
@@ -104,10 +107,10 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer }: UseCo
 
         if (error) throw error;
 
-        // Update store with sync timestamp and the explanation we just saved
+        // Update store with sync timestamp and the validated explanation we just saved
         store.setQuestionState(sessionId, questionId, {
           lastSyncedAt: new Date().toISOString(),
-          lastSyncedExplanation: debouncedExplanation,
+          lastSyncedExplanation: validatedExplanation,
         });
 
         setSavingStatus('saved');
@@ -168,16 +171,10 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer }: UseCo
     }
   }, [sessionId, questionId, store]);
 
-  // Update explanation in store
+  // Update explanation in store - no validation during typing
   const updateExplanation = useCallback((newExplanation: string) => {
-    try {
-      const sanitizedExplanation = validateExplanation(newExplanation);
-      store.updateExplanation(sessionId, questionId, sanitizedExplanation);
-    } catch (error) {
-      console.error('Invalid explanation input:', error);
-      // Still update but with original value for user experience
-      store.updateExplanation(sessionId, questionId, newExplanation);
-    }
+    // Store raw value without validation to preserve spaces during typing
+    store.updateExplanation(sessionId, questionId, newExplanation);
   }, [sessionId, questionId, store]);
 
   // Update answer in store

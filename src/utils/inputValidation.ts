@@ -34,7 +34,8 @@ export const validateTextInput = (input: string, maxLength: number = 1000): stri
     cleaned = cleaned.substring(0, maxLength);
   }
   
-  return cleaned.trim();
+  // Don't trim during typing - preserve all user input including leading/trailing spaces
+  return cleaned;
 };
 
 // Taxpayer name validation (no HTML, reasonable length)
