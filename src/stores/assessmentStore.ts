@@ -24,6 +24,10 @@ interface AssessmentStore {
   setShouldShowContext: (sessionId: string, questionId: string, show: boolean) => void;
   clearExplanation: (sessionId: string, questionId: string) => void;
   clearSession: (sessionId: string) => void;
+  
+  // New methods for Panel Controller
+  getExplanations: () => Record<string, string>;
+  cancelAutosave?: (questionId: string) => void;
 }
 
 const createQAKey = (sessionId: string, questionId: string): QAKey => `${sessionId}:${questionId}`;
@@ -130,7 +134,27 @@ export const useAssessmentStore = create<AssessmentStore>()(
           return { byKey: newByKey };
         }, false, 'clearSession');
       },
+
+      // Implementation of getExplanations for Panel Controller
+      getExplanations: () => {
+        const state = get();
+        const explanations: Record<string, string> = {};
+        
+        Object.entries(state.byKey).forEach(([key, qaState]) => {
+          const questionId = key.split(':')[1];
+          if (questionId && qaState.explanation) {
+            explanations[questionId] = qaState.explanation;
+          }
+        });
+        
+        return explanations;
+      },
+
+      // Placeholder for autosave cancellation - will be set by useContextPanel
+      cancelAutosave: undefined,
     }),
-    { name: 'assessment-store' }
+    {
+      name: 'assessment-store',
+    }
   )
 );

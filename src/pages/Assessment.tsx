@@ -2,6 +2,7 @@ import { useState, useEffect, useLayoutEffect, useCallback, useMemo, memo, useRe
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useContextPanel } from "@/hooks/useContextPanel";
+import { usePanelController } from "@/hooks/usePanelController";
 import { useAssessmentStore } from "@/stores/assessmentStore";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -148,7 +149,6 @@ const QuestionText = ({ question, difficultTerm, termExplanation, exampleText }:
 
 const Assessment = () => {
   const { user } = useAuth();
-  const store = useAssessmentStore();
   const navigate = useNavigate();
   
   
@@ -173,13 +173,19 @@ const Assessment = () => {
   const [autoAdvance, setAutoAdvance] = useState(true);
   const [pendingQuestion, setPendingQuestion] = useState<Question | null>(null);
   
-  // Ready state for stable rendering (prevents race condition)
-  const [ready, setReady] = useState(false);
-  
-  // Use context panel hook for persistent state management
+  // New Panel Controller - single source of truth for context panel
+  const qId = currentQuestion?.question_id ?? "";
+  const { 
+    shouldRender: shouldShowContextPanel, 
+    paneKey, 
+    value: contextValue, 
+    selectedAnswerId, 
+    requiresExplanation,
+    contextPrompt 
+  } = usePanelController(sessionId, qId);
+
+  // Legacy context panel hook for backward compatibility (saving/loading logic)
   const {
-    contextPrompt,
-    shouldShowContext,
     savingStatus,
     updateExplanation,
     updateAnswer,
@@ -192,14 +198,11 @@ const Assessment = () => {
     selectedAnswer: selectedAnswer as 'Yes' | 'No' | 'Unknown' | '',
   });
 
-  // Get explanation directly from store to ensure strict per-question binding
-  const currentQuestionId = currentQuestion?.question_id || '';
-  const currentQuestionState = store.getQuestionState(sessionId, currentQuestionId);
-  const explanation = currentQuestionState?.explanation || '';
-  
-  // Debug: Log to verify per-question binding
-  console.log(`🎯 Assessment render: Q${currentQuestionId}, explanation="${explanation.substring(0, 20)}..."`);
-
+  // Connect store cancelAutosave to the hook's cancel function  
+  const store = useAssessmentStore();
+  if (!store.cancelAutosave && cancelAutosave) {
+    store.cancelAutosave = cancelAutosave;
+  }
   // Store-based lookup for selected option (eliminates race conditions)
   const getSelectedOption = useCallback((questionId: string) => {
     const questionState = store.getQuestionState(sessionId, questionId);
@@ -219,34 +222,6 @@ const Assessment = () => {
       requiresExplanation: option.requires_explanation
     } : null;
   }, [questions, sessionId, store]);
-
-  // Previous key ref for autosave cancellation
-  const prevPaneKeyRef = useRef<string>("");
-
-  // Zero-flash render guard with layout effect - prevents rendering with old data
-  useLayoutEffect(() => {
-    // Bij elke vraagwissel eerst on-ready -> voorkomt render met oude data
-    setReady(false);
-    // Microtask: na store update opnieuw ready
-    queueMicrotask(() => setReady(true));
-  }, [currentQuestion?.question_id, selectedAnswer]);
-
-  // Proactive state cleanup on question change
-  useEffect(() => {
-    if (currentQuestion?.question_id) {
-      console.log(`🔄 Question changed to Q${currentQuestion.question_id}`);
-      
-      // Reset context state voor nieuwe vraag to prevent carryover
-      store.setQuestionState(sessionId, currentQuestion.question_id, {
-        shouldShowContext: false,
-        contextPrompt: ''
-      });
-      
-      const newQuestionState = store.getQuestionState(sessionId, currentQuestion.question_id);
-      const newExplanation = newQuestionState?.explanation || '';
-      console.log(`🎯 New question explanation: "${newExplanation.substring(0, 20)}..."`);
-    }
-  }, [currentQuestion?.question_id, sessionId, store]);
 
   useEffect(() => {
     if (!user) {
@@ -752,7 +727,7 @@ const Assessment = () => {
           .update({
             question_text: currentQuestion.question,
             answer: answer,
-             explanation: explanation,
+             explanation: store.getQuestionState(sessionId, currentQuestion.question_id)?.explanation || '',
             risk_points: selectedQuestionOption.risk_points,
             difficult_term: selectedQuestionOption.difficult_term,
             term_explanation: selectedQuestionOption.term_explanation,
@@ -769,7 +744,7 @@ const Assessment = () => {
             question_id: currentQuestion.question_id,
             question_text: currentQuestion.question,
             answer: answer,
-            explanation: explanation,
+            explanation: store.getQuestionState(sessionId, currentQuestion.question_id)?.explanation || '',
             risk_points: selectedQuestionOption.risk_points,
             difficult_term: selectedQuestionOption.difficult_term,
             term_explanation: selectedQuestionOption.term_explanation
@@ -1277,81 +1252,37 @@ const Assessment = () => {
                        })}
                     </div>
 
-                    {/* Context section - DEFINITIVE guard with store-based lookup */}
-                    {(() => {
-                      const qId = currentQuestion?.question_id ?? "";
-                      const selectedOption = getSelectedOption(qId);
-                      const selectedAnswerId = selectedOption?.id ?? "";
-                      const requiresExplanation = !!selectedOption?.requiresExplanation;
-                      const paneKey = `ctx-${qId}-${selectedAnswerId}-${ready}`;
-                      
-                      // Enhanced logging for debug
-                      console.log("🧭 Panel render check", {
-                        qId, 
-                        selectedAnswerId, 
-                        requiresExplanation,
-                        shouldShowContext,
-                        ready,
-                        explanation: explanation?.slice(0, 40)
-                      });
-                      
-                      // Zero-flash guard: NO rendering until stable
-                      if (!selectedAnswerId) {
-                        console.log(`❌ Panel blocked: no selectedAnswerId`);
-                        return null;
-                      }
-                      
-                      // STRICT guard: ALL must be true including ready state
-                      const shouldRenderPanel = ready && !!selectedAnswerId && requiresExplanation && shouldShowContext;
-                      
-                      // Cancel autosave on key change
-                      if (prevPaneKeyRef.current && prevPaneKeyRef.current !== paneKey) {
-                        const prevQId = prevPaneKeyRef.current.split("ctx-")[1]?.split("-")[0];
-                        console.log(`🚫 Cancelling autosave for previous key: ${prevPaneKeyRef.current}, qId: ${prevQId}`);
-                        if (prevQId && cancelAutosave) {
-                          cancelAutosave();
-                        }
-                      }
-                      prevPaneKeyRef.current = paneKey;
-                      
-                      if (!shouldRenderPanel) {
-                        console.log(`❌ Panel NOT rendered - ready: ${ready}, selectedAnswerId: "${selectedAnswerId}", requiresExplanation: ${requiresExplanation}, shouldShowContext: ${shouldShowContext}`);
-                        return null;
-                      }
-                      
-                      console.log(`✅ Panel rendered with key: ${paneKey}`);
-                      
-                      return (
-                        <div 
-                          key={paneKey}
-                          className="bg-gray-50 rounded-lg px-4 py-3 mb-8"
-                        >
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="text-sm text-gray-700 italic">
-                              <span className="text-lg mr-2">💡</span>
-                              <span>Context for Q{qId} (Key: {paneKey})</span>
-                            </div>
-                            {savingStatus === 'saving' && (
-                              <span className="text-xs text-blue-600">Saving...</span>
-                            )}
-                            {savingStatus === 'saved' && (
-                              <span className="text-xs text-green-600">Saved</span>
-                            )}
-                          </div>
-                          <Textarea
-                            key={paneKey}
-                            value={store.getQuestionState(sessionId, qId)?.explanation ?? ""}
-                            onChange={(e) => {
-                              console.log(`📝 Typing in Q${qId}: "${e.target.value.substring(0, 20)}..."`);
-                              updateExplanation(e.target.value);
-                            }}
-                            placeholder={contextPrompt || "Your explanation..."}
-                            className="w-full mt-2 min-h-[80px]"
-                            disabled={savingStatus === 'saving'}
-                          />
+                     {/* Context section - NEW Panel Controller approach */}
+                     {shouldShowContextPanel && (
+                       <div 
+                         key={paneKey}
+                         className="bg-gray-50 rounded-lg px-4 py-3 mb-8"
+                       >
+                         <div className="flex items-center justify-between mb-3">
+                           <div className="text-sm text-gray-700 italic">
+                             <span className="text-lg mr-2">💡</span>
+                             <span>Context for Q{qId} (Key: {paneKey})</span>
+                           </div>
+                           {savingStatus === 'saving' && (
+                             <span className="text-xs text-blue-600">Saving...</span>
+                           )}
+                           {savingStatus === 'saved' && (
+                             <span className="text-xs text-green-600">Saved</span>
+                           )}
                          </div>
-                       );
-                     })()}
+                         <Textarea
+                           key={paneKey}
+                           value={contextValue}
+                           onChange={(e) => {
+                             console.log(`📝 Typing in Q${qId}: "${e.target.value.substring(0, 20)}..."`);
+                             updateExplanation(e.target.value);
+                           }}
+                           placeholder={contextPrompt || "Your explanation..."}
+                           className="w-full mt-2 min-h-[80px]"
+                           disabled={savingStatus === 'saving'}
+                         />
+                        </div>
+                      )}
 
                   {/* Navigation buttons */}
                   <div className="flex items-center gap-3">
@@ -1400,7 +1331,7 @@ const Assessment = () => {
                      )}
 
                        {/* Show Submit/Continue button when context panel is visible and we have an answer, but NOT when it's the last question */}
-                       {shouldShowContext && selectedAnswer && !shouldShowFinishButton() && (
+                       {shouldShowContextPanel && selectedAnswer && !shouldShowFinishButton() && (
                          <Button 
                             onClick={async () => {
                               // Bij zowel navigatie als normale flow: gewone submit
