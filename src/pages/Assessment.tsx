@@ -335,57 +335,84 @@ const Assessment = () => {
   const submitAnswer = async () => {
     if (!currentQuestion || !selectedAnswer || !sessionId) return;
 
+    // Get current explanation from store for this specific question
+    const currentQuestionState = store.getQuestionState(sessionId, currentQuestion.question_id);
+    const currentExplanation = currentQuestionState?.explanation || '';
+    
+    // Cancel any pending autosave operations before submit
+    if (clearContext) {
+      // This will handle cleanup of any pending operations
+    }
+
+    // Check if context/explanation is required for this answer
+    const requiresExplanation = selectedAnswer === 'Yes'; // Based on your current logic
+    
+    // Validate explanation if required
+    if (requiresExplanation && !currentExplanation.trim()) {
+      toast.error("Context Required", {
+        description: "Please provide context for this answer before submitting.",
+      });
+      return;
+    }
+
+    // Build payload with proper explanation handling
+    const payload = {
+      session_id: sessionId,
+      question_id: currentQuestion.question_id,
+      question_text: currentQuestion.question,
+      answer: selectedAnswer,
+      explanation: requiresExplanation ? currentExplanation : '', // Always string, never null
+      risk_points: 0, // Will be updated below
+      difficult_term: null,
+      term_explanation: null,
+      answered_at: new Date().toISOString()
+    };
+
+    // Find the selected question option for additional data
+    const selectedQuestionOption = questions.find(
+      q => q.question_id === currentQuestion.question_id && q.answer_option === selectedAnswer
+    );
+
+    if (!selectedQuestionOption) {
+      toast.error("Error", {
+        description: "Selected answer configuration not found.",
+      });
+      return;
+    }
+
+    // Update payload with question option data
+    payload.risk_points = selectedQuestionOption.risk_points;
+    payload.difficult_term = selectedQuestionOption.difficult_term;
+    payload.term_explanation = selectedQuestionOption.term_explanation;
+
+    // Debug logging for payload inspection
+    console.log("🔎 SUBMIT payload", {
+      session_id: payload.session_id,
+      question_id: payload.question_id,
+      answer: payload.answer,
+      explanation: payload.explanation,
+      requiresExplanation,
+      explanation_length: payload.explanation.length
+    });
+
     setLoading(true);
     try {
-      const selectedQuestionOption = questions.find(
-        q => q.question_id === currentQuestion.question_id && q.answer_option === selectedAnswer
-      );
-
-      if (!selectedQuestionOption) {
-        throw new Error("Selected answer not found");
-      }
-
-      // Check if answer already exists for this question in this session
-      const { data: existingAnswer } = await supabase
+      // Use upsert to handle both insert and update with composite key
+      const { data, error } = await supabase
         .from('atad2_answers')
-        .select('id')
-        .eq('session_id', sessionId)
-        .eq('question_id', currentQuestion.question_id)
+        .upsert([payload], { 
+          onConflict: 'session_id,question_id',
+          ignoreDuplicates: false 
+        })
+        .select()
         .single();
 
-      if (existingAnswer) {
-        // Update existing answer
-        const { error } = await supabase
-          .from('atad2_answers')
-          .update({
-            question_text: currentQuestion.question,
-            answer: selectedAnswer,
-            explanation: explanation,
-            risk_points: selectedQuestionOption.risk_points,
-            difficult_term: selectedQuestionOption.difficult_term,
-            term_explanation: selectedQuestionOption.term_explanation,
-            answered_at: new Date().toISOString()
-          })
-          .eq('id', existingAnswer.id);
-
-        if (error) throw error;
-      } else {
-        // Insert new answer
-        const { error } = await supabase
-          .from('atad2_answers')
-          .insert({
-            session_id: sessionId,
-            question_id: currentQuestion.question_id,
-            question_text: currentQuestion.question,
-            answer: selectedAnswer,
-            explanation: explanation,
-            risk_points: selectedQuestionOption.risk_points,
-            difficult_term: selectedQuestionOption.difficult_term,
-            term_explanation: selectedQuestionOption.term_explanation
-          });
-
-        if (error) throw error;
+      if (error) {
+        console.error("❌ Submit failed", { payload, error });
+        throw error;
       }
+
+      console.log("✅ Submit successful", data);
 
       // Update or add current question and answer to both history and flow
       const questionEntry = { question: currentQuestion, answer: selectedAnswer };
@@ -438,10 +465,17 @@ const Assessment = () => {
         console.log("End of flow reached - staying on current question");
         setSelectedAnswer(selectedAnswer); // Keep the selected answer so finish button shows
       }
-    } catch (error) {
-      console.error('Error submitting answer:', error);
-      toast.error("Error", {
-        description: "Failed to submit answer",
+    } catch (error: any) {
+      console.error('❌ Submit failed with error:', error);
+      
+      // Show specific backend error instead of generic message
+      const errorMessage = error?.message || 
+                          error?.details || 
+                          error?.hint ||
+                          "Failed to submit answer";
+      
+      toast.error("Submit Failed", {
+        description: errorMessage,
       });
     } finally {
       setLoading(false);
