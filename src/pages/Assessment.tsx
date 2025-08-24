@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, memo, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useCallback, useMemo, memo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useContextPanel } from "@/hooks/useContextPanel";
@@ -173,6 +173,9 @@ const Assessment = () => {
   const [autoAdvance, setAutoAdvance] = useState(true);
   const [pendingQuestion, setPendingQuestion] = useState<Question | null>(null);
   
+  // Ready state for stable rendering (prevents race condition)
+  const [ready, setReady] = useState(false);
+  
   // Use context panel hook for persistent state management
   const {
     contextPrompt,
@@ -182,6 +185,7 @@ const Assessment = () => {
     updateAnswer,
     loadContextQuestions,
     clearContext,
+    cancelAutosave,
   } = useContextPanel({
     sessionId,
     questionId: currentQuestion?.question_id || '',
@@ -219,11 +223,25 @@ const Assessment = () => {
   // Previous key ref for autosave cancellation
   const prevPaneKeyRef = useRef<string>("");
 
-  // Force context panel cleanup when question changes to prevent stale explanations
-  // Force explanation update when question changes to prevent value leakage
+  // Zero-flash render guard with layout effect - prevents rendering with old data
+  useLayoutEffect(() => {
+    // Bij elke vraagwissel eerst on-ready -> voorkomt render met oude data
+    setReady(false);
+    // Microtask: na store update opnieuw ready
+    queueMicrotask(() => setReady(true));
+  }, [currentQuestion?.question_id, selectedAnswer]);
+
+  // Proactive state cleanup on question change
   useEffect(() => {
     if (currentQuestion?.question_id) {
       console.log(`🔄 Question changed to Q${currentQuestion.question_id}`);
+      
+      // Reset context state voor nieuwe vraag to prevent carryover
+      store.setQuestionState(sessionId, currentQuestion.question_id, {
+        shouldShowContext: false,
+        contextPrompt: ''
+      });
+      
       const newQuestionState = store.getQuestionState(sessionId, currentQuestion.question_id);
       const newExplanation = newQuestionState?.explanation || '';
       console.log(`🎯 New question explanation: "${newExplanation.substring(0, 20)}..."`);
@@ -1265,7 +1283,7 @@ const Assessment = () => {
                       const selectedOption = getSelectedOption(qId);
                       const selectedAnswerId = selectedOption?.id ?? "";
                       const requiresExplanation = !!selectedOption?.requiresExplanation;
-                      const paneKey = `ctx-${qId}-${selectedAnswerId}`;
+                      const paneKey = `ctx-${qId}-${selectedAnswerId}-${ready}`;
                       
                       // Enhanced logging for debug
                       console.log("🧭 Panel render check", {
@@ -1273,21 +1291,31 @@ const Assessment = () => {
                         selectedAnswerId, 
                         requiresExplanation,
                         shouldShowContext,
+                        ready,
                         explanation: explanation?.slice(0, 40)
                       });
                       
-                      // STRICT guard: ALL must be true
-                      const shouldRenderPanel = !!selectedAnswerId && requiresExplanation && shouldShowContext;
+                      // Zero-flash guard: NO rendering until stable
+                      if (!selectedAnswerId) {
+                        console.log(`❌ Panel blocked: no selectedAnswerId`);
+                        return null;
+                      }
+                      
+                      // STRICT guard: ALL must be true including ready state
+                      const shouldRenderPanel = ready && !!selectedAnswerId && requiresExplanation && shouldShowContext;
                       
                       // Cancel autosave on key change
                       if (prevPaneKeyRef.current && prevPaneKeyRef.current !== paneKey) {
-                        console.log(`🚫 Cancelling autosave for previous key: ${prevPaneKeyRef.current}`);
-                        // Note: autosave cancellation would be implemented in useContextPanel hook
+                        const prevQId = prevPaneKeyRef.current.split("ctx-")[1]?.split("-")[0];
+                        console.log(`🚫 Cancelling autosave for previous key: ${prevPaneKeyRef.current}, qId: ${prevQId}`);
+                        if (prevQId && cancelAutosave) {
+                          cancelAutosave();
+                        }
                       }
                       prevPaneKeyRef.current = paneKey;
                       
                       if (!shouldRenderPanel) {
-                        console.log(`❌ Panel NOT rendered - selectedAnswerId: "${selectedAnswerId}", requiresExplanation: ${requiresExplanation}, shouldShowContext: ${shouldShowContext}`);
+                        console.log(`❌ Panel NOT rendered - ready: ${ready}, selectedAnswerId: "${selectedAnswerId}", requiresExplanation: ${requiresExplanation}, shouldShowContext: ${shouldShowContext}`);
                         return null;
                       }
                       

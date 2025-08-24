@@ -27,8 +27,8 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer }: UseCo
     console.log(`✅ Context state for Q${questionId}: has explanation (${explanation.length} chars)`);
   }
   
-  // Debounced explanation for auto-saving (increased delay)
-  const debouncedExplanation = useDebounce(explanation, 1500);
+  // Debounced explanation for auto-saving (increased delay) with cancellation
+  const [debouncedExplanation, cancelDebounce] = useDebounce(explanation, 1500);
   
   // Check if context panel should be shown - only based on explicit flag, NOT explanation content
   const shouldShowContext = useMemo(() => {
@@ -242,6 +242,13 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer }: UseCo
     }
   }, [sessionId, questionId, store]);
 
+  // Cancel autosave function
+  const cancelAutosave = useCallback(() => {
+    console.log(`🚫 Cancelling autosave for Q${questionId}`);
+    cancelDebounce();
+    setSavingStatus('idle');
+  }, [questionId, cancelDebounce]);
+
   return {
     // Note: explanation removed - components should get it directly from store
     // to ensure strict per-question binding without any potential stale state
@@ -252,5 +259,6 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer }: UseCo
     updateAnswer,
     loadContextQuestions,
     clearContext,
+    cancelAutosave,
   };
 };
