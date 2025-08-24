@@ -93,6 +93,27 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer }: UseCo
         return;
       }
 
+      // Auto-save protection: verify current answer still requires context before saving
+      const currentAnswer = selectedAnswer || currentState?.answer;
+      if (currentAnswer) {
+        try {
+          const { data: contextQuestions } = await supabase
+            .from('atad2_context_questions')
+            .select('context_question')
+            .eq('question_id', questionId)
+            .eq('answer_trigger', currentAnswer);
+
+          const stillRequiresContext = contextQuestions && contextQuestions.length > 0;
+          if (!stillRequiresContext) {
+            console.log(`🚫 Auto-save cancelled for Q${questionId} - answer ${currentAnswer} no longer requires context`);
+            return;
+          }
+        } catch (error) {
+          console.error('Error verifying context requirement:', error);
+          return;
+        }
+      }
+
       setSavingStatus('saving');
       
       try {
@@ -190,13 +211,40 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer }: UseCo
     store.updateAnswer(sessionId, questionId, answer);
   }, [sessionId, questionId, store]);
 
-  // Clear context panel
-  const clearContext = useCallback(() => {
+  // Clear context panel - now includes database cleanup
+  const clearContext = useCallback(async () => {
+    console.log(`🧹 Clearing context for Q${questionId}`);
+    
+    // Clear from store first
     store.setQuestionState(sessionId, questionId, {
       explanation: '',
       shouldShowContext: false,
+      lastSyncedExplanation: '', // Reset sync state
     });
-  }, [sessionId, questionId, store]);
+
+    // Also clear from database to ensure consistency
+    try {
+      const { error } = await supabase
+        .from('atad2_answers')
+        .upsert({
+          session_id: sessionId,
+          question_id: questionId,
+          answer: selectedAnswer || 'Unknown', // Keep current answer
+          explanation: '', // Clear explanation
+          question_text: '', // Required field
+          risk_points: 0, // Required field
+          answered_at: new Date().toISOString(),
+        });
+
+      if (error) {
+        console.error('Error clearing context in database:', error);
+      } else {
+        console.log(`✅ Context cleared in database for Q${questionId}`);
+      }
+    } catch (error) {
+      console.error('Error clearing context in database:', error);
+    }
+  }, [sessionId, questionId, selectedAnswer, store]);
 
   return {
     explanation,

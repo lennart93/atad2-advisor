@@ -545,6 +545,10 @@ const Assessment = () => {
       if (contextPrompt) {
         console.log(`🛑 Context found for Q${currentQuestion.question_id}, stopping here - no auto-advance`);
         return;
+      } else {
+        // No context required for this answer - clear any existing context
+        console.log(`🧹 Navigation mode: No context required for Q${currentQuestion.question_id} with answer ${answer}, clearing existing context`);
+        clearContext();
       }
       
       // Alleen als er GEEN context is, dan flow change check
@@ -585,6 +589,10 @@ const Assessment = () => {
           // Do not auto-advance when context exists
           setLoading(false);
           return;
+        } else {
+          // No context required for this answer - clear any existing context
+          console.log(`🧹 No context required for Q${currentQuestion.question_id} with answer ${answer}, clearing existing context`);
+          clearContext();
         }
       }
 
