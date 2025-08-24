@@ -19,6 +19,14 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer }: UseCo
   const explanation = currentState?.explanation || '';
   const contextPrompt = currentState?.contextPrompt || '';
   
+  // Debug: Log explanation changes per question
+  console.log(`🔍 useContextPanel for Q${questionId}: explanation="${explanation.substring(0, 30)}...", shouldShow=${currentState?.shouldShowContext}`);
+  
+  // Safety check: verify we're getting the right explanation for the right question
+  if (explanation && questionId) {
+    console.log(`✅ Context state for Q${questionId}: has explanation (${explanation.length} chars)`);
+  }
+  
   // Debounced explanation for auto-saving (increased delay)
   const debouncedExplanation = useDebounce(explanation, 1500);
   

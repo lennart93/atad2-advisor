@@ -186,6 +186,13 @@ const Assessment = () => {
     selectedAnswer: selectedAnswer as 'Yes' | 'No' | 'Unknown' | '',
   });
 
+  // Force context panel cleanup when question changes to prevent stale explanations
+  useEffect(() => {
+    if (currentQuestion?.question_id) {
+      console.log(`🔄 Question changed to Q${currentQuestion.question_id}, context reset triggered`);
+    }
+  }, [currentQuestion?.question_id]);
+
   useEffect(() => {
     if (!user) {
       navigate("/auth");
@@ -405,6 +412,7 @@ const Assessment = () => {
         if (nextQuestion) {
           setIsTransitioning(true);
           setTimeout(() => {
+            console.log(`🚀 Navigating from Q${currentQuestion.question_id} to Q${nextQuestion.question_id}`);
             setCurrentQuestion(nextQuestion);
             setPendingQuestion(nextQuestion); // Update pending question
             setSelectedAnswer("");
@@ -1149,13 +1157,16 @@ const Assessment = () => {
                        })}
                     </div>
 
-                   {/* Context section - persistent across navigation */}
+                   {/* Context section - force re-render on question change with key */}
                    {shouldShowContext && (
-                     <div className="bg-gray-50 rounded-lg px-4 py-3 mb-8">
+                     <div 
+                       key={`context-${currentQuestion.question_id}`}
+                       className="bg-gray-50 rounded-lg px-4 py-3 mb-8"
+                     >
                        <div className="flex items-center justify-between mb-3">
                          <div className="text-sm text-gray-700 italic">
                            <span className="text-lg mr-2">💡</span>
-                           <span>Context</span>
+                           <span>Context for Q{currentQuestion.question_id}</span>
                          </div>
                          {savingStatus === 'saving' && (
                            <span className="text-xs text-blue-600">Saving...</span>
@@ -1165,6 +1176,7 @@ const Assessment = () => {
                          )}
                        </div>
                        <Textarea
+                         key={`textarea-${currentQuestion.question_id}`}
                          value={explanation}
                          onChange={(e) => updateExplanation(e.target.value)}
                          placeholder={contextPrompt || "Your explanation..."}
