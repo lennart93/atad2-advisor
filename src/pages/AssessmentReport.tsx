@@ -134,7 +134,7 @@ const AssessmentReport = () => {
     }
   };
 
-  const totalRiskPoints = answers.reduce((sum, answer) => sum + answer.risk_points, 0);
+  const totalRiskPoints = Math.round((answers.reduce((sum, answer) => sum + answer.risk_points, 0)) * 100) / 100;
 
   const handleAnswerUpdate = (answerId: string, newAnswer: string, newExplanation: string) => {
     setAnswers(prev => prev.map(answer => 
