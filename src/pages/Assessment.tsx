@@ -174,7 +174,6 @@ const Assessment = () => {
   
   // Use context panel hook for persistent state management
   const {
-    explanation,
     contextPrompt,
     shouldShowContext,
     savingStatus,
@@ -188,12 +187,24 @@ const Assessment = () => {
     selectedAnswer: selectedAnswer as 'Yes' | 'No' | 'Unknown' | '',
   });
 
+  // Get explanation directly from store to ensure strict per-question binding
+  const currentQuestionId = currentQuestion?.question_id || '';
+  const currentQuestionState = store.getQuestionState(sessionId, currentQuestionId);
+  const explanation = currentQuestionState?.explanation || '';
+  
+  // Debug: Log to verify per-question binding
+  console.log(`🎯 Assessment render: Q${currentQuestionId}, explanation="${explanation.substring(0, 20)}..."`);
+
   // Force context panel cleanup when question changes to prevent stale explanations
+  // Force explanation update when question changes to prevent value leakage
   useEffect(() => {
     if (currentQuestion?.question_id) {
-      console.log(`🔄 Question changed to Q${currentQuestion.question_id}, context reset triggered`);
+      console.log(`🔄 Question changed to Q${currentQuestion.question_id}`);
+      const newQuestionState = store.getQuestionState(sessionId, currentQuestion.question_id);
+      const newExplanation = newQuestionState?.explanation || '';
+      console.log(`🎯 New question explanation: "${newExplanation.substring(0, 20)}..."`);
     }
-  }, [currentQuestion?.question_id]);
+  }, [currentQuestion?.question_id, sessionId, store]);
 
   useEffect(() => {
     if (!user) {
@@ -1185,14 +1196,17 @@ const Assessment = () => {
                            <span className="text-xs text-green-600">Saved</span>
                          )}
                        </div>
-                       <Textarea
-                         key={`textarea-${currentQuestion.question_id}`}
-                         value={explanation}
-                         onChange={(e) => updateExplanation(e.target.value)}
-                         placeholder={contextPrompt || "Your explanation..."}
-                         className="w-full mt-2 min-h-[80px]"
-                         disabled={savingStatus === 'saving'}
-                       />
+                        <Textarea
+                          key={`textarea-${currentQuestion.question_id}-${selectedAnswer}`}
+                          value={explanation}
+                          onChange={(e) => {
+                            console.log(`📝 Typing in Q${currentQuestion.question_id}: "${e.target.value.substring(0, 20)}..."`);
+                            updateExplanation(e.target.value);
+                          }}
+                          placeholder={contextPrompt || "Your explanation..."}
+                          className="w-full mt-2 min-h-[80px]"
+                          disabled={savingStatus === 'saving'}
+                        />
                      </div>
                    )}
 

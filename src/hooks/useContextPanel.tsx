@@ -249,7 +249,8 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer }: UseCo
   }, [sessionId, questionId, store]);
 
   return {
-    explanation,
+    // Note: explanation removed - components should get it directly from store
+    // to ensure strict per-question binding without any potential stale state
     contextPrompt,
     shouldShowContext,
     savingStatus,
