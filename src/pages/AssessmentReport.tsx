@@ -241,10 +241,10 @@ const AssessmentReport = () => {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <h3 className="font-semibold mb-2">Session Details</h3>
+                  <h3 className="font-semibold mb-2">Session details</h3>
                   <div className="space-y-1 text-sm">
                     <p><span className="font-medium">Taxpayer:</span> {sessionData.taxpayer_name}</p>
-                    <p><span className="font-medium">Fiscal Year:</span> {sessionData.fiscal_year}</p>
+                    <p><span className="font-medium">Tax year:</span> {sessionData.fiscal_year}</p>
                     <p><span className="font-medium">Completed:</span> {format(new Date(sessionData.created_at), 'MMM d, yyyy HH:mm')}</p>
                     {sessionData.is_custom_period && sessionData.period_start_date && sessionData.period_end_date && (
                       <p><span className="font-medium">Period:</span> {format(new Date(sessionData.period_start_date), 'MMM d, yyyy')} - {format(new Date(sessionData.period_end_date), 'MMM d, yyyy')}</p>
@@ -252,7 +252,7 @@ const AssessmentReport = () => {
                   </div>
                 </div>
                 <div>
-                  <h3 className="font-semibold mb-2">Assessment Summary</h3>
+                  <h3 className="font-semibold mb-2">Assessment summary</h3>
                   <div className="space-y-1 text-sm">
                     <p><span className="font-medium">Questions answered:</span> {answers.length}</p>
                     <p><span className="font-medium">Total risk points:</span> {totalRiskPoints}</p>
@@ -352,10 +352,12 @@ const AssessmentReport = () => {
           {/* Answers Detail */}
           <Card>
             <CardHeader>
-              <CardTitle>Question Responses</CardTitle>
-              <CardDescription>
-                Click the edit button next to any answer to make changes
-              </CardDescription>
+              <CardTitle>Question responses</CardTitle>
+              {!latestReport && (
+                <CardDescription>
+                  Click the edit button next to any answer to make changes
+                </CardDescription>
+              )}
             </CardHeader>
             <CardContent>
               <div className="space-y-6">
