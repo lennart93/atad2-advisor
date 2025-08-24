@@ -230,23 +230,33 @@ const Assessment = () => {
       }
     }
 
+    console.log("🚀 START_SESSION: Beginning session start process");
     setLoading(true);
     try {
+      console.log("🔍 START_SESSION: Checking questions, current count:", questions.length);
       // Ensure questions are loaded before starting session
       let questionsToUse = questions;
       if (questions.length === 0) {
+        console.log("⏳ START_SESSION: Loading questions from database...");
         const { data, error } = await supabase
           .from('atad2_questions')
           .select('*')
           .order('question_id');
         
-        if (error) throw error;
+        if (error) {
+          console.error("❌ START_SESSION: Error loading questions:", error);
+          throw error;
+        }
         questionsToUse = data || [];
         setQuestions(questionsToUse);
+        console.log("✅ START_SESSION: Questions loaded, count:", questionsToUse.length);
       }
       
+      console.log("🆔 START_SESSION: Generating new session ID...");
       const newSessionId = crypto.randomUUID();
+      console.log("🆔 START_SESSION: New session ID:", newSessionId);
       
+      console.log("📅 START_SESSION: Processing session info:", sessionInfo);
       const startDate = sessionInfo.tax_year_not_equals_calendar 
         ? sessionInfo.period_start_date 
         : `${sessionInfo.tax_year}-01-01`;
@@ -255,7 +265,8 @@ const Assessment = () => {
         ? sessionInfo.period_end_date 
         : `${sessionInfo.tax_year}-12-31`;
 
-      const { error } = await supabase
+      console.log("💾 START_SESSION: Inserting session to database...");
+      const { error: sessionError } = await supabase
         .from('atad2_sessions')
         .insert({
           session_id: newSessionId,
@@ -269,28 +280,44 @@ const Assessment = () => {
           completed: false
         });
 
-      if (error) throw error;
+      
+      if (sessionError) {
+        console.error("❌ START_SESSION: Error creating session:", sessionError);
+        throw sessionError;
+      }
+      
+      console.log("✅ START_SESSION: Session created successfully");
+      console.log("🔄 START_SESSION: Setting session state...");
 
       setSessionId(newSessionId);
       setSessionStarted(true);
+      console.log("✅ START_SESSION: Session state updated");
       
-      // Load first question
+      console.log("🎯 START_SESSION: Looking for first question...");
+      console.log("✅ START_SESSION: Session state updated");
+      
+      console.log("🎯 START_SESSION: Looking for first question...");
       const firstQuestion = questionsToUse.find(q => q.question_id === "1" && q.answer_option === "Yes");
+      console.log("🎯 START_SESSION: First question search result:", firstQuestion ? `Found Q${firstQuestion.question_id}` : "NOT FOUND");
       
       if (firstQuestion) {
         setCurrentQuestion(firstQuestion);
         setPendingQuestion(firstQuestion); // Set as pending initially
+        console.log("✅ START_SESSION: First question set successfully");
       } else {
+        console.error("❌ START_SESSION: Could not find first question");
+        console.log("Available questions sample:", questionsToUse.slice(0, 3).map(q => ({ id: q.question_id, option: q.answer_option })));
         toast.error("Error", {
           description: "Could not load the first question",
         });
       }
     } catch (error) {
-      console.error('Error starting session:', error);
+      console.error('❌ START_SESSION: Fatal error:', error);
       toast.error("Error", {
         description: "Failed to start assessment",
       });
     } finally {
+      console.log("🏁 START_SESSION: Process completed, loading set to false");
       setLoading(false);
     }
   };
