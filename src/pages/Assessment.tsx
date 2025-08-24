@@ -696,7 +696,18 @@ const Assessment = () => {
   };
 
   const submitAnswerDirectly = async (answer: string) => {
-    if (!currentQuestion || !sessionId) return;
+    if (!currentQuestion || !sessionId) {
+      console.log("❌ Cannot submit: missing currentQuestion or sessionId", { currentQuestion: !!currentQuestion, sessionId });
+      return;
+    }
+
+    console.log("🚀 Starting submitAnswerDirectly", { 
+      questionId: currentQuestion.question_id,
+      answer,
+      sessionId
+    });
+
+    setLoading(true);
 
     try {
       const selectedQuestionOption = questions.find(
@@ -704,16 +715,22 @@ const Assessment = () => {
       );
 
       if (!selectedQuestionOption) {
+        console.log("❌ Answer option not found", { 
+          questionId: currentQuestion.question_id, 
+          answer,
+          availableOptions: questions.filter(q => q.question_id === currentQuestion.question_id).map(q => q.answer_option)
+        });
         throw new Error("Selected answer not found");
       }
 
-      console.log(`DIRECT SUBMIT DEBUG:`, {
+      console.log(`✅ Found question option:`, {
         questionId: currentQuestion.question_id,
         answer,
         nextQuestionId: selectedQuestionOption.next_question_id,
-        hasNextQuestion: !!selectedQuestionOption.next_question_id
+        requiresExplanation: selectedQuestionOption.requires_explanation
       });
 
+      // Save answer to database
       const { data: existingAnswer } = await supabase
         .from('atad2_answers')
         .select('id')
@@ -727,7 +744,7 @@ const Assessment = () => {
           .update({
             question_text: currentQuestion.question,
             answer: answer,
-             explanation: store.getQuestionState(sessionId, currentQuestion.question_id)?.explanation || '',
+            explanation: store.getQuestionState(sessionId, currentQuestion.question_id)?.explanation || '',
             risk_points: selectedQuestionOption.risk_points,
             difficult_term: selectedQuestionOption.difficult_term,
             term_explanation: selectedQuestionOption.term_explanation,
@@ -736,6 +753,7 @@ const Assessment = () => {
           .eq('id', existingAnswer.id);
 
         if (error) throw error;
+        console.log("✅ Updated existing answer in database");
       } else {
         const { error } = await supabase
           .from('atad2_answers')
@@ -751,8 +769,13 @@ const Assessment = () => {
           });
 
         if (error) throw error;
+        console.log("✅ Inserted new answer in database");
       }
 
+      // Update store with answer
+      store.updateAnswer(sessionId, currentQuestion.question_id, answer as 'Yes' | 'No' | 'Unknown');
+      
+      // Update question flow
       const questionEntry = { question: currentQuestion, answer };
       
       setQuestionHistory(prev => {
@@ -782,34 +805,39 @@ const Assessment = () => {
 
       const nextQuestionId = selectedQuestionOption.next_question_id;
       
-      console.log(`Direct submit - Current question: ${currentQuestion.question_id}, Selected answer: ${answer}, Next question ID: ${nextQuestionId}`);
+      console.log(`🔍 Next question logic:`, {
+        nextQuestionId,
+        isEnd: nextQuestionId === "end",
+        hasNext: !!nextQuestionId && nextQuestionId !== "end"
+      });
       
       if (nextQuestionId && nextQuestionId !== "end") {
         const nextQuestion = questions.find(q => q.question_id === nextQuestionId && q.answer_option === "Yes");
+        console.log(`🔍 Looking for next question:`, {
+          nextQuestionId,
+          found: !!nextQuestion,
+          nextQuestionTitle: nextQuestion?.question
+        });
+        
         if (nextQuestion) {
+          console.log("➡️ Moving to next question:", nextQuestion.question_id);
           setIsTransitioning(true);
           setTimeout(() => {
             setCurrentQuestion(nextQuestion);
-            setPendingQuestion(nextQuestion); // Update pending question
+            setPendingQuestion(nextQuestion);
             setSelectedAnswer("");
             setIsTransitioning(false);
           }, 300);
+        } else {
+          console.log("❌ Next question not found in database");
         }
       } else {
-        // This is the end of the flow - clear pending and keep selected answer
+        console.log("🏁 End of assessment reached");
         setPendingQuestion(null);
-        console.log("END OF FLOW REACHED - Setting selectedAnswer to:", answer);
         setSelectedAnswer(answer);
-        
-        // Force a re-render to check button visibility
-        setTimeout(() => {
-          console.log("After timeout - selectedAnswer:", answer);
-          console.log("After timeout - currentQuestion:", currentQuestion.question_id);
-          console.log("After timeout - navigationIndex:", -1);
-        }, 100);
       }
     } catch (error) {
-      console.error('Error submitting answer:', error);
+      console.error('❌ Error submitting answer:', error);
       toast.error("Error", {
         description: "Failed to submit answer",
       });
