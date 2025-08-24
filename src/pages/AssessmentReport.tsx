@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { toast } from "@/components/ui/sonner";
 import { format } from "date-fns";
 import { ArrowLeft, FileText, Bot, Loader2 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { EditableAnswer } from "@/components/EditableAnswer";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import ReactMarkdown from "react-markdown";
@@ -271,20 +272,35 @@ const AssessmentReport = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                <Button 
-                  onClick={handleGenerateReport}
-                  disabled={isGeneratingReport}
-                  className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white"
-                >
-                  {isGeneratingReport ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Generating report...
-                    </>
-                  ) : (
-                    "Generate report"
-                  )}
-                </Button>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        <Button 
+                          onClick={handleGenerateReport}
+                          disabled={isGeneratingReport || !!latestReport}
+                          className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white disabled:opacity-50"
+                        >
+                          {isGeneratingReport ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Generating report...
+                            </>
+                          ) : latestReport ? (
+                            "Report generated"
+                          ) : (
+                            "Generate report"
+                          )}
+                        </Button>
+                      </div>
+                    </TooltipTrigger>
+                    {latestReport && (
+                      <TooltipContent>
+                        <p>This report has already been generated</p>
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                </TooltipProvider>
                 {isGeneratingReport && (
                   <p className="text-sm text-muted-foreground">This may take a few minutes</p>
                 )}
@@ -332,41 +348,6 @@ const AssessmentReport = () => {
             </Card>
           )}
 
-          {/* Generated Reports History */}
-          {reports && reports.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Report History</CardTitle>
-                <CardDescription>
-                  Previously generated reports for this assessment
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {reports.map((report) => (
-                    <div key={report.id} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div>
-                        <h4 className="font-medium">{report.report_title}</h4>
-                        <div className="text-sm text-muted-foreground">
-                          <p>Generated: {format(new Date(report.generated_at), 'MMM d, yyyy HH:mm')}</p>
-                          {report.model && <p>Model: {report.model}</p>}
-                          {report.total_risk !== null && <p>Risk: {report.total_risk} points</p>}
-                        </div>
-                      </div>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => navigate(`/report/${report.id}`)}
-                      >
-                        <FileText className="h-4 w-4 mr-2" />
-                        View Report
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
 
           {/* Answers Detail */}
           <Card>
