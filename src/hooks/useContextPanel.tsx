@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAssessmentStore } from '@/stores/assessmentStore';
 import { supabase } from '@/integrations/supabase/client';
 import { useDebounce } from '@/hooks/useDebounce';
-import { validateExplanation, validateSessionId, validateQuestionId } from '@/utils/inputValidation';
+import { validateSessionId, validateQuestionId } from '@/utils/inputValidation';
 
 interface UseContextPanelProps {
   sessionId: string;
@@ -88,7 +88,7 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer }: UseCo
       setSavingStatus('saving');
       
       try {
-        // Save raw explanation without validation during auto-save to preserve spaces
+        // Save raw explanation without any validation during auto-save to preserve spaces
         // Validation will happen only at final submit/report generation
         
         // Upsert to atad2_answers
@@ -98,7 +98,7 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer }: UseCo
             session_id: sessionId,
             question_id: questionId,
             answer: selectedAnswer || currentState?.answer || 'Unknown',
-            explanation: debouncedExplanation,
+            explanation: debouncedExplanation, // Raw value, no validation
             question_text: '', // This will be filled by the main submit
             risk_points: 0, // This will be filled by the main submit
           }, {
@@ -110,7 +110,7 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer }: UseCo
         // Update store with sync timestamp and the raw explanation we just saved
         store.setQuestionState(sessionId, questionId, {
           lastSyncedAt: new Date().toISOString(),
-          lastSyncedExplanation: debouncedExplanation,
+          lastSyncedExplanation: debouncedExplanation, // Raw value, no validation
         });
 
         setSavingStatus('saved');
