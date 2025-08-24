@@ -211,40 +211,42 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer }: UseCo
     store.updateAnswer(sessionId, questionId, answer);
   }, [sessionId, questionId, store]);
 
-  // Clear context panel - now includes database cleanup
+  // Clear context panel - now uses store clearExplanation for consistency
   const clearContext = useCallback(async () => {
     console.log(`🧹 Clearing context for Q${questionId}`);
     
-    // Clear from store first
-    store.setQuestionState(sessionId, questionId, {
-      explanation: '',
-      shouldShowContext: false,
-      lastSyncedExplanation: '', // Reset sync state
-    });
+    // Use store's clearExplanation function for consistent state management
+    store.clearExplanation(sessionId, questionId);
 
-    // Also clear from database to ensure consistency
+    // Also clear from database to ensure consistency (only if we have an existing answer record)
     try {
-      const { error } = await supabase
+      // First check if there's an existing answer to update
+      const { data: existingAnswer } = await supabase
         .from('atad2_answers')
-        .upsert({
-          session_id: sessionId,
-          question_id: questionId,
-          answer: selectedAnswer || 'Unknown', // Keep current answer
-          explanation: '', // Clear explanation
-          question_text: '', // Required field
-          risk_points: 0, // Required field
-          answered_at: new Date().toISOString(),
-        });
+        .select('id, question_text, risk_points')
+        .eq('session_id', sessionId)
+        .eq('question_id', questionId)
+        .single();
 
-      if (error) {
-        console.error('Error clearing context in database:', error);
-      } else {
-        console.log(`✅ Context cleared in database for Q${questionId}`);
+      if (existingAnswer) {
+        const { error } = await supabase
+          .from('atad2_answers')
+          .update({
+            explanation: '', // Clear explanation
+          })
+          .eq('session_id', sessionId)
+          .eq('question_id', questionId);
+
+        if (error) {
+          console.error('Error clearing context in database:', error);
+        } else {
+          console.log(`✅ Context cleared in database for Q${questionId}`);
+        }
       }
     } catch (error) {
       console.error('Error clearing context in database:', error);
     }
-  }, [sessionId, questionId, selectedAnswer, store]);
+  }, [sessionId, questionId, store]);
 
   return {
     explanation,

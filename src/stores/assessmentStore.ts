@@ -22,6 +22,7 @@ interface AssessmentStore {
   updateAnswer: (sessionId: string, questionId: string, answer: 'Yes' | 'No' | 'Unknown') => void;
   setContextPrompt: (sessionId: string, questionId: string, prompt: string) => void;
   setShouldShowContext: (sessionId: string, questionId: string, show: boolean) => void;
+  clearExplanation: (sessionId: string, questionId: string) => void;
   clearSession: (sessionId: string) => void;
 }
 
@@ -100,6 +101,22 @@ export const useAssessmentStore = create<AssessmentStore>()(
             },
           },
         }), false, 'setShouldShowContext');
+      },
+
+      clearExplanation: (sessionId, questionId) => {
+        const key = createQAKey(sessionId, questionId);
+        set((prev) => ({
+          byKey: {
+            ...prev.byKey,
+            [key]: {
+              ...prev.byKey[key],
+              explanation: '',
+              shouldShowContext: false,
+              lastSyncedExplanation: '',
+              contextPrompt: undefined,
+            },
+          },
+        }), false, 'clearExplanation');
       },
 
       clearSession: (sessionId) => {

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useContextPanel } from "@/hooks/useContextPanel";
+import { useAssessmentStore } from "@/stores/assessmentStore";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -146,6 +147,7 @@ const QuestionText = ({ question, difficultTerm, termExplanation, exampleText }:
 
 const Assessment = () => {
   const { user } = useAuth();
+  const store = useAssessmentStore();
   const navigate = useNavigate();
   
   
@@ -528,27 +530,30 @@ const Assessment = () => {
   const handleAnswerSelect = async (answer: string) => {
     if (loading || isTransitioning) return;
     
+    if (!currentQuestion || !sessionId) return;
+    
     // Always update the selected answer first
     setSelectedAnswer(answer);
     
     // Update answer in store immediately for consistent state
     updateAnswer(answer as 'Yes' | 'No' | 'Unknown');
     
+    // PROACTIVE CLEARING: Always clear existing context first for current question
+    console.log(`🧹 PROACTIVE: Clearing any existing context for Q${currentQuestion.question_id} before checking new answer ${answer}`);
+    store.clearExplanation(sessionId, currentQuestion.question_id);
+    
+    // Then check if new answer requires context
+    console.log(`🔍 Checking if answer ${answer} requires context for Q${currentQuestion.question_id}`);
+    const contextPrompt = await loadContextQuestions(answer);
+    
     // Bij terugnavigatie: check context voor HUIDIGE vraag, niet volgende
-    if (navigationIndex !== -1 && currentQuestion) {
-      console.log(`🔄 Navigation mode: checking context for CURRENT question ${currentQuestion.question_id} with answer ${answer}`);
-      
-      // Check for context questions for the CURRENT question EERST
-      const contextPrompt = await loadContextQuestions(answer);
+    if (navigationIndex !== -1) {
+      console.log(`🔄 Navigation mode: context check complete for Q${currentQuestion.question_id}`);
       
       // Als er context is, direct stoppen - geen flow change check
       if (contextPrompt) {
         console.log(`🛑 Context found for Q${currentQuestion.question_id}, stopping here - no auto-advance`);
         return;
-      } else {
-        // No context required for this answer - clear any existing context
-        console.log(`🧹 Navigation mode: No context required for Q${currentQuestion.question_id} with answer ${answer}, clearing existing context`);
-        clearContext();
       }
       
       // Alleen als er GEEN context is, dan flow change check
@@ -580,27 +585,24 @@ const Assessment = () => {
     setLoading(true);
 
     try {
-      // Check for context questions and update store (alleen bij normale flow)
-      if (currentQuestion) {
-        console.log(`➡️ Normal flow: checking context for question ${currentQuestion.question_id} with answer ${answer}`);
-        const contextPrompt = await loadContextQuestions(answer);
-        
-        if (contextPrompt) {
-          // Do not auto-advance when context exists
-          setLoading(false);
-          return;
-        } else {
-          // No context required for this answer - clear any existing context
-          console.log(`🧹 No context required for Q${currentQuestion.question_id} with answer ${answer}, clearing existing context`);
-          clearContext();
-        }
+      // Normal flow - context already checked above
+      console.log(`➡️ Normal flow: context check already completed for Q${currentQuestion.question_id} with answer ${answer}`);
+      
+      if (contextPrompt) {
+        // Context required - stop here and show context panel
+        console.log(`🛑 Context required for Q${currentQuestion.question_id}, stopping for user input`);
+        setLoading(false);
+        return;
       }
 
       // Only auto-advance when not navigating and auto-advance is enabled and no context
-      if (autoAdvance && navigationIndex === -1) {
+      if (autoAdvance) {
+        console.log(`⏩ Auto-advancing to next question after ${answer} selection`);
         setTimeout(async () => {
           await submitAnswerDirectly(answer);
         }, 300);
+      } else {
+        setLoading(false);
       }
     } catch (e) {
       console.error('Error during answer selection:', e);
