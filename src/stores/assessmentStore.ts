@@ -14,18 +14,20 @@ export interface QAState {
 
 interface AssessmentStore {
   byKey: Record<QAKey, QAState>;
+  activePaneToken: string;
   
   // Actions
   setQuestionState: (sessionId: string, questionId: string, state: Partial<QAState>) => void;
   getQuestionState: (sessionId: string, questionId: string) => QAState | undefined;
-  updateExplanation: (sessionId: string, questionId: string, explanation: string) => void;
+  updateExplanation: (sessionId: string, questionId: string, explanation: string, token?: string) => void;
   updateAnswer: (sessionId: string, questionId: string, answer: 'Yes' | 'No' | 'Unknown') => void;
   setContextPrompt: (sessionId: string, questionId: string, prompt: string) => void;
   setShouldShowContext: (sessionId: string, questionId: string, show: boolean) => void;
   clearExplanation: (sessionId: string, questionId: string) => void;
   clearSession: (sessionId: string) => void;
+  setActivePaneToken: (token: string) => void;
   
-  // New methods for Panel Controller
+  // Methods for ContextPanel
   getExplanations: () => Record<string, string>;
   cancelAutosave?: (questionId: string) => void;
 }
@@ -36,6 +38,7 @@ export const useAssessmentStore = create<AssessmentStore>()(
   devtools(
     (set, get) => ({
       byKey: {},
+      activePaneToken: "",
 
       setQuestionState: (sessionId, questionId, state) => {
         const key = createQAKey(sessionId, questionId);
@@ -55,17 +58,23 @@ export const useAssessmentStore = create<AssessmentStore>()(
         return get().byKey[key];
       },
 
-      updateExplanation: (sessionId, questionId, explanation) => {
+      updateExplanation: (sessionId, questionId, explanation, token) => {
         const key = createQAKey(sessionId, questionId);
-        set((prev) => ({
-          byKey: {
-            ...prev.byKey,
-            [key]: {
-              ...prev.byKey[key],
-              explanation,
+        set((prev) => {
+          if (token && token !== prev.activePaneToken) {
+            console.warn("DROP_LATE_WRITE", { questionId, token, active: prev.activePaneToken });
+            return {};
+          }
+          return {
+            byKey: {
+              ...prev.byKey,
+              [key]: {
+                ...prev.byKey[key],
+                explanation,
+              },
             },
-          },
-        }), false, 'updateExplanation');
+          };
+        }, false, 'updateExplanation');
       },
 
       updateAnswer: (sessionId, questionId, answer) => {
@@ -135,6 +144,10 @@ export const useAssessmentStore = create<AssessmentStore>()(
         }, false, 'clearSession');
       },
 
+      setActivePaneToken: (token) => {
+        set({ activePaneToken: token }, false, 'setActivePaneToken');
+      },
+
       // Implementation of getExplanations for Panel Controller
       getExplanations: () => {
         const state = get();
@@ -150,7 +163,7 @@ export const useAssessmentStore = create<AssessmentStore>()(
         return explanations;
       },
 
-      // Placeholder for autosave cancellation - will be set by useContextPanel
+      // Placeholder for autosave cancellation
       cancelAutosave: undefined,
     }),
     {
