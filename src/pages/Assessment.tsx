@@ -2,7 +2,7 @@ import { useState, useEffect, useLayoutEffect, useCallback, useMemo, memo, useRe
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useContextPanel } from "@/hooks/useContextPanel";
-import ContextPanel from "@/components/ContextPanel";
+import { usePanelController } from "@/hooks/usePanelController";
 import { useAssessmentStore } from "@/stores/assessmentStore";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import { InfoIcon, ArrowLeft, HelpCircle } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { AssessmentSidebar } from "@/components/AssessmentSidebar";
+import { Textarea } from "@/components/ui/textarea";
 
 interface Question {
   id: string;
@@ -172,8 +173,16 @@ const Assessment = () => {
   const [autoAdvance, setAutoAdvance] = useState(true);
   const [pendingQuestion, setPendingQuestion] = useState<Question | null>(null);
   
-  // Current question ID for context panel
+  // New Panel Controller - single source of truth for context panel
   const qId = currentQuestion?.question_id ?? "";
+  const { 
+    shouldRender: shouldShowContextPanel, 
+    paneKey, 
+    value: contextValue, 
+    selectedAnswerId, 
+    requiresExplanation,
+    contextPrompt 
+  } = usePanelController(sessionId, qId);
 
   // Legacy context panel hook for backward compatibility (saving/loading logic)
   const {
@@ -194,6 +203,25 @@ const Assessment = () => {
   if (!store.cancelAutosave && cancelAutosave) {
     store.cancelAutosave = cancelAutosave;
   }
+  // Store-based lookup for selected option (eliminates race conditions)
+  const getSelectedOption = useCallback((questionId: string) => {
+    const questionState = store.getQuestionState(sessionId, questionId);
+    const selectedAnswer = questionState?.answer;
+    
+    if (!selectedAnswer) return null;
+    
+    // Find the option that matches the selected answer
+    const option = questions.find(q => 
+      q.question_id === questionId && 
+      q.answer_option === selectedAnswer
+    );
+    
+    return option ? {
+      id: `${questionId}-${selectedAnswer}`,
+      answer_option: selectedAnswer,
+      requiresExplanation: option.requires_explanation
+    } : null;
+  }, [questions, sessionId, store]);
 
   useEffect(() => {
     if (!user) {
@@ -1224,8 +1252,37 @@ const Assessment = () => {
                        })}
                     </div>
 
-                     {/* Context section - Single centralized ContextPanel */}
-                     <ContextPanel sessionId={sessionId} questionId={qId} />
+                     {/* Context section - NEW Panel Controller approach */}
+                     {shouldShowContextPanel && (
+                       <div 
+                         key={paneKey}
+                         className="bg-gray-50 rounded-lg px-4 py-3 mb-8"
+                       >
+                         <div className="flex items-center justify-between mb-3">
+                           <div className="text-sm text-gray-700 italic">
+                             <span className="text-lg mr-2">💡</span>
+                             <span>Context for Q{qId} (Key: {paneKey})</span>
+                           </div>
+                           {savingStatus === 'saving' && (
+                             <span className="text-xs text-blue-600">Saving...</span>
+                           )}
+                           {savingStatus === 'saved' && (
+                             <span className="text-xs text-green-600">Saved</span>
+                           )}
+                         </div>
+                         <Textarea
+                           key={paneKey}
+                           value={contextValue}
+                           onChange={(e) => {
+                             console.log(`📝 Typing in Q${qId}: "${e.target.value.substring(0, 20)}..."`);
+                             updateExplanation(e.target.value);
+                           }}
+                           placeholder={contextPrompt || "Your explanation..."}
+                           className="w-full mt-2 min-h-[80px]"
+                           disabled={savingStatus === 'saving'}
+                         />
+                        </div>
+                      )}
 
                   {/* Navigation buttons */}
                   <div className="flex items-center gap-3">
@@ -1273,8 +1330,8 @@ const Assessment = () => {
                        </Button>
                      )}
 
-                        {/* Show Submit/Continue button when context panel is visible and we have an answer, but NOT when it's the last question */}
-                        {selectedAnswer && !shouldShowFinishButton() && (
+                       {/* Show Submit/Continue button when context panel is visible and we have an answer, but NOT when it's the last question */}
+                       {shouldShowContextPanel && selectedAnswer && !shouldShowFinishButton() && (
                          <Button 
                             onClick={async () => {
                               // Bij zowel navigatie als normale flow: gewone submit
