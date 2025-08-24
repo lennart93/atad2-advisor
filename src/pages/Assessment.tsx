@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useLayoutEffect, useCallback, useMemo, memo, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useCallback, useMemo, memo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-
-import ContextPanel from "@/components/ContextPanel";
+import { useContextPanel } from "@/hooks/useContextPanel";
+import { usePanelController } from "@/hooks/usePanelController";
 import { useAssessmentStore } from "@/stores/assessmentStore";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import { InfoIcon, ArrowLeft, HelpCircle } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { AssessmentSidebar } from "@/components/AssessmentSidebar";
+import { Textarea } from "@/components/ui/textarea";
 
 interface Question {
   id: string;
@@ -147,9 +148,9 @@ const QuestionText = ({ question, difficultTerm, termExplanation, exampleText }:
 };
 
 const Assessment = () => {
-  // ✅ ALL HOOKS AT TOP LEVEL - NO CONDITIONAL CALLS
   const { user } = useAuth();
   const navigate = useNavigate();
+  
   
   const [sessionInfo, setSessionInfo] = useState<SessionInfo>({
     taxpayer_name: "",
@@ -172,36 +173,55 @@ const Assessment = () => {
   const [autoAdvance, setAutoAdvance] = useState(true);
   const [pendingQuestion, setPendingQuestion] = useState<Question | null>(null);
   
-  const store = useAssessmentStore();
-  
-  // Current question ID for context panel
+  // New Panel Controller - single source of truth for context panel
   const qId = currentQuestion?.question_id ?? "";
+  const { 
+    shouldRender: shouldShowContextPanel, 
+    paneKey, 
+    value: contextValue, 
+    selectedAnswerId, 
+    requiresExplanation,
+    contextPrompt 
+  } = usePanelController(sessionId, qId);
 
-  // ✅ MEMOIZED COMPUTATIONS - NO STATE MUTATIONS
-  const isAtEndOfFlow = useMemo(() => {
-    if (!currentQuestion || !selectedAnswer) return false;
+  // Legacy context panel hook for backward compatibility (saving/loading logic)
+  const {
+    savingStatus,
+    updateExplanation,
+    updateAnswer,
+    loadContextQuestions,
+    clearContext,
+    cancelAutosave,
+  } = useContextPanel({
+    sessionId,
+    questionId: currentQuestion?.question_id || '',
+    selectedAnswer: selectedAnswer as 'Yes' | 'No' | 'Unknown' | '',
+  });
+
+  // Connect store cancelAutosave to the hook's cancel function  
+  const store = useAssessmentStore();
+  if (!store.cancelAutosave && cancelAutosave) {
+    store.cancelAutosave = cancelAutosave;
+  }
+  // Store-based lookup for selected option (eliminates race conditions)
+  const getSelectedOption = useCallback((questionId: string) => {
+    const questionState = store.getQuestionState(sessionId, questionId);
+    const selectedAnswer = questionState?.answer;
     
-    const selectedQuestionOption = questions.find(
-      q => q.question_id === currentQuestion.question_id && q.answer_option === selectedAnswer
+    if (!selectedAnswer) return null;
+    
+    // Find the option that matches the selected answer
+    const option = questions.find(q => 
+      q.question_id === questionId && 
+      q.answer_option === selectedAnswer
     );
     
-    return selectedQuestionOption && (!selectedQuestionOption.next_question_id || selectedQuestionOption.next_question_id === "end");
-  }, [currentQuestion, selectedAnswer, questions]);
-
-  const canShowFinishButton = useMemo(() => {
-    return navigationIndex === -1 && selectedAnswer && isAtEndOfFlow;
-  }, [navigationIndex, selectedAnswer, isAtEndOfFlow]);
-
-  // ✅ HARD READINESS GATE - PREVENT RENDER UNTIL READY
-  const pageReady = !!currentQuestion?.question_id && !loading && sessionStarted;
-
-  // 🔒 GUARDS AFTER ALL HOOKS - SAFE TO RETURN
-  if (!user) return null;
-
-  // 🚧 HARD READINESS GATE - PREVENT RENDER UNTIL READY
-  if (!pageReady && sessionStarted) {
-    return <div className="p-6">Loading assessment...</div>;
-  }
+    return option ? {
+      id: `${questionId}-${selectedAnswer}`,
+      answer_option: selectedAnswer,
+      requiresExplanation: option.requires_explanation
+    } : null;
+  }, [questions, sessionId, store]);
 
   useEffect(() => {
     if (!user) {
@@ -258,22 +278,9 @@ const Assessment = () => {
 
     setLoading(true);
     try {
-      // Ensure questions are loaded before starting session
-      let questionsToUse = questions;
-      if (questions.length === 0) {
-        const { data, error } = await supabase
-          .from('atad2_questions')
-          .select('*')
-          .order('question_id');
-        
-        if (error) throw error;
-        questionsToUse = data || [];
-        setQuestions(questionsToUse);
-      }
-      
       const newSessionId = crypto.randomUUID();
       
-      const startDate = sessionInfo.tax_year_not_equals_calendar
+      const startDate = sessionInfo.tax_year_not_equals_calendar 
         ? sessionInfo.period_start_date 
         : `${sessionInfo.tax_year}-01-01`;
       
@@ -281,7 +288,7 @@ const Assessment = () => {
         ? sessionInfo.period_end_date 
         : `${sessionInfo.tax_year}-12-31`;
 
-      const { error: sessionError } = await supabase
+      const { error } = await supabase
         .from('atad2_sessions')
         .insert({
           session_id: newSessionId,
@@ -295,36 +302,16 @@ const Assessment = () => {
           completed: false
         });
 
-      
-      if (sessionError) {
-        console.error("❌ START_SESSION: Error creating session:", sessionError);
-        throw sessionError;
-      }
-      
-      console.log("✅ START_SESSION: Session created successfully");
-      console.log("🔄 START_SESSION: Setting session state...");
+      if (error) throw error;
 
       setSessionId(newSessionId);
       setSessionStarted(true);
-      console.log("✅ START_SESSION: Session state updated");
       
-      console.log("🎯 START_SESSION: Looking for first question...");
-      console.log("✅ START_SESSION: Session state updated");
-      
-      console.log("🎯 START_SESSION: Looking for first question...");
-      const firstQuestion = questionsToUse.find(q => q.question_id === "1" && q.answer_option === "Yes");
-      console.log("🎯 START_SESSION: First question search result:", firstQuestion ? `Found Q${firstQuestion.question_id}` : "NOT FOUND");
-      
+      // Load first question
+      const firstQuestion = questions.find(q => q.question_id === "1" && q.answer_option === "Yes");
       if (firstQuestion) {
         setCurrentQuestion(firstQuestion);
         setPendingQuestion(firstQuestion); // Set as pending initially
-        console.log("✅ START_SESSION: First question set successfully");
-      } else {
-        console.error("❌ START_SESSION: Could not find first question");
-        console.log("Available questions sample:", questionsToUse.slice(0, 3).map(q => ({ id: q.question_id, option: q.answer_option })));
-        toast.error("Error", {
-          description: "Could not load the first question",
-        });
       }
     } catch (error) {
       console.error('Error starting session:', error);
@@ -370,7 +357,9 @@ const Assessment = () => {
     const currentExplanation = currentQuestionState?.explanation || '';
     
     // Cancel any pending autosave operations before submit
-    store.cancelAutosave?.(currentQuestion.question_id);
+    if (clearContext) {
+      // This will handle cleanup of any pending operations
+    }
 
     // Check if context/explanation is required for this answer
     const requiresExplanation = selectedAnswer === 'Yes'; // Based on your current logic
@@ -529,7 +518,7 @@ const Assessment = () => {
     setNavigationIndex(targetIndex);
     
     // Update answer in store for persistence
-    store.updateAnswer(sessionId, currentQuestion.question_id, targetEntry.answer as 'Yes' | 'No' | 'Unknown');
+    updateAnswer(targetEntry.answer as 'Yes' | 'No' | 'Unknown');
     
     // Context check will happen automatically in handleAnswerSelect when user changes answer
     // No need to load context here - just navigate
@@ -545,7 +534,7 @@ const Assessment = () => {
     setNavigationIndex(targetIndex);
     
     // Update answer in store for persistence
-    store.updateAnswer(sessionId, currentQuestion.question_id, targetEntry.answer as 'Yes' | 'No' | 'Unknown');
+    updateAnswer(targetEntry.answer as 'Yes' | 'No' | 'Unknown');
     
     // Context check will happen automatically in handleAnswerSelect when user changes answer
     // No need to load context here - just navigate
@@ -585,7 +574,7 @@ const Assessment = () => {
     setNavigationIndex(questionIndex);
     
     // Update answer in store for persistence
-    store.updateAnswer(sessionId, currentQuestion.question_id, targetEntry.answer as 'Yes' | 'No' | 'Unknown');
+    updateAnswer(targetEntry.answer as 'Yes' | 'No' | 'Unknown');
     
     // Context check will happen automatically in handleAnswerSelect when user changes answer
     // No need to load context here - just navigate
@@ -611,7 +600,7 @@ const Assessment = () => {
     setSelectedAnswer(answer);
     
     // Update answer in store immediately for consistent state
-    store.updateAnswer(sessionId, questionId, answer as 'Yes' | 'No' | 'Unknown');
+    updateAnswer(answer as 'Yes' | 'No' | 'Unknown');
     
     // Get the selected option to check if explanation is required
     const selectedOption = questions.find(q => 
@@ -638,15 +627,19 @@ const Assessment = () => {
       return;
     }
     
-    // Context is now handled automatically by ContextPanel component
-    console.log(`🔍 Answer ${answer} requires explanation for Q${questionId}`);
+    // Then check if new answer requires context
+    console.log(`🔍 Checking if answer ${answer} requires context for Q${questionId}`);
+    const contextPrompt = await loadContextQuestions(answer);
     
     // Bij terugnavigatie: check context voor HUIDIGE vraag, niet volgende
     if (navigationIndex !== -1) {
       console.log(`🔄 Navigation mode: context check complete for Q${currentQuestion.question_id}`);
       
-      // Navigation mode: context is handled by ContextPanel component
-      console.log(`🔄 Navigation complete for Q${currentQuestion.question_id}`);
+      // Als er context is, direct stoppen - geen flow change check
+      if (contextPrompt) {
+        console.log(`🛑 Context found for Q${currentQuestion.question_id}, stopping here - no auto-advance`);
+        return;
+      }
       
       // Alleen als er GEEN context is, dan flow change check
       const newSelectedOption = questions.find(
@@ -680,8 +673,12 @@ const Assessment = () => {
       // Normal flow - context already checked above
       console.log(`➡️ Normal flow: context check already completed for Q${currentQuestion.question_id} with answer ${answer}`);
       
-      // Context is now handled automatically by ContextPanel component
-      console.log(`🔄 Answer processing complete for Q${currentQuestion.question_id}`);
+      if (contextPrompt) {
+        // Context required - stop here and show context panel
+        console.log(`🛑 Context required for Q${currentQuestion.question_id}, stopping for user input`);
+        setLoading(false);
+        return;
+      }
 
       // Only auto-advance when not navigating and auto-advance is enabled and no context
       if (autoAdvance) {
@@ -874,8 +871,46 @@ const Assessment = () => {
     setPendingAnswerChange(null);
   };
 
+  // Check if we're at the end of the flow
+  const isAtEndOfFlow = () => {
+    console.log("=== isAtEndOfFlow CHECK ===");
+    console.log("currentQuestion:", currentQuestion?.question_id);
+    console.log("selectedAnswer:", selectedAnswer);
+    
+    if (!currentQuestion || !selectedAnswer) {
+      console.log("isAtEndOfFlow: FALSE - missing data");
+      return false;
+    }
+    
+    // Find the selected question option
+    const selectedQuestionOption = questions.find(
+      q => q.question_id === currentQuestion.question_id && q.answer_option === selectedAnswer
+    );
+    
+    console.log("selectedQuestionOption:", selectedQuestionOption);
+    console.log("next_question_id:", selectedQuestionOption?.next_question_id);
+    
+    // Return true if there's no next question ID (null, undefined, or "end")
+    const isAtEnd = selectedQuestionOption && (!selectedQuestionOption.next_question_id || selectedQuestionOption.next_question_id === "end");
+    console.log("isAtEndOfFlow RESULT:", isAtEnd);
+    console.log("=== END isAtEndOfFlow CHECK ===");
+    return isAtEnd;
+  };
 
+  // Check if we should show the finish button
+  const shouldShowFinishButton = () => {
+    console.log("=== shouldShowFinishButton CHECK ===");
+    console.log("navigationIndex:", navigationIndex);
+    console.log("selectedAnswer:", selectedAnswer);
+    console.log("isAtEndOfFlow():", isAtEndOfFlow());
+    
+    const shouldShow = navigationIndex === -1 && selectedAnswer && isAtEndOfFlow();
+    console.log("shouldShowFinishButton RESULT:", shouldShow);
+    console.log("=== END shouldShowFinishButton CHECK ===");
+    return shouldShow;
+  };
 
+  if (!user) return null;
 
   if (!sessionStarted) {
     return (
@@ -1217,8 +1252,37 @@ const Assessment = () => {
                        })}
                     </div>
 
-                     {/* Context section - Single centralized ContextPanel */}
-                      {sessionId && <ContextPanel sessionId={sessionId} questionId={qId} />}
+                     {/* Context section - NEW Panel Controller approach */}
+                     {shouldShowContextPanel && (
+                       <div 
+                         key={paneKey}
+                         className="bg-gray-50 rounded-lg px-4 py-3 mb-8"
+                       >
+                         <div className="flex items-center justify-between mb-3">
+                           <div className="text-sm text-gray-700 italic">
+                             <span className="text-lg mr-2">💡</span>
+                             <span>Context for Q{qId} (Key: {paneKey})</span>
+                           </div>
+                           {savingStatus === 'saving' && (
+                             <span className="text-xs text-blue-600">Saving...</span>
+                           )}
+                           {savingStatus === 'saved' && (
+                             <span className="text-xs text-green-600">Saved</span>
+                           )}
+                         </div>
+                         <Textarea
+                           key={paneKey}
+                           value={contextValue}
+                           onChange={(e) => {
+                             console.log(`📝 Typing in Q${qId}: "${e.target.value.substring(0, 20)}..."`);
+                             updateExplanation(e.target.value);
+                           }}
+                           placeholder={contextPrompt || "Your explanation..."}
+                           className="w-full mt-2 min-h-[80px]"
+                           disabled={savingStatus === 'saving'}
+                         />
+                        </div>
+                      )}
 
                   {/* Navigation buttons */}
                   <div className="flex items-center gap-3">
@@ -1256,7 +1320,7 @@ const Assessment = () => {
                     )}
 
                      {/* Show Finish Assessment button when at end of flow */}
-                     {canShowFinishButton && (
+                     {shouldShowFinishButton() && (
                        <Button 
                          onClick={finishAssessment}
                          disabled={loading || isTransitioning}
@@ -1266,17 +1330,17 @@ const Assessment = () => {
                        </Button>
                      )}
 
-                        {/* Show Submit/Continue button when context panel is visible and we have an answer, but NOT when it's the last question */}
-                        {selectedAnswer && !canShowFinishButton && (
+                       {/* Show Submit/Continue button when context panel is visible and we have an answer, but NOT when it's the last question */}
+                       {shouldShowContextPanel && selectedAnswer && !shouldShowFinishButton() && (
                          <Button 
                             onClick={async () => {
                               // Bij zowel navigatie als normale flow: gewone submit
                               await submitAnswerDirectly(selectedAnswer);
                             }}
-                            disabled={loading || isTransitioning}
-                            className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            Continue
+                           disabled={loading || isTransitioning || savingStatus === 'saving'}
+                           className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                         >
+                           {savingStatus === 'saving' ? "Saving..." : "Continue"}
                          </Button>
                        )}
                   </div>
