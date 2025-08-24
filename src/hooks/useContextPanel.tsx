@@ -30,19 +30,13 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer }: UseCo
   // Debounced explanation for auto-saving (increased delay)
   const debouncedExplanation = useDebounce(explanation, 1500);
   
-  // Check if context panel should be shown - compute on every render based on current state
+  // Check if context panel should be shown - only based on explicit flag, NOT explanation content
   const shouldShowContext = useMemo(() => {
-    // Show if there's existing explanation
-    if (explanation.trim().length > 0) {
-      console.log(`📝 Context showing for Q${questionId}: has explanation`);
-      return true;
-    }
-    
-    // Show if current answer would trigger context
+    // Only show if explicitly flagged by context requirement check
     const showFromStore = currentState?.shouldShowContext || false;
-    console.log(`🔍 Context check for Q${questionId}: shouldShowContext=${showFromStore}, explanation="${explanation}"`);
+    console.log(`🔍 Context check for Q${questionId}: shouldShowContext=${showFromStore}`);
     return showFromStore;
-  }, [explanation, currentState?.shouldShowContext, questionId]);
+  }, [currentState?.shouldShowContext, questionId]);
 
   // Load initial data from Supabase when component mounts
   useEffect(() => {

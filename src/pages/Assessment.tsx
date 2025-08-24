@@ -587,6 +587,12 @@ const Assessment = () => {
     console.log(`🧹 PROACTIVE: Clearing any existing context for Q${currentQuestion.question_id} before checking new answer ${answer}`);
     store.clearExplanation(sessionId, currentQuestion.question_id);
     
+    // Explicitly set shouldShowContext to false before re-evaluating
+    store.setQuestionState(sessionId, currentQuestion.question_id, {
+      shouldShowContext: false,
+      contextPrompt: '',
+    });
+    
     // Then check if new answer requires context
     console.log(`🔍 Checking if answer ${answer} requires context for Q${currentQuestion.question_id}`);
     const contextPrompt = await loadContextQuestions(answer);
@@ -1212,8 +1218,8 @@ const Assessment = () => {
                        })}
                     </div>
 
-                   {/* Context section - force re-render on question change with key */}
-                   {shouldShowContext && (
+                    {/* Context section - STRICT guard: only show after answer selected AND context required */}
+                    {selectedAnswer && shouldShowContext && (
                      <div 
                        key={`context-${currentQuestion.question_id}`}
                        className="bg-gray-50 rounded-lg px-4 py-3 mb-8"
