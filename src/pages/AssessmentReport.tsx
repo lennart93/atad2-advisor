@@ -367,6 +367,7 @@ const AssessmentReport = () => {
                     currentAnswer={answer.answer}
                     currentExplanation={answer.explanation}
                     riskPoints={answer.risk_points}
+                    readOnly={!!latestReport}
                     onUpdate={(newAnswer, newExplanation) => 
                       handleAnswerUpdate(answer.id, newAnswer, newExplanation)
                     }

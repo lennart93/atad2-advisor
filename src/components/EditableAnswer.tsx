@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from "@/components/ui/sonner";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Check, Edit, HelpCircle } from 'lucide-react';
 
 interface EditableAnswerProps {
@@ -11,6 +12,7 @@ interface EditableAnswerProps {
   currentAnswer: string;
   currentExplanation: string;
   riskPoints: number;
+  readOnly?: boolean;
   onUpdate: (newAnswer: string, newExplanation: string) => void;
 }
 
@@ -20,6 +22,7 @@ export const EditableAnswer: React.FC<EditableAnswerProps> = ({
   currentAnswer,
   currentExplanation,
   riskPoints,
+  readOnly = false,
   onUpdate,
 }) => {
   
@@ -81,7 +84,7 @@ export const EditableAnswer: React.FC<EditableAnswerProps> = ({
               Saved
             </div>
           )}
-          {!isEditing && (
+          {!isEditing && !readOnly && (
             <Button
               variant="ghost"
               size="sm"
@@ -90,6 +93,27 @@ export const EditableAnswer: React.FC<EditableAnswerProps> = ({
             >
               <Edit className="h-3 w-3" />
             </Button>
+          )}
+          {!isEditing && readOnly && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled
+                      className="h-8 px-2 opacity-50 cursor-not-allowed"
+                    >
+                      <Edit className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Report already generated — responses can no longer be changed</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )}
           <span className="text-sm font-medium px-2 py-1 rounded bg-muted">
             {riskPoints} points
