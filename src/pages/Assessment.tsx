@@ -147,9 +147,9 @@ const QuestionText = ({ question, difficultTerm, termExplanation, exampleText }:
 };
 
 const Assessment = () => {
+  // ✅ ALL HOOKS AT TOP LEVEL - NO CONDITIONAL CALLS
   const { user } = useAuth();
   const navigate = useNavigate();
-  
   
   const [sessionInfo, setSessionInfo] = useState<SessionInfo>({
     taxpayer_name: "",
@@ -172,10 +172,29 @@ const Assessment = () => {
   const [autoAdvance, setAutoAdvance] = useState(true);
   const [pendingQuestion, setPendingQuestion] = useState<Question | null>(null);
   
+  const store = useAssessmentStore();
+  
   // Current question ID for context panel
   const qId = currentQuestion?.question_id ?? "";
 
-  const store = useAssessmentStore();
+  // ✅ MEMOIZED COMPUTATIONS - NO STATE MUTATIONS
+  const isAtEndOfFlow = useMemo(() => {
+    if (!currentQuestion || !selectedAnswer) return false;
+    
+    const selectedQuestionOption = questions.find(
+      q => q.question_id === currentQuestion.question_id && q.answer_option === selectedAnswer
+    );
+    
+    return selectedQuestionOption && (!selectedQuestionOption.next_question_id || selectedQuestionOption.next_question_id === "end");
+  }, [currentQuestion, selectedAnswer, questions]);
+
+  const canShowFinishButton = useMemo(() => {
+    return navigationIndex === -1 && selectedAnswer && isAtEndOfFlow;
+  }, [navigationIndex, selectedAnswer, isAtEndOfFlow]);
+
+  // ✅ HARD READINESS GATE
+  const hasFirstQuestion = !!currentQuestion?.question_id;
+  const pageReady = hasFirstQuestion && !loading && sessionStarted;
 
   useEffect(() => {
     if (!user) {
@@ -230,34 +249,24 @@ const Assessment = () => {
       }
     }
 
-    console.log("🚀 START_SESSION: Beginning session start process");
     setLoading(true);
     try {
-      console.log("🔍 START_SESSION: Checking questions, current count:", questions.length);
       // Ensure questions are loaded before starting session
       let questionsToUse = questions;
       if (questions.length === 0) {
-        console.log("⏳ START_SESSION: Loading questions from database...");
         const { data, error } = await supabase
           .from('atad2_questions')
           .select('*')
           .order('question_id');
         
-        if (error) {
-          console.error("❌ START_SESSION: Error loading questions:", error);
-          throw error;
-        }
+        if (error) throw error;
         questionsToUse = data || [];
         setQuestions(questionsToUse);
-        console.log("✅ START_SESSION: Questions loaded, count:", questionsToUse.length);
       }
       
-      console.log("🆔 START_SESSION: Generating new session ID...");
       const newSessionId = crypto.randomUUID();
-      console.log("🆔 START_SESSION: New session ID:", newSessionId);
       
-      console.log("📅 START_SESSION: Processing session info:", sessionInfo);
-      const startDate = sessionInfo.tax_year_not_equals_calendar 
+      const startDate = sessionInfo.tax_year_not_equals_calendar
         ? sessionInfo.period_start_date 
         : `${sessionInfo.tax_year}-01-01`;
       
@@ -265,7 +274,6 @@ const Assessment = () => {
         ? sessionInfo.period_end_date 
         : `${sessionInfo.tax_year}-12-31`;
 
-      console.log("💾 START_SESSION: Inserting session to database...");
       const { error: sessionError } = await supabase
         .from('atad2_sessions')
         .insert({
@@ -312,12 +320,11 @@ const Assessment = () => {
         });
       }
     } catch (error) {
-      console.error('❌ START_SESSION: Fatal error:', error);
+      console.error('Error starting session:', error);
       toast.error("Error", {
         description: "Failed to start assessment",
       });
     } finally {
-      console.log("🏁 START_SESSION: Process completed, loading set to false");
       setLoading(false);
     }
   };
@@ -860,46 +867,15 @@ const Assessment = () => {
     setPendingAnswerChange(null);
   };
 
-  // Check if we're at the end of the flow
-  const isAtEndOfFlow = () => {
-    console.log("=== isAtEndOfFlow CHECK ===");
-    console.log("currentQuestion:", currentQuestion?.question_id);
-    console.log("selectedAnswer:", selectedAnswer);
-    
-    if (!currentQuestion || !selectedAnswer) {
-      console.log("isAtEndOfFlow: FALSE - missing data");
-      return false;
-    }
-    
-    // Find the selected question option
-    const selectedQuestionOption = questions.find(
-      q => q.question_id === currentQuestion.question_id && q.answer_option === selectedAnswer
-    );
-    
-    console.log("selectedQuestionOption:", selectedQuestionOption);
-    console.log("next_question_id:", selectedQuestionOption?.next_question_id);
-    
-    // Return true if there's no next question ID (null, undefined, or "end")
-    const isAtEnd = selectedQuestionOption && (!selectedQuestionOption.next_question_id || selectedQuestionOption.next_question_id === "end");
-    console.log("isAtEndOfFlow RESULT:", isAtEnd);
-    console.log("=== END isAtEndOfFlow CHECK ===");
-    return isAtEnd;
-  };
 
-  // Check if we should show the finish button
-  const shouldShowFinishButton = () => {
-    console.log("=== shouldShowFinishButton CHECK ===");
-    console.log("navigationIndex:", navigationIndex);
-    console.log("selectedAnswer:", selectedAnswer);
-    console.log("isAtEndOfFlow():", isAtEndOfFlow());
-    
-    const shouldShow = navigationIndex === -1 && selectedAnswer && isAtEndOfFlow();
-    console.log("shouldShowFinishButton RESULT:", shouldShow);
-    console.log("=== END shouldShowFinishButton CHECK ===");
-    return shouldShow;
-  };
 
+  // 🔒 GUARDS AFTER ALL HOOKS - SAFE TO RETURN
   if (!user) return null;
+
+  // 🚧 HARD READINESS GATE - PREVENT RENDER UNTIL READY
+  if (!pageReady && sessionStarted) {
+    return <div data-testid="booting">Loading assessment...</div>;
+  }
 
   if (!sessionStarted) {
     return (
@@ -1280,7 +1256,7 @@ const Assessment = () => {
                     )}
 
                      {/* Show Finish Assessment button when at end of flow */}
-                     {shouldShowFinishButton() && (
+                     {canShowFinishButton && (
                        <Button 
                          onClick={finishAssessment}
                          disabled={loading || isTransitioning}
@@ -1291,7 +1267,7 @@ const Assessment = () => {
                      )}
 
                         {/* Show Submit/Continue button when context panel is visible and we have an answer, but NOT when it's the last question */}
-                        {selectedAnswer && !shouldShowFinishButton() && (
+                        {selectedAnswer && !canShowFinishButton && (
                          <Button 
                             onClick={async () => {
                               // Bij zowel navigatie als normale flow: gewone submit
