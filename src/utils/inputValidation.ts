@@ -2,8 +2,8 @@
  * Input validation and sanitization utilities for security
  */
 
-// HTML sanitization function
-export const sanitizeHtml = (input: string): string => {
+// HTML sanitization function - with optional trimming for submit-time use
+export const sanitizeHtml = (input: string, opts?: { shouldTrim?: boolean }): string => {
   if (!input) return '';
   
   // Remove script tags and their content
@@ -19,15 +19,16 @@ export const sanitizeHtml = (input: string): string => {
   sanitized = sanitized.replace(/<\s*(form|input|textarea|select|option)\b[^>]*>/gi, '');
   sanitized = sanitized.replace(/<\/\s*(form|input|textarea|select|option)\s*>/gi, '');
   
-  // Don't trim during typing - preserve spaces for user input
-  return sanitized;
+  // Only trim if explicitly requested (for submit-time sanitization)
+  return opts?.shouldTrim ? sanitized.trim() : sanitized;
 };
 
-// Text input validation and length limits
+// Text input validation - only remove control characters, preserve all spaces
 export const validateTextInput = (input: string, maxLength: number = 1000): string => {
-  if (!input) return '';
+  if (typeof input !== 'string') return '';
   
-  // Remove null bytes and control characters except spaces, newlines and tabs
+  // Remove only control characters (null bytes and non-printable chars)
+  // Preserve spaces, newlines, tabs, and all other whitespace
   let cleaned = input.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
   
   // Limit length
@@ -35,7 +36,7 @@ export const validateTextInput = (input: string, maxLength: number = 1000): stri
     cleaned = cleaned.substring(0, maxLength);
   }
   
-  // Don't trim during typing - preserve all user input including leading/trailing spaces
+  // Return as-is, no trimming or whitespace normalization
   return cleaned;
 };
 
@@ -65,17 +66,14 @@ export const validateEntityName = (name: string): string => {
   return validated;
 };
 
-// Explanation text validation (allows more characters but sanitizes HTML)
+// Explanation text validation - TEMPORARY NO-OP to prevent space stripping during typing
 export const validateExplanation = (explanation: string): string => {
-  if (!explanation) return '';
-  
-  console.log('validateExplanation input:', JSON.stringify(explanation));
-  const cleaned = validateTextInput(explanation, 5000);
-  console.log('validateExplanation after validateTextInput:', JSON.stringify(cleaned));
-  const sanitized = sanitizeHtml(cleaned);
-  console.log('validateExplanation after sanitizeHtml:', JSON.stringify(sanitized));
-  
-  return sanitized;
+  if (process.env.NODE_ENV !== 'production') {
+    console.warn('validateExplanation called during edit path — this should not happen during typing/auto-save');
+  }
+  // Return input unchanged to preserve spaces during typing and auto-save
+  // Validation will happen only at submit/report generation time
+  return explanation;
 };
 
 // Session ID validation
