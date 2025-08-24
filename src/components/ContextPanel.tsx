@@ -7,6 +7,11 @@ type Props = {
 };
 
 export default function ContextPanel({ sessionId, questionId }: Props) {
+  // Guard against empty sessionId - return early to prevent errors
+  if (!sessionId) {
+    return null;
+  }
+  
   const qId = questionId ?? "";
   const store = useAssessmentStore();
 
@@ -51,17 +56,6 @@ export default function ContextPanel({ sessionId, questionId }: Props) {
     prevKeyRef.current = paneToken;
   }, [paneToken, store]);
 
-  // Instrumentatie tijdelijk aan
-  console.log("CTX_RENDER", {
-    qId, 
-    selectedAnswerId, 
-    requiresExplanation, 
-    ready,
-    shouldRender,
-    paneToken,
-    activeToken: store.activePaneToken,
-    valuePreview: value.slice(0, 20)
-  });
 
   if (!shouldRender) return null;
 

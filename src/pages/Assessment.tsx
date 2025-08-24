@@ -191,17 +191,15 @@ const Assessment = () => {
 
   const loadQuestions = async () => {
     try {
-      console.log("🔍 Loading questions from database...");
       const { data, error } = await supabase
         .from('atad2_questions')
         .select('*')
         .order('question_id');
       
       if (error) throw error;
-      console.log("✅ Questions loaded successfully:", data?.length || 0);
       setQuestions(data || []);
     } catch (error) {
-      console.error('❌ Error loading questions:', error);
+      console.error('Error loading questions:', error);
       toast.error("Error", {
         description: "Failed to load questions",
       });
@@ -237,7 +235,6 @@ const Assessment = () => {
       // Ensure questions are loaded before starting session
       let questionsToUse = questions;
       if (questions.length === 0) {
-        console.log("🔄 Questions not loaded yet, loading now...");
         const { data, error } = await supabase
           .from('atad2_questions')
           .select('*')
@@ -246,7 +243,6 @@ const Assessment = () => {
         if (error) throw error;
         questionsToUse = data || [];
         setQuestions(questionsToUse);
-        console.log("✅ Questions loaded for session start:", questionsToUse.length);
       }
       
       const newSessionId = crypto.randomUUID();
@@ -279,17 +275,12 @@ const Assessment = () => {
       setSessionStarted(true);
       
       // Load first question
-      console.log("🔍 Loading first question. Questions available:", questionsToUse.length);
       const firstQuestion = questionsToUse.find(q => q.question_id === "1" && q.answer_option === "Yes");
-      console.log("🔍 First question found:", firstQuestion ? `Q${firstQuestion.question_id}` : "NOT FOUND");
       
       if (firstQuestion) {
         setCurrentQuestion(firstQuestion);
         setPendingQuestion(firstQuestion); // Set as pending initially
-        console.log("✅ Successfully set first question Q1");
       } else {
-        console.error("❌ Could not find first question with ID 1 and answer Yes");
-        console.log("Available questions:", questionsToUse.slice(0, 5).map(q => ({ id: q.question_id, option: q.answer_option })));
         toast.error("Error", {
           description: "Could not load the first question",
         });
@@ -1224,7 +1215,7 @@ const Assessment = () => {
                     </div>
 
                      {/* Context section - Single centralized ContextPanel */}
-                     <ContextPanel sessionId={sessionId} questionId={qId} />
+                      {sessionId && <ContextPanel sessionId={sessionId} questionId={qId} />}
 
                   {/* Navigation buttons */}
                   <div className="flex items-center gap-3">
