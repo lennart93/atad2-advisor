@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useLayoutEffect, useCallback, useMemo, memo, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useCallback, useMemo, memo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -147,9 +147,9 @@ const QuestionText = ({ question, difficultTerm, termExplanation, exampleText }:
 };
 
 const Assessment = () => {
-  // ✅ ALL HOOKS AT TOP LEVEL - NO CONDITIONAL CALLS
   const { user } = useAuth();
   const navigate = useNavigate();
+  
   
   const [sessionInfo, setSessionInfo] = useState<SessionInfo>({
     taxpayer_name: "",
@@ -172,36 +172,10 @@ const Assessment = () => {
   const [autoAdvance, setAutoAdvance] = useState(true);
   const [pendingQuestion, setPendingQuestion] = useState<Question | null>(null);
   
-  const store = useAssessmentStore();
-  
   // Current question ID for context panel
   const qId = currentQuestion?.question_id ?? "";
 
-  // ✅ MEMOIZED COMPUTATIONS - NO STATE MUTATIONS
-  const isAtEndOfFlow = useMemo(() => {
-    if (!currentQuestion || !selectedAnswer) return false;
-    
-    const selectedQuestionOption = questions.find(
-      q => q.question_id === currentQuestion.question_id && q.answer_option === selectedAnswer
-    );
-    
-    return selectedQuestionOption && (!selectedQuestionOption.next_question_id || selectedQuestionOption.next_question_id === "end");
-  }, [currentQuestion, selectedAnswer, questions]);
-
-  const canShowFinishButton = useMemo(() => {
-    return navigationIndex === -1 && selectedAnswer && isAtEndOfFlow;
-  }, [navigationIndex, selectedAnswer, isAtEndOfFlow]);
-
-  // ✅ HARD READINESS GATE - PREVENT RENDER UNTIL READY
-  const pageReady = !!currentQuestion?.question_id && !loading && sessionStarted;
-
-  // 🔒 GUARDS AFTER ALL HOOKS - SAFE TO RETURN
-  if (!user) return null;
-
-  // 🚧 HARD READINESS GATE - PREVENT RENDER UNTIL READY
-  if (!pageReady && sessionStarted) {
-    return <div className="p-6">Loading assessment...</div>;
-  }
+  const store = useAssessmentStore();
 
   useEffect(() => {
     if (!user) {
@@ -258,22 +232,9 @@ const Assessment = () => {
 
     setLoading(true);
     try {
-      // Ensure questions are loaded before starting session
-      let questionsToUse = questions;
-      if (questions.length === 0) {
-        const { data, error } = await supabase
-          .from('atad2_questions')
-          .select('*')
-          .order('question_id');
-        
-        if (error) throw error;
-        questionsToUse = data || [];
-        setQuestions(questionsToUse);
-      }
-      
       const newSessionId = crypto.randomUUID();
       
-      const startDate = sessionInfo.tax_year_not_equals_calendar
+      const startDate = sessionInfo.tax_year_not_equals_calendar 
         ? sessionInfo.period_start_date 
         : `${sessionInfo.tax_year}-01-01`;
       
@@ -281,7 +242,7 @@ const Assessment = () => {
         ? sessionInfo.period_end_date 
         : `${sessionInfo.tax_year}-12-31`;
 
-      const { error: sessionError } = await supabase
+      const { error } = await supabase
         .from('atad2_sessions')
         .insert({
           session_id: newSessionId,
@@ -295,36 +256,16 @@ const Assessment = () => {
           completed: false
         });
 
-      
-      if (sessionError) {
-        console.error("❌ START_SESSION: Error creating session:", sessionError);
-        throw sessionError;
-      }
-      
-      console.log("✅ START_SESSION: Session created successfully");
-      console.log("🔄 START_SESSION: Setting session state...");
+      if (error) throw error;
 
       setSessionId(newSessionId);
       setSessionStarted(true);
-      console.log("✅ START_SESSION: Session state updated");
       
-      console.log("🎯 START_SESSION: Looking for first question...");
-      console.log("✅ START_SESSION: Session state updated");
-      
-      console.log("🎯 START_SESSION: Looking for first question...");
-      const firstQuestion = questionsToUse.find(q => q.question_id === "1" && q.answer_option === "Yes");
-      console.log("🎯 START_SESSION: First question search result:", firstQuestion ? `Found Q${firstQuestion.question_id}` : "NOT FOUND");
-      
+      // Load first question
+      const firstQuestion = questions.find(q => q.question_id === "1" && q.answer_option === "Yes");
       if (firstQuestion) {
         setCurrentQuestion(firstQuestion);
         setPendingQuestion(firstQuestion); // Set as pending initially
-        console.log("✅ START_SESSION: First question set successfully");
-      } else {
-        console.error("❌ START_SESSION: Could not find first question");
-        console.log("Available questions sample:", questionsToUse.slice(0, 3).map(q => ({ id: q.question_id, option: q.answer_option })));
-        toast.error("Error", {
-          description: "Could not load the first question",
-        });
       }
     } catch (error) {
       console.error('Error starting session:', error);
@@ -874,8 +815,46 @@ const Assessment = () => {
     setPendingAnswerChange(null);
   };
 
+  // Check if we're at the end of the flow
+  const isAtEndOfFlow = () => {
+    console.log("=== isAtEndOfFlow CHECK ===");
+    console.log("currentQuestion:", currentQuestion?.question_id);
+    console.log("selectedAnswer:", selectedAnswer);
+    
+    if (!currentQuestion || !selectedAnswer) {
+      console.log("isAtEndOfFlow: FALSE - missing data");
+      return false;
+    }
+    
+    // Find the selected question option
+    const selectedQuestionOption = questions.find(
+      q => q.question_id === currentQuestion.question_id && q.answer_option === selectedAnswer
+    );
+    
+    console.log("selectedQuestionOption:", selectedQuestionOption);
+    console.log("next_question_id:", selectedQuestionOption?.next_question_id);
+    
+    // Return true if there's no next question ID (null, undefined, or "end")
+    const isAtEnd = selectedQuestionOption && (!selectedQuestionOption.next_question_id || selectedQuestionOption.next_question_id === "end");
+    console.log("isAtEndOfFlow RESULT:", isAtEnd);
+    console.log("=== END isAtEndOfFlow CHECK ===");
+    return isAtEnd;
+  };
 
+  // Check if we should show the finish button
+  const shouldShowFinishButton = () => {
+    console.log("=== shouldShowFinishButton CHECK ===");
+    console.log("navigationIndex:", navigationIndex);
+    console.log("selectedAnswer:", selectedAnswer);
+    console.log("isAtEndOfFlow():", isAtEndOfFlow());
+    
+    const shouldShow = navigationIndex === -1 && selectedAnswer && isAtEndOfFlow();
+    console.log("shouldShowFinishButton RESULT:", shouldShow);
+    console.log("=== END shouldShowFinishButton CHECK ===");
+    return shouldShow;
+  };
 
+  if (!user) return null;
 
   if (!sessionStarted) {
     return (
@@ -1218,7 +1197,7 @@ const Assessment = () => {
                     </div>
 
                      {/* Context section - Single centralized ContextPanel */}
-                      {sessionId && <ContextPanel sessionId={sessionId} questionId={qId} />}
+                     <ContextPanel sessionId={sessionId} questionId={qId} />
 
                   {/* Navigation buttons */}
                   <div className="flex items-center gap-3">
@@ -1256,7 +1235,7 @@ const Assessment = () => {
                     )}
 
                      {/* Show Finish Assessment button when at end of flow */}
-                     {canShowFinishButton && (
+                     {shouldShowFinishButton() && (
                        <Button 
                          onClick={finishAssessment}
                          disabled={loading || isTransitioning}
@@ -1267,7 +1246,7 @@ const Assessment = () => {
                      )}
 
                         {/* Show Submit/Continue button when context panel is visible and we have an answer, but NOT when it's the last question */}
-                        {selectedAnswer && !canShowFinishButton && (
+                        {selectedAnswer && !shouldShowFinishButton() && (
                          <Button 
                             onClick={async () => {
                               // Bij zowel navigatie als normale flow: gewone submit
