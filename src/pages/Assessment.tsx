@@ -1330,19 +1330,32 @@ const Assessment = () => {
                        </Button>
                      )}
 
-                       {/* Show Submit/Continue button when context panel is visible and we have an answer, but NOT when it's the last question */}
-                       {shouldShowContextPanel && selectedAnswer && !shouldShowFinishButton() && (
-                         <Button 
+                        {/* Show Submit/Continue button when context panel is visible and we have an answer, but NOT when it's the last question */}
+                        {shouldShowContextPanel && selectedAnswer && !shouldShowFinishButton() && (
+                          <Button 
+                             onClick={async () => {
+                               // Bij zowel navigatie als normale flow: gewone submit
+                               await submitAnswerDirectly(selectedAnswer);
+                             }}
+                            disabled={loading || isTransitioning || savingStatus === 'saving'}
+                            className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {savingStatus === 'saving' ? "Saving..." : "Continue"}
+                          </Button>
+                        )}
+
+                        {/* Show Submit button for answers that don't require context panel */}
+                        {!shouldShowContextPanel && selectedAnswer && !shouldShowFinishButton() && navigationIndex === -1 && (
+                          <Button 
                             onClick={async () => {
-                              // Bij zowel navigatie als normale flow: gewone submit
                               await submitAnswerDirectly(selectedAnswer);
                             }}
-                           disabled={loading || isTransitioning || savingStatus === 'saving'}
-                           className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                         >
-                           {savingStatus === 'saving' ? "Saving..." : "Continue"}
-                         </Button>
-                       )}
+                            disabled={loading || isTransitioning}
+                            className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            Next →
+                          </Button>
+                        )}
                   </div>
                 </div>
               </CardContent>
