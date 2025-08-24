@@ -13,9 +13,6 @@ export default function ContextPanel({ sessionId, questionId }: Props) {
   // 1) ALLES uit de store (geen lokale selectedAnswer)
   const qState = store.getQuestionState(sessionId, qId);
   const answer = qState?.answer;
-  const shouldShowContext = qState?.shouldShowContext ?? false;
-  
-  // Create selectedOption object based on answer (simplified)
   const selectedAnswerId = answer ? `${qId}-${answer}` : "";
   const requiresExplanation = answer === 'Yes'; // Based on your business logic
 
@@ -26,8 +23,13 @@ export default function ContextPanel({ sessionId, questionId }: Props) {
     queueMicrotask(() => setReady(true));
   }, [qId, selectedAnswerId]);
 
-  // 3) Pane key dwingt remount
-  const paneKey = `ctx-${qId}-${selectedAnswerId}`;
+  // 3) Pane token voor write protection
+  const paneToken = `ctx-${qId}-${selectedAnswerId}`;
+
+  // Set active pane token
+  useLayoutEffect(() => {
+    store.setActivePaneToken(paneToken);
+  }, [paneToken, store]);
 
   // 4) Value uitsluitend per-vraag; ZONDER antwoord altijd ""
   const explanations = store.getExplanations(); // Record<string,string>
@@ -37,27 +39,28 @@ export default function ContextPanel({ sessionId, questionId }: Props) {
   }, [qId, selectedAnswerId, explanations]);
 
   // 5) Strikte render guard — geen paneel zonder antwoord & requirement & ready
-  const shouldRender = ready && !!selectedAnswerId && requiresExplanation && shouldShowContext;
+  const shouldRender = ready && !!selectedAnswerId && requiresExplanation;
   
   // 6) Cancel per-vraag autosave bij wissel
   const prevKeyRef = useRef<string>("");
   useLayoutEffect(() => {
-    if (prevKeyRef.current && prevKeyRef.current !== paneKey) {
+    if (prevKeyRef.current && prevKeyRef.current !== paneToken) {
       const prevQ = prevKeyRef.current.slice(4).split("-")[0];
       store.cancelAutosave?.(prevQ);
     }
-    prevKeyRef.current = paneKey;
-  }, [paneKey, store]);
+    prevKeyRef.current = paneToken;
+  }, [paneToken, store]);
 
   // Instrumentatie tijdelijk aan
-  console.log("CTX", {
+  console.log("CTX_RENDER", {
     qId, 
     selectedAnswerId, 
     requiresExplanation, 
-    shouldShowContext,
     ready,
     shouldRender,
-    valuePreview: (value ?? "").slice(0, 30)
+    paneToken,
+    activeToken: store.activePaneToken,
+    valuePreview: value.slice(0, 20)
   });
 
   if (!shouldRender) return null;
@@ -72,9 +75,9 @@ export default function ContextPanel({ sessionId, questionId }: Props) {
       </div>
       <label className="block mb-2 font-medium">Context</label>
       <textarea
-        key={paneKey}
+        key={paneToken}
         value={value}                         // controlled only
-        onChange={(e) => store.updateExplanation(sessionId, qId, e.target.value)}
+        onChange={(e) => store.updateExplanation(sessionId, qId, e.target.value, paneToken)}
         className="w-full min-h-24 border rounded p-2"
         placeholder="Your explanation..."
       />

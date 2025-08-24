@@ -1,7 +1,7 @@
 import { useState, useEffect, useLayoutEffect, useCallback, useMemo, memo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { useContextPanel } from "@/hooks/useContextPanel";
+
 import ContextPanel from "@/components/ContextPanel";
 import { useAssessmentStore } from "@/stores/assessmentStore";
 import { supabase } from "@/integrations/supabase/client";
@@ -175,25 +175,7 @@ const Assessment = () => {
   // Current question ID for context panel
   const qId = currentQuestion?.question_id ?? "";
 
-  // Legacy context panel hook for backward compatibility (saving/loading logic)
-  const {
-    savingStatus,
-    updateExplanation,
-    updateAnswer,
-    loadContextQuestions,
-    clearContext,
-    cancelAutosave,
-  } = useContextPanel({
-    sessionId,
-    questionId: currentQuestion?.question_id || '',
-    selectedAnswer: selectedAnswer as 'Yes' | 'No' | 'Unknown' | '',
-  });
-
-  // Connect store cancelAutosave to the hook's cancel function  
   const store = useAssessmentStore();
-  if (!store.cancelAutosave && cancelAutosave) {
-    store.cancelAutosave = cancelAutosave;
-  }
 
   useEffect(() => {
     if (!user) {
@@ -329,9 +311,7 @@ const Assessment = () => {
     const currentExplanation = currentQuestionState?.explanation || '';
     
     // Cancel any pending autosave operations before submit
-    if (clearContext) {
-      // This will handle cleanup of any pending operations
-    }
+    store.cancelAutosave?.(currentQuestion.question_id);
 
     // Check if context/explanation is required for this answer
     const requiresExplanation = selectedAnswer === 'Yes'; // Based on your current logic
@@ -490,7 +470,7 @@ const Assessment = () => {
     setNavigationIndex(targetIndex);
     
     // Update answer in store for persistence
-    updateAnswer(targetEntry.answer as 'Yes' | 'No' | 'Unknown');
+    store.updateAnswer(sessionId, currentQuestion.question_id, targetEntry.answer as 'Yes' | 'No' | 'Unknown');
     
     // Context check will happen automatically in handleAnswerSelect when user changes answer
     // No need to load context here - just navigate
@@ -506,7 +486,7 @@ const Assessment = () => {
     setNavigationIndex(targetIndex);
     
     // Update answer in store for persistence
-    updateAnswer(targetEntry.answer as 'Yes' | 'No' | 'Unknown');
+    store.updateAnswer(sessionId, currentQuestion.question_id, targetEntry.answer as 'Yes' | 'No' | 'Unknown');
     
     // Context check will happen automatically in handleAnswerSelect when user changes answer
     // No need to load context here - just navigate
@@ -546,7 +526,7 @@ const Assessment = () => {
     setNavigationIndex(questionIndex);
     
     // Update answer in store for persistence
-    updateAnswer(targetEntry.answer as 'Yes' | 'No' | 'Unknown');
+    store.updateAnswer(sessionId, currentQuestion.question_id, targetEntry.answer as 'Yes' | 'No' | 'Unknown');
     
     // Context check will happen automatically in handleAnswerSelect when user changes answer
     // No need to load context here - just navigate
@@ -572,7 +552,7 @@ const Assessment = () => {
     setSelectedAnswer(answer);
     
     // Update answer in store immediately for consistent state
-    updateAnswer(answer as 'Yes' | 'No' | 'Unknown');
+    store.updateAnswer(sessionId, questionId, answer as 'Yes' | 'No' | 'Unknown');
     
     // Get the selected option to check if explanation is required
     const selectedOption = questions.find(q => 
@@ -599,19 +579,15 @@ const Assessment = () => {
       return;
     }
     
-    // Then check if new answer requires context
-    console.log(`🔍 Checking if answer ${answer} requires context for Q${questionId}`);
-    const contextPrompt = await loadContextQuestions(answer);
+    // Context is now handled automatically by ContextPanel component
+    console.log(`🔍 Answer ${answer} requires explanation for Q${questionId}`);
     
     // Bij terugnavigatie: check context voor HUIDIGE vraag, niet volgende
     if (navigationIndex !== -1) {
       console.log(`🔄 Navigation mode: context check complete for Q${currentQuestion.question_id}`);
       
-      // Als er context is, direct stoppen - geen flow change check
-      if (contextPrompt) {
-        console.log(`🛑 Context found for Q${currentQuestion.question_id}, stopping here - no auto-advance`);
-        return;
-      }
+      // Navigation mode: context is handled by ContextPanel component
+      console.log(`🔄 Navigation complete for Q${currentQuestion.question_id}`);
       
       // Alleen als er GEEN context is, dan flow change check
       const newSelectedOption = questions.find(
@@ -645,12 +621,8 @@ const Assessment = () => {
       // Normal flow - context already checked above
       console.log(`➡️ Normal flow: context check already completed for Q${currentQuestion.question_id} with answer ${answer}`);
       
-      if (contextPrompt) {
-        // Context required - stop here and show context panel
-        console.log(`🛑 Context required for Q${currentQuestion.question_id}, stopping for user input`);
-        setLoading(false);
-        return;
-      }
+      // Context is now handled automatically by ContextPanel component
+      console.log(`🔄 Answer processing complete for Q${currentQuestion.question_id}`);
 
       // Only auto-advance when not navigating and auto-advance is enabled and no context
       if (autoAdvance) {
@@ -1280,10 +1252,10 @@ const Assessment = () => {
                               // Bij zowel navigatie als normale flow: gewone submit
                               await submitAnswerDirectly(selectedAnswer);
                             }}
-                           disabled={loading || isTransitioning || savingStatus === 'saving'}
-                           className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                         >
-                           {savingStatus === 'saving' ? "Saving..." : "Continue"}
+                            disabled={loading || isTransitioning}
+                            className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            Continue
                          </Button>
                        )}
                   </div>
