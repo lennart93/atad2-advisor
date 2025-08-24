@@ -19,7 +19,8 @@ export const sanitizeHtml = (input: string): string => {
   sanitized = sanitized.replace(/<\s*(form|input|textarea|select|option)\b[^>]*>/gi, '');
   sanitized = sanitized.replace(/<\/\s*(form|input|textarea|select|option)\s*>/gi, '');
   
-  return sanitized.trim();
+  // Don't trim during typing - preserve spaces for user input
+  return sanitized;
 };
 
 // Text input validation and length limits

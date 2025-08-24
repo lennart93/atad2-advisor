@@ -88,8 +88,8 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer }: UseCo
       setSavingStatus('saving');
       
       try {
-        // Validate and sanitize before saving to database
-        const validatedExplanation = validateExplanation(debouncedExplanation);
+        // Save raw explanation without validation during auto-save to preserve spaces
+        // Validation will happen only at final submit/report generation
         
         // Upsert to atad2_answers
         const { error } = await supabase
@@ -98,7 +98,7 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer }: UseCo
             session_id: sessionId,
             question_id: questionId,
             answer: selectedAnswer || currentState?.answer || 'Unknown',
-            explanation: validatedExplanation,
+            explanation: debouncedExplanation,
             question_text: '', // This will be filled by the main submit
             risk_points: 0, // This will be filled by the main submit
           }, {
@@ -107,10 +107,10 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer }: UseCo
 
         if (error) throw error;
 
-        // Update store with sync timestamp and the validated explanation we just saved
+        // Update store with sync timestamp and the raw explanation we just saved
         store.setQuestionState(sessionId, questionId, {
           lastSyncedAt: new Date().toISOString(),
-          lastSyncedExplanation: validatedExplanation,
+          lastSyncedExplanation: debouncedExplanation,
         });
 
         setSavingStatus('saved');
