@@ -11,25 +11,14 @@ interface UseContextPanelProps {
 }
 
 export const useContextPanel = ({ sessionId, questionId, selectedAnswer }: UseContextPanelProps) => {
-  // HARD GUARD: no effects without valid questionId
-  if (!questionId) {
-    return {
-      contextPrompt: '',
-      shouldShowContext: false,
-      savingStatus: 'idle' as const,
-      updateExplanation: () => {},
-      updateAnswer: () => {},
-      loadContextQuestions: () => Promise.resolve(),
-      clearContext: () => Promise.resolve(),
-      cancelAutosave: () => {}
-    };
-  }
+  // Use sentinel value to avoid conditional hooks
+  const safeQuestionId = questionId || '__none__';
 
   const store = useAssessmentStore();
   const [savingStatus, setSavingStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   
-  // Get current state from store
-  const currentState = store.getQuestionState(sessionId, questionId);
+  // Get current state from store (using safe questionId)
+  const currentState = store.getQuestionState(sessionId, safeQuestionId);
   const explanation = currentState?.explanation || '';
   const contextPrompt = currentState?.contextPrompt || '';
   
@@ -55,7 +44,8 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer }: UseCo
   // Load initial data from Supabase when component mounts
   useEffect(() => {
     const loadInitialData = async () => {
-      if (!sessionId || !questionId) return;
+      // Guard against sentinel values
+      if (!sessionId || !questionId || questionId === '__none__') return;
       
       // Check if we already have data in store
       if (currentState?.lastSyncedAt) {
@@ -90,8 +80,8 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer }: UseCo
   // Auto-save explanation when debounced value changes
   useEffect(() => {
     const saveExplanation = async () => {
-      // Only save if we have meaningful content and it's actually different
-      if (!sessionId || !questionId || !debouncedExplanation.trim()) {
+      // Guard against sentinel values and empty content
+      if (!sessionId || !questionId || questionId === '__none__' || !debouncedExplanation.trim()) {
         return;
       }
 

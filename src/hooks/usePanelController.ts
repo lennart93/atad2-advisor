@@ -2,24 +2,8 @@ import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useAssessmentStore } from "@/stores/assessmentStore";
 
 export function usePanelController(sessionId: string, questionId?: string) {
-  const qId = questionId ?? "";
-  
-  // HARD GUARD: no panel logic without valid questionId
-  if (!qId) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn('[PanelController] missing questionId; panel disabled this render');
-    }
-    return { 
-      shouldRender: false, 
-      paneKey: '', 
-      value: '', 
-      selectedAnswerId: '', 
-      requiresExplanation: false,
-      contextPrompt: '',
-      contextStatus: 'idle' as const,
-      contextPrompts: []
-    };
-  }
+  // Use sentinel value instead of falsy to avoid conditional hooks
+  const qId = questionId || '__none__';
   
   const store = useAssessmentStore();
 
@@ -54,8 +38,11 @@ export function usePanelController(sessionId: string, questionId?: string) {
     return explanations[qId] ?? "";
   }, [qId, selectedAnswerId, explanations]);
 
+  // Guard against sentinel value and ensure real questionId
+  const isValidQuestion = questionId && questionId !== '__none__';
+  
   // OPTIMISTIC render‑guard: toon zodra antwoord is geselecteerd dat uitleg vereist
-  const shouldRender = ready && !!selectedAnswerId && requiresExplanation && 
+  const shouldRender = isValidQuestion && ready && !!selectedAnswerId && requiresExplanation && 
     (contextStatus === 'loading' || contextStatus === 'ready' || contextStatus === 'none' || contextStatus === 'error');
 
   // Autosave cancel op wissel (per vraag)

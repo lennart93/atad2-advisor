@@ -213,8 +213,8 @@ const Assessment = () => {
 
   // Trigger context loading when answer changes - WITH GUARD
   useEffect(() => {
-    // HARD GUARD: only process with valid questionId
-    if (!qId) return;
+    // Guard: only process with valid questionId (not sentinel)
+    if (!qId || qId === '__none__') return;
     
     if (!selectedAnswer) {
       store.clearContextForQuestion(qId);

@@ -153,7 +153,7 @@ export const useAssessmentStore = create<AssessmentStore>()(
 
       // Context management actions
       setContextLoading: (questionId) => {
-        if (!questionId) {
+        if (!questionId || questionId === '__none__') {
           console.debug('[context] skipped setContextLoading: empty qid');
           return;
         }
@@ -167,7 +167,7 @@ export const useAssessmentStore = create<AssessmentStore>()(
       },
 
       setContextReady: (questionId, prompts) => {
-        if (!questionId) {
+        if (!questionId || questionId === '__none__') {
           console.debug('[context] skipped setContextReady: empty qid');
           return;
         }
@@ -181,7 +181,7 @@ export const useAssessmentStore = create<AssessmentStore>()(
       },
 
       setContextNone: (questionId) => {
-        if (!questionId) {
+        if (!questionId || questionId === '__none__') {
           console.debug('[context] skipped setContextNone: empty qid');
           return;
         }
@@ -195,7 +195,7 @@ export const useAssessmentStore = create<AssessmentStore>()(
       },
 
       setContextError: (questionId, error) => {
-        if (!questionId) {
+        if (!questionId || questionId === '__none__') {
           console.debug('[context] skipped setContextError: empty qid');
           return;
         }
@@ -209,7 +209,7 @@ export const useAssessmentStore = create<AssessmentStore>()(
       },
 
       clearContextForQuestion: (questionId) => {
-        if (!questionId) {
+        if (!questionId || questionId === '__none__') {
           console.debug('[context] skipped clearContextForQuestion: empty qid');
           return;
         }
