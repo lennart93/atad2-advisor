@@ -41,9 +41,26 @@ export function usePanelController(sessionId: string, questionId?: string) {
   // Guard against sentinel value and ensure real questionId
   const isValidQuestion = questionId && questionId !== '__none__';
   
-  // OPTIMISTIC render‑guard: toon zodra antwoord is geselecteerd dat uitleg vereist
-  const shouldRender = isValidQuestion && ready && !!selectedAnswerId && requiresExplanation && 
-    (contextStatus === 'loading' || contextStatus === 'ready' || contextStatus === 'none' || contextStatus === 'error');
+  // Context status details
+  const hasPrompts = contextPrompts.length > 0;
+  
+  // TEMPORARILY SIMPLIFIED render-guard for debugging
+  const shouldRender = !!selectedAnswerId && requiresExplanation;
+  
+  console.log("🎮 PanelController DETAILED DEBUG", {
+    questionId,
+    selectedAnswerId,
+    requiresExplanation,
+    status: contextStatus,
+    hasPrompts,
+    shouldRender,
+    isValidQuestion,
+    ready,
+    shouldShowContext,
+    answer,
+    contextPrompts: contextPrompts.length,
+    contextState: contextState ? 'exists' : 'missing'
+  });
 
   // Autosave cancel op wissel (per vraag)
   const prevKey = useRef<string>("");
@@ -57,19 +74,14 @@ export function usePanelController(sessionId: string, questionId?: string) {
     prevKey.current = paneKey;
   }, [paneKey, store]);
 
-  // Debug logging
-  console.log("🎮 PanelController DEBUG", {
+  // Additional debugging for context loading verification
+  console.log("🔍 Context Status Check", {
     qId,
-    selectedAnswerId,
-    requiresExplanation,
+    contextStatus,
+    contextState,
+    prompts: contextPrompts,
     shouldShowContext,
-    ready,
-    shouldRender,
-    value: value.slice(0, 20) + "...",
-    paneKey,
-    qState: qState ? 'Found' : 'Not found',
-    answer,
-    contextPrompt: qState?.contextPrompt ? 'Has prompt' : 'No prompt'
+    storeContextByQuestion: store.contextByQuestion
   });
 
   return { 

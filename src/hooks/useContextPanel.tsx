@@ -170,12 +170,17 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer }: UseCo
 
       if (error) {
         console.error('Error loading context questions:', error);
+        store.setContextError(questionId, error.message);
         return null;
       }
 
       console.log(`📋 Found ${contextQuestions?.length || 0} context questions for Q${questionId}, answer: ${answer}`);
 
       if (contextQuestions && contextQuestions.length > 0) {
+        // Set loading first
+        store.setContextLoading(questionId);
+        console.log(`⏳ Set loading status for Q${questionId}`);
+
         // Cache a random context question in store
         const existingPrompt = store.getQuestionState(sessionId, questionId)?.contextPrompt;
         let selectedPrompt = existingPrompt;
@@ -190,23 +195,34 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer }: UseCo
         
         console.log(`🔧 Setting shouldShowContext=true in store for Q${questionId}`);
         store.setShouldShowContext(sessionId, questionId, true);
+
+        // Set context ready with prompts
+        const prompts = contextQuestions.map(q => q.context_question);
+        store.setContextReady(questionId, prompts);
+        console.log(`✅ Set context READY with ${prompts.length} prompts for Q${questionId}`);
         
         // Verify store state was updated
         const verifyState = store.getQuestionState(sessionId, questionId);
-        console.log(`✅ Store verification for Q${questionId}:`, {
+        const verifyContext = store.contextByQuestion[questionId];
+        console.log(`🔍 Store verification for Q${questionId}:`, {
           shouldShowContext: verifyState?.shouldShowContext,
           hasContextPrompt: !!verifyState?.contextPrompt,
-          promptLength: verifyState?.contextPrompt?.length || 0
+          promptLength: verifyState?.contextPrompt?.length || 0,
+          contextStatus: verifyContext?.status,
+          contextPromptsCount: verifyContext?.prompts?.length || 0
         });
         
         return selectedPrompt;
+      } else {
+        store.setContextNone(questionId);
+        console.log(`❌ No context triggers found, set status to 'none' for Q${questionId}`);
       }
       
       store.setShouldShowContext(sessionId, questionId, false);
-      console.log(`❌ No context triggers found, hiding panel for Q${questionId}`);
       return null;
     } catch (error) {
       console.error('Error loading context questions:', error);
+      store.setContextError(questionId, 'Failed to load context');
       return null;
     }
   }, [sessionId, questionId, store]);
