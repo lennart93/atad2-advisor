@@ -157,13 +157,21 @@ export const useAssessmentStore = create<AssessmentStore>()(
           console.debug('[context] skipped setContextLoading: empty qid');
           return;
         }
-        console.debug('[context] status', { qid: questionId, status: 'loading' });
-        set((state) => ({
-          contextByQuestion: {
-            ...state.contextByQuestion,
-            [questionId]: { status: 'loading', prompts: [] }
+        set((state) => {
+          const prev = state.contextByQuestion[questionId];
+          // No-op if already loading
+          if (prev?.status === 'loading') {
+            console.debug('[context] no-op setContextLoading: already loading', { qid: questionId });
+            return {};
           }
-        }), false, 'setContextLoading');
+          console.debug('[context] status', { qid: questionId, status: 'loading' });
+          return {
+            contextByQuestion: {
+              ...state.contextByQuestion,
+              [questionId]: { status: 'loading', prompts: [] }
+            }
+          };
+        }, false, 'setContextLoading');
       },
 
       setContextReady: (questionId, prompts) => {
@@ -171,13 +179,21 @@ export const useAssessmentStore = create<AssessmentStore>()(
           console.debug('[context] skipped setContextReady: empty qid');
           return;
         }
-        console.debug('[context] status', { qid: questionId, status: 'ready', count: prompts.length });
-        set((state) => ({
-          contextByQuestion: {
-            ...state.contextByQuestion,
-            [questionId]: { status: 'ready', prompts }
+        set((state) => {
+          const prev = state.contextByQuestion[questionId];
+          // No-op if already ready with same prompts
+          if (prev?.status === 'ready' && JSON.stringify(prev.prompts) === JSON.stringify(prompts)) {
+            console.debug('[context] no-op setContextReady: already ready', { qid: questionId });
+            return {};
           }
-        }), false, 'setContextReady');
+          console.debug('[context] status', { qid: questionId, status: 'ready', count: prompts.length });
+          return {
+            contextByQuestion: {
+              ...state.contextByQuestion,
+              [questionId]: { status: 'ready', prompts }
+            }
+          };
+        }, false, 'setContextReady');
       },
 
       setContextNone: (questionId) => {
@@ -185,13 +201,21 @@ export const useAssessmentStore = create<AssessmentStore>()(
           console.debug('[context] skipped setContextNone: empty qid');
           return;
         }
-        console.debug('[context] status', { qid: questionId, status: 'none' });
-        set((state) => ({
-          contextByQuestion: {
-            ...state.contextByQuestion,
-            [questionId]: { status: 'none', prompts: [] }
+        set((state) => {
+          const prev = state.contextByQuestion[questionId];
+          // No-op if status is already 'none'
+          if (prev?.status === 'none') {
+            console.debug('[context] no-op setContextNone: already none', { qid: questionId });
+            return {};
           }
-        }), false, 'setContextNone');
+          console.debug('[context] status', { qid: questionId, status: 'none' });
+          return {
+            contextByQuestion: {
+              ...state.contextByQuestion,
+              [questionId]: { status: 'none', prompts: [] }
+            }
+          };
+        }, false, 'setContextNone');
       },
 
       setContextError: (questionId, error) => {
@@ -199,13 +223,21 @@ export const useAssessmentStore = create<AssessmentStore>()(
           console.debug('[context] skipped setContextError: empty qid');
           return;
         }
-        console.debug('[context] status', { qid: questionId, status: 'error', error });
-        set((state) => ({
-          contextByQuestion: {
-            ...state.contextByQuestion,
-            [questionId]: { status: 'error', prompts: [], error }
+        set((state) => {
+          const prev = state.contextByQuestion[questionId];
+          // No-op if already error with same message
+          if (prev?.status === 'error' && prev.error === error) {
+            console.debug('[context] no-op setContextError: already error', { qid: questionId });
+            return {};
           }
-        }), false, 'setContextError');
+          console.debug('[context] status', { qid: questionId, status: 'error', error });
+          return {
+            contextByQuestion: {
+              ...state.contextByQuestion,
+              [questionId]: { status: 'error', prompts: [], error }
+            }
+          };
+        }, false, 'setContextError');
       },
 
       clearContextForQuestion: (questionId) => {
@@ -213,8 +245,13 @@ export const useAssessmentStore = create<AssessmentStore>()(
           console.debug('[context] skipped clearContextForQuestion: empty qid');
           return;
         }
-        console.debug('[context] cleared', { qid: questionId });
         set((state) => {
+          // No-op if there's nothing to clear
+          if (!(questionId in state.contextByQuestion)) {
+            console.debug('[context] no-op clearContextForQuestion: nothing to clear', { qid: questionId });
+            return {};
+          }
+          console.debug('[context] cleared', { qid: questionId });
           const newContext = { ...state.contextByQuestion };
           delete newContext[questionId];
           return { contextByQuestion: newContext };
