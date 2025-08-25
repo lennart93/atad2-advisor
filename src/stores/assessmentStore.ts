@@ -153,6 +153,10 @@ export const useAssessmentStore = create<AssessmentStore>()(
 
       // Context management actions
       setContextLoading: (questionId) => {
+        if (!questionId) {
+          console.debug('[context] skipped setContextLoading: empty qid');
+          return;
+        }
         console.debug('[context] status', { qid: questionId, status: 'loading' });
         set((state) => ({
           contextByQuestion: {
@@ -163,6 +167,10 @@ export const useAssessmentStore = create<AssessmentStore>()(
       },
 
       setContextReady: (questionId, prompts) => {
+        if (!questionId) {
+          console.debug('[context] skipped setContextReady: empty qid');
+          return;
+        }
         console.debug('[context] status', { qid: questionId, status: 'ready', count: prompts.length });
         set((state) => ({
           contextByQuestion: {
@@ -173,6 +181,10 @@ export const useAssessmentStore = create<AssessmentStore>()(
       },
 
       setContextNone: (questionId) => {
+        if (!questionId) {
+          console.debug('[context] skipped setContextNone: empty qid');
+          return;
+        }
         console.debug('[context] status', { qid: questionId, status: 'none' });
         set((state) => ({
           contextByQuestion: {
@@ -183,6 +195,10 @@ export const useAssessmentStore = create<AssessmentStore>()(
       },
 
       setContextError: (questionId, error) => {
+        if (!questionId) {
+          console.debug('[context] skipped setContextError: empty qid');
+          return;
+        }
         console.debug('[context] status', { qid: questionId, status: 'error', error });
         set((state) => ({
           contextByQuestion: {
@@ -193,6 +209,10 @@ export const useAssessmentStore = create<AssessmentStore>()(
       },
 
       clearContextForQuestion: (questionId) => {
+        if (!questionId) {
+          console.debug('[context] skipped clearContextForQuestion: empty qid');
+          return;
+        }
         console.debug('[context] cleared', { qid: questionId });
         set((state) => {
           const newContext = { ...state.contextByQuestion };

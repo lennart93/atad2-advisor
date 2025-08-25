@@ -211,9 +211,12 @@ const Assessment = () => {
     store.cancelAutosave = cancelAutosave;
   }
 
-  // Trigger context loading when answer changes
+  // Trigger context loading when answer changes - WITH GUARD
   useEffect(() => {
-    if (!qId || !selectedAnswer) {
+    // HARD GUARD: only process with valid questionId
+    if (!qId) return;
+    
+    if (!selectedAnswer) {
       store.clearContextForQuestion(qId);
       return;
     }
@@ -656,7 +659,7 @@ const Assessment = () => {
     
     console.log(`📋 Context loading result:`, {
       contextPrompt: contextPrompt ? 'Found' : 'Not found',
-      length: contextPrompt?.length || 0,
+      length: contextPrompt ? contextPrompt.length : 0,
       questionId,
       answer
     });
@@ -1319,7 +1322,8 @@ const Assessment = () => {
                     </div>
 
                       {/* Context section - NEW hardened state machine */}
-                      {shouldShowContextPanel && (
+                      {/* RENDER GUARD: only show context panel when ready and questionId exists */}
+                      {sessionStarted && currentQuestion && qId && shouldShowContextPanel && (
                         <div 
                           key={paneKey}
                           className="bg-gray-50 rounded-lg px-4 py-3 mb-8"

@@ -11,6 +11,20 @@ interface UseContextPanelProps {
 }
 
 export const useContextPanel = ({ sessionId, questionId, selectedAnswer }: UseContextPanelProps) => {
+  // HARD GUARD: no effects without valid questionId
+  if (!questionId) {
+    return {
+      contextPrompt: '',
+      shouldShowContext: false,
+      savingStatus: 'idle' as const,
+      updateExplanation: () => {},
+      updateAnswer: () => {},
+      loadContextQuestions: () => Promise.resolve(),
+      clearContext: () => Promise.resolve(),
+      cancelAutosave: () => {}
+    };
+  }
+
   const store = useAssessmentStore();
   const [savingStatus, setSavingStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   

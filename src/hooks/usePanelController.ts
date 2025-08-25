@@ -3,6 +3,24 @@ import { useAssessmentStore } from "@/stores/assessmentStore";
 
 export function usePanelController(sessionId: string, questionId?: string) {
   const qId = questionId ?? "";
+  
+  // HARD GUARD: no panel logic without valid questionId
+  if (!qId) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('[PanelController] missing questionId; panel disabled this render');
+    }
+    return { 
+      shouldRender: false, 
+      paneKey: '', 
+      value: '', 
+      selectedAnswerId: '', 
+      requiresExplanation: false,
+      contextPrompt: '',
+      contextStatus: 'idle' as const,
+      contextPrompts: []
+    };
+  }
+  
   const store = useAssessmentStore();
 
   // Haal ALLES uit store (nooit lokale selectedAnswer)
