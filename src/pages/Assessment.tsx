@@ -19,7 +19,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { AssessmentSidebar } from "@/components/AssessmentSidebar";
 import { Textarea } from "@/components/ui/textarea";
-import { ContextSkeleton, ContextEmptyState, ContextErrorState, ContextPromptList } from "@/components/ContextPanelStates";
+import { ContextSkeleton, ContextEmptyState, ContextErrorState } from "@/components/ContextPanelStates";
+import { seededIndex } from "@/utils/random";
 
 interface Question {
   id: string;
@@ -1330,7 +1331,17 @@ const Assessment = () => {
                                 </Button>
                               </div>
                               
-                              <ContextPromptList prompts={contextPrompts} />
+                              {/* Single random suggestion */}
+                              {contextPrompts.length > 0 && (
+                                <div className="mb-3">
+                                  <p className="text-sm text-muted-foreground">
+                                    💡 {contextPrompts.length === 1 
+                                      ? contextPrompts[0] 
+                                      : contextPrompts[seededIndex(`${sessionId}::${currentQuestion?.id}`, contextPrompts.length)]
+                                    }
+                                  </p>
+                                </div>
+                              )}
 
                               <Textarea
                                 key={`explanation-${qId}`}
