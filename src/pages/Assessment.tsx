@@ -181,7 +181,8 @@ const Assessment = () => {
     value: contextValue, 
     selectedAnswerId, 
     requiresExplanation,
-    contextPrompt 
+    contextPrompt,
+    contextStatus
   } = usePanelController(sessionId, qId);
 
   // Legacy context panel hook for backward compatibility (saving/loading logic)
@@ -1301,29 +1302,44 @@ const Assessment = () => {
                          key={paneKey}
                          className="bg-gray-50 rounded-lg px-4 py-3 mb-8"
                        >
-                         <div className="flex items-center justify-between mb-3">
-                           <div className="text-sm text-gray-700 italic">
-                             <span className="text-lg mr-2">💡</span>
-                             <span>Context for Q{qId} (Key: {paneKey})</span>
+                         {contextStatus === 'loading' ? (
+                           <div className="space-y-3">
+                             <div className="flex items-center text-sm text-gray-600">
+                               <span className="text-lg mr-2">💡</span>
+                               <span>Loading context questions...</span>
+                             </div>
+                             <div className="animate-pulse space-y-2">
+                               <div className="h-4 bg-gray-300 rounded w-3/4"></div>
+                               <div className="h-20 bg-gray-300 rounded"></div>
+                             </div>
                            </div>
-                           {savingStatus === 'saving' && (
-                             <span className="text-xs text-blue-600">Saving...</span>
-                           )}
-                           {savingStatus === 'saved' && (
-                             <span className="text-xs text-green-600">Saved</span>
-                           )}
-                         </div>
-                         <Textarea
-                           key={paneKey}
-                           value={contextValue}
-                           onChange={(e) => {
-                             console.log(`📝 Typing in Q${qId}: "${e.target.value.substring(0, 20)}..."`);
-                             updateExplanation(e.target.value);
-                           }}
-                           placeholder={contextPrompt || "Your explanation..."}
-                           className="w-full mt-2 min-h-[80px]"
-                           disabled={savingStatus === 'saving'}
-                         />
+                         ) : (
+                           <>
+                             <div className="flex items-center justify-between mb-3">
+                               <div className="text-sm text-gray-700 italic">
+                                 <span className="text-lg mr-2">💡</span>
+                                 <span>Context for Q{qId} (Key: {paneKey})</span>
+                               </div>
+                               {savingStatus === 'saving' && (
+                                 <span className="text-xs text-blue-600">Saving...</span>
+                               )}
+                               {savingStatus === 'saved' && (
+                                 <span className="text-xs text-green-600">Saved</span>
+                               )}
+                             </div>
+                             <Textarea
+                               key={paneKey}
+                               value={contextValue}
+                               onChange={(e) => {
+                                 console.log(`📝 Typing in Q${qId}: "${e.target.value.substring(0, 20)}..."`);
+                                 updateExplanation(e.target.value);
+                               }}
+                               placeholder={contextPrompt || "Your explanation..."}
+                               className="w-full mt-2 min-h-[80px]"
+                               disabled={savingStatus === 'saving'}
+                             />
+                           </>
+                         )}
                         </div>
                       )}
 
