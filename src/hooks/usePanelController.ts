@@ -1,7 +1,7 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useAssessmentStore } from "@/stores/assessmentStore";
 
-export function usePanelController(sessionId: string, questionId?: string) {
+export function usePanelController(sessionId: string, questionId?: string, requiresExplanation?: boolean) {
   // Use sentinel value instead of falsy to avoid conditional hooks
   const qId = questionId || '__none__';
   
@@ -14,7 +14,8 @@ export function usePanelController(sessionId: string, questionId?: string) {
   
   // Create selectedOption object based on answer (simplified)
   const selectedAnswerId = answer ? `${qId}-${answer}` : "";
-  const requiresExplanation = answer === 'Yes'; // Based on your business logic
+  // Use DB-based requiresExplanation passed from parent instead of hardcoded logic
+  const dbRequiresExplanation = requiresExplanation ?? false;
 
   // Zero‑flash gate: vóór paint niet renderen met oude binding
   const [ready, setReady] = useState(false);
@@ -44,13 +45,13 @@ export function usePanelController(sessionId: string, questionId?: string) {
   // Context status details
   const hasPrompts = contextPrompts.length > 0;
   
-  // TEMPORARILY SIMPLIFIED render-guard for debugging
-  const shouldRender = !!selectedAnswerId && requiresExplanation;
+  // Fixed render guard using DB-based requiresExplanation
+  const shouldRender = !!selectedAnswerId && dbRequiresExplanation;
   
   console.log("🎮 PanelController DETAILED DEBUG", {
     questionId,
     selectedAnswerId,
-    requiresExplanation,
+    requiresExplanation: dbRequiresExplanation,
     status: contextStatus,
     hasPrompts,
     shouldRender,
@@ -60,6 +61,13 @@ export function usePanelController(sessionId: string, questionId?: string) {
     answer,
     contextPrompts: contextPrompts.length,
     contextState: contextState ? 'exists' : 'missing'
+  });
+
+  // Add logging for answer selection
+  console.debug('[answer]', { 
+    qid: qId, 
+    answerId: selectedAnswerId, 
+    requiresExplanation: dbRequiresExplanation 
   });
 
   // Autosave cancel op wissel (per vraag)
@@ -89,7 +97,7 @@ export function usePanelController(sessionId: string, questionId?: string) {
     paneKey, 
     value, 
     selectedAnswerId, 
-    requiresExplanation,
+    requiresExplanation: dbRequiresExplanation,
     contextPrompt: qState?.contextPrompt || '',
     contextStatus,
     contextPrompts

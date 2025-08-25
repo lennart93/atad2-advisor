@@ -176,6 +176,17 @@ const Assessment = () => {
   const [autoAdvance, setAutoAdvance] = useState(true);
   const [pendingQuestion, setPendingQuestion] = useState<Question | null>(null);
   
+  // Get current selected option for DB-based requiresExplanation
+  const selectedQuestionOption = useMemo(() => {
+    if (!currentQuestion || !selectedAnswer) return null;
+    return questions.find(q => 
+      q.question_id === currentQuestion.question_id && 
+      q.answer_option === selectedAnswer
+    );
+  }, [currentQuestion, selectedAnswer, questions]);
+  
+  const dbRequiresExplanation = selectedQuestionOption?.requires_explanation ?? false;
+
   // New Panel Controller - single source of truth for context panel
   const qId = currentQuestion?.question_id ?? "";
   const { 
@@ -187,7 +198,7 @@ const Assessment = () => {
     contextPrompt,
     contextStatus,
     contextPrompts
-  } = usePanelController(sessionId, qId);
+  } = usePanelController(sessionId, qId, dbRequiresExplanation);
 
   // Hardened context loader
   const { loadContextQuestions: hardenedLoadContext } = useHardenedContextLoader();
@@ -204,6 +215,7 @@ const Assessment = () => {
     sessionId,
     questionId: currentQuestion?.question_id || '',
     selectedAnswer: selectedAnswer as 'Yes' | 'No' | 'Unknown' | '',
+    requiresExplanation: dbRequiresExplanation,
   });
 
   // Connect store cancelAutosave to the hook's cancel function  
@@ -371,8 +383,12 @@ const Assessment = () => {
       // This will handle cleanup of any pending operations
     }
 
-    // Check if context/explanation is required for this answer
-    const requiresExplanation = selectedAnswer === 'Yes'; // Based on your current logic
+    // Check if context/explanation is required for this answer - use DB value
+    const selectedOption = questions.find(q => 
+      q.question_id === currentQuestion.question_id && 
+      q.answer_option === selectedAnswer
+    );
+    const requiresExplanation = !!selectedOption?.requires_explanation;
     
     // Validate explanation if required
     if (requiresExplanation && !currentExplanation.trim()) {
@@ -619,21 +635,20 @@ const Assessment = () => {
     );
     const requiresExplanation = !!selectedOption?.requires_explanation;
     
-    // PROACTIVE CLEARING: Always clear existing context first for current question
-    console.log(`🧹 PROACTIVE: Clearing any existing context for Q${questionId} before checking new answer ${answer}`);
-    store.clearExplanation(sessionId, questionId);
-    
-    // Explicitly set shouldShowContext to false before re-evaluating
-    store.setQuestionState(sessionId, questionId, {
-      shouldShowContext: false,
-      contextPrompt: '',
+    console.debug('[answer]', { 
+      qid: questionId, 
+      answerId: `${questionId}-${answer}`, 
+      requiresExplanation: selectedOption?.requires_explanation 
     });
     
-    // If the new answer doesn't require explanation, stop here
+    // Only clear if the answer doesn't require explanation (not proactively)
     if (!requiresExplanation) {
-      console.log(`🚫 Answer ${answer} for Q${questionId} does not require explanation - no context needed`);
-      // Cancel any pending autosave for this question
-      // Note: This would be handled in useContextPanel hook
+      console.log(`🚫 Answer ${answer} for Q${questionId} does not require explanation - clearing context`);
+      store.clearExplanation(sessionId, questionId);
+      store.setQuestionState(sessionId, questionId, {
+        shouldShowContext: false,
+        contextPrompt: '',
+      });
       return;
     }
     

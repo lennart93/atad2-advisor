@@ -9,9 +9,10 @@ interface UseContextPanelProps {
   sessionId: string;
   questionId: string;
   selectedAnswer: 'Yes' | 'No' | 'Unknown' | '';
+  requiresExplanation?: boolean;
 }
 
-export const useContextPanel = ({ sessionId, questionId, selectedAnswer }: UseContextPanelProps) => {
+export const useContextPanel = ({ sessionId, questionId, selectedAnswer, requiresExplanation }: UseContextPanelProps) => {
   // Use sentinel value to avoid conditional hooks
   const safeQuestionId = questionId || '__none__';
 
@@ -240,13 +241,14 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer }: UseCo
     const prev = lastRef.current;
     const changedQ = prev.q !== questionId;
     const changedA = prev.a !== selectedAnswer;
-    const requiresExplanation = selectedAnswer === 'Yes';
-    const changedReq = prev.requires !== requiresExplanation;
+    // Use DB-based requiresExplanation from props instead of hardcoded logic
+    const dbRequiresExplanation = requiresExplanation ?? false;
+    const changedReq = prev.requires !== dbRequiresExplanation;
 
     console.debug('[panel] transition check', { 
       questionId, 
       selectedAnswer, 
-      requiresExplanation, 
+      requiresExplanation: dbRequiresExplanation, 
       changedQ, 
       changedA, 
       changedReq, 
@@ -255,23 +257,23 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer }: UseCo
     });
 
     // 1) Switch to no explanation (or no selection) → only clear if we had something
-    if (!selectedAnswer || !requiresExplanation) {
+    if (!selectedAnswer || !dbRequiresExplanation) {
       // Clear only if we have something to clear OR we just transitioned from requiring → not requiring
-      if (status === 'loading' || status === 'ready' || status === 'error' || (prev.requires && !requiresExplanation)) {
-        console.debug('[panel] act', { q: questionId, a: selectedAnswer, requiresExplanation, status, action: 'clear' });
+      if (status === 'loading' || status === 'ready' || status === 'error' || (prev.requires && !dbRequiresExplanation)) {
+        console.debug('[panel] act', { q: questionId, a: selectedAnswer, requiresExplanation: dbRequiresExplanation, status, action: 'clear' });
         clearCtx(questionId);
       }
-      lastRef.current = { q: questionId, a: selectedAnswer, requires: requiresExplanation };
+      lastRef.current = { q: questionId, a: selectedAnswer, requires: dbRequiresExplanation };
       return;
     }
 
     // 2) Explanation required → only load if (Q/A changed) and status not already ready/none/loading
     if ((changedQ || changedA || changedReq) && !(status === 'ready' || status === 'none' || status === 'loading')) {
-      console.debug('[panel] act', { q: questionId, a: selectedAnswer, requiresExplanation, status, action: 'load' });
+      console.debug('[panel] act', { q: questionId, a: selectedAnswer, requiresExplanation: dbRequiresExplanation, status, action: 'load' });
       loadContextQuestions(selectedAnswer);
     }
 
-    lastRef.current = { q: questionId, a: selectedAnswer, requires: requiresExplanation };
+    lastRef.current = { q: questionId, a: selectedAnswer, requires: dbRequiresExplanation };
   }, [questionId, selectedAnswer, status, clearCtx, loadContextQuestions]);
 
   // Update explanation in store - no validation during typing
