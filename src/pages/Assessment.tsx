@@ -211,24 +211,7 @@ const Assessment = () => {
     store.cancelAutosave = cancelAutosave;
   }
 
-  // Trigger context loading when answer changes - WITH GUARD
-  useEffect(() => {
-    // Guard: only process with valid questionId (not sentinel)
-    if (!qId || qId === '__none__') return;
-    
-    if (!selectedAnswer) {
-      store.clearContextForQuestion(qId);
-      return;
-    }
-    
-    const requiresExplanation = selectedAnswer === 'Yes';
-    if (!requiresExplanation) {
-      store.clearContextForQuestion(qId);
-      return;
-    }
-    
-    hardenedLoadContext(sessionId, qId, selectedAnswer);
-  }, [qId, selectedAnswer, sessionId, hardenedLoadContext, store]);
+  // Context logic is now handled entirely by useContextPanel hook - no direct store calls needed
   // Store-based lookup for selected option (eliminates race conditions)
   const getSelectedOption = useCallback((questionId: string) => {
     const questionState = store.getQuestionState(sessionId, questionId);

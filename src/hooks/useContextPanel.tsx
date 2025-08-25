@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAssessmentStore } from '@/stores/assessmentStore';
 import { supabase } from '@/integrations/supabase/client';
 import { useDebounce } from '@/hooks/useDebounce';
+import { useUpdateEffect } from '@/utils/assessmentUtils';
 import { validateSessionId, validateQuestionId } from '@/utils/inputValidation';
 
 interface UseContextPanelProps {
@@ -151,8 +152,8 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer }: UseCo
     saveExplanation();
   }, [debouncedExplanation, sessionId, questionId, selectedAnswer, currentState?.answer, currentState?.lastSyncedExplanation, store]);
 
-  // Track what actions we've taken to prevent loops
-  const lastActionRef = useRef<{q?: string; a?: string; acted?: 'cleared'|'loaded'|null}>({ acted: null });
+  // Track what actions we've taken to prevent loops - previous state tracking
+  const lastRef = useRef<{q?: string; a?: string; requires?: boolean}>({});
 
   // Load context questions when answer changes
   const loadContextQuestions = useCallback(async (answer: string) => {
@@ -210,39 +211,52 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer }: UseCo
     }
   }, [sessionId, questionId, store]);
 
-  // Effect to handle context loading/clearing based on answer changes
-  useEffect(() => {
+  // Get context state from store
+  const clearCtx = useAssessmentStore(s => s.clearContextForQuestion);
+  const ctx = useAssessmentStore(s => s.contextByQuestion[questionId ?? '__none__']);
+  const status = ctx?.status ?? 'idle';
+
+  // Effect to handle context loading/clearing - skips first render, only acts on transitions
+  useUpdateEffect(() => {
+    // Guard: skip if in init phase
     if (!questionId || questionId === '__none__') return;
 
-    const currentState = store.getQuestionState(sessionId, questionId);
-    const contextState = store.contextByQuestion[questionId];
-    const status = contextState?.status ?? 'idle';
+    const prev = lastRef.current;
+    const changedQ = prev.q !== questionId;
+    const changedA = prev.a !== selectedAnswer;
+    const requiresExplanation = selectedAnswer === 'Yes';
+    const changedReq = prev.requires !== requiresExplanation;
 
-    // If no answer or no explanation required: clear context if needed
-    if (!selectedAnswer || !['Yes'].includes(selectedAnswer)) {
-      // Only clear if there's something to clear and we haven't already cleared this Q/A combo
-      const shouldClear = (status === 'loading' || status === 'ready' || status === 'error') && 
-                         lastActionRef.current.acted !== 'cleared';
-      
-      if (shouldClear) {
-        console.log(`🧹 Clearing context for Q${questionId} - no explanation required`);
-        store.setShouldShowContext(sessionId, questionId, false);
-        store.clearContextForQuestion(questionId);
-        lastActionRef.current = { q: questionId, a: selectedAnswer, acted: 'cleared' };
+    console.debug('[panel] transition check', { 
+      questionId, 
+      selectedAnswer, 
+      requiresExplanation, 
+      changedQ, 
+      changedA, 
+      changedReq, 
+      status,
+      action: 'checking' 
+    });
+
+    // 1) Switch to no explanation (or no selection) → only clear if we had something
+    if (!selectedAnswer || !requiresExplanation) {
+      // Clear only if we have something to clear OR we just transitioned from requiring → not requiring
+      if (status === 'loading' || status === 'ready' || status === 'error' || (prev.requires && !requiresExplanation)) {
+        console.debug('[panel] act', { q: questionId, a: selectedAnswer, requiresExplanation, status, action: 'clear' });
+        clearCtx(questionId);
       }
+      lastRef.current = { q: questionId, a: selectedAnswer, requires: requiresExplanation };
       return;
     }
 
-    // Explanation required: load context if we haven't already for this Q/A combo
-    const samePair = lastActionRef.current.q === questionId && lastActionRef.current.a === selectedAnswer;
-    const shouldLoad = !samePair || (status !== 'ready' && status !== 'none' && status !== 'loading');
-    
-    if (shouldLoad) {
-      console.log(`📋 Loading context for Q${questionId}, answer: ${selectedAnswer}`);
+    // 2) Explanation required → only load if (Q/A changed) and status not already ready/none/loading
+    if ((changedQ || changedA || changedReq) && !(status === 'ready' || status === 'none' || status === 'loading')) {
+      console.debug('[panel] act', { q: questionId, a: selectedAnswer, requiresExplanation, status, action: 'load' });
       loadContextQuestions(selectedAnswer);
-      lastActionRef.current = { q: questionId, a: selectedAnswer, acted: 'loaded' };
     }
-  }, [sessionId, questionId, selectedAnswer, loadContextQuestions, store]);
+
+    lastRef.current = { q: questionId, a: selectedAnswer, requires: requiresExplanation };
+  }, [questionId, selectedAnswer, status, clearCtx, loadContextQuestions]);
 
   // Update explanation in store - no validation during typing
   const updateExplanation = useCallback((newExplanation: string) => {
