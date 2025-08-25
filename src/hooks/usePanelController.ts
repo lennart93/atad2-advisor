@@ -1,8 +1,6 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useAssessmentStore } from "@/stores/assessmentStore";
 
-type ContextStatus = 'loading' | 'ready' | 'none' | 'error';
-
 export function usePanelController(sessionId: string, questionId?: string) {
   const qId = questionId ?? "";
   const store = useAssessmentStore();
@@ -23,21 +21,10 @@ export function usePanelController(sessionId: string, questionId?: string) {
     queueMicrotask(() => setReady(true));
   }, [qId, selectedAnswerId]);
 
-  // Context status bepalen
-  const contextStatus: ContextStatus = useMemo(() => {
-    if (!selectedAnswerId || !requiresExplanation) return 'none';
-    
-    // If we have a context prompt, we're ready
-    if (qState?.contextPrompt) return 'ready';
-    
-    // If shouldShowContext is true but no prompt yet, we're loading
-    if (shouldShowContext) return 'loading';
-    
-    // If answer was just selected that requires explanation, start loading
-    if (selectedAnswerId && requiresExplanation) return 'loading';
-    
-    return 'none';
-  }, [selectedAnswerId, requiresExplanation, qState?.contextPrompt, shouldShowContext]);
+  // Direct context status from store
+  const contextState = store.contextByQuestion[qId];
+  const contextStatus = contextState?.status ?? 'idle';
+  const contextPrompts = contextState?.prompts ?? [];
 
   // Pane key dwingt remount bij vraag/antwoord‑wissel
   const paneKey = `ctx-${qId}-${selectedAnswerId}`;
@@ -51,7 +38,7 @@ export function usePanelController(sessionId: string, questionId?: string) {
 
   // OPTIMISTIC render‑guard: toon zodra antwoord is geselecteerd dat uitleg vereist
   const shouldRender = ready && !!selectedAnswerId && requiresExplanation && 
-    (contextStatus === 'loading' || contextStatus === 'ready');
+    (contextStatus === 'loading' || contextStatus === 'ready' || contextStatus === 'none' || contextStatus === 'error');
 
   // Autosave cancel op wissel (per vraag)
   const prevKey = useRef<string>("");
@@ -87,6 +74,7 @@ export function usePanelController(sessionId: string, questionId?: string) {
     selectedAnswerId, 
     requiresExplanation,
     contextPrompt: qState?.contextPrompt || '',
-    contextStatus
+    contextStatus,
+    contextPrompts
   };
 }

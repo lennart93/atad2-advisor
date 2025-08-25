@@ -2,6 +2,13 @@ import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 
 export type QAKey = `${string}:${string}`; // `${sessionId}:${questionId}`
+export type ContextStatus = 'idle' | 'loading' | 'ready' | 'none' | 'error';
+
+export interface ContextState {
+  status: ContextStatus;
+  prompts: string[];
+  error?: string;
+}
 
 export interface QAState {
   answer: 'Yes' | 'No' | 'Unknown' | null;
@@ -14,6 +21,7 @@ export interface QAState {
 
 interface AssessmentStore {
   byKey: Record<QAKey, QAState>;
+  contextByQuestion: Record<string, ContextState>;
   
   // Actions
   setQuestionState: (sessionId: string, questionId: string, state: Partial<QAState>) => void;
@@ -24,6 +32,13 @@ interface AssessmentStore {
   setShouldShowContext: (sessionId: string, questionId: string, show: boolean) => void;
   clearExplanation: (sessionId: string, questionId: string) => void;
   clearSession: (sessionId: string) => void;
+  
+  // Context management actions
+  setContextLoading: (questionId: string) => void;
+  setContextReady: (questionId: string, prompts: string[]) => void;
+  setContextNone: (questionId: string) => void;
+  setContextError: (questionId: string, error?: string) => void;
+  clearContextForQuestion: (questionId: string) => void;
   
   // New methods for Panel Controller
   getExplanations: () => Record<string, string>;
@@ -36,6 +51,7 @@ export const useAssessmentStore = create<AssessmentStore>()(
   devtools(
     (set, get) => ({
       byKey: {},
+      contextByQuestion: {},
 
       setQuestionState: (sessionId, questionId, state) => {
         const key = createQAKey(sessionId, questionId);
@@ -133,6 +149,56 @@ export const useAssessmentStore = create<AssessmentStore>()(
           });
           return { byKey: newByKey };
         }, false, 'clearSession');
+      },
+
+      // Context management actions
+      setContextLoading: (questionId) => {
+        console.debug('[context] status', { qid: questionId, status: 'loading' });
+        set((state) => ({
+          contextByQuestion: {
+            ...state.contextByQuestion,
+            [questionId]: { status: 'loading', prompts: [] }
+          }
+        }), false, 'setContextLoading');
+      },
+
+      setContextReady: (questionId, prompts) => {
+        console.debug('[context] status', { qid: questionId, status: 'ready', count: prompts.length });
+        set((state) => ({
+          contextByQuestion: {
+            ...state.contextByQuestion,
+            [questionId]: { status: 'ready', prompts }
+          }
+        }), false, 'setContextReady');
+      },
+
+      setContextNone: (questionId) => {
+        console.debug('[context] status', { qid: questionId, status: 'none' });
+        set((state) => ({
+          contextByQuestion: {
+            ...state.contextByQuestion,
+            [questionId]: { status: 'none', prompts: [] }
+          }
+        }), false, 'setContextNone');
+      },
+
+      setContextError: (questionId, error) => {
+        console.debug('[context] status', { qid: questionId, status: 'error', error });
+        set((state) => ({
+          contextByQuestion: {
+            ...state.contextByQuestion,
+            [questionId]: { status: 'error', prompts: [], error }
+          }
+        }), false, 'setContextError');
+      },
+
+      clearContextForQuestion: (questionId) => {
+        console.debug('[context] cleared', { qid: questionId });
+        set((state) => {
+          const newContext = { ...state.contextByQuestion };
+          delete newContext[questionId];
+          return { contextByQuestion: newContext };
+        }, false, 'clearContextForQuestion');
       },
 
       // Implementation of getExplanations for Panel Controller

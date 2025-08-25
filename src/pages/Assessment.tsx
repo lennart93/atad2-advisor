@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useContextPanel } from "@/hooks/useContextPanel";
 import { usePanelController } from "@/hooks/usePanelController";
+import { useHardenedContextLoader } from "@/hooks/useHardenedContextLoader";
 import { useAssessmentStore } from "@/stores/assessmentStore";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { AssessmentSidebar } from "@/components/AssessmentSidebar";
 import { Textarea } from "@/components/ui/textarea";
+import { ContextSkeleton, ContextEmptyState, ContextErrorState, ContextPromptList } from "@/components/ContextPanelStates";
 
 interface Question {
   id: string;
@@ -182,8 +184,12 @@ const Assessment = () => {
     selectedAnswerId, 
     requiresExplanation,
     contextPrompt,
-    contextStatus
+    contextStatus,
+    contextPrompts
   } = usePanelController(sessionId, qId);
+
+  // Hardened context loader
+  const { loadContextQuestions: hardenedLoadContext } = useHardenedContextLoader();
 
   // Legacy context panel hook for backward compatibility (saving/loading logic)
   const {
@@ -204,6 +210,22 @@ const Assessment = () => {
   if (!store.cancelAutosave && cancelAutosave) {
     store.cancelAutosave = cancelAutosave;
   }
+
+  // Trigger context loading when answer changes
+  useEffect(() => {
+    if (!qId || !selectedAnswer) {
+      store.clearContextForQuestion(qId);
+      return;
+    }
+    
+    const requiresExplanation = selectedAnswer === 'Yes';
+    if (!requiresExplanation) {
+      store.clearContextForQuestion(qId);
+      return;
+    }
+    
+    hardenedLoadContext(sessionId, qId, selectedAnswer);
+  }, [qId, selectedAnswer, sessionId, hardenedLoadContext, store]);
   // Store-based lookup for selected option (eliminates race conditions)
   const getSelectedOption = useCallback((questionId: string) => {
     const questionState = store.getQuestionState(sessionId, questionId);
@@ -1296,50 +1318,63 @@ const Assessment = () => {
                        })}
                     </div>
 
-                     {/* Context section - NEW Panel Controller approach */}
-                     {shouldShowContextPanel && (
-                       <div 
-                         key={paneKey}
-                         className="bg-gray-50 rounded-lg px-4 py-3 mb-8"
-                       >
-                         {contextStatus === 'loading' ? (
-                           <div className="space-y-3">
-                             <div className="flex items-center text-sm text-gray-600">
-                               <span className="text-lg mr-2">💡</span>
-                               <span>Loading context questions...</span>
-                             </div>
-                             <div className="animate-pulse space-y-2">
-                               <div className="h-4 bg-gray-300 rounded w-3/4"></div>
-                               <div className="h-20 bg-gray-300 rounded"></div>
-                             </div>
-                           </div>
-                         ) : (
-                           <>
-                             <div className="flex items-center justify-between mb-3">
-                               <div className="text-sm text-gray-700 italic">
-                                 <span className="text-lg mr-2">💡</span>
-                                 <span>Context for Q{qId} (Key: {paneKey})</span>
-                               </div>
-                               {savingStatus === 'saving' && (
-                                 <span className="text-xs text-blue-600">Saving...</span>
-                               )}
-                               {savingStatus === 'saved' && (
-                                 <span className="text-xs text-green-600">Saved</span>
-                               )}
-                             </div>
-                             <Textarea
-                               key={paneKey}
-                               value={contextValue}
-                               onChange={(e) => {
-                                 console.log(`📝 Typing in Q${qId}: "${e.target.value.substring(0, 20)}..."`);
-                                 updateExplanation(e.target.value);
-                               }}
-                               placeholder={contextPrompt || "Your explanation..."}
-                               className="w-full mt-2 min-h-[80px]"
-                               disabled={savingStatus === 'saving'}
-                             />
-                           </>
-                         )}
+                      {/* Context section - NEW hardened state machine */}
+                      {shouldShowContextPanel && (
+                        <div 
+                          key={paneKey}
+                          className="bg-gray-50 rounded-lg px-4 py-3 mb-8"
+                        >
+                          {contextStatus === 'loading' && <ContextSkeleton />}
+                          
+                          {contextStatus === 'ready' && (
+                            <>
+                              <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center text-sm text-gray-700">
+                                  <span className="text-lg mr-2">💡</span>
+                                  <span>Context for your answer</span>
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => clearContext()}
+                                  className="text-gray-500 hover:text-gray-700 h-6 px-2"
+                                >
+                                  Clear
+                                </Button>
+                              </div>
+                              
+                              <ContextPromptList prompts={contextPrompts} />
+
+                              <Textarea
+                                key={`explanation-${qId}`}
+                                value={contextValue}
+                                onChange={(e) => updateExplanation(e.target.value)}
+                                placeholder="Provide context for your answer..."
+                                className="min-h-[120px] resize-none border-gray-200 bg-white mt-3"
+                              />
+                              <div className="flex items-center justify-between mt-2">
+                                <div className="text-xs text-gray-500">
+                                  {savingStatus === 'saving' && (
+                                    <span>💾 Saving...</span>
+                                  )}
+                                  {savingStatus === 'saved' && (
+                                    <span>✅ Saved</span>
+                                  )}
+                                </div>
+                              </div>
+                            </>
+                          )}
+
+                          {contextStatus === 'none' && (
+                            <ContextEmptyState text="No context questions available for this answer." />
+                          )}
+
+                          {contextStatus === 'error' && (
+                            <ContextErrorState 
+                              text="Couldn't load context questions. Please try again."
+                              onRetry={() => hardenedLoadContext(sessionId, qId, selectedAnswer)}
+                            />
+                          )}
                         </div>
                       )}
 
