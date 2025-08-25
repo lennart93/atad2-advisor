@@ -1329,26 +1329,40 @@ const Assessment = () => {
                         >
                           {contextStatus === 'loading' && <ContextSkeleton />}
                           
-                           {contextStatus === 'ready' && (
-                             <>
-                               <div className="flex items-center mb-3">
-                                 <div className="flex items-center text-sm text-gray-700">
-                                   <span className="text-lg mr-2">💡</span>
-                                   <span>Context</span>
-                                 </div>
-                               </div>
+                          {contextStatus === 'ready' && (
+                            <>
+                              <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center text-sm text-gray-700">
+                                  <span className="text-lg mr-2">💡</span>
+                                  <span>Context for your answer</span>
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => clearContext()}
+                                  className="text-gray-500 hover:text-gray-700 h-6 px-2"
+                                >
+                                  Clear
+                                </Button>
+                              </div>
+                              
+                              {/* Single random suggestion */}
+                              {contextPrompts.length > 0 && (
+                                <div className="mb-3">
+                                  <p className="text-sm text-muted-foreground">
+                                    💡 {contextPrompts.length === 1 
+                                      ? contextPrompts[0] 
+                                      : contextPrompts[seededIndex(`${sessionId}::${currentQuestion?.id}`, contextPrompts.length)]
+                                    }
+                                  </p>
+                                </div>
+                              )}
 
-                               <Textarea
-                                 key={`explanation-${qId}`}
-                                 value={contextValue}
-                                 onChange={(e) => updateExplanation(e.target.value)}
-                                 placeholder={contextPrompts.length > 0 
-                                   ? (contextPrompts.length === 1 
-                                     ? contextPrompts[0] 
-                                     : contextPrompts[seededIndex(`${sessionId}::${currentQuestion?.id}`, contextPrompts.length)]
-                                   )
-                                   : "Provide context..."
-                                 }
+                              <Textarea
+                                key={`explanation-${qId}`}
+                                value={contextValue}
+                                onChange={(e) => updateExplanation(e.target.value)}
+                                placeholder="Provide context for your answer..."
                                 className="min-h-[120px] resize-none border-gray-200 bg-white mt-3"
                               />
                               <div className="flex items-center justify-between mt-2">
