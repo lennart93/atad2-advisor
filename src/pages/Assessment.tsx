@@ -631,6 +631,21 @@ const Assessment = () => {
     console.log(`🔍 Checking if answer ${answer} requires context for Q${questionId}`);
     const contextPrompt = await loadContextQuestions(answer);
     
+    console.log(`📋 Context loading result:`, {
+      contextPrompt: contextPrompt ? 'Found' : 'Not found',
+      length: contextPrompt?.length || 0,
+      questionId,
+      answer
+    });
+    
+    // Check store state after loading context
+    const storeState = store.getQuestionState(sessionId, questionId);
+    console.log(`🏪 Store state after context load:`, {
+      shouldShowContext: storeState?.shouldShowContext,
+      contextPrompt: storeState?.contextPrompt ? 'Has prompt' : 'No prompt',
+      answer: storeState?.answer
+    });
+    
     // Bij terugnavigatie: check context voor HUIDIGE vraag, niet volgende
     if (navigationIndex !== -1) {
       console.log(`🔄 Navigation mode: context check complete for Q${currentQuestion.question_id}`);

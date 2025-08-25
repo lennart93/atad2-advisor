@@ -180,8 +180,17 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer }: UseCo
           console.log(`📝 Using existing context prompt for Q${questionId}`);
         }
         
+        console.log(`🔧 Setting shouldShowContext=true in store for Q${questionId}`);
         store.setShouldShowContext(sessionId, questionId, true);
-        console.log(`✅ Context panel should show for Q${questionId}`);
+        
+        // Verify store state was updated
+        const verifyState = store.getQuestionState(sessionId, questionId);
+        console.log(`✅ Store verification for Q${questionId}:`, {
+          shouldShowContext: verifyState?.shouldShowContext,
+          hasContextPrompt: !!verifyState?.contextPrompt,
+          promptLength: verifyState?.contextPrompt?.length || 0
+        });
+        
         return selectedPrompt;
       }
       

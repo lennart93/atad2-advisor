@@ -48,7 +48,7 @@ export function usePanelController(sessionId: string, questionId?: string) {
   }, [paneKey, store]);
 
   // Debug logging
-  console.log("🎮 PanelController", {
+  console.log("🎮 PanelController DEBUG", {
     qId,
     selectedAnswerId,
     requiresExplanation,
@@ -56,7 +56,10 @@ export function usePanelController(sessionId: string, questionId?: string) {
     ready,
     shouldRender,
     value: value.slice(0, 20) + "...",
-    paneKey
+    paneKey,
+    qState: qState ? 'Found' : 'Not found',
+    answer,
+    contextPrompt: qState?.contextPrompt ? 'Has prompt' : 'No prompt'
   });
 
   return { 
