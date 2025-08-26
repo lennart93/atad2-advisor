@@ -4,7 +4,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { seededIndex } from '@/utils/random';
 
 // Feature flag - can be easily disabled
-const FORCE_CONTEXT_PANEL = true;
+const FORCE_CONTEXT_PANEL = false;
 
 interface ContextPanelFallbackProps {
   sessionId: string;
