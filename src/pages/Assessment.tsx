@@ -374,8 +374,19 @@ const Assessment = () => {
 
       if (error) throw error;
 
+      // Clear the store before starting a new session (clear any existing session data)
+      if (sessionId) {
+        store.clearSession(sessionId);
+        console.log('🧹 Cleared previous session from store');
+      }
+
       setSessionId(newSessionId);
       setSessionStarted(true);
+      
+      // Reset UI state for new session
+      setSelectedAnswer("");
+      setQuestionFlow([]);
+      setNavigationIndex(-1);
       
       // Load first question
       const firstQuestion = questions.find(q => q.question_id === "1" && q.answer_option === "Yes");
