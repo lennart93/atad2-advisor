@@ -45,7 +45,7 @@ export function usePanelController(sessionId: string, questionId?: string, requi
   // Context status details
   const hasPrompts = contextPrompts.length > 0;
   
-  // Fixed render guard using DB-based requiresExplanation
+  // Simplified render guard: only check if answer selected and requires explanation
   const shouldRender = !!selectedAnswerId && dbRequiresExplanation;
   
   console.log("🎮 PanelController DETAILED DEBUG", {

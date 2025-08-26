@@ -155,6 +155,10 @@ const Assessment = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   
+  // Helper function to check if auto-advance is allowed
+  function canAutoAdvance(selectedOption?: { requires_explanation?: boolean }) {
+    return selectedOption?.requires_explanation !== true;
+  }
   
   const [sessionInfo, setSessionInfo] = useState<SessionInfo>({
     taxpayer_name: "",
@@ -881,6 +885,18 @@ const Assessment = () => {
         });
         
         if (nextQuestion) {
+          // Check if auto-advance is allowed for the current question
+          const currentQuestionOption = questions.find(q => 
+            q.question_id === currentQuestion?.question_id && 
+            q.answer_option === answer
+          );
+          
+          if (!canAutoAdvance(currentQuestionOption)) {
+            console.debug('[nav] blocked: requires explanation; stay on question for context');
+            setLoading(false);
+            return;
+          }
+          
           console.log("➡️ Moving to next question:", nextQuestion.question_id);
           setIsTransitioning(true);
           setTimeout(() => {
@@ -941,7 +957,18 @@ const Assessment = () => {
       setSelectedAnswer(pendingAnswerChange.answer);
       
       setTimeout(async () => {
-        await submitAnswerDirectly(pendingAnswerChange.answer);
+        // Check if auto-advance is allowed before submitting
+        const currentQuestionOption = questions.find(q => 
+          q.question_id === currentQuestion?.question_id && 
+          q.answer_option === pendingAnswerChange.answer
+        );
+        
+        if (canAutoAdvance(currentQuestionOption)) {
+          await submitAnswerDirectly(pendingAnswerChange.answer);
+        } else {
+          console.debug('[nav] blocked: requires explanation; stay on question for context');
+          setLoading(false);
+        }
         setPendingAnswerChange(null);
       }, 300);
 
@@ -1471,8 +1498,17 @@ const Assessment = () => {
                         {shouldShowContextPanel && selectedAnswer && !shouldShowFinishButton() && (
                           <Button 
                              onClick={async () => {
-                               // Bij zowel navigatie als normale flow: gewone submit
-                               await submitAnswerDirectly(selectedAnswer);
+                                // Check if auto-advance is allowed before submitting
+                                const selectedQuestionOption = questions.find(q => 
+                                  q.question_id === currentQuestion?.question_id && 
+                                  q.answer_option === selectedAnswer
+                                );
+                                
+                                if (canAutoAdvance(selectedQuestionOption)) {
+                                  await submitAnswerDirectly(selectedAnswer);
+                                } else {
+                                  console.debug('[nav] blocked: requires explanation; stay on question for context');
+                                }
                              }}
                             disabled={loading || isTransitioning || savingStatus === 'saving'}
                             className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1485,7 +1521,17 @@ const Assessment = () => {
                         {!shouldShowContextPanel && selectedAnswer && !shouldShowFinishButton() && navigationIndex === -1 && (
                           <Button 
                             onClick={async () => {
-                              await submitAnswerDirectly(selectedAnswer);
+                              // Check if auto-advance is allowed before submitting
+                              const selectedQuestionOption = questions.find(q => 
+                                q.question_id === currentQuestion?.question_id && 
+                                q.answer_option === selectedAnswer
+                              );
+                              
+                              if (canAutoAdvance(selectedQuestionOption)) {
+                                await submitAnswerDirectly(selectedAnswer);
+                              } else {
+                                console.debug('[nav] blocked: requires explanation; stay on question for context');
+                              }
                             }}
                             disabled={loading || isTransitioning}
                             className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
