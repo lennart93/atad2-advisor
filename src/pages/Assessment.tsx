@@ -1026,8 +1026,7 @@ const Assessment = () => {
     return shouldShow;
   };
 
-  // User check moved after hooks to prevent React #310 error
-  if (!user) return null;
+  // User auth is handled by useEffect redirect on lines 263-267
 
   if (!sessionStarted) {
     return (
