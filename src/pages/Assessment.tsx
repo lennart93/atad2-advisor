@@ -260,6 +260,39 @@ const Assessment = () => {
     } : null;
   }, [questions, sessionId, store]);
 
+  // Function to restore existing answer when navigating to a question
+  const restoreExistingAnswer = useCallback(async (questionId: string) => {
+    if (!sessionId) return "";
+    
+    // First check store
+    const questionState = store.getQuestionState(sessionId, questionId);
+    if (questionState?.answer) {
+      console.log(`🔄 Restored answer from store for Q${questionId}: ${questionState.answer}`);
+      return questionState.answer;
+    }
+    
+    // If not in store, check database
+    try {
+      const { data: existingAnswer } = await supabase
+        .from('atad2_answers')
+        .select('answer')
+        .eq('session_id', sessionId)
+        .eq('question_id', questionId)
+        .maybeSingle();
+      
+      if (existingAnswer?.answer) {
+        console.log(`🔄 Restored answer from database for Q${questionId}: ${existingAnswer.answer}`);
+        // Update store with database value
+        store.updateAnswer(sessionId, questionId, existingAnswer.answer as 'Yes' | 'No' | 'Unknown');
+        return existingAnswer.answer;
+      }
+    } catch (error) {
+      console.error('Error restoring existing answer:', error);
+    }
+    
+    return "";
+  }, [sessionId, store]);
+
   useEffect(() => {
     if (!user) {
       navigate("/auth");
@@ -509,11 +542,15 @@ const Assessment = () => {
         const nextQuestion = questions.find(q => q.question_id === nextQuestionId && q.answer_option === "Yes");
         if (nextQuestion) {
           setIsTransitioning(true);
-          setTimeout(() => {
+          setTimeout(async () => {
             console.log(`🚀 Navigating from Q${currentQuestion.question_id} to Q${nextQuestion.question_id}`);
             setCurrentQuestion(nextQuestion);
             setPendingQuestion(nextQuestion); // Update pending question
-            setSelectedAnswer("");
+            
+            // Restore existing answer if any
+            const existingAnswer = await restoreExistingAnswer(nextQuestion.question_id);
+            setSelectedAnswer(existingAnswer);
+            
             setIsTransitioning(false);
           }, 300);
         }
@@ -581,7 +618,7 @@ const Assessment = () => {
     // No need to load context here - just navigate
   };
 
-  const continueToNextUnanswered = () => {
+  const continueToNextUnanswered = async () => {
     if (questionFlow.length === 0) return;
     
     const lastAnsweredEntry = questionFlow[questionFlow.length - 1];
@@ -595,7 +632,11 @@ const Assessment = () => {
       if (nextQuestion) {
         setCurrentQuestion(nextQuestion);
         setPendingQuestion(nextQuestion); // Update pending question
-        setSelectedAnswer("");
+        
+        // Restore existing answer if any
+        const existingAnswer = await restoreExistingAnswer(nextQuestion.question_id);
+        setSelectedAnswer(existingAnswer);
+        
         setNavigationIndex(-1);
       }
     } else {
@@ -622,11 +663,15 @@ const Assessment = () => {
     // DON'T change pendingQuestion when navigating - it should stay the same
   };
 
-  const goToPendingQuestion = () => {
+  const goToPendingQuestion = async () => {
     if (!pendingQuestion) return;
     
     setCurrentQuestion(pendingQuestion);
-    setSelectedAnswer(""); // Clear any selected answer
+    
+    // Restore existing answer if any
+    const existingAnswer = await restoreExistingAnswer(pendingQuestion.question_id);
+    setSelectedAnswer(existingAnswer);
+    
     setNavigationIndex(-1); // Set to -1 to indicate we're on the active question
   };
 
@@ -901,10 +946,14 @@ const Assessment = () => {
           
           console.log("➡️ Moving to next question:", nextQuestion.question_id);
           setIsTransitioning(true);
-          setTimeout(() => {
+          setTimeout(async () => {
             setCurrentQuestion(nextQuestion);
             setPendingQuestion(nextQuestion);
-            setSelectedAnswer("");
+            
+            // Restore existing answer if any
+            const existingAnswer = await restoreExistingAnswer(nextQuestion.question_id);
+            setSelectedAnswer(existingAnswer);
+            
             setIsTransitioning(false);
           }, 300);
         } else {
