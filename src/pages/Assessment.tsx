@@ -186,10 +186,16 @@ const Assessment = () => {
     );
   }, [currentQuestion, selectedAnswer, questions]);
   
-  const dbRequiresExplanation = selectedQuestionOption?.requires_explanation ?? false;
+  // NEW derived (exact zo):
+  const answerOptionText = selectedQuestionOption?.answer_option ?? null;        // 'Yes' | 'No' | 'Unknown'
+  const dbRequiresExplanation = selectedQuestionOption?.requires_explanation === true; // boolean uit DB
 
-  // Optional logging for selectedQuestionOption source
-  console.debug('[selectedOption]', selectedQuestionOption);
+  // TEMP debug (laat rustig staan):
+  console.debug('[answer:selected]', {
+    qid: currentQuestion?.question_id,
+    answerOptionText,
+    requiresExplanation: dbRequiresExplanation,
+  });
 
   // New Panel Controller - single source of truth for context panel
   const qId = currentQuestion?.question_id ?? "";
@@ -219,6 +225,7 @@ const Assessment = () => {
     sessionId,
     questionId: currentQuestion?.question_id || '',
     selectedAnswer: selectedAnswer as 'Yes' | 'No' | 'Unknown' | '',
+    answerOptionText,
     requiresExplanation: dbRequiresExplanation,
   });
 
@@ -1407,7 +1414,7 @@ const Assessment = () => {
                         sessionId={sessionId}
                         questionId={currentQuestion?.question_id || ''}
                         selectedAnswer={selectedAnswer}
-                        requiresExplanation={!!selectedQuestionOption?.requires_explanation}
+                        requiresExplanation={dbRequiresExplanation}
                       />
 
                   {/* Navigation buttons */}

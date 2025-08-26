@@ -9,10 +9,11 @@ interface UseContextPanelProps {
   sessionId: string;
   questionId: string;
   selectedAnswer: 'Yes' | 'No' | 'Unknown' | '';
+  answerOptionText?: string | null;
   requiresExplanation?: boolean;
 }
 
-export const useContextPanel = ({ sessionId, questionId, selectedAnswer, requiresExplanation }: UseContextPanelProps) => {
+export const useContextPanel = ({ sessionId, questionId, selectedAnswer, answerOptionText, requiresExplanation }: UseContextPanelProps) => {
   // Use sentinel value to avoid conditional hooks
   const safeQuestionId = questionId || '__none__';
 
@@ -158,19 +159,19 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer, require
 
   // Load context questions when answer changes
   const loadContextQuestions = useCallback(async (answer: string) => {
-    if (!sessionId || !questionId || !answer) return null;
+    if (!questionId || !answerOptionText || !requiresExplanation) return null;
 
-    console.log(`🔍 Loading context questions for Q${questionId}, answer: ${answer}`);
+    console.log(`🔍 Loading context questions for Q${questionId}, answer: ${answerOptionText}`);
 
     try {
       const { data: contextQuestions, error } = await supabase
         .from('atad2_context_questions')
         .select('context_question')
         .eq('question_id', questionId)
-        .eq('answer_trigger', answer);
+        .eq('answer_trigger', answerOptionText);
 
       // Add required logging for context fetch
-      console.debug('[context:fetch]', { qid: questionId, trigger: answer, rows: contextQuestions?.length ?? 0 });
+      console.debug('[context:fetch]', { qid: questionId, trigger: answerOptionText });
 
       if (error) {
         console.error('Error loading context questions:', error);
