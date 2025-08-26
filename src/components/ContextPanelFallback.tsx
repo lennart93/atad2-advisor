@@ -22,16 +22,6 @@ export const ContextPanelFallback = ({
   const [suggestion, setSuggestion] = useState<string>('');
   const [loading, setLoading] = useState(false);
 
-  // Guards after hooks to prevent React #310
-  if (!FORCE_CONTEXT_PANEL) {
-    return null;
-  }
-
-  // Guard: don't render without required data
-  if (!selectedAnswer || !requiresExplanation) {
-    return null;
-  }
-
   useEffect(() => {
     const loadContextSuggestion = async () => {
       setLoading(true);
@@ -82,6 +72,16 @@ export const ContextPanelFallback = ({
 
     loadContextSuggestion();
   }, [sessionId, questionId, selectedAnswer]);
+
+  // Guards after hooks to prevent React #310
+  if (!FORCE_CONTEXT_PANEL) {
+    return null;
+  }
+
+  // Guard: don't render without required data
+  if (!selectedAnswer || !requiresExplanation) {
+    return null;
+  }
 
   if (loading) {
     return (
