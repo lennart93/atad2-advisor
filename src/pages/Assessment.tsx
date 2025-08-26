@@ -753,7 +753,7 @@ const Assessment = () => {
     }
   };
 
-  const submitAnswerDirectly = async (answer: string) => {
+  const submitAnswerDirectly = async (answer: string, bypassAutoAdvanceCheck = false) => {
     if (!currentQuestion || !sessionId) {
       console.log("❌ Cannot submit: missing currentQuestion or sessionId", { currentQuestion: !!currentQuestion, sessionId });
       return;
@@ -885,16 +885,18 @@ const Assessment = () => {
         });
         
         if (nextQuestion) {
-          // Check if auto-advance is allowed for the current question
-          const currentQuestionOption = questions.find(q => 
-            q.question_id === currentQuestion?.question_id && 
-            q.answer_option === answer
-          );
-          
-          if (!canAutoAdvance(currentQuestionOption)) {
-            console.debug('[nav] blocked: requires explanation; stay on question for context');
-            setLoading(false);
-            return;
+          // Check if auto-advance is allowed for the current question (unless bypassed)
+          if (!bypassAutoAdvanceCheck) {
+            const currentQuestionOption = questions.find(q => 
+              q.question_id === currentQuestion?.question_id && 
+              q.answer_option === answer
+            );
+            
+            if (!canAutoAdvance(currentQuestionOption)) {
+              console.debug('[nav] blocked: requires explanation; stay on question for context');
+              setLoading(false);
+              return;
+            }
           }
           
           console.log("➡️ Moving to next question:", nextQuestion.question_id);
@@ -1495,7 +1497,7 @@ const Assessment = () => {
                                 // Context panel allows navigation regardless of auto-advance rules
                                 // User can continue after answering, context is optional
                                 console.debug('[nav] context panel: allowing continue with answered question');
-                                await submitAnswerDirectly(selectedAnswer);
+                                await submitAnswerDirectly(selectedAnswer, true);
                              }}
                             disabled={loading || isTransitioning || savingStatus === 'saving'}
                             className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
