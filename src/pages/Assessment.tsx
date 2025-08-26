@@ -20,6 +20,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { AssessmentSidebar } from "@/components/AssessmentSidebar";
 import { Textarea } from "@/components/ui/textarea";
 import { ContextSkeleton, ContextEmptyState, ContextErrorState } from "@/components/ContextPanelStates";
+import { ContextPanelFallback } from "@/components/ContextPanelFallback";
 import { seededIndex } from "@/utils/random";
 
 interface Question {
@@ -1390,6 +1391,14 @@ const Assessment = () => {
                           )}
                         </div>
                       )}
+
+                      {/* Fallback Context Panel - Feature flagged */}
+                      <ContextPanelFallback
+                        sessionId={sessionId}
+                        questionId={currentQuestion?.question_id || ''}
+                        selectedAnswer={selectedAnswer}
+                        requiresExplanation={selectedAnswer === 'Yes'}
+                      />
 
                   {/* Navigation buttons */}
                   <div className="flex items-center gap-3">
