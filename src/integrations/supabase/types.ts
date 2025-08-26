@@ -105,6 +105,7 @@ export type Database = {
           question: string
           question_id: string
           question_title: string | null
+          requires_explanation: boolean
           risk_points: number
           term_explanation: string | null
           updated_at: string
@@ -118,6 +119,7 @@ export type Database = {
           question: string
           question_id: string
           question_title?: string | null
+          requires_explanation?: boolean
           risk_points?: number
           term_explanation?: string | null
           updated_at?: string
@@ -131,6 +133,7 @@ export type Database = {
           question?: string
           question_id?: string
           question_title?: string | null
+          requires_explanation?: boolean
           risk_points?: number
           term_explanation?: string | null
           updated_at?: string
