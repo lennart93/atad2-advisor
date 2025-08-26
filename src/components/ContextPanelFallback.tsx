@@ -22,7 +22,7 @@ export const ContextPanelFallback = ({
   const [suggestion, setSuggestion] = useState<string>('');
   const [loading, setLoading] = useState(false);
 
-  // Don't render if feature flag is off
+  // Guards after hooks to prevent React #310
   if (!FORCE_CONTEXT_PANEL) {
     return null;
   }

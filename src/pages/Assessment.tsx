@@ -1370,8 +1370,8 @@ const Assessment = () => {
                     </div>
 
                       {/* Context section - NEW hardened state machine */}
-                      {/* RENDER GUARD: only show context panel when ready and questionId exists */}
-                      {sessionStarted && currentQuestion && qId && shouldShowContextPanel && (
+                      {/* RENDER GUARD: only show context panel when answer selected and requires explanation */}
+                      {sessionStarted && currentQuestion && qId && selectedAnswer && selectedQuestionOption?.requires_explanation && (
                         <div 
                           key={paneKey}
                           className="bg-gray-50 rounded-lg px-4 py-3 mb-8"
