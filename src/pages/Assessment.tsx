@@ -1492,17 +1492,10 @@ const Assessment = () => {
                         {shouldShowContextPanel && selectedAnswer && !shouldShowFinishButton() && (
                           <Button 
                              onClick={async () => {
-                                // Check if auto-advance is allowed before submitting
-                                const selectedQuestionOption = questions.find(q => 
-                                  q.question_id === currentQuestion?.question_id && 
-                                  q.answer_option === selectedAnswer
-                                );
-                                
-                                if (canAutoAdvance(selectedQuestionOption)) {
-                                  await submitAnswerDirectly(selectedAnswer);
-                                } else {
-                                  console.debug('[nav] blocked: requires explanation; stay on question for context');
-                                }
+                                // Context panel allows navigation regardless of auto-advance rules
+                                // User can continue after answering, context is optional
+                                console.debug('[nav] context panel: allowing continue with answered question');
+                                await submitAnswerDirectly(selectedAnswer);
                              }}
                             disabled={loading || isTransitioning || savingStatus === 'saving'}
                             className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
