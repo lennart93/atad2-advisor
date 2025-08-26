@@ -1381,19 +1381,11 @@ const Assessment = () => {
                           
                           {contextStatus === 'ready' && (
                             <>
-                              <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center mb-3">
                                 <div className="flex items-center text-sm text-gray-700">
                                   <span className="text-lg mr-2">💡</span>
                                   <span>Context for your answer</span>
                                 </div>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => clearContext()}
-                                  className="text-gray-500 hover:text-gray-700 h-6 px-2"
-                                >
-                                  Clear
-                                </Button>
                               </div>
                               
                               <Textarea
@@ -1410,16 +1402,6 @@ const Assessment = () => {
                                 }
                                 className="min-h-[120px] resize-none border-gray-200 bg-white mt-3"
                               />
-                              <div className="flex items-center justify-between mt-2">
-                                <div className="text-xs text-gray-500">
-                                  {savingStatus === 'saving' && (
-                                    <span>💾 Saving...</span>
-                                  )}
-                                  {savingStatus === 'saved' && (
-                                    <span>✅ Saved</span>
-                                  )}
-                                </div>
-                              </div>
                             </>
                           )}
 
@@ -1499,10 +1481,10 @@ const Assessment = () => {
                                 console.debug('[nav] context panel: allowing continue with answered question');
                                 await submitAnswerDirectly(selectedAnswer, true);
                              }}
-                            disabled={loading || isTransitioning || savingStatus === 'saving'}
-                            className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {savingStatus === 'saving' ? "Saving..." : "Continue"}
+                             disabled={loading || isTransitioning}
+                             className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                           >
+                             Continue
                           </Button>
                         )}
 
