@@ -32,6 +32,7 @@ interface AssessmentStore {
   setShouldShowContext: (sessionId: string, questionId: string, show: boolean) => void;
   clearExplanation: (sessionId: string, questionId: string) => void;
   clearSession: (sessionId: string) => void;
+  clearAllSessions: () => void;
   
   // Context management actions
   setContextLoading: (questionId: string) => void;
@@ -149,6 +150,14 @@ export const useAssessmentStore = create<AssessmentStore>()(
           });
           return { byKey: newByKey };
         }, false, 'clearSession');
+      },
+
+      clearAllSessions: () => {
+        console.log('🧹 Clearing ALL sessions from store');
+        set(() => ({
+          byKey: {},
+          contextByQuestion: {}
+        }), false, 'clearAllSessions');
       },
 
       // Context management actions

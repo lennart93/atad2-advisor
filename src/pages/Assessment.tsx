@@ -262,34 +262,40 @@ const Assessment = () => {
 
   // Function to restore existing answer when navigating to a question
   const restoreExistingAnswer = useCallback(async (questionId: string) => {
-    if (!sessionId) return "";
+    if (!sessionId) {
+      console.log(`🔄 No sessionId available - returning empty answer for Q${questionId}`);
+      return "";
+    }
     
-    // First check store
+    // First check store (with session validation)
     const questionState = store.getQuestionState(sessionId, questionId);
     if (questionState?.answer) {
-      console.log(`🔄 Restored answer from store for Q${questionId}: ${questionState.answer}`);
+      console.log(`🔄 Restored answer from store for Q${questionId}: ${questionState.answer} (Session: ${sessionId})`);
       return questionState.answer;
     }
     
-    // If not in store, check database
+    // If not in store, check database (with strict session validation)
     try {
       const { data: existingAnswer } = await supabase
         .from('atad2_answers')
-        .select('answer')
+        .select('answer, session_id')
         .eq('session_id', sessionId)
         .eq('question_id', questionId)
         .maybeSingle();
       
-      if (existingAnswer?.answer) {
-        console.log(`🔄 Restored answer from database for Q${questionId}: ${existingAnswer.answer}`);
+      if (existingAnswer?.answer && existingAnswer.session_id === sessionId) {
+        console.log(`🔄 Restored answer from database for Q${questionId}: ${existingAnswer.answer} (Session: ${sessionId})`);
         // Update store with database value
         store.updateAnswer(sessionId, questionId, existingAnswer.answer as 'Yes' | 'No' | 'Unknown');
         return existingAnswer.answer;
+      } else if (existingAnswer) {
+        console.warn(`🚫 Session mismatch - ignoring answer for Q${questionId} (Expected: ${sessionId}, Got: ${existingAnswer.session_id})`);
       }
     } catch (error) {
       console.error('Error restoring existing answer:', error);
     }
     
+    console.log(`🔄 No existing answer found for Q${questionId} in Session: ${sessionId}`);
     return "";
   }, [sessionId, store]);
 
@@ -374,11 +380,9 @@ const Assessment = () => {
 
       if (error) throw error;
 
-      // Clear the store before starting a new session (clear any existing session data)
-      if (sessionId) {
-        store.clearSession(sessionId);
-        console.log('🧹 Cleared previous session from store');
-      }
+      // Clear ALL sessions from store before starting a new session
+      store.clearAllSessions();
+      console.log('🧹 Cleared all sessions from store before starting new session');
 
       setSessionId(newSessionId);
       setSessionStarted(true);
