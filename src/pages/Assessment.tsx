@@ -731,12 +731,15 @@ const Assessment = () => {
         return;
       }
 
-      // Only auto-advance when not navigating and auto-advance is enabled and no context
-      if (autoAdvance) {
+      // Only auto-advance when not navigating and auto-advance is enabled and no explanation required
+      if (autoAdvance && !requiresExplanation) {
         console.log(`⏩ Auto-advancing to next question after ${answer} selection`);
         setTimeout(async () => {
           await submitAnswerDirectly(answer);
         }, 300);
+      } else if (requiresExplanation) {
+        console.debug('[nav] blocked: requires explanation; stay on question for context');
+        setLoading(false);
       } else {
         setLoading(false);
       }
@@ -996,6 +999,7 @@ const Assessment = () => {
     return shouldShow;
   };
 
+  // User check moved after hooks to prevent React #310 error
   if (!user) return null;
 
   if (!sessionStarted) {
