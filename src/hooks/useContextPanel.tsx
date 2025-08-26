@@ -169,6 +169,9 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer, require
         .eq('question_id', questionId)
         .eq('answer_trigger', answer);
 
+      // Add required logging for context fetch
+      console.debug('[context:fetch]', { qid: questionId, trigger: answer, rows: contextQuestions?.length ?? 0 });
+
       if (error) {
         console.error('Error loading context questions:', error);
         store.setContextError(questionId, error.message);
@@ -258,6 +261,8 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer, require
 
     // 1) Switch to no explanation (or no selection) → only clear if we had something
     if (!selectedAnswer || !dbRequiresExplanation) {
+      // Prevent proactive clearing when explanation is required
+      if (dbRequiresExplanation) return;
       // Clear only if we have something to clear OR we just transitioned from requiring → not requiring
       if (status === 'loading' || status === 'ready' || status === 'error' || (prev.requires && !dbRequiresExplanation)) {
         console.debug('[panel] act', { q: questionId, a: selectedAnswer, requiresExplanation: dbRequiresExplanation, status, action: 'clear' });

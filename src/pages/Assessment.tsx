@@ -188,6 +188,9 @@ const Assessment = () => {
   
   const dbRequiresExplanation = selectedQuestionOption?.requires_explanation ?? false;
 
+  // Optional logging for selectedQuestionOption source
+  console.debug('[selectedOption]', selectedQuestionOption);
+
   // New Panel Controller - single source of truth for context panel
   const qId = currentQuestion?.question_id ?? "";
   const { 
@@ -769,6 +772,13 @@ const Assessment = () => {
         answer,
         nextQuestionId: selectedQuestionOption.next_question_id,
         requiresExplanation: selectedQuestionOption.requires_explanation
+      });
+
+      // Add required logging for answer selection
+      console.debug('[answer:selected]', {
+        qid: currentQuestion.question_id,
+        answerOption: selectedQuestionOption.answer_option,
+        requiresExplanation: !!selectedQuestionOption.requires_explanation
       });
 
       // Save answer to database
@@ -1397,7 +1407,7 @@ const Assessment = () => {
                         sessionId={sessionId}
                         questionId={currentQuestion?.question_id || ''}
                         selectedAnswer={selectedAnswer}
-                        requiresExplanation={selectedAnswer === 'Yes'}
+                        requiresExplanation={!!selectedQuestionOption?.requires_explanation}
                       />
 
                   {/* Navigation buttons */}
