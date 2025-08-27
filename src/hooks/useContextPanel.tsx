@@ -101,20 +101,22 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer, answerO
         return;
       }
 
+      // Only verify if the question still requires an explanation
+      // Don't block saving based on context questions - save explanations regardless
       try {
-        const { data: contextQuestions } = await supabase
-          .from('atad2_context_questions')
-          .select('context_question')
+        const { data: questionOptions } = await supabase
+          .from('atad2_questions')
+          .select('requires_explanation')
           .eq('question_id', questionId)
-          .eq('answer_trigger', currentAnswer);
+          .eq('answer_option', currentAnswer)
+          .single();
 
-        const stillRequiresContext = contextQuestions && contextQuestions.length > 0;
-        if (!stillRequiresContext) {
-          console.log(`🚫 Auto-save cancelled for Q${questionId} - answer ${currentAnswer} no longer requires context`);
+        if (!questionOptions?.requires_explanation) {
+          console.log(`🚫 Auto-save cancelled for Q${questionId} - answer ${currentAnswer} does not require explanation`);
           return;
         }
       } catch (error) {
-        console.error('Error verifying context requirement:', error);
+        console.error('Error verifying explanation requirement:', error);
         return;
       }
 
