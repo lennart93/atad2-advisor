@@ -37,26 +37,26 @@ export function usePanelController(sessionId: string, questionId?: string, selec
   // Guard against sentinel value and ensure real questionId
   const isValidQuestion = questionId && questionId !== '__none__';
 
-  // Use UI-specific explanation store instead of QA state to prevent bleed-through
+  // Direct value from the specific state - no iteration needed
   const value = useMemo(() => {
     if (!selectedAnswerId) return "";     // 🔒 no text without answer selection
     if (!isValidQuestion) return "";      // 🔒 no text for invalid questions
     if (!selectedAnswer) return "";       // 🔒 no text without selected answer
+    if (!qState) return "";               // 🔒 no text if no state exists for this question-answer combination
     
     // 🔒 CRITICAL: Ensure selectedAnswer belongs to current questionId
     // Prevent carry-over from previous questions during navigation
     const answerId = selectedAnswerId.split('-')[0]; // Extract question ID from selectedAnswerId
     if (answerId !== qId) {
+      console.log(`🚫 Answer mismatch! Selected answer ${selectedAnswerId} doesn't belong to current question ${qId}`);
       return "";
     }
     
-    // Get explanation from UI-specific store for this session/question
-    // Extract sessionId from URL only once and memoize it
-    const pathParts = window.location.pathname.split('/');
-    const sessionId = pathParts.length > 2 ? pathParts[2] : 'unknown';
-    const currentExplanation = store.getExplanationForQuestion(sessionId, qId);
+    // Get explanation directly from the specific question state
+    const currentExplanation = qState.explanation || "";
+    console.log(`🔍 Panel value calculation for Q${qId}: explanation="${currentExplanation}", selectedAnswer="${selectedAnswerId}", hasState=${!!qState}, answerBelongsToQuestion=${answerId === qId}`);
     return currentExplanation;
-  }, [qId, selectedAnswerId, selectedAnswer, isValidQuestion, store]);
+  }, [qId, selectedAnswerId, selectedAnswer, qState, isValidQuestion]);
   
   // Context status details
   const hasPrompts = contextPrompts.length > 0;
@@ -64,32 +64,27 @@ export function usePanelController(sessionId: string, questionId?: string, selec
   // Simplified render guard: only check if answer selected and requires explanation
   const shouldRender = !!selectedAnswerId && requiresExplanation === true;
   
-  // Reduce excessive logging - only log when values actually change
-  const prevDebugRef = useRef<string>("");
-  const currentDebugKey = `${questionId}-${selectedAnswer}-${requiresExplanation}-${shouldRender}`;
-  
-  if (prevDebugRef.current !== currentDebugKey) {
-    console.log("🎮 PanelController", {
-      questionId: questionId || 'empty',
-      selectedAnswer,
-      requiresExplanation: dbRequiresExplanation,
-      shouldRender,
-      contextStatus
-    });
-    prevDebugRef.current = currentDebugKey;
-  }
+  console.log("🎮 PanelController DETAILED DEBUG", {
+    questionId,
+    selectedAnswer,
+    selectedAnswerId,
+    requiresExplanation: dbRequiresExplanation,
+    status: contextStatus,
+    hasPrompts,
+    shouldRender,
+    isValidQuestion,
+    ready,
+    shouldShowContext,
+    contextPrompts: contextPrompts.length,
+    contextState: contextState ? 'exists' : 'missing'
+  });
 
-  // Add logging for answer selection only when it changes
-  const prevAnswerRef = useRef<string>("");
-  const currentAnswerKey = `${qId}-${selectedAnswerId}`;
-  if (prevAnswerRef.current !== currentAnswerKey) {
-    console.debug('[answer]', { 
-      qid: qId, 
-      answerId: selectedAnswerId, 
-      requiresExplanation: dbRequiresExplanation 
-    });
-    prevAnswerRef.current = currentAnswerKey;
-  }
+  // Add logging for answer selection
+  console.debug('[answer]', { 
+    qid: qId, 
+    answerId: selectedAnswerId, 
+    requiresExplanation: dbRequiresExplanation 
+  });
 
   // Autosave cancel op wissel (per vraag)
   const prevKey = useRef<string>("");
@@ -103,17 +98,15 @@ export function usePanelController(sessionId: string, questionId?: string, selec
     prevKey.current = paneKey;
   }, [paneKey, store]);
 
-  // Reduce context status logging - only when status changes
-  const prevContextRef = useRef<string>("");
-  const currentContextKey = `${qId}-${contextStatus}`;
-  if (prevContextRef.current !== currentContextKey) {
-    console.log("🔍 Context Status", {
-      qId,
-      contextStatus,
-      prompts: contextPrompts.length
-    });
-    prevContextRef.current = currentContextKey;
-  }
+  // Additional debugging for context loading verification
+  console.log("🔍 Context Status Check", {
+    qId,
+    contextStatus,
+    contextState,
+    prompts: contextPrompts,
+    shouldShowContext,
+    storeContextByQuestion: store.contextByQuestion
+  });
 
   return { 
     shouldRender, 

@@ -22,23 +22,15 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer, answerO
   
   // Get current state from store (using safe questionId and current answer)
   const currentState = store.getQuestionState(sessionId, safeQuestionId, selectedAnswer);
-  const explanation = store.getExplanationForQuestion(sessionId, questionId || '__none__');
+  const explanation = currentState?.explanation || '';
   const contextPrompt = currentState?.contextPrompt || '';
   
-  // Debug: Log explanation changes per question - only when they actually change
-  const prevExplanationRef = useRef<string>("");
-  const explanationKey = `${questionId}-${explanation.length}`;
-  if (prevExplanationRef.current !== explanationKey) {
-    console.log(`🔍 useContextPanel for Q${questionId}: explanation length=${explanation.length}, shouldShow=${currentState?.shouldShowContext}`);
-    prevExplanationRef.current = explanationKey;
-  }
+  // Debug: Log explanation changes per question
+  console.log(`🔍 useContextPanel for Q${questionId}: explanation="${explanation.substring(0, 30)}...", shouldShow=${currentState?.shouldShowContext}`);
   
   // Safety check: verify we're getting the right explanation for the right question
-  const prevValidationRef = useRef<string>("");
-  const validationKey = `${questionId}-${explanation.length > 0}`;
-  if (explanation && questionId && prevValidationRef.current !== validationKey) {
+  if (explanation && questionId) {
     console.log(`✅ Context state for Q${questionId}: has explanation (${explanation.length} chars)`);
-    prevValidationRef.current = validationKey;
   }
   
   // Debounced explanation for auto-saving (increased delay) with cancellation
@@ -48,11 +40,7 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer, answerO
   const shouldShowContext = useMemo(() => {
     // Only show if explicitly flagged by context requirement check
     const showFromStore = currentState?.shouldShowContext || false;
-    // Reduce logging - only when flag changes
-    const flagKey = `${questionId}-${showFromStore}`;
-    if (prevExplanationRef.current !== flagKey) {
-      console.log(`🔍 Context check for Q${questionId}: shouldShowContext=${showFromStore}`);
-    }
+    console.log(`🔍 Context check for Q${questionId}: shouldShowContext=${showFromStore}`);
     return showFromStore;
   }, [currentState?.shouldShowContext, questionId]);
 
@@ -67,10 +55,6 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer, answerO
         return; // Already loaded
       }
 
-      // Generate request token to prevent race conditions
-      const requestToken = store.generateRequestToken(sessionId, questionId);
-      console.log(`🔄 Loading data for Q${questionId} with token ${requestToken.slice(-8)}`);
-
       try {
         // Load existing answer from database
         const { data: existingAnswer } = await supabase
@@ -80,24 +64,13 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer, answerO
           .eq('question_id', questionId)
           .maybeSingle();
 
-        // Validate token before applying response
-        if (!store.validateRequestToken(sessionId, questionId, requestToken)) {
-          console.log(`🚫 Ignoring stale response for Q${questionId} - token mismatch`);
-          return;
-        }
-
         if (existingAnswer) {
-          console.log(`✅ Found existing answer for Q${questionId}: ${existingAnswer.answer}`);
           store.setQuestionState(sessionId, questionId, existingAnswer.answer, {
             answer: existingAnswer.answer as 'Yes' | 'No' | 'Unknown',
             explanation: existingAnswer.explanation || '',
             lastSyncedAt: new Date().toISOString(),
             lastSyncedExplanation: existingAnswer.explanation || '',
           });
-          // Also set in UI explanation store
-          store.setExplanationForQuestion(sessionId, questionId, existingAnswer.explanation || '');
-        } else {
-          console.log(`🔄 No existing answer found for Q${questionId} in Session ${sessionId}`);
         }
       } catch (error) {
         console.error('Error loading initial question data:', error);
@@ -319,9 +292,7 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer, answerO
     // Store raw value without validation to preserve spaces during typing
     const currentAnswer = selectedAnswer || currentState?.answer;
     if (currentAnswer) {
-      // Update both QA state and UI-specific explanation store
       store.updateExplanation(sessionId, questionId, currentAnswer, newExplanation);
-      store.setExplanationForQuestion(sessionId, questionId, newExplanation);
     }
   }, [sessionId, questionId, selectedAnswer, currentState?.answer, store]);
 

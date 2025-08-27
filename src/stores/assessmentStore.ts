@@ -17,13 +17,11 @@ export interface QAState {
   lastSyncedAt?: string;
   lastSyncedExplanation?: string; // last explanation that was saved to DB
   shouldShowContext?: boolean; // whether context panel should be visible
-  requestToken?: string; // token to prevent race conditions
 }
 
 interface AssessmentStore {
   byKey: Record<QAKey, QAState>;
   contextByQuestion: Record<string, ContextState>;
-  explanationsBySession: Record<string, Record<string, string>>; // sessionId -> questionId -> explanation
   
   // Actions
   setQuestionState: (sessionId: string, questionId: string, answer: string | null, state: Partial<QAState>) => void;
@@ -44,11 +42,7 @@ interface AssessmentStore {
   
   // New methods for Panel Controller
   getExplanations: () => Record<string, string>;
-  clearExplanationUIOnly: (sessionId: string, questionId: string) => void;
-  getExplanationForQuestion: (sessionId: string, questionId: string) => string;
-  setExplanationForQuestion: (sessionId: string, questionId: string, explanation: string) => void;
-  generateRequestToken: (sessionId: string, questionId: string) => string;
-  validateRequestToken: (sessionId: string, questionId: string, token: string) => boolean;
+  clearExplanationForNewQuestion: (sessionId: string, questionId: string) => void;
   cancelAutosave?: (questionId: string) => void;
 }
 
@@ -60,7 +54,6 @@ export const useAssessmentStore = create<AssessmentStore>()(
     (set, get) => ({
       byKey: {},
       contextByQuestion: {},
-      explanationsBySession: {},
 
       setQuestionState: (sessionId, questionId, answer, state) => {
         const key = createQAKey(sessionId, questionId, answer);
@@ -151,22 +144,24 @@ export const useAssessmentStore = create<AssessmentStore>()(
         console.log('🧹 Clearing ALL sessions from store');
         set(() => ({
           byKey: {},
-          contextByQuestion: {},
-          explanationsBySession: {}
+          contextByQuestion: {}
         }), false, 'clearAllSessions');
       },
 
       // Context management actions
       setContextLoading: (questionId) => {
         if (!questionId || questionId === '__none__') {
+          console.debug('[context] skipped setContextLoading: empty qid');
           return;
         }
         set((state) => {
           const prev = state.contextByQuestion[questionId];
           // No-op if already loading - return undefined to prevent re-render
           if (prev?.status === 'loading') {
+            console.debug('[context] no-op setContextLoading: already loading', { qid: questionId });
             return undefined;
           }
+          console.debug('[context] status', { qid: questionId, status: 'loading' });
           return {
             contextByQuestion: {
               ...state.contextByQuestion,
@@ -178,14 +173,17 @@ export const useAssessmentStore = create<AssessmentStore>()(
 
       setContextReady: (questionId, prompts) => {
         if (!questionId || questionId === '__none__') {
+          console.debug('[context] skipped setContextReady: empty qid');
           return;
         }
         set((state) => {
           const prev = state.contextByQuestion[questionId];
           // No-op if already ready with same prompts - return undefined to prevent re-render
           if (prev?.status === 'ready' && JSON.stringify(prev.prompts) === JSON.stringify(prompts)) {
+            console.debug('[context] no-op setContextReady: already ready', { qid: questionId });
             return undefined;
           }
+          console.debug('[context] status', { qid: questionId, status: 'ready', count: prompts.length });
           return {
             contextByQuestion: {
               ...state.contextByQuestion,
@@ -197,14 +195,17 @@ export const useAssessmentStore = create<AssessmentStore>()(
 
       setContextNone: (questionId) => {
         if (!questionId || questionId === '__none__') {
+          console.debug('[context] skipped setContextNone: empty qid');
           return;
         }
         set((state) => {
           const prev = state.contextByQuestion[questionId];
           // No-op if status is already 'none' - return undefined to prevent re-render
           if (prev?.status === 'none') {
+            console.debug('[context] no-op setContextNone: already none', { qid: questionId });
             return undefined;
           }
+          console.debug('[context] status', { qid: questionId, status: 'none' });
           return {
             contextByQuestion: {
               ...state.contextByQuestion,
@@ -216,14 +217,17 @@ export const useAssessmentStore = create<AssessmentStore>()(
 
       setContextError: (questionId, error) => {
         if (!questionId || questionId === '__none__') {
+          console.debug('[context] skipped setContextError: empty qid');
           return;
         }
         set((state) => {
           const prev = state.contextByQuestion[questionId];
           // No-op if already error with same message - return undefined to prevent re-render
           if (prev?.status === 'error' && prev.error === error) {
+            console.debug('[context] no-op setContextError: already error', { qid: questionId });
             return undefined;
           }
+          console.debug('[context] status', { qid: questionId, status: 'error', error });
           return {
             contextByQuestion: {
               ...state.contextByQuestion,
@@ -234,14 +238,18 @@ export const useAssessmentStore = create<AssessmentStore>()(
       },
 
       clearContextForQuestion: (questionId) => {
+        console.debug('[store] clearContextForQuestion CALLED', { qid: questionId });
         if (!questionId || questionId === '__none__') {
+          console.debug('[context] skipped clearContextForQuestion: empty qid');
           return;
         }
         set((state) => {
           // No-op if there's nothing to clear - return undefined to prevent re-render
           if (!(questionId in state.contextByQuestion)) {
+            console.debug('[context] no-op clearContextForQuestion: nothing to clear', { qid: questionId });
             return undefined;
           }
+          console.debug('[context] cleared', { qid: questionId });
           const newContext = { ...state.contextByQuestion };
           delete newContext[questionId];
           return { contextByQuestion: newContext };
@@ -265,69 +273,23 @@ export const useAssessmentStore = create<AssessmentStore>()(
         return explanations;
       },
 
-      // Clear explanation UI only (not persistent store)
-      clearExplanationUIOnly: (sessionId, questionId) => {
-        console.log(`🧹 Clearing explanation UI (not persistent data) for Q${questionId} on navigation`);
-        set((prev) => ({
-          explanationsBySession: {
-            ...prev.explanationsBySession,
-            [sessionId]: {
-              ...prev.explanationsBySession[sessionId],
-              [questionId]: '', // Clear UI only
-            },
-          },
-        }), false, 'clearExplanationUIOnly');
-      },
-
-      // Get explanation for specific question (UI state)
-      getExplanationForQuestion: (sessionId, questionId) => {
-        const state = get();
-        return state.explanationsBySession[sessionId]?.[questionId] || '';
-      },
-
-      // Set explanation for specific question (UI state)
-      setExplanationForQuestion: (sessionId, questionId, explanation) => {
-        set((prev) => ({
-          explanationsBySession: {
-            ...prev.explanationsBySession,
-            [sessionId]: {
-              ...prev.explanationsBySession[sessionId],
-              [questionId]: explanation,
-            },
-          },
-        }), false, 'setExplanationForQuestion');
-      },
-
-      // Generate request token for race condition prevention
-      generateRequestToken: (sessionId, questionId) => {
-        const token = `${sessionId}-${questionId}-${Date.now()}-${Math.random()}`;
+      // Clear explanation UI for new question navigation (keeps database data)
+      clearExplanationForNewQuestion: (sessionId, questionId) => {
+        console.log(`🧹 Clearing explanation UI for Q${questionId} on navigation`);
         set((prev) => {
           const newByKey = { ...prev.byKey };
-          // Set token for all answer variants of this question
+          // Clear explanations for all answer states of this question
           Object.keys(newByKey).forEach(key => {
             const [keySessionId, keyQuestionId] = key.split(':');
             if (keySessionId === sessionId && keyQuestionId === questionId) {
               newByKey[key] = {
                 ...newByKey[key],
-                requestToken: token,
+                explanation: '', // Clear the visual explanation
               };
             }
           });
           return { byKey: newByKey };
-        }, false, 'generateRequestToken');
-        return token;
-      },
-
-      // Validate request token to prevent stale responses
-      validateRequestToken: (sessionId, questionId, token) => {
-        const state = get();
-        // Check if token matches current token for any answer variant
-        return Object.keys(state.byKey).some(key => {
-          const [keySessionId, keyQuestionId] = key.split(':');
-          return keySessionId === sessionId && 
-                 keyQuestionId === questionId && 
-                 state.byKey[key]?.requestToken === token;
-        });
+        }, false, 'clearExplanationForNewQuestion');
       },
 
       // Placeholder for autosave cancellation - will be set by useContextPanel
