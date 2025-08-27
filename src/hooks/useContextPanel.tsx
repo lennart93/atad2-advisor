@@ -83,8 +83,8 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer, answerO
   // Auto-save explanation when debounced value changes
   useEffect(() => {
     const saveExplanation = async () => {
-      // Guard against sentinel values and empty content
-      if (!sessionId || !questionId || questionId === '__none__' || !debouncedExplanation.trim()) {
+      // Guard against sentinel values 
+      if (!sessionId || !questionId || questionId === '__none__') {
         return;
       }
 
@@ -94,7 +94,7 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer, answerO
         return;
       }
 
-      // Auto-save protection: verify current answer still requires context before saving
+      // Auto-save protection: verify current answer requires explanation before saving
       const currentAnswer = selectedAnswer || currentState?.answer;
       if (!currentAnswer) {
         console.log(`🚫 Auto-save cancelled for Q${questionId} - no current answer available`);
@@ -102,19 +102,20 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer, answerO
       }
 
       try {
-        const { data: contextQuestions } = await supabase
-          .from('atad2_context_questions')
-          .select('context_question')
+        const { data: questionData } = await supabase
+          .from('atad2_questions')
+          .select('requires_explanation')
           .eq('question_id', questionId)
-          .eq('answer_trigger', currentAnswer);
+          .eq('answer_option', currentAnswer)
+          .single();
 
-        const stillRequiresContext = contextQuestions && contextQuestions.length > 0;
-        if (!stillRequiresContext) {
-          console.log(`🚫 Auto-save cancelled for Q${questionId} - answer ${currentAnswer} no longer requires context`);
+        const stillRequiresExplanation = questionData?.requires_explanation;
+        if (!stillRequiresExplanation) {
+          console.log(`🚫 Auto-save cancelled for Q${questionId} - answer ${currentAnswer} no longer requires explanation`);
           return;
         }
       } catch (error) {
-        console.error('Error verifying context requirement:', error);
+        console.error('Error verifying explanation requirement:', error);
         return;
       }
 
