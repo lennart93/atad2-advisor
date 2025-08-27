@@ -267,11 +267,14 @@ const Assessment = () => {
       return "";
     }
     
-    // First check store (with session validation) - now using current answer
-    const questionState = store.getQuestionState(sessionId, questionId, selectedAnswer);
-    if (questionState?.answer) {
-      console.log(`🔄 Restored answer from store for Q${questionId}: ${questionState.answer} (Session: ${sessionId})`);
-      return questionState.answer;
+    // First check store (with session validation) - check all possible answers
+    const possibleAnswers: ('Yes' | 'No' | 'Unknown')[] = ['Yes', 'No', 'Unknown'];
+    for (const answer of possibleAnswers) {
+      const questionState = store.getQuestionState(sessionId, questionId, answer);
+      if (questionState?.answer === answer) {
+        console.log(`🔄 Restored answer from store for Q${questionId}: ${questionState.answer} (Session: ${sessionId})`);
+        return questionState.answer;
+      }
     }
     
     // If not in store, check database (with strict session validation)

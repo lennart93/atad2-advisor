@@ -262,7 +262,9 @@ export const useAssessmentStore = create<AssessmentStore>()(
         
         Object.entries(state.byKey).forEach(([key, qaState]) => {
           const [, questionId, answer] = key.split(':');
+          // Only include explanations for states that have the actual answer matching the key
           if (questionId && answer && qaState.explanation && qaState.answer === answer) {
+            // For each question, only return the explanation for the current answer
             explanations[questionId] = qaState.explanation;
           }
         });

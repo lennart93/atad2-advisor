@@ -96,23 +96,26 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer, answerO
 
       // Auto-save protection: verify current answer still requires context before saving
       const currentAnswer = selectedAnswer || currentState?.answer;
-      if (currentAnswer) {
-        try {
-          const { data: contextQuestions } = await supabase
-            .from('atad2_context_questions')
-            .select('context_question')
-            .eq('question_id', questionId)
-            .eq('answer_trigger', currentAnswer);
+      if (!currentAnswer) {
+        console.log(`🚫 Auto-save cancelled for Q${questionId} - no current answer available`);
+        return;
+      }
 
-          const stillRequiresContext = contextQuestions && contextQuestions.length > 0;
-          if (!stillRequiresContext) {
-            console.log(`🚫 Auto-save cancelled for Q${questionId} - answer ${currentAnswer} no longer requires context`);
-            return;
-          }
-        } catch (error) {
-          console.error('Error verifying context requirement:', error);
+      try {
+        const { data: contextQuestions } = await supabase
+          .from('atad2_context_questions')
+          .select('context_question')
+          .eq('question_id', questionId)
+          .eq('answer_trigger', currentAnswer);
+
+        const stillRequiresContext = contextQuestions && contextQuestions.length > 0;
+        if (!stillRequiresContext) {
+          console.log(`🚫 Auto-save cancelled for Q${questionId} - answer ${currentAnswer} no longer requires context`);
           return;
         }
+      } catch (error) {
+        console.error('Error verifying context requirement:', error);
+        return;
       }
 
       setSavingStatus('saving');

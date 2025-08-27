@@ -7,21 +7,28 @@ export function usePanelController(sessionId: string, questionId?: string, requi
   
   const store = useAssessmentStore();
 
-  // Haal ALLES uit store (nooit lokale selectedAnswer)
-  // First get the current answer for this question across all answer states
+  // Get state directly using the current answer - much simpler approach
+  
+  // For panel controller, we need to know the current answer to get the right state
+  // We'll get this from the Assessment component via props or by checking all possible answers
   const allStates = store.byKey;
-  const matchingKeys = Object.keys(allStates).filter(key => {
-    const [sessionPart, questionPart] = key.split(':');
-    return sessionPart === sessionId && questionPart === qId;
-  });
   
-  // Find the most recent answer state (the one with an actual answer value)
-  const currentAnswerState = matchingKeys
-    .map(key => allStates[key])
-    .find(state => state.answer) || { answer: null, explanation: '', shouldShowContext: false };
+  // Find the current answer state for this question by checking all possible answers
+  let currentAnswer: 'Yes' | 'No' | 'Unknown' | null = null;
+  let qState: any = { answer: null, explanation: '', shouldShowContext: false };
   
-  const answer = currentAnswerState.answer;
-  const qState = answer ? store.getQuestionState(sessionId, qId, answer) : currentAnswerState;
+  // Check each possible answer to find the one that exists in the store
+  const possibleAnswers: ('Yes' | 'No' | 'Unknown')[] = ['Yes', 'No', 'Unknown'];
+  for (const answer of possibleAnswers) {
+    const testState = store.getQuestionState(sessionId, qId, answer);
+    if (testState && testState.answer === answer) {
+      currentAnswer = answer;
+      qState = testState;
+      break;
+    }
+  }
+  
+  const answer = currentAnswer;
   const shouldShowContext = qState?.shouldShowContext ?? false;
   
   // Create selectedOption object based on answer (simplified)
