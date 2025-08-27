@@ -235,7 +235,7 @@ const Assessment = () => {
 
   // Connect store cancelAutosave to the hook's cancel function  
   const store = useAssessmentStore();
-  const { clearExplanationForNewQuestion } = store;
+  const { clearExplanationUIOnly } = store;
   if (!store.cancelAutosave && cancelAutosave) {
     store.cancelAutosave = cancelAutosave;
   }
@@ -611,9 +611,9 @@ const Assessment = () => {
     
     const targetEntry = questionFlow[targetIndex];
     
-    // Clear explanation UI for new question navigation
+    // Clear explanation UI only (not persistent data) for new question navigation
     if (sessionId && targetEntry.question.question_id) {
-      clearExplanationForNewQuestion(sessionId, targetEntry.question.question_id);
+      clearExplanationUIOnly(sessionId, targetEntry.question.question_id);
     }
     
     setCurrentQuestion(targetEntry.question);
@@ -633,9 +633,9 @@ const Assessment = () => {
     const targetIndex = navigationIndex + 1;
     const targetEntry = questionFlow[targetIndex];
     
-    // Clear explanation UI for new question navigation
+    // Clear explanation UI only (not persistent data) for new question navigation
     if (sessionId && targetEntry.question.question_id) {
-      clearExplanationForNewQuestion(sessionId, targetEntry.question.question_id);
+      clearExplanationUIOnly(sessionId, targetEntry.question.question_id);
     }
     
     setCurrentQuestion(targetEntry.question);
@@ -661,9 +661,9 @@ const Assessment = () => {
     if (lastAnsweredQuestionOption?.next_question_id && lastAnsweredQuestionOption.next_question_id !== "end") {
       const nextQuestion = questions.find(q => q.question_id === lastAnsweredQuestionOption.next_question_id && q.answer_option === "Yes");
       if (nextQuestion) {
-        // Clear explanation UI for new question navigation
+        // Clear explanation UI only (not persistent data) for new question navigation
         if (sessionId && nextQuestion.question_id) {
-          clearExplanationForNewQuestion(sessionId, nextQuestion.question_id);
+          clearExplanationUIOnly(sessionId, nextQuestion.question_id);
         }
         
         setCurrentQuestion(nextQuestion);
@@ -981,9 +981,9 @@ const Assessment = () => {
           
           console.log("➡️ Moving to next question:", nextQuestion.question_id);
           
-          // Clear explanation UI for new question navigation
+          // Clear explanation UI only (not persistent data) for new question navigation
           if (sessionId && nextQuestion.question_id) {
-            clearExplanationForNewQuestion(sessionId, nextQuestion.question_id);
+            clearExplanationUIOnly(sessionId, nextQuestion.question_id);
           }
           
           setIsTransitioning(true);

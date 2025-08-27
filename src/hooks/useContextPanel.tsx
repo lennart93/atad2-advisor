@@ -22,7 +22,7 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer, answerO
   
   // Get current state from store (using safe questionId and current answer)
   const currentState = store.getQuestionState(sessionId, safeQuestionId, selectedAnswer);
-  const explanation = currentState?.explanation || '';
+  const explanation = store.getExplanationForQuestion(sessionId, questionId || '__none__');
   const contextPrompt = currentState?.contextPrompt || '';
   
   // Debug: Log explanation changes per question
@@ -55,6 +55,10 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer, answerO
         return; // Already loaded
       }
 
+      // Generate request token to prevent race conditions
+      const requestToken = store.generateRequestToken(sessionId, questionId);
+      console.log(`🔄 Loading data for Q${questionId} with token ${requestToken.slice(-8)}`);
+
       try {
         // Load existing answer from database
         const { data: existingAnswer } = await supabase
@@ -64,13 +68,24 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer, answerO
           .eq('question_id', questionId)
           .maybeSingle();
 
+        // Validate token before applying response
+        if (!store.validateRequestToken(sessionId, questionId, requestToken)) {
+          console.log(`🚫 Ignoring stale response for Q${questionId} - token mismatch`);
+          return;
+        }
+
         if (existingAnswer) {
+          console.log(`✅ Found existing answer for Q${questionId}: ${existingAnswer.answer}`);
           store.setQuestionState(sessionId, questionId, existingAnswer.answer, {
             answer: existingAnswer.answer as 'Yes' | 'No' | 'Unknown',
             explanation: existingAnswer.explanation || '',
             lastSyncedAt: new Date().toISOString(),
             lastSyncedExplanation: existingAnswer.explanation || '',
           });
+          // Also set in UI explanation store
+          store.setExplanationForQuestion(sessionId, questionId, existingAnswer.explanation || '');
+        } else {
+          console.log(`🔄 No existing answer found for Q${questionId} in Session ${sessionId}`);
         }
       } catch (error) {
         console.error('Error loading initial question data:', error);
@@ -292,7 +307,9 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer, answerO
     // Store raw value without validation to preserve spaces during typing
     const currentAnswer = selectedAnswer || currentState?.answer;
     if (currentAnswer) {
+      // Update both QA state and UI-specific explanation store
       store.updateExplanation(sessionId, questionId, currentAnswer, newExplanation);
+      store.setExplanationForQuestion(sessionId, questionId, newExplanation);
     }
   }, [sessionId, questionId, selectedAnswer, currentState?.answer, store]);
 

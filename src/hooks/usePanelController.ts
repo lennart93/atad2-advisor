@@ -37,12 +37,11 @@ export function usePanelController(sessionId: string, questionId?: string, selec
   // Guard against sentinel value and ensure real questionId
   const isValidQuestion = questionId && questionId !== '__none__';
 
-  // Direct value from the specific state - no iteration needed
+  // Use UI-specific explanation store instead of QA state to prevent bleed-through
   const value = useMemo(() => {
     if (!selectedAnswerId) return "";     // 🔒 no text without answer selection
     if (!isValidQuestion) return "";      // 🔒 no text for invalid questions
     if (!selectedAnswer) return "";       // 🔒 no text without selected answer
-    if (!qState) return "";               // 🔒 no text if no state exists for this question-answer combination
     
     // 🔒 CRITICAL: Ensure selectedAnswer belongs to current questionId
     // Prevent carry-over from previous questions during navigation
@@ -52,11 +51,12 @@ export function usePanelController(sessionId: string, questionId?: string, selec
       return "";
     }
     
-    // Get explanation directly from the specific question state
-    const currentExplanation = qState.explanation || "";
-    console.log(`🔍 Panel value calculation for Q${qId}: explanation="${currentExplanation}", selectedAnswer="${selectedAnswerId}", hasState=${!!qState}, answerBelongsToQuestion=${answerId === qId}`);
+    // Get explanation from UI-specific store for this session/question
+    const sessionId = window.location.pathname.split('/')[2] || 'unknown'; // Extract from URL
+    const currentExplanation = store.getExplanationForQuestion(sessionId, qId);
+    console.log(`🔍 Panel value calculation for Q${qId}: explanation="${currentExplanation.substring(0, 30)}...", selectedAnswer="${selectedAnswerId}", answerBelongsToQuestion=${answerId === qId}`);
     return currentExplanation;
-  }, [qId, selectedAnswerId, selectedAnswer, qState, isValidQuestion]);
+  }, [qId, selectedAnswerId, selectedAnswer, isValidQuestion, store]);
   
   // Context status details
   const hasPrompts = contextPrompts.length > 0;
