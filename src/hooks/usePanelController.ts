@@ -44,9 +44,17 @@ export function usePanelController(sessionId: string, questionId?: string, selec
     if (!selectedAnswer) return "";       // 🔒 no text without selected answer
     if (!qState) return "";               // 🔒 no text if no state exists for this question-answer combination
     
+    // 🔒 CRITICAL: Ensure selectedAnswer belongs to current questionId
+    // Prevent carry-over from previous questions during navigation
+    const answerId = selectedAnswerId.split('-')[0]; // Extract question ID from selectedAnswerId
+    if (answerId !== qId) {
+      console.log(`🚫 Answer mismatch! Selected answer ${selectedAnswerId} doesn't belong to current question ${qId}`);
+      return "";
+    }
+    
     // Get explanation directly from the specific question state
     const currentExplanation = qState.explanation || "";
-    console.log(`🔍 Panel value calculation for Q${qId}: explanation="${currentExplanation}", selectedAnswer="${selectedAnswerId}", hasState=${!!qState}`);
+    console.log(`🔍 Panel value calculation for Q${qId}: explanation="${currentExplanation}", selectedAnswer="${selectedAnswerId}", hasState=${!!qState}, answerBelongsToQuestion=${answerId === qId}`);
     return currentExplanation;
   }, [qId, selectedAnswerId, selectedAnswer, qState, isValidQuestion]);
   
