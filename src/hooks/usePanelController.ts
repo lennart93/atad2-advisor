@@ -32,15 +32,20 @@ export function usePanelController(sessionId: string, questionId?: string, requi
   // Pane key dwingt remount bij vraag/antwoord‑wissel
   const paneKey = `ctx-${qId}-${selectedAnswerId}`;
 
+  // Guard against sentinel value and ensure real questionId
+  const isValidQuestion = questionId && questionId !== '__none__';
+
   // Waarde: per-vraag map; maar ALS er nog geen antwoord is -> ALTIJD lege string
   const explanations = store.getExplanations(); // Record<string,string>
   const value = useMemo(() => {
     if (!selectedAnswerId) return "";     // 🔒 nooit "oude" tekst zonder keus
-    return explanations[qId] ?? "";
-  }, [qId, selectedAnswerId, explanations]);
-
-  // Guard against sentinel value and ensure real questionId
-  const isValidQuestion = questionId && questionId !== '__none__';
+    if (!isValidQuestion) return "";      // 🔒 geen tekst voor ongeldige vragen
+    
+    // Get current question's explanation directly from store for this session
+    const currentExplanation = qState?.explanation ?? "";
+    console.log(`🔍 Panel value calculation for Q${qId}: explanation="${currentExplanation}", selectedAnswer="${selectedAnswerId}"`);
+    return currentExplanation;
+  }, [qId, selectedAnswerId, qState?.explanation, isValidQuestion]);
   
   // Context status details
   const hasPrompts = contextPrompts.length > 0;

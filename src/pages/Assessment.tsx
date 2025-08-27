@@ -267,6 +267,10 @@ const Assessment = () => {
       return "";
     }
     
+    // Clear explanation for this question to prevent cross-contamination
+    console.log(`🧹 Clearing explanation for Q${questionId} to prevent cross-contamination`);
+    store.clearExplanation(sessionId, questionId);
+    
     // First check store (with session validation)
     const questionState = store.getQuestionState(sessionId, questionId);
     if (questionState?.answer) {
