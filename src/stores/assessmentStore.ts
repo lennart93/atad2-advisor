@@ -69,7 +69,7 @@ export const useAssessmentStore = create<AssessmentStore>()(
 
       getQuestionState: (sessionId, questionId, answer) => {
         const key = createQAKey(sessionId, questionId, answer);
-        return get().byKey[key] || { answer: null, explanation: '' };
+        return get().byKey[key]; // Return undefined if key doesn't exist
       },
 
       updateExplanation: (sessionId, questionId, answer, explanation) => {

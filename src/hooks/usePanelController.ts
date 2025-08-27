@@ -10,7 +10,7 @@ export function usePanelController(sessionId: string, questionId?: string, selec
   // Only get state if we have a selected answer - no more iteration through possibilities
   const qState = selectedAnswer 
     ? store.getQuestionState(sessionId, qId, selectedAnswer as 'Yes' | 'No' | 'Unknown')
-    : { answer: null, explanation: '', shouldShowContext: false };
+    : undefined;
     
   const shouldShowContext = qState?.shouldShowContext ?? false;
   
@@ -42,12 +42,13 @@ export function usePanelController(sessionId: string, questionId?: string, selec
     if (!selectedAnswerId) return "";     // 🔒 no text without answer selection
     if (!isValidQuestion) return "";      // 🔒 no text for invalid questions
     if (!selectedAnswer) return "";       // 🔒 no text without selected answer
+    if (!qState) return "";               // 🔒 no text if no state exists for this question-answer combination
     
     // Get explanation directly from the specific question state
-    const currentExplanation = qState?.explanation ?? "";
-    console.log(`🔍 Panel value calculation for Q${qId}: explanation="${currentExplanation}", selectedAnswer="${selectedAnswerId}"`);
+    const currentExplanation = qState.explanation || "";
+    console.log(`🔍 Panel value calculation for Q${qId}: explanation="${currentExplanation}", selectedAnswer="${selectedAnswerId}", hasState=${!!qState}`);
     return currentExplanation;
-  }, [qId, selectedAnswerId, selectedAnswer, qState?.explanation, isValidQuestion]);
+  }, [qId, selectedAnswerId, selectedAnswer, qState, isValidQuestion]);
   
   // Context status details
   const hasPrompts = contextPrompts.length > 0;
