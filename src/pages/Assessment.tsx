@@ -563,6 +563,9 @@ const Assessment = () => {
           setIsTransitioning(true);
           setTimeout(async () => {
             console.log(`🚀 Navigating from Q${currentQuestion.question_id} to Q${nextQuestion.question_id}`);
+            // Clear explanation BEFORE navigation to prevent cross-contamination
+            console.log(`🧹 Pre-navigation: Clearing explanation for Q${nextQuestion.question_id}`);
+            store.clearExplanation(sessionId, nextQuestion.question_id);
             setCurrentQuestion(nextQuestion);
             setPendingQuestion(nextQuestion); // Update pending question
             
@@ -610,6 +613,9 @@ const Assessment = () => {
     }
     
     const targetEntry = questionFlow[targetIndex];
+    // Clear explanation BEFORE navigation to prevent cross-contamination
+    console.log(`🧹 Pre-navigation: Clearing explanation for Q${targetEntry.question.question_id}`);
+    store.clearExplanation(sessionId, targetEntry.question.question_id);
     setCurrentQuestion(targetEntry.question);
     setSelectedAnswer(targetEntry.answer);
     setNavigationIndex(targetIndex);
@@ -626,6 +632,9 @@ const Assessment = () => {
     
     const targetIndex = navigationIndex + 1;
     const targetEntry = questionFlow[targetIndex];
+    // Clear explanation BEFORE navigation to prevent cross-contamination
+    console.log(`🧹 Pre-navigation: Clearing explanation for Q${targetEntry.question.question_id}`);
+    store.clearExplanation(sessionId, targetEntry.question.question_id);
     setCurrentQuestion(targetEntry.question);
     setSelectedAnswer(targetEntry.answer);
     setNavigationIndex(targetIndex);
@@ -649,6 +658,9 @@ const Assessment = () => {
     if (lastAnsweredQuestionOption?.next_question_id && lastAnsweredQuestionOption.next_question_id !== "end") {
       const nextQuestion = questions.find(q => q.question_id === lastAnsweredQuestionOption.next_question_id && q.answer_option === "Yes");
       if (nextQuestion) {
+        // Clear explanation BEFORE navigation to prevent cross-contamination
+        console.log(`🧹 Pre-navigation: Clearing explanation for Q${nextQuestion.question_id}`);
+        store.clearExplanation(sessionId, nextQuestion.question_id);
         setCurrentQuestion(nextQuestion);
         setPendingQuestion(nextQuestion); // Update pending question
         
@@ -670,6 +682,9 @@ const Assessment = () => {
     if (questionIndex >= questionFlow.length) return;
     
     const targetEntry = questionFlow[questionIndex];
+    // Clear explanation BEFORE navigation to prevent cross-contamination
+    console.log(`🧹 Pre-navigation: Clearing explanation for Q${targetEntry.question.question_id}`);
+    store.clearExplanation(sessionId, targetEntry.question.question_id);
     setCurrentQuestion(targetEntry.question);
     setSelectedAnswer(targetEntry.answer);
     setNavigationIndex(questionIndex);
@@ -685,6 +700,9 @@ const Assessment = () => {
   const goToPendingQuestion = async () => {
     if (!pendingQuestion) return;
     
+    // Clear explanation BEFORE navigation to prevent cross-contamination
+    console.log(`🧹 Pre-navigation: Clearing explanation for Q${pendingQuestion.question_id}`);
+    store.clearExplanation(sessionId, pendingQuestion.question_id);
     setCurrentQuestion(pendingQuestion);
     
     // Restore existing answer if any
@@ -966,6 +984,9 @@ const Assessment = () => {
           console.log("➡️ Moving to next question:", nextQuestion.question_id);
           setIsTransitioning(true);
           setTimeout(async () => {
+            // Clear explanation BEFORE navigation to prevent cross-contamination
+            console.log(`🧹 Pre-navigation: Clearing explanation for Q${nextQuestion.question_id}`);
+            store.clearExplanation(sessionId, nextQuestion.question_id);
             setCurrentQuestion(nextQuestion);
             setPendingQuestion(nextQuestion);
             

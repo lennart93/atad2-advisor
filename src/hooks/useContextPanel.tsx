@@ -25,6 +25,12 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer, answerO
   const explanation = currentState?.explanation || '';
   const contextPrompt = currentState?.contextPrompt || '';
   
+  // Safety effect: Clear explanation when questionId changes to prevent cross-contamination
+  useEffect(() => {
+    console.log(`🛡️ Safety: Clearing explanation for Q${questionId} on question change`);
+    store.clearExplanation(sessionId, questionId);
+  }, [questionId, sessionId, store]);
+
   // Debug: Log explanation changes per question
   console.log(`🔍 useContextPanel for Q${questionId}: explanation="${explanation.substring(0, 30)}...", shouldShow=${currentState?.shouldShowContext}`);
   
