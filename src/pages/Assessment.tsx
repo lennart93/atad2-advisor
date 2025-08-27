@@ -235,6 +235,7 @@ const Assessment = () => {
 
   // Connect store cancelAutosave to the hook's cancel function  
   const store = useAssessmentStore();
+  const { clearExplanationForNewQuestion } = store;
   if (!store.cancelAutosave && cancelAutosave) {
     store.cancelAutosave = cancelAutosave;
   }
@@ -609,6 +610,12 @@ const Assessment = () => {
     }
     
     const targetEntry = questionFlow[targetIndex];
+    
+    // Clear explanation UI for new question navigation
+    if (sessionId && targetEntry.question.question_id) {
+      clearExplanationForNewQuestion(sessionId, targetEntry.question.question_id);
+    }
+    
     setCurrentQuestion(targetEntry.question);
     setSelectedAnswer(targetEntry.answer);
     setNavigationIndex(targetIndex);
@@ -625,6 +632,12 @@ const Assessment = () => {
     
     const targetIndex = navigationIndex + 1;
     const targetEntry = questionFlow[targetIndex];
+    
+    // Clear explanation UI for new question navigation
+    if (sessionId && targetEntry.question.question_id) {
+      clearExplanationForNewQuestion(sessionId, targetEntry.question.question_id);
+    }
+    
     setCurrentQuestion(targetEntry.question);
     setSelectedAnswer(targetEntry.answer);
     setNavigationIndex(targetIndex);
@@ -648,6 +661,11 @@ const Assessment = () => {
     if (lastAnsweredQuestionOption?.next_question_id && lastAnsweredQuestionOption.next_question_id !== "end") {
       const nextQuestion = questions.find(q => q.question_id === lastAnsweredQuestionOption.next_question_id && q.answer_option === "Yes");
       if (nextQuestion) {
+        // Clear explanation UI for new question navigation
+        if (sessionId && nextQuestion.question_id) {
+          clearExplanationForNewQuestion(sessionId, nextQuestion.question_id);
+        }
+        
         setCurrentQuestion(nextQuestion);
         setPendingQuestion(nextQuestion); // Update pending question
         
@@ -962,6 +980,12 @@ const Assessment = () => {
           }
           
           console.log("➡️ Moving to next question:", nextQuestion.question_id);
+          
+          // Clear explanation UI for new question navigation
+          if (sessionId && nextQuestion.question_id) {
+            clearExplanationForNewQuestion(sessionId, nextQuestion.question_id);
+          }
+          
           setIsTransitioning(true);
           setTimeout(async () => {
             setCurrentQuestion(nextQuestion);

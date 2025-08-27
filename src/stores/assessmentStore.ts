@@ -42,6 +42,7 @@ interface AssessmentStore {
   
   // New methods for Panel Controller
   getExplanations: () => Record<string, string>;
+  clearExplanationForNewQuestion: (sessionId: string, questionId: string) => void;
   cancelAutosave?: (questionId: string) => void;
 }
 
@@ -270,6 +271,25 @@ export const useAssessmentStore = create<AssessmentStore>()(
         });
         
         return explanations;
+      },
+
+      // Clear explanation UI for new question navigation (keeps database data)
+      clearExplanationForNewQuestion: (sessionId, questionId) => {
+        console.log(`🧹 Clearing explanation UI for Q${questionId} on navigation`);
+        set((prev) => {
+          const newByKey = { ...prev.byKey };
+          // Clear explanations for all answer states of this question
+          Object.keys(newByKey).forEach(key => {
+            const [keySessionId, keyQuestionId] = key.split(':');
+            if (keySessionId === sessionId && keyQuestionId === questionId) {
+              newByKey[key] = {
+                ...newByKey[key],
+                explanation: '', // Clear the visual explanation
+              };
+            }
+          });
+          return { byKey: newByKey };
+        }, false, 'clearExplanationForNewQuestion');
       },
 
       // Placeholder for autosave cancellation - will be set by useContextPanel
