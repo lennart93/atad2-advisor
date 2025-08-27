@@ -47,14 +47,14 @@ export function usePanelController(sessionId: string, questionId?: string, selec
     // Prevent carry-over from previous questions during navigation
     const answerId = selectedAnswerId.split('-')[0]; // Extract question ID from selectedAnswerId
     if (answerId !== qId) {
-      console.log(`🚫 Answer mismatch! Selected answer ${selectedAnswerId} doesn't belong to current question ${qId}`);
       return "";
     }
     
     // Get explanation from UI-specific store for this session/question
-    const sessionId = window.location.pathname.split('/')[2] || 'unknown'; // Extract from URL
+    // Extract sessionId from URL only once and memoize it
+    const pathParts = window.location.pathname.split('/');
+    const sessionId = pathParts.length > 2 ? pathParts[2] : 'unknown';
     const currentExplanation = store.getExplanationForQuestion(sessionId, qId);
-    console.log(`🔍 Panel value calculation for Q${qId}: explanation="${currentExplanation.substring(0, 30)}...", selectedAnswer="${selectedAnswerId}", answerBelongsToQuestion=${answerId === qId}`);
     return currentExplanation;
   }, [qId, selectedAnswerId, selectedAnswer, isValidQuestion, store]);
   
@@ -64,27 +64,32 @@ export function usePanelController(sessionId: string, questionId?: string, selec
   // Simplified render guard: only check if answer selected and requires explanation
   const shouldRender = !!selectedAnswerId && requiresExplanation === true;
   
-  console.log("🎮 PanelController DETAILED DEBUG", {
-    questionId,
-    selectedAnswer,
-    selectedAnswerId,
-    requiresExplanation: dbRequiresExplanation,
-    status: contextStatus,
-    hasPrompts,
-    shouldRender,
-    isValidQuestion,
-    ready,
-    shouldShowContext,
-    contextPrompts: contextPrompts.length,
-    contextState: contextState ? 'exists' : 'missing'
-  });
+  // Reduce excessive logging - only log when values actually change
+  const prevDebugRef = useRef<string>("");
+  const currentDebugKey = `${questionId}-${selectedAnswer}-${requiresExplanation}-${shouldRender}`;
+  
+  if (prevDebugRef.current !== currentDebugKey) {
+    console.log("🎮 PanelController", {
+      questionId: questionId || 'empty',
+      selectedAnswer,
+      requiresExplanation: dbRequiresExplanation,
+      shouldRender,
+      contextStatus
+    });
+    prevDebugRef.current = currentDebugKey;
+  }
 
-  // Add logging for answer selection
-  console.debug('[answer]', { 
-    qid: qId, 
-    answerId: selectedAnswerId, 
-    requiresExplanation: dbRequiresExplanation 
-  });
+  // Add logging for answer selection only when it changes
+  const prevAnswerRef = useRef<string>("");
+  const currentAnswerKey = `${qId}-${selectedAnswerId}`;
+  if (prevAnswerRef.current !== currentAnswerKey) {
+    console.debug('[answer]', { 
+      qid: qId, 
+      answerId: selectedAnswerId, 
+      requiresExplanation: dbRequiresExplanation 
+    });
+    prevAnswerRef.current = currentAnswerKey;
+  }
 
   // Autosave cancel op wissel (per vraag)
   const prevKey = useRef<string>("");
@@ -98,15 +103,17 @@ export function usePanelController(sessionId: string, questionId?: string, selec
     prevKey.current = paneKey;
   }, [paneKey, store]);
 
-  // Additional debugging for context loading verification
-  console.log("🔍 Context Status Check", {
-    qId,
-    contextStatus,
-    contextState,
-    prompts: contextPrompts,
-    shouldShowContext,
-    storeContextByQuestion: store.contextByQuestion
-  });
+  // Reduce context status logging - only when status changes
+  const prevContextRef = useRef<string>("");
+  const currentContextKey = `${qId}-${contextStatus}`;
+  if (prevContextRef.current !== currentContextKey) {
+    console.log("🔍 Context Status", {
+      qId,
+      contextStatus,
+      prompts: contextPrompts.length
+    });
+    prevContextRef.current = currentContextKey;
+  }
 
   return { 
     shouldRender, 

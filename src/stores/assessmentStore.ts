@@ -159,17 +159,14 @@ export const useAssessmentStore = create<AssessmentStore>()(
       // Context management actions
       setContextLoading: (questionId) => {
         if (!questionId || questionId === '__none__') {
-          console.debug('[context] skipped setContextLoading: empty qid');
           return;
         }
         set((state) => {
           const prev = state.contextByQuestion[questionId];
           // No-op if already loading - return undefined to prevent re-render
           if (prev?.status === 'loading') {
-            console.debug('[context] no-op setContextLoading: already loading', { qid: questionId });
             return undefined;
           }
-          console.debug('[context] status', { qid: questionId, status: 'loading' });
           return {
             contextByQuestion: {
               ...state.contextByQuestion,
@@ -181,17 +178,14 @@ export const useAssessmentStore = create<AssessmentStore>()(
 
       setContextReady: (questionId, prompts) => {
         if (!questionId || questionId === '__none__') {
-          console.debug('[context] skipped setContextReady: empty qid');
           return;
         }
         set((state) => {
           const prev = state.contextByQuestion[questionId];
           // No-op if already ready with same prompts - return undefined to prevent re-render
           if (prev?.status === 'ready' && JSON.stringify(prev.prompts) === JSON.stringify(prompts)) {
-            console.debug('[context] no-op setContextReady: already ready', { qid: questionId });
             return undefined;
           }
-          console.debug('[context] status', { qid: questionId, status: 'ready', count: prompts.length });
           return {
             contextByQuestion: {
               ...state.contextByQuestion,
@@ -203,17 +197,14 @@ export const useAssessmentStore = create<AssessmentStore>()(
 
       setContextNone: (questionId) => {
         if (!questionId || questionId === '__none__') {
-          console.debug('[context] skipped setContextNone: empty qid');
           return;
         }
         set((state) => {
           const prev = state.contextByQuestion[questionId];
           // No-op if status is already 'none' - return undefined to prevent re-render
           if (prev?.status === 'none') {
-            console.debug('[context] no-op setContextNone: already none', { qid: questionId });
             return undefined;
           }
-          console.debug('[context] status', { qid: questionId, status: 'none' });
           return {
             contextByQuestion: {
               ...state.contextByQuestion,
@@ -225,17 +216,14 @@ export const useAssessmentStore = create<AssessmentStore>()(
 
       setContextError: (questionId, error) => {
         if (!questionId || questionId === '__none__') {
-          console.debug('[context] skipped setContextError: empty qid');
           return;
         }
         set((state) => {
           const prev = state.contextByQuestion[questionId];
           // No-op if already error with same message - return undefined to prevent re-render
           if (prev?.status === 'error' && prev.error === error) {
-            console.debug('[context] no-op setContextError: already error', { qid: questionId });
             return undefined;
           }
-          console.debug('[context] status', { qid: questionId, status: 'error', error });
           return {
             contextByQuestion: {
               ...state.contextByQuestion,
@@ -246,18 +234,14 @@ export const useAssessmentStore = create<AssessmentStore>()(
       },
 
       clearContextForQuestion: (questionId) => {
-        console.debug('[store] clearContextForQuestion CALLED', { qid: questionId });
         if (!questionId || questionId === '__none__') {
-          console.debug('[context] skipped clearContextForQuestion: empty qid');
           return;
         }
         set((state) => {
           // No-op if there's nothing to clear - return undefined to prevent re-render
           if (!(questionId in state.contextByQuestion)) {
-            console.debug('[context] no-op clearContextForQuestion: nothing to clear', { qid: questionId });
             return undefined;
           }
-          console.debug('[context] cleared', { qid: questionId });
           const newContext = { ...state.contextByQuestion };
           delete newContext[questionId];
           return { contextByQuestion: newContext };

@@ -25,12 +25,20 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer, answerO
   const explanation = store.getExplanationForQuestion(sessionId, questionId || '__none__');
   const contextPrompt = currentState?.contextPrompt || '';
   
-  // Debug: Log explanation changes per question
-  console.log(`🔍 useContextPanel for Q${questionId}: explanation="${explanation.substring(0, 30)}...", shouldShow=${currentState?.shouldShowContext}`);
+  // Debug: Log explanation changes per question - only when they actually change
+  const prevExplanationRef = useRef<string>("");
+  const explanationKey = `${questionId}-${explanation.length}`;
+  if (prevExplanationRef.current !== explanationKey) {
+    console.log(`🔍 useContextPanel for Q${questionId}: explanation length=${explanation.length}, shouldShow=${currentState?.shouldShowContext}`);
+    prevExplanationRef.current = explanationKey;
+  }
   
   // Safety check: verify we're getting the right explanation for the right question
-  if (explanation && questionId) {
+  const prevValidationRef = useRef<string>("");
+  const validationKey = `${questionId}-${explanation.length > 0}`;
+  if (explanation && questionId && prevValidationRef.current !== validationKey) {
     console.log(`✅ Context state for Q${questionId}: has explanation (${explanation.length} chars)`);
+    prevValidationRef.current = validationKey;
   }
   
   // Debounced explanation for auto-saving (increased delay) with cancellation
@@ -40,7 +48,11 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer, answerO
   const shouldShowContext = useMemo(() => {
     // Only show if explicitly flagged by context requirement check
     const showFromStore = currentState?.shouldShowContext || false;
-    console.log(`🔍 Context check for Q${questionId}: shouldShowContext=${showFromStore}`);
+    // Reduce logging - only when flag changes
+    const flagKey = `${questionId}-${showFromStore}`;
+    if (prevExplanationRef.current !== flagKey) {
+      console.log(`🔍 Context check for Q${questionId}: shouldShowContext=${showFromStore}`);
+    }
     return showFromStore;
   }, [currentState?.shouldShowContext, questionId]);
 
