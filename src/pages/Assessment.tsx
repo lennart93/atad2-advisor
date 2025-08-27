@@ -212,7 +212,7 @@ const Assessment = () => {
     contextPrompt,
     contextStatus,
     contextPrompts
-  } = usePanelController(sessionId, qId, dbRequiresExplanation);
+  } = usePanelController(sessionId, qId, answerOptionText, dbRequiresExplanation);
 
   // Hardened context loader
   const { loadContextQuestions: hardenedLoadContext } = useHardenedContextLoader();
