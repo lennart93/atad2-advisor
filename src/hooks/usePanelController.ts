@@ -41,11 +41,18 @@ export function usePanelController(sessionId: string, questionId?: string, requi
     if (!selectedAnswerId) return "";     // 🔒 nooit "oude" tekst zonder keus
     if (!isValidQuestion) return "";      // 🔒 geen tekst voor ongeldige vragen
     
+    // Extra safety: ensure qState answer matches current selectedAnswerId
+    const expectedAnswerId = `${qId}-${qState?.answer}`;
+    if (selectedAnswerId !== expectedAnswerId) {
+      console.log(`🛡️ Safety: Answer mismatch - expected "${expectedAnswerId}", got "${selectedAnswerId}". Returning empty.`);
+      return "";
+    }
+    
     // Get current question's explanation directly from store for this session
     const currentExplanation = qState?.explanation ?? "";
     console.log(`🔍 Panel value calculation for Q${qId}: explanation="${currentExplanation}", selectedAnswer="${selectedAnswerId}"`);
     return currentExplanation;
-  }, [qId, selectedAnswerId, qState?.explanation, isValidQuestion]);
+  }, [qId, selectedAnswerId, qState?.explanation, qState?.answer, isValidQuestion]);
   
   // Context status details
   const hasPrompts = contextPrompts.length > 0;

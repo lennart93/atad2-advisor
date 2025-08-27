@@ -1478,7 +1478,7 @@ const Assessment = () => {
                               </div>
                               
                               <Textarea
-                                key={`explanation-${qId}`}
+                                key={`explanation-${sessionId}-${qId}-${selectedAnswerId}`}
                                 value={contextValue}
                                 onChange={(e) => updateExplanation(e.target.value)}
                                 placeholder={
