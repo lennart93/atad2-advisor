@@ -160,11 +160,6 @@ export function AssessmentSidebar({ answers, questionHistory, currentQuestion, p
                   {pendingQuestion.question_title || `Question ${pendingQuestion.question_id}`}
                 </h4>
                 
-                <div className="mt-2">
-                  <span className="text-xs text-muted-foreground/80 font-medium">
-                    Waiting for input...
-                  </span>
-                </div>
               </div>
             </div>
           </button>
