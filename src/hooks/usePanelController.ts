@@ -8,8 +8,20 @@ export function usePanelController(sessionId: string, questionId?: string, requi
   const store = useAssessmentStore();
 
   // Haal ALLES uit store (nooit lokale selectedAnswer)
-  const qState = store.getQuestionState(sessionId, qId);
-  const answer = qState?.answer;
+  // First get the current answer for this question across all answer states
+  const allStates = store.byKey;
+  const matchingKeys = Object.keys(allStates).filter(key => {
+    const [sessionPart, questionPart] = key.split(':');
+    return sessionPart === sessionId && questionPart === qId;
+  });
+  
+  // Find the most recent answer state (the one with an actual answer value)
+  const currentAnswerState = matchingKeys
+    .map(key => allStates[key])
+    .find(state => state.answer) || { answer: null, explanation: '', shouldShowContext: false };
+  
+  const answer = currentAnswerState.answer;
+  const qState = answer ? store.getQuestionState(sessionId, qId, answer) : currentAnswerState;
   const shouldShowContext = qState?.shouldShowContext ?? false;
   
   // Create selectedOption object based on answer (simplified)
@@ -48,7 +60,7 @@ export function usePanelController(sessionId: string, questionId?: string, requi
       return "";
     }
     
-    // Get current question's explanation directly from store for this session
+    // Get current question's explanation directly from store for this session and answer
     const currentExplanation = qState?.explanation ?? "";
     console.log(`🔍 Panel value calculation for Q${qId}: explanation="${currentExplanation}", selectedAnswer="${selectedAnswerId}"`);
     return currentExplanation;

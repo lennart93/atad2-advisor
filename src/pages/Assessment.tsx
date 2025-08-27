@@ -267,12 +267,8 @@ const Assessment = () => {
       return "";
     }
     
-    // Clear explanation for this question to prevent cross-contamination
-    console.log(`🧹 Clearing explanation for Q${questionId} to prevent cross-contamination`);
-    store.clearExplanation(sessionId, questionId);
-    
-    // First check store (with session validation)
-    const questionState = store.getQuestionState(sessionId, questionId);
+    // First check store (with session validation) - now using current answer
+    const questionState = store.getQuestionState(sessionId, questionId, selectedAnswer);
     if (questionState?.answer) {
       console.log(`🔄 Restored answer from store for Q${questionId}: ${questionState.answer} (Session: ${sessionId})`);
       return questionState.answer;
@@ -563,9 +559,6 @@ const Assessment = () => {
           setIsTransitioning(true);
           setTimeout(async () => {
             console.log(`🚀 Navigating from Q${currentQuestion.question_id} to Q${nextQuestion.question_id}`);
-            // Clear explanation BEFORE navigation to prevent cross-contamination
-            console.log(`🧹 Pre-navigation: Clearing explanation for Q${nextQuestion.question_id}`);
-            store.clearExplanation(sessionId, nextQuestion.question_id);
             setCurrentQuestion(nextQuestion);
             setPendingQuestion(nextQuestion); // Update pending question
             
@@ -613,9 +606,6 @@ const Assessment = () => {
     }
     
     const targetEntry = questionFlow[targetIndex];
-    // Clear explanation BEFORE navigation to prevent cross-contamination
-    console.log(`🧹 Pre-navigation: Clearing explanation for Q${targetEntry.question.question_id}`);
-    store.clearExplanation(sessionId, targetEntry.question.question_id);
     setCurrentQuestion(targetEntry.question);
     setSelectedAnswer(targetEntry.answer);
     setNavigationIndex(targetIndex);
@@ -632,9 +622,6 @@ const Assessment = () => {
     
     const targetIndex = navigationIndex + 1;
     const targetEntry = questionFlow[targetIndex];
-    // Clear explanation BEFORE navigation to prevent cross-contamination
-    console.log(`🧹 Pre-navigation: Clearing explanation for Q${targetEntry.question.question_id}`);
-    store.clearExplanation(sessionId, targetEntry.question.question_id);
     setCurrentQuestion(targetEntry.question);
     setSelectedAnswer(targetEntry.answer);
     setNavigationIndex(targetIndex);
@@ -658,9 +645,6 @@ const Assessment = () => {
     if (lastAnsweredQuestionOption?.next_question_id && lastAnsweredQuestionOption.next_question_id !== "end") {
       const nextQuestion = questions.find(q => q.question_id === lastAnsweredQuestionOption.next_question_id && q.answer_option === "Yes");
       if (nextQuestion) {
-        // Clear explanation BEFORE navigation to prevent cross-contamination
-        console.log(`🧹 Pre-navigation: Clearing explanation for Q${nextQuestion.question_id}`);
-        store.clearExplanation(sessionId, nextQuestion.question_id);
         setCurrentQuestion(nextQuestion);
         setPendingQuestion(nextQuestion); // Update pending question
         
@@ -682,9 +666,6 @@ const Assessment = () => {
     if (questionIndex >= questionFlow.length) return;
     
     const targetEntry = questionFlow[questionIndex];
-    // Clear explanation BEFORE navigation to prevent cross-contamination
-    console.log(`🧹 Pre-navigation: Clearing explanation for Q${targetEntry.question.question_id}`);
-    store.clearExplanation(sessionId, targetEntry.question.question_id);
     setCurrentQuestion(targetEntry.question);
     setSelectedAnswer(targetEntry.answer);
     setNavigationIndex(questionIndex);
@@ -700,9 +681,6 @@ const Assessment = () => {
   const goToPendingQuestion = async () => {
     if (!pendingQuestion) return;
     
-    // Clear explanation BEFORE navigation to prevent cross-contamination
-    console.log(`🧹 Pre-navigation: Clearing explanation for Q${pendingQuestion.question_id}`);
-    store.clearExplanation(sessionId, pendingQuestion.question_id);
     setCurrentQuestion(pendingQuestion);
     
     // Restore existing answer if any
@@ -741,8 +719,7 @@ const Assessment = () => {
     // Only clear if the answer doesn't require explanation (not proactively)
     if (!requiresExplanation) {
       console.log(`🚫 Answer ${answer} for Q${questionId} does not require explanation - clearing context`);
-      store.clearExplanation(sessionId, questionId);
-      store.setQuestionState(sessionId, questionId, {
+      store.setQuestionState(sessionId, questionId, answer, {
         shouldShowContext: false,
         contextPrompt: '',
       });
@@ -984,9 +961,6 @@ const Assessment = () => {
           console.log("➡️ Moving to next question:", nextQuestion.question_id);
           setIsTransitioning(true);
           setTimeout(async () => {
-            // Clear explanation BEFORE navigation to prevent cross-contamination
-            console.log(`🧹 Pre-navigation: Clearing explanation for Q${nextQuestion.question_id}`);
-            store.clearExplanation(sessionId, nextQuestion.question_id);
             setCurrentQuestion(nextQuestion);
             setPendingQuestion(nextQuestion);
             

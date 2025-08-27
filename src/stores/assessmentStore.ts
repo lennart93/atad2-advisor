@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 
-export type QAKey = `${string}:${string}`; // `${sessionId}:${questionId}`
+export type QAKey = `${string}:${string}:${string}`; // `${sessionId}:${questionId}:${answer}`
 export type ContextStatus = 'idle' | 'loading' | 'ready' | 'none' | 'error';
 
 export interface ContextState {
@@ -24,13 +24,12 @@ interface AssessmentStore {
   contextByQuestion: Record<string, ContextState>;
   
   // Actions
-  setQuestionState: (sessionId: string, questionId: string, state: Partial<QAState>) => void;
-  getQuestionState: (sessionId: string, questionId: string) => QAState | undefined;
-  updateExplanation: (sessionId: string, questionId: string, explanation: string) => void;
+  setQuestionState: (sessionId: string, questionId: string, answer: string | null, state: Partial<QAState>) => void;
+  getQuestionState: (sessionId: string, questionId: string, answer?: string | null) => QAState | undefined;
+  updateExplanation: (sessionId: string, questionId: string, answer: string, explanation: string) => void;
   updateAnswer: (sessionId: string, questionId: string, answer: 'Yes' | 'No' | 'Unknown') => void;
-  setContextPrompt: (sessionId: string, questionId: string, prompt: string) => void;
-  setShouldShowContext: (sessionId: string, questionId: string, show: boolean) => void;
-  clearExplanation: (sessionId: string, questionId: string) => void;
+  setContextPrompt: (sessionId: string, questionId: string, answer: string, prompt: string) => void;
+  setShouldShowContext: (sessionId: string, questionId: string, answer: string, show: boolean) => void;
   clearSession: (sessionId: string) => void;
   clearAllSessions: () => void;
   
@@ -46,7 +45,8 @@ interface AssessmentStore {
   cancelAutosave?: (questionId: string) => void;
 }
 
-const createQAKey = (sessionId: string, questionId: string): QAKey => `${sessionId}:${questionId}`;
+const createQAKey = (sessionId: string, questionId: string, answer: string | null): QAKey => 
+  `${sessionId}:${questionId}:${answer || 'none'}`;
 
 export const useAssessmentStore = create<AssessmentStore>()(
   devtools(
@@ -54,8 +54,8 @@ export const useAssessmentStore = create<AssessmentStore>()(
       byKey: {},
       contextByQuestion: {},
 
-      setQuestionState: (sessionId, questionId, state) => {
-        const key = createQAKey(sessionId, questionId);
+      setQuestionState: (sessionId, questionId, answer, state) => {
+        const key = createQAKey(sessionId, questionId, answer);
         set((prev) => ({
           byKey: {
             ...prev.byKey,
@@ -67,18 +67,19 @@ export const useAssessmentStore = create<AssessmentStore>()(
         }), false, 'setQuestionState');
       },
 
-      getQuestionState: (sessionId, questionId) => {
-        const key = createQAKey(sessionId, questionId);
-        return get().byKey[key];
+      getQuestionState: (sessionId, questionId, answer) => {
+        const key = createQAKey(sessionId, questionId, answer);
+        return get().byKey[key] || { answer: null, explanation: '' };
       },
 
-      updateExplanation: (sessionId, questionId, explanation) => {
-        const key = createQAKey(sessionId, questionId);
+      updateExplanation: (sessionId, questionId, answer, explanation) => {
+        const key = createQAKey(sessionId, questionId, answer);
         set((prev) => ({
           byKey: {
             ...prev.byKey,
             [key]: {
               ...prev.byKey[key],
+              answer: answer as 'Yes' | 'No' | 'Unknown',
               explanation,
             },
           },
@@ -86,20 +87,22 @@ export const useAssessmentStore = create<AssessmentStore>()(
       },
 
       updateAnswer: (sessionId, questionId, answer) => {
-        const key = createQAKey(sessionId, questionId);
+        // When answer changes, we start with a fresh state for the new answer
+        const key = createQAKey(sessionId, questionId, answer);
         set((prev) => ({
           byKey: {
             ...prev.byKey,
             [key]: {
               ...prev.byKey[key],
               answer,
+              explanation: prev.byKey[key]?.explanation || '', // Keep existing or start empty
             },
           },
         }), false, 'updateAnswer');
       },
 
-      setContextPrompt: (sessionId, questionId, prompt) => {
-        const key = createQAKey(sessionId, questionId);
+      setContextPrompt: (sessionId, questionId, answer, prompt) => {
+        const key = createQAKey(sessionId, questionId, answer);
         set((prev) => ({
           byKey: {
             ...prev.byKey,
@@ -111,8 +114,8 @@ export const useAssessmentStore = create<AssessmentStore>()(
         }), false, 'setContextPrompt');
       },
 
-      setShouldShowContext: (sessionId, questionId, show) => {
-        const key = createQAKey(sessionId, questionId);
+      setShouldShowContext: (sessionId, questionId, answer, show) => {
+        const key = createQAKey(sessionId, questionId, answer);
         set((prev) => ({
           byKey: {
             ...prev.byKey,
@@ -122,22 +125,6 @@ export const useAssessmentStore = create<AssessmentStore>()(
             },
           },
         }), false, 'setShouldShowContext');
-      },
-
-      clearExplanation: (sessionId, questionId) => {
-        const key = createQAKey(sessionId, questionId);
-        set((prev) => ({
-          byKey: {
-            ...prev.byKey,
-            [key]: {
-              ...prev.byKey[key],
-              explanation: '',
-              shouldShowContext: false,
-              lastSyncedExplanation: '',
-              contextPrompt: undefined,
-            },
-          },
-        }), false, 'clearExplanation');
       },
 
       clearSession: (sessionId) => {
@@ -274,8 +261,8 @@ export const useAssessmentStore = create<AssessmentStore>()(
         const explanations: Record<string, string> = {};
         
         Object.entries(state.byKey).forEach(([key, qaState]) => {
-          const questionId = key.split(':')[1];
-          if (questionId && qaState.explanation) {
+          const [, questionId, answer] = key.split(':');
+          if (questionId && answer && qaState.explanation && qaState.answer === answer) {
             explanations[questionId] = qaState.explanation;
           }
         });

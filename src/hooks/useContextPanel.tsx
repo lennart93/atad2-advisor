@@ -20,8 +20,8 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer, answerO
   const store = useAssessmentStore();
   const [savingStatus, setSavingStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   
-  // Get current state from store (using safe questionId)
-  const currentState = store.getQuestionState(sessionId, safeQuestionId);
+  // Get current state from store (using safe questionId and current answer)
+  const currentState = store.getQuestionState(sessionId, safeQuestionId, selectedAnswer);
   const explanation = currentState?.explanation || '';
   const contextPrompt = currentState?.contextPrompt || '';
   
@@ -65,7 +65,7 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer, answerO
           .maybeSingle();
 
         if (existingAnswer) {
-          store.setQuestionState(sessionId, questionId, {
+          store.setQuestionState(sessionId, questionId, existingAnswer.answer, {
             answer: existingAnswer.answer as 'Yes' | 'No' | 'Unknown',
             explanation: existingAnswer.explanation || '',
             lastSyncedAt: new Date().toISOString(),
@@ -138,7 +138,8 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer, answerO
         if (error) throw error;
 
         // Update store with sync timestamp and the raw explanation we just saved
-        store.setQuestionState(sessionId, questionId, {
+        const currentAnswer = selectedAnswer || currentState?.answer;
+        store.setQuestionState(sessionId, questionId, currentAnswer, {
           lastSyncedAt: new Date().toISOString(),
           lastSyncedExplanation: debouncedExplanation, // Raw value, no validation
         });
@@ -187,19 +188,19 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer, answerO
         console.log(`⏳ Set loading status for Q${questionId}`);
 
         // Cache a random context question in store
-        const existingPrompt = store.getQuestionState(sessionId, questionId)?.contextPrompt;
+        const existingPrompt = store.getQuestionState(sessionId, questionId, answer)?.contextPrompt;
         let selectedPrompt = existingPrompt;
         
         if (!selectedPrompt) {
           selectedPrompt = contextQuestions[Math.floor(Math.random() * contextQuestions.length)].context_question;
-          store.setContextPrompt(sessionId, questionId, selectedPrompt);
+          store.setContextPrompt(sessionId, questionId, answer, selectedPrompt);
           console.log(`💡 Set new context prompt for Q${questionId}: ${selectedPrompt.substring(0, 50)}...`);
         } else {
           console.log(`📝 Using existing context prompt for Q${questionId}`);
         }
         
         console.log(`🔧 Setting shouldShowContext=true in store for Q${questionId}`);
-        store.setShouldShowContext(sessionId, questionId, true);
+        store.setShouldShowContext(sessionId, questionId, answer, true);
 
         // Set context ready with prompts
         const prompts = contextQuestions.map(q => q.context_question);
@@ -207,7 +208,7 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer, answerO
         console.log(`✅ Set context READY with ${prompts.length} prompts for Q${questionId}`);
         
         // Verify store state was updated
-        const verifyState = store.getQuestionState(sessionId, questionId);
+        const verifyState = store.getQuestionState(sessionId, questionId, answer);
         const verifyContext = store.contextByQuestion[questionId];
         console.log(`🔍 Store verification for Q${questionId}:`, {
           shouldShowContext: verifyState?.shouldShowContext,
@@ -223,7 +224,7 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer, answerO
         console.log(`❌ No context triggers found, set status to 'none' for Q${questionId}`);
       }
       
-      store.setShouldShowContext(sessionId, questionId, false);
+      store.setShouldShowContext(sessionId, questionId, answer, false);
       return null;
     } catch (error) {
       console.error('Error loading context questions:', error);
@@ -285,20 +286,26 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer, answerO
   // Update explanation in store - no validation during typing
   const updateExplanation = useCallback((newExplanation: string) => {
     // Store raw value without validation to preserve spaces during typing
-    store.updateExplanation(sessionId, questionId, newExplanation);
-  }, [sessionId, questionId, store]);
+    const currentAnswer = selectedAnswer || currentState?.answer;
+    if (currentAnswer) {
+      store.updateExplanation(sessionId, questionId, currentAnswer, newExplanation);
+    }
+  }, [sessionId, questionId, selectedAnswer, currentState?.answer, store]);
 
   // Update answer in store
   const updateAnswer = useCallback((answer: 'Yes' | 'No' | 'Unknown') => {
     store.updateAnswer(sessionId, questionId, answer);
   }, [sessionId, questionId, store]);
 
-  // Clear context panel - now uses store clearExplanation for consistency
+  // Clear context panel - simplified since each answer has its own state
   const clearContext = useCallback(async () => {
     console.log(`🧹 Clearing context for Q${questionId}`);
     
-    // Use store's clearExplanation function for consistent state management
-    store.clearExplanation(sessionId, questionId);
+    // With the new key strategy, clearing is simpler - just update the current answer's explanation
+    const currentAnswer = selectedAnswer || currentState?.answer;
+    if (currentAnswer) {
+      store.updateExplanation(sessionId, questionId, currentAnswer, '');
+    }
 
     // Also clear from database to ensure consistency (only if we have an existing answer record)
     try {
@@ -328,7 +335,7 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer, answerO
     } catch (error) {
       console.error('Error clearing context in database:', error);
     }
-  }, [sessionId, questionId, store]);
+  }, [sessionId, questionId, selectedAnswer, currentState?.answer, store]);
 
   // Cancel autosave function
   const cancelAutosave = useCallback(() => {
