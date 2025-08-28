@@ -1586,28 +1586,31 @@ const Assessment = () => {
                           </Button>
                         )}
 
-                        {/* Show Submit button for answers that don't require context panel */}
-                        {!shouldShowContextPanel && selectedAnswer && !shouldShowFinishButton() && navigationIndex === -1 && (
-                          <Button 
-                            onClick={async () => {
-                              // Check if auto-advance is allowed before submitting
-                              const selectedQuestionOption = questions.find(q => 
-                                q.question_id === currentQuestion?.question_id && 
-                                q.answer_option === selectedAnswer
-                              );
-                              
-                              if (canAutoAdvance(selectedQuestionOption)) {
+                        {/* Show Submit button for answers that don't require context panel and don't auto-advance */}
+                        {!shouldShowContextPanel && selectedAnswer && !shouldShowFinishButton() && navigationIndex === -1 && (() => {
+                          const selectedQuestionOption = questions.find(q => 
+                            q.question_id === currentQuestion?.question_id && 
+                            q.answer_option === selectedAnswer
+                          );
+                          
+                          // Don't show button if auto-advance would happen (no explanation required)
+                          if (canAutoAdvance(selectedQuestionOption)) {
+                            return null;
+                          }
+                          
+                          return (
+                            <Button 
+                              onClick={async () => {
+                                console.debug('[nav] manual submit: user clicked button for non-auto-advance answer');
                                 await submitAnswerDirectly(selectedAnswer);
-                              } else {
-                                console.debug('[nav] blocked: requires explanation; stay on question for context');
-                              }
-                            }}
-                            disabled={loading || isTransitioning}
-                            className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            Next →
-                          </Button>
-                        )}
+                              }}
+                              disabled={loading || isTransitioning}
+                              className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              Next →
+                            </Button>
+                          );
+                        })()}
                   </div>
                 </div>
               </CardContent>
