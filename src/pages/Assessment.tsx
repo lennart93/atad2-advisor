@@ -737,13 +737,21 @@ const Assessment = () => {
       requiresExplanation: selectedOption?.requires_explanation 
     });
     
-    // Only clear if the answer doesn't require explanation (not proactively)
+    // If answer doesn't require explanation, auto-advance immediately
     if (!requiresExplanation) {
-      console.log(`🚫 Answer ${answer} for Q${questionId} does not require explanation - clearing context`);
+      console.log(`🚫 Answer ${answer} for Q${questionId} does not require explanation - auto-advancing`);
       store.setQuestionState(sessionId, questionId, answer, {
         shouldShowContext: false,
         contextPrompt: '',
       });
+      
+      // Auto-advance to next question if not in navigation mode
+      if (navigationIndex === -1) {
+        console.log(`⏩ Auto-advancing immediately after ${answer} selection (no context required)`);
+        setTimeout(async () => {
+          await submitAnswerDirectly(answer);
+        }, 100);
+      }
       return;
     }
     
