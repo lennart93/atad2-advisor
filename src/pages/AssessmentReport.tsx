@@ -13,6 +13,7 @@ import { EditableAnswer } from "@/components/EditableAnswer";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
+import WaitingMessage from "@/components/WaitingMessage";
 
 interface SessionData {
   session_id: string;
@@ -302,7 +303,7 @@ const AssessmentReport = () => {
                   </Tooltip>
                 </TooltipProvider>
                 {isGeneratingReport && (
-                  <p className="text-sm text-muted-foreground">This may take a few minutes</p>
+                  <WaitingMessage />
                 )}
               </div>
             </CardContent>
