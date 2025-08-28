@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { InfoIcon, ArrowLeft, HelpCircle } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { AssessmentSidebar } from "@/components/AssessmentSidebar";
 import { Textarea } from "@/components/ui/textarea";
 import { ContextSkeleton, ContextEmptyState, ContextErrorState } from "@/components/ContextPanelStates";
@@ -1283,9 +1283,27 @@ const Assessment = () => {
                 )}
               </div>
               
-              <Button onClick={startSession} disabled={loading} className="w-full">
-                {loading ? "Starting assessment..." : "Start assessment"}
-              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button disabled={loading} className="w-full">
+                    {loading ? "Starting assessment..." : "Start assessment"}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Before you start</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      You are about to use a tool powered by AI. Please be considerate about the information you provide. While the tool works best with as much context as possible, make sure not to share any commercially sensitive or confidential client information.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={startSession}>
+                      I understand
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </CardContent>
           </Card>
         </div>
