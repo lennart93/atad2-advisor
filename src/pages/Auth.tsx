@@ -7,12 +7,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { EmailSplitField, validateLocalPart } from "@/components/EmailSplitField";
 
 const Auth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isEmailValid, setIsEmailValid] = useState(false);
   const navigate = useNavigate();
   
 
@@ -36,8 +38,15 @@ const Auth = () => {
     return () => subscription.unsubscribe();
   }, [navigate]);
 
+  const handleEmailChange = (fullEmail: string, parts: { localPart: string; domain: string }) => {
+    setEmail(fullEmail);
+    setIsEmailValid(fullEmail.length > 0 && validateLocalPart(parts.localPart).valid);
+  };
+
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isEmailValid) return;
+    
     setLoading(true);
 
     try {
@@ -77,6 +86,8 @@ const Auth = () => {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isEmailValid) return;
+    
     setLoading(true);
 
     try {
@@ -123,17 +134,13 @@ const Auth = () => {
             
             <TabsContent value="signin">
               <form onSubmit={handleSignIn} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="signin-email">Email</Label>
-                  <Input
-                    id="signin-email"
-                    type="email"
-                    placeholder="you@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
+                <EmailSplitField
+                  id="signin-email"
+                  value={email}
+                  onChange={handleEmailChange}
+                  autoFocus
+                  required
+                />
                 <div className="space-y-2">
                   <Label htmlFor="signin-password">Password</Label>
                   <Input
@@ -144,7 +151,7 @@ const Auth = () => {
                     required
                   />
                 </div>
-                <Button type="submit" className="w-full" disabled={loading}>
+                <Button type="submit" className="w-full" disabled={loading || !isEmailValid}>
                   {loading ? "Signing in..." : "Sign In"}
                 </Button>
               </form>
@@ -152,17 +159,12 @@ const Auth = () => {
             
             <TabsContent value="signup">
               <form onSubmit={handleSignUp} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="signup-email">Email</Label>
-                  <Input
-                    id="signup-email"
-                    type="email"
-                    placeholder="you@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
+                <EmailSplitField
+                  id="signup-email"
+                  value={email}
+                  onChange={handleEmailChange}
+                  required
+                />
                 <div className="space-y-2">
                   <Label htmlFor="signup-password">Password</Label>
                   <Input
@@ -175,7 +177,7 @@ const Auth = () => {
                     minLength={6}
                   />
                 </div>
-                <Button type="submit" className="w-full" disabled={loading}>
+                <Button type="submit" className="w-full" disabled={loading || !isEmailValid}>
                   {loading ? "Creating account..." : "Create Account"}
                 </Button>
               </form>
