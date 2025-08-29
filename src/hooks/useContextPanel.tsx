@@ -309,7 +309,11 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer, answerO
     // Store raw value without validation to preserve spaces during typing
     const currentAnswer = selectedAnswer || currentState?.answer;
     if (currentAnswer) {
-      store.updateExplanation(sessionId, questionId, currentAnswer, newExplanation);
+      // Clear lastSyncedAt to indicate this is a fresh input
+      store.setQuestionState(sessionId, questionId, currentAnswer, {
+        explanation: newExplanation,
+        lastSyncedAt: undefined, // Mark as unsaved to prevent cross-contamination
+      });
     }
   }, [sessionId, questionId, selectedAnswer, currentState?.answer, store]);
 
