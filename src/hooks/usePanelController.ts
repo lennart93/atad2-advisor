@@ -52,12 +52,10 @@ export function usePanelController(sessionId: string, questionId?: string, selec
       return "";
     }
     
-    // 🔒 CRITICAL FIX: Only return explanation if we're viewing a PREVIOUSLY SAVED answer
-    // If this is a fresh answer selection (no lastSyncedAt), start with empty explanation
-    const hasBeenSaved = qState.lastSyncedAt && qState.lastSyncedExplanation;
-    const currentExplanation = hasBeenSaved ? (qState.explanation || "") : "";
-    
-    console.log(`🔍 Panel value calculation for Q${qId}: explanation="${currentExplanation.substring(0, 20)}...", selectedAnswer="${selectedAnswerId}", hasState=${!!qState}, answerBelongsToQuestion=${answerId === qId}, hasBeenSaved=${!!hasBeenSaved}`);
+    // Get explanation directly from the specific question state
+    // Only return explanation if it's for the exact same question and answer combination
+    const currentExplanation = qState.explanation || "";
+    console.log(`🔍 Panel value calculation for Q${qId}: explanation="${currentExplanation.substring(0, 20)}...", selectedAnswer="${selectedAnswerId}", hasState=${!!qState}, answerBelongsToQuestion=${answerId === qId}`);
     return currentExplanation;
   }, [qId, selectedAnswerId, selectedAnswer, qState, isValidQuestion]);
   

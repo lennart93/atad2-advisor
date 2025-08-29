@@ -89,36 +89,17 @@ export const useAssessmentStore = create<AssessmentStore>()(
 
       updateAnswer: (sessionId, questionId, answer) => {
         // When answer changes, we start with a fresh state for the new answer
-        // CRITICAL: Clear explanations for other answers on the same question
-        const currentKey = createQAKey(sessionId, questionId, answer);
-        
-        set((prev) => {
-          const newByKey = { ...prev.byKey };
-          
-          // Clear explanations for ALL other answer combinations for this question
-          Object.keys(newByKey).forEach(key => {
-            const [keySessionId, keyQuestionId] = key.split(':');
-            if (keySessionId === sessionId && keyQuestionId === questionId && key !== currentKey) {
-              // Clear explanation for other answers to prevent cross-contamination
-              newByKey[key] = {
-                ...newByKey[key],
-                explanation: '',
-                lastSyncedAt: undefined,
-                lastSyncedExplanation: '',
-              };
-            }
-          });
-          
-          // Set the new answer with empty explanation to start fresh
-          newByKey[currentKey] = {
-            ...newByKey[currentKey],
-            answer,
-            explanation: '', // Always start with empty explanation for new answer selection
-            lastSyncedAt: undefined, // Mark as unsaved
-          };
-          
-          return { byKey: newByKey };
-        }, false, 'updateAnswer');
+        const key = createQAKey(sessionId, questionId, answer);
+        set((prev) => ({
+          byKey: {
+            ...prev.byKey,
+            [key]: {
+              ...prev.byKey[key],
+              answer,
+              explanation: prev.byKey[key]?.explanation || '', // Keep existing or start empty
+            },
+          },
+        }), false, 'updateAnswer');
       },
 
       setContextPrompt: (sessionId, questionId, answer, prompt) => {
