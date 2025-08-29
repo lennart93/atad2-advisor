@@ -201,11 +201,11 @@ export const EmailSplitField = React.forwardRef<HTMLInputElement, EmailSplitFiel
             disabled={disabled}
           >
             <SelectTrigger 
-              className="min-w-[10rem] bg-transparent border-0 shadow-none focus:ring-0 hover:bg-accent/50 h-auto p-1 gap-1"
+              className="min-w-[10rem] bg-transparent border-0 shadow-none focus:ring-0 hover:bg-accent/50 h-auto p-1 gap-1 [&>svg]:hidden"
               aria-label="Select email domain"
             >
               <SelectValue />
-              <ChevronDown className="h-4 w-4 opacity-50" />
+              <ChevronDown className="h-4 w-4 opacity-50 ml-1" />
             </SelectTrigger>
             <SelectContent align="end">
               {DOMAINS.map((domain) => (

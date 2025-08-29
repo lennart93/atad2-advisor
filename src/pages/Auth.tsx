@@ -149,6 +149,7 @@ const Auth = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
+                    className="rounded-2xl border px-3 py-2 shadow-sm"
                   />
                 </div>
                 <Button type="submit" className="w-full" disabled={loading || !isEmailValid}>
@@ -175,6 +176,7 @@ const Auth = () => {
                     onChange={(e) => setPassword(e.target.value)}
                     required
                     minLength={6}
+                    className="rounded-2xl border px-3 py-2 shadow-sm"
                   />
                 </div>
                 <Button type="submit" className="w-full" disabled={loading || !isEmailValid}>
