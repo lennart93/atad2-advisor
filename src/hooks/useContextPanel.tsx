@@ -132,7 +132,15 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer, answerO
         // Save raw explanation without any validation during auto-save to preserve spaces
         // Validation will happen only at final submit/report generation
         
-        // Upsert to atad2_answers
+        // Get current question text from the database to preserve it
+        const { data: existingAnswer } = await supabase
+          .from('atad2_answers')
+          .select('question_text, risk_points, difficult_term, term_explanation')
+          .eq('session_id', sessionId)
+          .eq('question_id', questionId)
+          .maybeSingle();
+        
+        // Upsert to atad2_answers, preserving existing question_text and metadata
         const { error } = await supabase
           .from('atad2_answers')
           .upsert({
@@ -140,8 +148,10 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer, answerO
             question_id: questionId,
             answer: selectedAnswer || currentState?.answer || 'Unknown',
             explanation: debouncedExplanation, // Raw value, no validation
-            question_text: '', // This will be filled by the main submit
-            risk_points: 0, // This will be filled by the main submit
+            question_text: existingAnswer?.question_text || '', // Preserve existing question_text
+            risk_points: existingAnswer?.risk_points || 0, // Preserve existing risk_points
+            difficult_term: existingAnswer?.difficult_term, // Preserve existing difficult_term
+            term_explanation: existingAnswer?.term_explanation, // Preserve existing term_explanation
           }, {
             onConflict: 'session_id,question_id',
           });
