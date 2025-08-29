@@ -129,7 +129,7 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer, answerO
       setSavingStatus('saving');
       
       try {
-        // Get existing question data first to preserve it
+        // Get existing answer data first to preserve all fields
         const { data: existingData } = await supabase
           .from('atad2_answers')
           .select('question_text, risk_points, difficult_term, term_explanation')
@@ -137,21 +137,38 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer, answerO
           .eq('question_id', questionId)
           .maybeSingle();
 
-        // Save raw explanation without any validation during auto-save to preserve spaces
-        // Validation will happen only at final submit/report generation
-        
-        // Upsert to atad2_answers, preserving existing data
+        // If no existing data, get question info from atad2_questions table
+        let questionData = existingData;
+        if (!questionData?.question_text) {
+          const { data: questionInfo } = await supabase
+            .from('atad2_questions')
+            .select('question, risk_points, difficult_term, term_explanation')
+            .eq('question_id', questionId)
+            .eq('answer_option', selectedAnswer || currentState?.answer || 'Unknown')
+            .maybeSingle();
+          
+          if (questionInfo) {
+            questionData = {
+              question_text: questionInfo.question,
+              risk_points: questionInfo.risk_points,
+              difficult_term: questionInfo.difficult_term,
+              term_explanation: questionInfo.term_explanation
+            };
+          }
+        }
+
+        // Save explanation while preserving all other data
         const { error } = await supabase
           .from('atad2_answers')
           .upsert({
             session_id: sessionId,
             question_id: questionId,
             answer: selectedAnswer || currentState?.answer || 'Unknown',
-            explanation: debouncedExplanation, // Raw value, no validation
-            question_text: existingData?.question_text || '', // Preserve existing
-            risk_points: existingData?.risk_points || 0, // Preserve existing
-            difficult_term: existingData?.difficult_term || null, // Preserve existing
-            term_explanation: existingData?.term_explanation || null, // Preserve existing
+            explanation: debouncedExplanation,
+            question_text: questionData?.question_text || '',
+            risk_points: questionData?.risk_points || 0,
+            difficult_term: questionData?.difficult_term || null,
+            term_explanation: questionData?.term_explanation || null,
           }, {
             onConflict: 'session_id,question_id',
           });
