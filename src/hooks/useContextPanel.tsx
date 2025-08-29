@@ -56,7 +56,7 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer, answerO
       }
 
       try {
-        // Load existing answer from database
+        // Load existing answer from database - ONLY for this specific question
         const { data: existingAnswer } = await supabase
           .from('atad2_answers')
           .select('answer, explanation')
@@ -65,12 +65,19 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer, answerO
           .maybeSingle();
 
         if (existingAnswer) {
-          store.setQuestionState(sessionId, questionId, existingAnswer.answer, {
-            answer: existingAnswer.answer as 'Yes' | 'No' | 'Unknown',
-            explanation: existingAnswer.explanation || '',
-            lastSyncedAt: new Date().toISOString(),
-            lastSyncedExplanation: existingAnswer.explanation || '',
-          });
+          // CRITICAL: Only set the state for the exact answer that matches
+          // This prevents cross-contamination between questions
+          const answerKey = existingAnswer.answer as 'Yes' | 'No' | 'Unknown';
+          
+          // Only set state if the existing answer matches the selected answer
+          if (selectedAnswer === answerKey) {
+            store.setQuestionState(sessionId, questionId, existingAnswer.answer, {
+              answer: existingAnswer.answer as 'Yes' | 'No' | 'Unknown',
+              explanation: existingAnswer.explanation || '',
+              lastSyncedAt: new Date().toISOString(),
+              lastSyncedExplanation: existingAnswer.explanation || '',
+            });
+          }
         }
       } catch (error) {
         console.error('Error loading initial question data:', error);
@@ -78,7 +85,7 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer, answerO
     };
 
     loadInitialData();
-  }, [sessionId, questionId, currentState?.lastSyncedAt, store]);
+  }, [sessionId, questionId, selectedAnswer, currentState?.lastSyncedAt, store]);
 
   // Auto-save explanation when debounced value changes
   useEffect(() => {

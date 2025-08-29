@@ -53,8 +53,9 @@ export function usePanelController(sessionId: string, questionId?: string, selec
     }
     
     // Get explanation directly from the specific question state
+    // Only return explanation if it's for the exact same question and answer combination
     const currentExplanation = qState.explanation || "";
-    console.log(`🔍 Panel value calculation for Q${qId}: explanation="${currentExplanation}", selectedAnswer="${selectedAnswerId}", hasState=${!!qState}, answerBelongsToQuestion=${answerId === qId}`);
+    console.log(`🔍 Panel value calculation for Q${qId}: explanation="${currentExplanation.substring(0, 20)}...", selectedAnswer="${selectedAnswerId}", hasState=${!!qState}, answerBelongsToQuestion=${answerId === qId}`);
     return currentExplanation;
   }, [qId, selectedAnswerId, selectedAnswer, qState, isValidQuestion]);
   
