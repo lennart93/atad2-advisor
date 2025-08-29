@@ -175,7 +175,7 @@ export const EmailSplitField = React.forwardRef<HTMLInputElement, EmailSplitFiel
             id={id}
             type="text"
             className="flex-[2] bg-transparent outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed"
-            placeholder="your.name"
+            placeholder="email"
             value={localPart}
             onChange={handleLocalPartChange}
             onFocus={() => setFocused(true)}
