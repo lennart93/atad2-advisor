@@ -19,7 +19,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { AssessmentSidebar } from "@/components/AssessmentSidebar";
 import { Textarea } from "@/components/ui/textarea";
-import { DirectExplanationInput, DirectExplanationInputRef } from "@/components/DirectExplanationInput";
 import { ContextSkeleton, ContextEmptyState, ContextErrorState } from "@/components/ContextPanelStates";
 import { ContextPanelFallback } from "@/components/ContextPanelFallback";
 import { seededIndex } from "@/utils/random";
@@ -172,8 +171,6 @@ const Assessment = () => {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [selectedAnswer, setSelectedAnswer] = useState<string>("");
   const [loading, setLoading] = useState(false);
-  const [isExplanationSaving, setIsExplanationSaving] = useState(false);
-  const explanationInputRef = useRef<DirectExplanationInputRef>(null);
   const [questionHistory, setQuestionHistory] = useState<{question: Question, answer: string}[]>([]);
   const [questionFlow, setQuestionFlow] = useState<{question: Question, answer: string}[]>([]); 
   const [navigationIndex, setNavigationIndex] = useState<number>(-1); 
@@ -886,28 +883,36 @@ const Assessment = () => {
         requiresExplanation: !!selectedQuestionOption.requires_explanation
       });
 
-      // ALWAYS get explanation directly from database (bypassing store completely)
-      let finalExplanation = '';
+      // Get explanation from store with strict answer binding
+      const qaKey = `${sessionId}:${currentQuestion.question_id}:${answer}`;
+      const storeExplanation = store.getQuestionState(sessionId, currentQuestion.question_id, answer)?.explanation || '';
       
-      console.debug('[explanation:database-first]', {
+      console.debug('[explanation:retrieval]', {
         questionId: currentQuestion.question_id,
         answer: answer,
+        qaKey: qaKey,
+        storeExplanation: storeExplanation,
+        storeExplanationLength: storeExplanation.length,
         requiresExplanation: selectedQuestionOption.requires_explanation
       });
 
-      try {
+      // For questions that require explanation but store is empty, check database
+      let finalExplanation = storeExplanation;
+      if (!storeExplanation && selectedQuestionOption.requires_explanation) {
+        console.debug('[explanation:fallback] Store empty for required explanation, checking database...');
         const { data: dbAnswer } = await supabase
           .from('atad2_answers')
           .select('explanation')
           .eq('session_id', sessionId)
           .eq('question_id', currentQuestion.question_id)
           .maybeSingle();
-
-        finalExplanation = dbAnswer?.explanation || '';
-        console.debug('[explanation:database-first] Retrieved from DB:', finalExplanation.substring(0, 100));
-      } catch (error) {
-        console.error('[explanation:database-first] Error:', error);
-        finalExplanation = '';
+        
+        if (dbAnswer?.explanation) {
+          finalExplanation = dbAnswer.explanation;
+          console.debug('[explanation:fallback] Found in database:', finalExplanation.substring(0, 100));
+        } else {
+          console.debug('[explanation:fallback] No explanation in database either');
+        }
       }
 
       // Save answer to database
@@ -1473,7 +1478,7 @@ const Assessment = () => {
                            key={index}
                            type="button"
                            onClick={() => handleAnswerSelect(option.answer_option)}
-                            disabled={loading || isTransitioning || isExplanationSaving}
+                           disabled={loading || isTransitioning}
                            className={`
                              w-full p-4 rounded-lg border-2 transition-all duration-200 text-left
                              ${isSelected 
@@ -1521,31 +1526,43 @@ const Assessment = () => {
                           className="bg-gray-50 rounded-lg px-4 py-3 mb-8"
                         >
                           {contextStatus === 'loading' && <ContextSkeleton />}
-                        </div>
-                       )}
+                          
+                          {contextStatus === 'ready' && (
+                            <>
+                              <div className="flex items-center mb-3">
+                                <div className="flex items-center text-sm text-gray-700">
+                                  <span className="text-lg mr-2">💡</span>
+                                  <span>Context for your answer</span>
+                                </div>
+                              </div>
+                              
+                              <Textarea
+                                key={`explanation-${sessionId}-${qId}-${selectedAnswerId}`}
+                                value={contextValue}
+                                onChange={(e) => updateExplanation(e.target.value)}
+                                placeholder={
+                                  contextPrompts.length > 0 
+                                    ? (contextPrompts.length === 1 
+                                        ? contextPrompts[0] 
+                                        : contextPrompts[seededIndex(`${sessionId}::${currentQuestion?.id}`, contextPrompts.length)]
+                                      )
+                                    : "Provide context for your answer..."
+                                }
+                                className="min-h-[120px] resize-none border-gray-200 bg-white mt-3"
+                              />
+                            </>
+                          )}
 
-                      {/* Single Universal Explanation Input - for ALL questions requiring explanation */}
-                      {dbRequiresExplanation && (
-                        <div className="space-y-3 p-4 border rounded-lg bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
-                          <div className="flex items-center gap-2">
-                            <span className="text-lg">💬</span>
-                            <h3 className="font-semibold text-blue-900 dark:text-blue-100">Additional context required</h3>
-                          </div>
-                          <DirectExplanationInput
-                            ref={explanationInputRef}
-                            sessionId={sessionId}
-                            questionId={qId}
-                            onSavingChange={setIsExplanationSaving}
-                            placeholder={
-                              contextPrompts.length > 0 
-                                ? (contextPrompts.length === 1 
-                                    ? contextPrompts[0] 
-                                    : contextPrompts[seededIndex(`${sessionId}::${currentQuestion?.id}`, contextPrompts.length)]
-                                  )
-                                : "Please provide additional context for this answer..."
-                            }
-                            className="min-h-[120px] resize-none bg-white dark:bg-gray-800"
-                          />
+                          {contextStatus === 'none' && (
+                            <ContextEmptyState text="No context questions available for this answer." />
+                          )}
+
+                          {contextStatus === 'error' && (
+                            <ContextErrorState 
+                              text="Couldn't load context questions. Please try again."
+                              onRetry={() => hardenedLoadContext(sessionId, qId, selectedAnswer)}
+                            />
+                          )}
                         </div>
                       )}
 
@@ -1561,7 +1578,7 @@ const Assessment = () => {
                   <div className="flex items-center gap-3">
                     <Button 
                       onClick={goToPreviousQuestion}
-                      disabled={questionFlow.length === 0 || (navigationIndex !== -1 && navigationIndex === 0) || loading || isTransitioning || isExplanationSaving}
+                      disabled={questionFlow.length === 0 || (navigationIndex !== -1 && navigationIndex === 0) || loading || isTransitioning}
                       variant="outline"
                       className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
@@ -1572,7 +1589,7 @@ const Assessment = () => {
                     {!autoAdvance && navigationIndex !== -1 && navigationIndex < questionFlow.length - 1 && (
                       <Button 
                         onClick={goToNextQuestion}
-                         disabled={loading || isTransitioning || isExplanationSaving}
+                        disabled={loading || isTransitioning}
                         variant="outline"
                         className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
@@ -1584,7 +1601,7 @@ const Assessment = () => {
                     {!autoAdvance && navigationIndex === questionFlow.length - 1 && (
                       <Button 
                         onClick={continueToNextUnanswered}
-                         disabled={loading || isTransitioning || isExplanationSaving}
+                        disabled={loading || isTransitioning}
                         variant="outline"
                         className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
@@ -1596,7 +1613,7 @@ const Assessment = () => {
                      {shouldShowFinishButton() && (
                        <Button 
                          onClick={finishAssessment}
-                          disabled={loading || isTransitioning || isExplanationSaving}
+                         disabled={loading || isTransitioning}
                          className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                        >
                          {loading ? "Finishing..." : "Finish assessment"}
@@ -1612,7 +1629,7 @@ const Assessment = () => {
                                 console.debug('[nav] context panel: allowing continue with answered question');
                                 await submitAnswerDirectly(selectedAnswer, true);
                              }}
-                              disabled={loading || isTransitioning || isExplanationSaving}
+                             disabled={loading || isTransitioning}
                              className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                            >
                              Continue
@@ -1637,7 +1654,7 @@ const Assessment = () => {
                                 console.debug('[nav] manual submit: user clicked button for non-auto-advance answer');
                                 await submitAnswerDirectly(selectedAnswer);
                               }}
-                              disabled={loading || isTransitioning || isExplanationSaving}
+                              disabled={loading || isTransitioning}
                               className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               Next →
