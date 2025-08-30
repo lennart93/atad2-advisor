@@ -115,17 +115,12 @@ const AssessmentReport = () => {
       if (sessionError) throw sessionError;
       setSessionData(session);
 
-      // Load answers - ALWAYS get fresh data from database
+      // Load answers
       const { data: answersData, error: answersError } = await supabase
         .from('atad2_answers')
         .select('id, question_id, question_text, answer, explanation, risk_points, answered_at')
         .eq('session_id', sessionId)
         .order('answered_at');
-        
-      console.log('💽 Loading answers from database for report:', answersData?.map(a => ({
-        questionId: a.question_id,
-        explanation: a.explanation?.substring(0, 30) + '...'
-      })));
 
       if (answersError) throw answersError;
       setAnswers(answersData || []);

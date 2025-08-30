@@ -87,52 +87,96 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer, answerO
     loadInitialData();
   }, [sessionId, questionId, selectedAnswer, currentState?.lastSyncedAt, store]);
 
-  // IMMEDIATE DATABASE SAVE - No debouncing, saves directly to database
-  const saveExplanationToDatabase = useCallback(async (explanationText: string) => {
-    if (!sessionId || !questionId || questionId === '__none__') return;
-    
-    const currentAnswer = selectedAnswer || currentState?.answer;
-    if (!currentAnswer) return;
-
-    try {
-      console.log(`💾 IMMEDIATE save explanation for Q${questionId}: "${explanationText}"`);
-      
-      // Direct database update with unique constraint on session_id + question_id
-      const { error } = await supabase
-        .from('atad2_answers')
-        .update({ explanation: explanationText })
-        .eq('session_id', sessionId)
-        .eq('question_id', questionId);
-
-      if (error) throw error;
-      
-      console.log(`✅ IMMEDIATE saved Q${questionId} explanation: "${explanationText}"`);
-      
-      // Update store to reflect what we just saved
-      store.setQuestionState(sessionId, questionId, currentAnswer, {
-        explanation: explanationText,
-        lastSyncedAt: new Date().toISOString(),
-        lastSyncedExplanation: explanationText,
-      });
-      
-      setSavingStatus('saved');
-      setTimeout(() => setSavingStatus('idle'), 1000);
-      
-    } catch (error) {
-      console.error('Error saving explanation:', error);
-      setSavingStatus('idle');
-    }
-  }, [sessionId, questionId, selectedAnswer, currentState?.answer, store]);
-
-  // Debounced save to prevent too many database calls
-  const [debouncedSaveRequest, cancelDebouncedSave] = useDebounce(explanation, 800);
-  
+  // Auto-save explanation when debounced value changes - ONLY UPDATE EXPLANATION
   useEffect(() => {
-    if (debouncedSaveRequest && debouncedSaveRequest !== currentState?.lastSyncedExplanation) {
+    const saveExplanation = async () => {
+      // Guard against sentinel values 
+      if (!sessionId || !questionId || questionId === '__none__') {
+        return;
+      }
+
+      // Check if the debounced value is actually different from what we last saved
+      const lastSyncedExplanation = currentState?.lastSyncedExplanation;
+      if (debouncedExplanation === lastSyncedExplanation) {
+        return;
+      }
+
+      // Auto-save protection: verify current answer requires explanation before saving
+      const currentAnswer = selectedAnswer || currentState?.answer;
+      if (!currentAnswer) {
+        console.log(`🚫 Auto-save cancelled for Q${questionId} - no current answer available`);
+        return;
+      }
+
+      // Check if record already exists - auto-save only updates existing records
+      try {
+        const { data: existingRecord } = await supabase
+          .from('atad2_answers')
+          .select('id')
+          .eq('session_id', sessionId)
+          .eq('question_id', questionId)
+          .maybeSingle();
+
+        if (!existingRecord) {
+          console.log(`🚫 Auto-save cancelled for Q${questionId} - no existing record to update`);
+          return;
+        }
+      } catch (error) {
+        console.error('Error checking for existing record:', error);
+        return;
+      }
+
+      try {
+        const { data: questionData } = await supabase
+          .from('atad2_questions')
+          .select('requires_explanation')
+          .eq('question_id', questionId)
+          .eq('answer_option', currentAnswer)
+          .single();
+
+        const stillRequiresExplanation = questionData?.requires_explanation;
+        if (!stillRequiresExplanation) {
+          console.log(`🚫 Auto-save cancelled for Q${questionId} - answer ${currentAnswer} no longer requires explanation`);
+          return;
+        }
+      } catch (error) {
+        console.error('Error verifying explanation requirement:', error);
+        return;
+      }
+
       setSavingStatus('saving');
-      saveExplanationToDatabase(debouncedSaveRequest);
-    }
-  }, [debouncedSaveRequest, saveExplanationToDatabase, currentState?.lastSyncedExplanation]);
+      
+      try {
+        // UPDATE ONLY the explanation field - never overwrite question_text or risk_points
+        const { error } = await supabase
+          .from('atad2_answers')
+          .update({
+            explanation: debouncedExplanation, // Only update explanation
+          })
+          .eq('session_id', sessionId)
+          .eq('question_id', questionId);
+
+        if (error) throw error;
+
+        console.log(`✅ Auto-saved explanation for Q${questionId} (${debouncedExplanation.length} chars)`);
+
+        // Update store with sync timestamp and the raw explanation we just saved
+        const currentAnswer = selectedAnswer || currentState?.answer;
+        store.setQuestionState(sessionId, questionId, currentAnswer, {
+          lastSyncedAt: new Date().toISOString(),
+          lastSyncedExplanation: debouncedExplanation, // Raw value, no validation
+        });
+
+        setSavingStatus('saved');
+        setTimeout(() => setSavingStatus('idle'), 2000);
+      } catch (error) {
+        console.error('Error auto-saving explanation:', error);
+        setSavingStatus('idle');
+      }
+    };
+
+    saveExplanation();
+  }, [debouncedExplanation, sessionId, questionId, selectedAnswer, currentState?.answer, currentState?.lastSyncedExplanation, store]);
 
   // Track what actions we've taken to prevent loops - previous state tracking
   const lastRef = useRef<{q?: string; a?: string; requires?: boolean}>({});
@@ -262,15 +306,12 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer, answerO
     lastRef.current = { q: questionId, a: selectedAnswer, requires: dbRequiresExplanation };
   }, [questionId, selectedAnswer, status, clearCtx, loadContextQuestions]);
 
-  // Update explanation with immediate database persistence
+  // Update explanation in store - no validation during typing
   const updateExplanation = useCallback((newExplanation: string) => {
+    // Store raw value without validation to preserve spaces during typing
     const currentAnswer = selectedAnswer || currentState?.answer;
     if (currentAnswer) {
-      // Update store immediately for UI responsiveness
       store.updateExplanation(sessionId, questionId, currentAnswer, newExplanation);
-      
-      // The debounced save will handle the database update
-      console.log(`📝 Updated explanation for Q${questionId}: "${newExplanation}"`);
     }
   }, [sessionId, questionId, selectedAnswer, currentState?.answer, store]);
 
@@ -322,9 +363,9 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer, answerO
   // Cancel autosave function
   const cancelAutosave = useCallback(() => {
     console.log(`🚫 Cancelling autosave for Q${questionId}`);
-    cancelDebouncedSave();
+    cancelDebounce();
     setSavingStatus('idle');
-  }, [questionId, cancelDebouncedSave]);
+  }, [questionId, cancelDebounce]);
 
   return {
     // Note: explanation removed - components should get it directly from store
