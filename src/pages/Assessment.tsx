@@ -1145,8 +1145,8 @@ const Assessment = () => {
     return isAtEnd;
   };
 
-  // Check if we should show the finish button
-  const shouldShowFinishButton = () => {
+  // Check if we should show the finish button - memoized to prevent flickering
+  const shouldShowFinishButton = useMemo(() => {
     console.log("=== shouldShowFinishButton CHECK ===");
     console.log("navigationIndex:", navigationIndex);
     console.log("selectedAnswer:", selectedAnswer);
@@ -1156,7 +1156,7 @@ const Assessment = () => {
     console.log("shouldShowFinishButton RESULT:", shouldShow);
     console.log("=== END shouldShowFinishButton CHECK ===");
     return shouldShow;
-  };
+  }, [navigationIndex, selectedAnswer, currentQuestion, questions]);
 
   // User auth is handled by useEffect redirect on lines 263-267
 
@@ -1610,7 +1610,7 @@ const Assessment = () => {
                     )}
 
                      {/* Show Finish Assessment button when at end of flow */}
-                     {shouldShowFinishButton() && (
+                     {shouldShowFinishButton && (
                        <Button 
                          onClick={finishAssessment}
                          disabled={loading || isTransitioning}
@@ -1621,7 +1621,7 @@ const Assessment = () => {
                      )}
 
                         {/* Show Submit/Continue button when context panel is visible and we have an answer, but NOT when it's the last question */}
-                        {shouldShowContextPanel && selectedAnswer && !shouldShowFinishButton() && (
+                        {shouldShowContextPanel && selectedAnswer && !shouldShowFinishButton && (
                           <Button 
                              onClick={async () => {
                                 // Context panel allows navigation regardless of auto-advance rules
@@ -1637,7 +1637,7 @@ const Assessment = () => {
                         )}
 
                         {/* Show Submit button for answers that don't require context panel and don't auto-advance */}
-                        {!shouldShowContextPanel && selectedAnswer && !shouldShowFinishButton() && navigationIndex === -1 && (() => {
+                        {!shouldShowContextPanel && selectedAnswer && !shouldShowFinishButton && navigationIndex === -1 && (() => {
                           const selectedQuestionOption = questions.find(q => 
                             q.question_id === currentQuestion?.question_id && 
                             q.answer_option === selectedAnswer
