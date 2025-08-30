@@ -884,36 +884,28 @@ const Assessment = () => {
         requiresExplanation: !!selectedQuestionOption.requires_explanation
       });
 
-      // Get explanation from store with strict answer binding
-      const qaKey = `${sessionId}:${currentQuestion.question_id}:${answer}`;
-      const storeExplanation = store.getQuestionState(sessionId, currentQuestion.question_id, answer)?.explanation || '';
+      // ALWAYS get explanation directly from database (bypassing store completely)
+      let finalExplanation = '';
       
-      console.debug('[explanation:retrieval]', {
+      console.debug('[explanation:database-first]', {
         questionId: currentQuestion.question_id,
         answer: answer,
-        qaKey: qaKey,
-        storeExplanation: storeExplanation,
-        storeExplanationLength: storeExplanation.length,
         requiresExplanation: selectedQuestionOption.requires_explanation
       });
 
-      // For questions that require explanation but store is empty, check database
-      let finalExplanation = storeExplanation;
-      if (!storeExplanation && selectedQuestionOption.requires_explanation) {
-        console.debug('[explanation:fallback] Store empty for required explanation, checking database...');
+      try {
         const { data: dbAnswer } = await supabase
           .from('atad2_answers')
           .select('explanation')
           .eq('session_id', sessionId)
           .eq('question_id', currentQuestion.question_id)
           .maybeSingle();
-        
-        if (dbAnswer?.explanation) {
-          finalExplanation = dbAnswer.explanation;
-          console.debug('[explanation:fallback] Found in database:', finalExplanation.substring(0, 100));
-        } else {
-          console.debug('[explanation:fallback] No explanation in database either');
-        }
+
+        finalExplanation = dbAnswer?.explanation || '';
+        console.debug('[explanation:database-first] Retrieved from DB:', finalExplanation.substring(0, 100));
+      } catch (error) {
+        console.error('[explanation:database-first] Error:', error);
+        finalExplanation = '';
       }
 
       // Save answer to database
