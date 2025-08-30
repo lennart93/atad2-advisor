@@ -33,8 +33,8 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer, answerO
     console.log(`✅ Context state for Q${questionId}: has explanation (${explanation.length} chars)`);
   }
   
-  // Debounced explanation for auto-saving (faster save to prevent explanation bleeding)
-  const [debouncedExplanation, cancelDebounce] = useDebounce(explanation, 300);
+  // Debounced explanation for auto-saving (ultra-fast save to prevent explanation bleeding)
+  const [debouncedExplanation, cancelDebounce] = useDebounce(explanation, 100);
   
   // Check if context panel should be shown - only based on explicit flag, NOT explanation content
   const shouldShowContext = useMemo(() => {
