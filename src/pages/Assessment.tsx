@@ -19,7 +19,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { AssessmentSidebar } from "@/components/AssessmentSidebar";
 import { Textarea } from "@/components/ui/textarea";
-import { DirectExplanationInput } from "@/components/DirectExplanationInput";
+import { DirectExplanationInput, DirectExplanationInputRef } from "@/components/DirectExplanationInput";
 import { ContextSkeleton, ContextEmptyState, ContextErrorState } from "@/components/ContextPanelStates";
 import { ContextPanelFallback } from "@/components/ContextPanelFallback";
 import { seededIndex } from "@/utils/random";
@@ -172,6 +172,8 @@ const Assessment = () => {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [selectedAnswer, setSelectedAnswer] = useState<string>("");
   const [loading, setLoading] = useState(false);
+  const [isExplanationSaving, setIsExplanationSaving] = useState(false);
+  const explanationInputRef = useRef<DirectExplanationInputRef>(null);
   const [questionHistory, setQuestionHistory] = useState<{question: Question, answer: string}[]>([]);
   const [questionFlow, setQuestionFlow] = useState<{question: Question, answer: string}[]>([]); 
   const [navigationIndex, setNavigationIndex] = useState<number>(-1); 
@@ -1471,7 +1473,7 @@ const Assessment = () => {
                            key={index}
                            type="button"
                            onClick={() => handleAnswerSelect(option.answer_option)}
-                           disabled={loading || isTransitioning}
+                            disabled={loading || isTransitioning || isExplanationSaving}
                            className={`
                              w-full p-4 rounded-lg border-2 transition-all duration-200 text-left
                              ${isSelected 
@@ -1530,8 +1532,10 @@ const Assessment = () => {
                               </div>
                               
                                 <DirectExplanationInput
+                                  ref={explanationInputRef}
                                   sessionId={sessionId}
                                   questionId={qId}
+                                  onSavingChange={setIsExplanationSaving}
                                   placeholder={
                                     contextPrompts.length > 0 
                                       ? (contextPrompts.length === 1 
@@ -1570,7 +1574,7 @@ const Assessment = () => {
                   <div className="flex items-center gap-3">
                     <Button 
                       onClick={goToPreviousQuestion}
-                      disabled={questionFlow.length === 0 || (navigationIndex !== -1 && navigationIndex === 0) || loading || isTransitioning}
+                      disabled={questionFlow.length === 0 || (navigationIndex !== -1 && navigationIndex === 0) || loading || isTransitioning || isExplanationSaving}
                       variant="outline"
                       className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
@@ -1581,7 +1585,7 @@ const Assessment = () => {
                     {!autoAdvance && navigationIndex !== -1 && navigationIndex < questionFlow.length - 1 && (
                       <Button 
                         onClick={goToNextQuestion}
-                        disabled={loading || isTransitioning}
+                         disabled={loading || isTransitioning || isExplanationSaving}
                         variant="outline"
                         className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
@@ -1593,7 +1597,7 @@ const Assessment = () => {
                     {!autoAdvance && navigationIndex === questionFlow.length - 1 && (
                       <Button 
                         onClick={continueToNextUnanswered}
-                        disabled={loading || isTransitioning}
+                         disabled={loading || isTransitioning || isExplanationSaving}
                         variant="outline"
                         className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
@@ -1605,7 +1609,7 @@ const Assessment = () => {
                      {shouldShowFinishButton() && (
                        <Button 
                          onClick={finishAssessment}
-                         disabled={loading || isTransitioning}
+                          disabled={loading || isTransitioning || isExplanationSaving}
                          className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                        >
                          {loading ? "Finishing..." : "Finish assessment"}
@@ -1621,7 +1625,7 @@ const Assessment = () => {
                                 console.debug('[nav] context panel: allowing continue with answered question');
                                 await submitAnswerDirectly(selectedAnswer, true);
                              }}
-                             disabled={loading || isTransitioning}
+                              disabled={loading || isTransitioning || isExplanationSaving}
                              className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                            >
                              Continue
@@ -1646,7 +1650,7 @@ const Assessment = () => {
                                 console.debug('[nav] manual submit: user clicked button for non-auto-advance answer');
                                 await submitAnswerDirectly(selectedAnswer);
                               }}
-                              disabled={loading || isTransitioning}
+                              disabled={loading || isTransitioning || isExplanationSaving}
                               className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               Next →
