@@ -19,6 +19,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { AssessmentSidebar } from "@/components/AssessmentSidebar";
 import { Textarea } from "@/components/ui/textarea";
+import { DirectExplanationInput } from "@/components/DirectExplanationInput";
 import { ContextSkeleton, ContextEmptyState, ContextErrorState } from "@/components/ContextPanelStates";
 import { ContextPanelFallback } from "@/components/ContextPanelFallback";
 import { seededIndex } from "@/utils/random";
@@ -1536,20 +1537,19 @@ const Assessment = () => {
                                 </div>
                               </div>
                               
-                              <Textarea
-                                key={`explanation-${sessionId}-${qId}-${selectedAnswerId}`}
-                                value={contextValue}
-                                onChange={(e) => updateExplanation(e.target.value)}
-                                placeholder={
-                                  contextPrompts.length > 0 
-                                    ? (contextPrompts.length === 1 
-                                        ? contextPrompts[0] 
-                                        : contextPrompts[seededIndex(`${sessionId}::${currentQuestion?.id}`, contextPrompts.length)]
-                                      )
-                                    : "Provide context for your answer..."
-                                }
-                                className="min-h-[120px] resize-none border-gray-200 bg-white mt-3"
-                              />
+                                <DirectExplanationInput
+                                  sessionId={sessionId}
+                                  questionId={qId}
+                                  placeholder={
+                                    contextPrompts.length > 0 
+                                      ? (contextPrompts.length === 1 
+                                          ? contextPrompts[0] 
+                                          : contextPrompts[seededIndex(`${sessionId}::${currentQuestion?.id}`, contextPrompts.length)]
+                                        )
+                                      : "Provide context for your answer..."
+                                  }
+                                  className="min-h-[120px] resize-none border-gray-200 bg-white mt-3"
+                                />
                             </>
                           )}
 
