@@ -883,19 +883,23 @@ const Assessment = () => {
         requiresExplanation: !!selectedQuestionOption.requires_explanation
       });
 
-      // Get explanation from store with debugging
+      // Get explanation from store with strict answer binding
+      const qaKey = `${sessionId}:${currentQuestion.question_id}:${answer}`;
       const storeExplanation = store.getQuestionState(sessionId, currentQuestion.question_id, answer)?.explanation || '';
+      
       console.debug('[explanation:retrieval]', {
         questionId: currentQuestion.question_id,
         answer: answer,
+        qaKey: qaKey,
         storeExplanation: storeExplanation,
-        storeExplanationLength: storeExplanation.length
+        storeExplanationLength: storeExplanation.length,
+        requiresExplanation: selectedQuestionOption.requires_explanation
       });
 
-      // Fallback: try to get explanation from database if store is empty
+      // For questions that require explanation but store is empty, check database
       let finalExplanation = storeExplanation;
       if (!storeExplanation && selectedQuestionOption.requires_explanation) {
-        console.debug('[explanation:fallback] Store empty, checking database...');
+        console.debug('[explanation:fallback] Store empty for required explanation, checking database...');
         const { data: dbAnswer } = await supabase
           .from('atad2_answers')
           .select('explanation')
@@ -906,6 +910,8 @@ const Assessment = () => {
         if (dbAnswer?.explanation) {
           finalExplanation = dbAnswer.explanation;
           console.debug('[explanation:fallback] Found in database:', finalExplanation.substring(0, 100));
+        } else {
+          console.debug('[explanation:fallback] No explanation in database either');
         }
       }
 
