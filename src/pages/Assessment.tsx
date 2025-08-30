@@ -1562,6 +1562,24 @@ const Assessment = () => {
                         </div>
                       )}
 
+                      {/* Universal Explanation Input - Always show for questions requiring explanation */}
+                      {dbRequiresExplanation && (
+                        <div className="space-y-3 p-4 border rounded-lg bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg">💬</span>
+                            <h3 className="font-semibold text-blue-900 dark:text-blue-100">Additional context required</h3>
+                          </div>
+                          <DirectExplanationInput
+                            ref={explanationInputRef}
+                            sessionId={sessionId}
+                            questionId={currentQuestion?.question_id || ''}
+                            onSavingChange={setIsExplanationSaving}
+                            placeholder="Please provide additional context for this answer..."
+                            className="min-h-[100px] resize-none bg-white dark:bg-gray-800"
+                          />
+                        </div>
+                      )}
+
                       {/* Fallback Context Panel - Feature flagged */}
                       <ContextPanelFallback
                         sessionId={sessionId}
