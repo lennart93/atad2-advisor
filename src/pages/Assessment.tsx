@@ -191,7 +191,10 @@ const Assessment = () => {
     "Some further context would be really helpful",
     "Don't leave me empty, just a few words?",
     "Please don't forget about me",
-    "Even a little context makes my answers smarter!"
+    "Even a little context makes my answers smarter!",
+    "Your thoughts here would make this much clearer",
+    "A tiny bit of context would help a lot",
+    "Don't be shy, even one line is enough"
   ];
   
   // Get current selected option for DB-based requiresExplanation
