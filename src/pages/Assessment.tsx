@@ -1145,18 +1145,26 @@ const Assessment = () => {
     return isAtEnd;
   };
 
-  // Check if we should show the finish button - memoized to prevent flickering
+  // Check if we should show the finish button - only when actually at the final question in flow
   const shouldShowFinishButton = useMemo(() => {
     console.log("=== shouldShowFinishButton CHECK ===");
     console.log("navigationIndex:", navigationIndex);
     console.log("selectedAnswer:", selectedAnswer);
-    console.log("isAtEndOfFlow():", isAtEndOfFlow());
+    console.log("questionFlow.length:", questionFlow.length);
     
-    const shouldShow = navigationIndex === -1 && selectedAnswer && isAtEndOfFlow();
+    // Only show finish button when:
+    // 1. We're navigating (navigationIndex !== -1) AND at the last question in flow
+    // 2. OR we're at a new question (navigationIndex === -1) AND the current answer leads to end AND we have answered questions
+    const isAtLastQuestionInFlow = navigationIndex !== -1 && navigationIndex === questionFlow.length - 1;
+    const isNewQuestionThatEndsFlow = navigationIndex === -1 && questionFlow.length > 0 && selectedAnswer && isAtEndOfFlow();
+    
+    const shouldShow = selectedAnswer && (isAtLastQuestionInFlow || isNewQuestionThatEndsFlow);
+    console.log("isAtLastQuestionInFlow:", isAtLastQuestionInFlow);
+    console.log("isNewQuestionThatEndsFlow:", isNewQuestionThatEndsFlow);
     console.log("shouldShowFinishButton RESULT:", shouldShow);
     console.log("=== END shouldShowFinishButton CHECK ===");
     return shouldShow;
-  }, [navigationIndex, selectedAnswer, currentQuestion, questions]);
+  }, [navigationIndex, selectedAnswer, currentQuestion, questions, questionFlow.length]);
 
   // User auth is handled by useEffect redirect on lines 263-267
 
