@@ -897,7 +897,7 @@ const Assessment = () => {
           .update({
             question_text: currentQuestion.question,
             answer: answer,
-            explanation: store.getQuestionState(sessionId, currentQuestion.question_id)?.explanation || '',
+            explanation: store.getQuestionState(sessionId, currentQuestion.question_id, answer)?.explanation || '',
             risk_points: selectedQuestionOption.risk_points,
             difficult_term: selectedQuestionOption.difficult_term,
             term_explanation: selectedQuestionOption.term_explanation,
@@ -915,7 +915,7 @@ const Assessment = () => {
             question_id: currentQuestion.question_id,
             question_text: currentQuestion.question,
             answer: answer,
-            explanation: store.getQuestionState(sessionId, currentQuestion.question_id)?.explanation || '',
+            explanation: store.getQuestionState(sessionId, currentQuestion.question_id, answer)?.explanation || '',
             risk_points: selectedQuestionOption.risk_points,
             difficult_term: selectedQuestionOption.difficult_term,
             term_explanation: selectedQuestionOption.term_explanation
