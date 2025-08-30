@@ -1521,48 +1521,10 @@ const Assessment = () => {
                           className="bg-gray-50 rounded-lg px-4 py-3 mb-8"
                         >
                           {contextStatus === 'loading' && <ContextSkeleton />}
-                          
-                          {contextStatus === 'ready' && (
-                            <>
-                              <div className="flex items-center mb-3">
-                                <div className="flex items-center text-sm text-gray-700">
-                                  <span className="text-lg mr-2">💡</span>
-                                  <span>Context for your answer</span>
-                                </div>
-                              </div>
-                              
-                                <DirectExplanationInput
-                                  ref={explanationInputRef}
-                                  sessionId={sessionId}
-                                  questionId={qId}
-                                  onSavingChange={setIsExplanationSaving}
-                                  placeholder={
-                                    contextPrompts.length > 0 
-                                      ? (contextPrompts.length === 1 
-                                          ? contextPrompts[0] 
-                                          : contextPrompts[seededIndex(`${sessionId}::${currentQuestion?.id}`, contextPrompts.length)]
-                                        )
-                                      : "Provide context for your answer..."
-                                  }
-                                  className="min-h-[120px] resize-none border-gray-200 bg-white mt-3"
-                                />
-                            </>
-                          )}
-
-                          {contextStatus === 'none' && (
-                            <ContextEmptyState text="No context questions available for this answer." />
-                          )}
-
-                          {contextStatus === 'error' && (
-                            <ContextErrorState 
-                              text="Couldn't load context questions. Please try again."
-                              onRetry={() => hardenedLoadContext(sessionId, qId, selectedAnswer)}
-                            />
-                          )}
                         </div>
-                      )}
+                       )}
 
-                      {/* Universal Explanation Input - Always show for questions requiring explanation */}
+                      {/* Single Universal Explanation Input - for ALL questions requiring explanation */}
                       {dbRequiresExplanation && (
                         <div className="space-y-3 p-4 border rounded-lg bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
                           <div className="flex items-center gap-2">
@@ -1572,10 +1534,17 @@ const Assessment = () => {
                           <DirectExplanationInput
                             ref={explanationInputRef}
                             sessionId={sessionId}
-                            questionId={currentQuestion?.question_id || ''}
+                            questionId={qId}
                             onSavingChange={setIsExplanationSaving}
-                            placeholder="Please provide additional context for this answer..."
-                            className="min-h-[100px] resize-none bg-white dark:bg-gray-800"
+                            placeholder={
+                              contextPrompts.length > 0 
+                                ? (contextPrompts.length === 1 
+                                    ? contextPrompts[0] 
+                                    : contextPrompts[seededIndex(`${sessionId}::${currentQuestion?.id}`, contextPrompts.length)]
+                                  )
+                                : "Please provide additional context for this answer..."
+                            }
+                            className="min-h-[120px] resize-none bg-white dark:bg-gray-800"
                           />
                         </div>
                       )}

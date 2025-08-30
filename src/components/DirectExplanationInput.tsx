@@ -53,15 +53,21 @@ export const DirectExplanationInput = forwardRef<DirectExplanationInputRef, Dire
     onSavingChange?.(true);
     
     try {
+      console.log(`🚀 DirectExplanationInput: Attempting to save for Q${questionId}, session: ${sessionId}`);
+      console.log(`🚀 Explanation text: "${explanationText}"`);
+      
       const { error } = await supabase
         .from('atad2_answers')
         .update({ explanation: explanationText })
         .eq('session_id', sessionId)
         .eq('question_id', questionId);
 
-      if (error) throw error;
+      if (error) {
+        console.error(`❌ Save failed for Q${questionId}:`, error);
+        throw error;
+      }
       
-      console.log(`💾 Saved explanation for Q${questionId}: "${explanationText}"`);
+      console.log(`✅ Successfully saved explanation for Q${questionId}: "${explanationText}"`);
       
     } catch (error) {
       console.error('Error saving explanation:', error);
