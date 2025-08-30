@@ -181,6 +181,19 @@ const Assessment = () => {
   const [autoAdvance, setAutoAdvance] = useState(true);
   const [pendingQuestion, setPendingQuestion] = useState<Question | null>(null);
   
+  // Friendly explanation reminder state
+  const [explanationReminderShown, setExplanationReminderShown] = useState(false);
+  const [showExplanationShake, setShowExplanationShake] = useState(false);
+  const [reminderMessage, setReminderMessage] = useState("");
+  
+  // Friendly reminder messages for empty explanations
+  const friendlyReminders = [
+    "Some further context would be really helpful",
+    "Don't leave me empty, just a few words?",
+    "Please don't forget about me",
+    "Even a little context makes my answers smarter!"
+  ];
+  
   // Get current selected option for DB-based requiresExplanation
   const selectedQuestionOption = useMemo(() => {
     if (!currentQuestion || !selectedAnswer) return null;
@@ -721,6 +734,10 @@ const Assessment = () => {
     // Always update the selected answer first
     setSelectedAnswer(answer);
     
+    // Reset reminder state when changing answers
+    setExplanationReminderShown(false);
+    setReminderMessage("");
+    
     // Update answer in store immediately for consistent state
     updateAnswer(answer as 'Yes' | 'No' | 'Unknown');
     
@@ -839,6 +856,30 @@ const Assessment = () => {
       console.error('Error during answer selection:', e);
       setLoading(false);
     }
+  };
+
+  const handleContinueWithReminder = async () => {
+    // Check if explanation field is empty and we haven't shown reminder yet
+    if (shouldShowContextPanel && (!contextValue || contextValue.trim() === '') && !explanationReminderShown) {
+      // First time clicking Continue with empty explanation - show friendly reminder
+      const randomReminder = friendlyReminders[Math.floor(Math.random() * friendlyReminders.length)];
+      setReminderMessage(randomReminder);
+      setExplanationReminderShown(true);
+      
+      // Trigger shake animation
+      setShowExplanationShake(true);
+      setTimeout(() => setShowExplanationShake(false), 600);
+      
+      return; // Don't proceed to next question
+    }
+    
+    // Second time clicking or explanation has content - proceed normally
+    console.debug('[nav] context panel: allowing continue with answered question');
+    await submitAnswerDirectly(selectedAnswer, true);
+    
+    // Reset reminder state for next question
+    setExplanationReminderShown(false);
+    setReminderMessage("");
   };
 
   const submitAnswerDirectly = async (answer: string, bypassAutoAdvanceCheck = false) => {
@@ -1547,7 +1588,14 @@ const Assessment = () => {
                               <Textarea
                                 key={`explanation-${sessionId}-${qId}-${selectedAnswerId}`}
                                 value={contextValue}
-                                onChange={(e) => updateExplanation(e.target.value)}
+                                onChange={(e) => {
+                                  updateExplanation(e.target.value);
+                                  // Clear reminder when user starts typing
+                                  if (reminderMessage) {
+                                    setReminderMessage("");
+                                    setExplanationReminderShown(false);
+                                  }
+                                }}
                                 placeholder={
                                   contextPrompts.length > 0 
                                     ? (contextPrompts.length === 1 
@@ -1556,8 +1604,14 @@ const Assessment = () => {
                                       )
                                     : "Provide context for your answer..."
                                 }
-                                className="min-h-[120px] resize-none border-gray-200 bg-white mt-3"
+                                className={`min-h-[120px] resize-none border-gray-200 bg-white mt-3 ${showExplanationShake ? 'explanation-shake' : ''}`}
                               />
+                              {/* Friendly reminder message */}
+                              {reminderMessage && (
+                                <div className="mt-2 text-sm text-primary/80 italic animate-fade-in">
+                                  {reminderMessage}
+                                </div>
+                              )}
                             </>
                           )}
 
@@ -1630,18 +1684,13 @@ const Assessment = () => {
 
                         {/* Show Submit/Continue button when context panel is visible and we have an answer, but NOT when it's the last question */}
                         {shouldShowContextPanel && selectedAnswer && !shouldShowFinishButton && (
-                          <Button 
-                             onClick={async () => {
-                                // Context panel allows navigation regardless of auto-advance rules
-                                // User can continue after answering, context is optional
-                                console.debug('[nav] context panel: allowing continue with answered question');
-                                await submitAnswerDirectly(selectedAnswer, true);
-                             }}
-                             disabled={loading || isTransitioning}
-                             className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                           >
-                             Continue
-                          </Button>
+                           <Button 
+                              onClick={handleContinueWithReminder}
+                              disabled={loading || isTransitioning}
+                              className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              Continue
+                           </Button>
                         )}
 
                         {/* Show Submit button for answers that don't require context panel and don't auto-advance */}
