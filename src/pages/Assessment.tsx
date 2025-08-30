@@ -1540,7 +1540,7 @@ const Assessment = () => {
                               <div className="flex items-center mb-3">
                                 <div className="flex items-center text-sm text-gray-700">
                                   <span className="text-lg mr-2">💡</span>
-                                  <span>Context for your answer</span>
+                                  <span>Explanation</span>
                                 </div>
                               </div>
                               
