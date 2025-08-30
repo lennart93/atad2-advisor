@@ -883,6 +883,32 @@ const Assessment = () => {
         requiresExplanation: !!selectedQuestionOption.requires_explanation
       });
 
+      // Get explanation from store with debugging
+      const storeExplanation = store.getQuestionState(sessionId, currentQuestion.question_id, answer)?.explanation || '';
+      console.debug('[explanation:retrieval]', {
+        questionId: currentQuestion.question_id,
+        answer: answer,
+        storeExplanation: storeExplanation,
+        storeExplanationLength: storeExplanation.length
+      });
+
+      // Fallback: try to get explanation from database if store is empty
+      let finalExplanation = storeExplanation;
+      if (!storeExplanation && selectedQuestionOption.requires_explanation) {
+        console.debug('[explanation:fallback] Store empty, checking database...');
+        const { data: dbAnswer } = await supabase
+          .from('atad2_answers')
+          .select('explanation')
+          .eq('session_id', sessionId)
+          .eq('question_id', currentQuestion.question_id)
+          .maybeSingle();
+        
+        if (dbAnswer?.explanation) {
+          finalExplanation = dbAnswer.explanation;
+          console.debug('[explanation:fallback] Found in database:', finalExplanation.substring(0, 100));
+        }
+      }
+
       // Save answer to database
       const { data: existingAnswer } = await supabase
         .from('atad2_answers')
@@ -897,7 +923,7 @@ const Assessment = () => {
           .update({
             question_text: currentQuestion.question,
             answer: answer,
-            explanation: store.getQuestionState(sessionId, currentQuestion.question_id, answer)?.explanation || '',
+            explanation: finalExplanation,
             risk_points: selectedQuestionOption.risk_points,
             difficult_term: selectedQuestionOption.difficult_term,
             term_explanation: selectedQuestionOption.term_explanation,
@@ -906,7 +932,7 @@ const Assessment = () => {
           .eq('id', existingAnswer.id);
 
         if (error) throw error;
-        console.log("✅ Updated existing answer in database");
+        console.log("✅ Updated existing answer in database with explanation:", finalExplanation.substring(0, 50));
       } else {
         const { error } = await supabase
           .from('atad2_answers')
@@ -915,14 +941,14 @@ const Assessment = () => {
             question_id: currentQuestion.question_id,
             question_text: currentQuestion.question,
             answer: answer,
-            explanation: store.getQuestionState(sessionId, currentQuestion.question_id, answer)?.explanation || '',
+            explanation: finalExplanation,
             risk_points: selectedQuestionOption.risk_points,
             difficult_term: selectedQuestionOption.difficult_term,
             term_explanation: selectedQuestionOption.term_explanation
           });
 
         if (error) throw error;
-        console.log("✅ Inserted new answer in database");
+        console.log("✅ Inserted new answer in database with explanation:", finalExplanation.substring(0, 50));
       }
 
       // Update store with answer
