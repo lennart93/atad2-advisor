@@ -87,7 +87,7 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer, answerO
     loadInitialData();
   }, [sessionId, questionId, selectedAnswer, currentState?.lastSyncedAt, store]);
 
-  // Auto-save explanation when debounced value changes
+  // Auto-save explanation when debounced value changes - ONLY UPDATE EXPLANATION
   useEffect(() => {
     const saveExplanation = async () => {
       // Guard against sentinel values 
@@ -105,6 +105,24 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer, answerO
       const currentAnswer = selectedAnswer || currentState?.answer;
       if (!currentAnswer) {
         console.log(`🚫 Auto-save cancelled for Q${questionId} - no current answer available`);
+        return;
+      }
+
+      // Check if record already exists - auto-save only updates existing records
+      try {
+        const { data: existingRecord } = await supabase
+          .from('atad2_answers')
+          .select('id')
+          .eq('session_id', sessionId)
+          .eq('question_id', questionId)
+          .maybeSingle();
+
+        if (!existingRecord) {
+          console.log(`🚫 Auto-save cancelled for Q${questionId} - no existing record to update`);
+          return;
+        }
+      } catch (error) {
+        console.error('Error checking for existing record:', error);
         return;
       }
 
@@ -129,24 +147,18 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer, answerO
       setSavingStatus('saving');
       
       try {
-        // Save raw explanation without any validation during auto-save to preserve spaces
-        // Validation will happen only at final submit/report generation
-        
-        // Upsert to atad2_answers
+        // UPDATE ONLY the explanation field - never overwrite question_text or risk_points
         const { error } = await supabase
           .from('atad2_answers')
-          .upsert({
-            session_id: sessionId,
-            question_id: questionId,
-            answer: selectedAnswer || currentState?.answer || 'Unknown',
-            explanation: debouncedExplanation, // Raw value, no validation
-            question_text: '', // This will be filled by the main submit
-            risk_points: 0, // This will be filled by the main submit
-          }, {
-            onConflict: 'session_id,question_id',
-          });
+          .update({
+            explanation: debouncedExplanation, // Only update explanation
+          })
+          .eq('session_id', sessionId)
+          .eq('question_id', questionId);
 
         if (error) throw error;
+
+        console.log(`✅ Auto-saved explanation for Q${questionId} (${debouncedExplanation.length} chars)`);
 
         // Update store with sync timestamp and the raw explanation we just saved
         const currentAnswer = selectedAnswer || currentState?.answer;
