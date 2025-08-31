@@ -1696,28 +1696,29 @@ const Assessment = () => {
                            </Button>
                         )}
 
-                        {/* Show Submit button for answers that don't require context panel and don't auto-advance */}
-                        {!shouldShowContextPanel && selectedAnswer && !shouldShowFinishButton && navigationIndex === -1 && (() => {
+                        {/* Show Submit button for answers that don't require context panel */}
+                        {!shouldShowContextPanel && selectedAnswer && !shouldShowFinishButton && (() => {
                           const selectedQuestionOption = questions.find(q => 
                             q.question_id === currentQuestion?.question_id && 
                             q.answer_option === selectedAnswer
                           );
                           
-                          // Don't show button if auto-advance would happen (no explanation required)
-                          if (canAutoAdvance(selectedQuestionOption)) {
+                          // If we're in normal flow (navigationIndex === -1) and auto-advance would happen, don't show button
+                          if (navigationIndex === -1 && canAutoAdvance(selectedQuestionOption)) {
                             return null;
                           }
                           
+                          // For back-navigation or non-auto-advance answers, always show the button
                           return (
                             <Button 
                               onClick={async () => {
-                                console.debug('[nav] manual submit: user clicked button for non-auto-advance answer');
+                                console.debug('[nav] manual submit: user clicked button for answer submission');
                                 await submitAnswerDirectly(selectedAnswer);
                               }}
                               disabled={loading || isTransitioning}
                               className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                              Next →
+                              {navigationIndex === -1 ? 'Next →' : 'Update answer'}
                             </Button>
                           );
                         })()}
