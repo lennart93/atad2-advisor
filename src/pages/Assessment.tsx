@@ -1713,6 +1713,35 @@ const Assessment = () => {
                             <Button 
                               onClick={async () => {
                                 console.debug('[nav] manual submit: user clicked button for answer submission');
+                                
+                                // Check for flow changes when updating answers during back-navigation
+                                if (navigationIndex >= 0) {
+                                  const existingAnswer = answers[currentQuestion.question_id];
+                                  
+                                  if (existingAnswer && existingAnswer !== selectedAnswer) {
+                                    // Check if this change affects the flow
+                                    const oldSelectedOption = questions.find(q => 
+                                      q.question_id === currentQuestion.question_id && 
+                                      q.answer_option === existingAnswer
+                                    );
+                                    const newSelectedOption = questions.find(q => 
+                                      q.question_id === currentQuestion.question_id && 
+                                      q.answer_option === selectedAnswer
+                                    );
+                                    
+                                    if (newSelectedOption && oldSelectedOption && 
+                                        newSelectedOption.next_question_id !== oldSelectedOption.next_question_id) {
+                                      
+                                      setPendingAnswerChange({
+                                        answer: selectedAnswer,
+                                        newNextQuestionId: newSelectedOption.next_question_id
+                                      });
+                                      setShowFlowChangeDialog(true);
+                                      return;
+                                    }
+                                  }
+                                }
+                                
                                 await submitAnswerDirectly(selectedAnswer);
                               }}
                               disabled={loading || isTransitioning}
