@@ -211,7 +211,7 @@ const Index = () => {
             <CardHeader>
               <CardTitle>Start new assessment</CardTitle>
               <CardDescription>
-                Begin a new ATAD2 risk assessment for a taxpayer.
+                Begin a new ATAD2 risk assessment for a taxpayer
               </CardDescription>
             </CardHeader>
             <CardContent>
