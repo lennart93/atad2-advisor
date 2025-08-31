@@ -189,7 +189,7 @@ export const EmailSplitField = React.forwardRef<HTMLInputElement, EmailSplitFiel
           />
           
           <span 
-            className="text-muted-foreground select-none" 
+            className="text-muted-foreground select-none mr-1" 
             aria-hidden="true"
           >
             @
