@@ -174,7 +174,7 @@ export const EmailSplitField = React.forwardRef<HTMLInputElement, EmailSplitFiel
             ref={inputRef}
             id={id}
             type="text"
-            className="flex-[2] bg-transparent outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed"
+            className="flex-1 bg-transparent outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed min-w-0"
             placeholder="email"
             value={localPart}
             onChange={handleLocalPartChange}
@@ -189,7 +189,7 @@ export const EmailSplitField = React.forwardRef<HTMLInputElement, EmailSplitFiel
           />
           
           <span 
-            className="px-1 text-muted-foreground select-none" 
+            className="text-muted-foreground select-none flex-shrink-0" 
             aria-hidden="true"
           >
             @
@@ -201,11 +201,11 @@ export const EmailSplitField = React.forwardRef<HTMLInputElement, EmailSplitFiel
             disabled={disabled}
           >
             <SelectTrigger 
-              className="flex-1 max-w-[8rem] bg-transparent border-0 shadow-none focus:ring-0 hover:bg-accent/50 h-auto p-1 gap-1 [&>svg]:hidden"
+              className="w-auto min-w-[100px] bg-transparent border-0 shadow-none focus:ring-0 hover:bg-accent/50 h-auto p-0 pl-1 pr-2 gap-1 [&>svg]:hidden flex-shrink-0"
               aria-label="Select email domain"
             >
               <SelectValue />
-              <ChevronDown className="h-4 w-4 opacity-50 ml-1" />
+              <ChevronDown className="h-3 w-3 opacity-50" />
             </SelectTrigger>
             <SelectContent align="end">
               {DOMAINS.map((domain) => (
