@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/sonner";
-import { Trash2, FileText, FileBarChart } from "lucide-react";
+import { Trash2, FileText, FileBarChart, FileCheck, Clock, CheckCircle } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useQuery } from "@tanstack/react-query";
 import {
   AlertDialog,
@@ -27,6 +29,8 @@ interface CompletedSession {
   fiscal_year: string;
   created_at: string;
   answer_count: number;
+  has_memorandum?: boolean;
+  memorandum_date?: string;
 }
 
 interface RecentReport {
@@ -104,7 +108,7 @@ const Index = () => {
     try {
       setLoading(true);
       
-      // Get completed sessions with answer counts
+      // Get completed sessions with answer counts and memorandum status
       const { data: sessionsData, error: sessionsError } = await supabase
         .from('atad2_sessions')
         .select(`
@@ -119,7 +123,7 @@ const Index = () => {
 
       if (sessionsError) throw sessionsError;
 
-      // Get answer counts for each session
+      // Get answer counts and memorandum status for each session
       const sessionsWithCounts = await Promise.all(
         (sessionsData || []).map(async (session) => {
           const { count } = await supabase
@@ -127,9 +131,22 @@ const Index = () => {
             .select('*', { count: 'exact', head: true })
             .eq('session_id', session.session_id);
 
+          // Check if memorandum exists
+          const { data: reportData } = await supabase
+            .from('atad2_reports')
+            .select('generated_at')
+            .eq('session_id', session.session_id)
+            .order('generated_at', { ascending: false })
+            .limit(1);
+
+          const hasMemorandum = reportData && reportData.length > 0;
+          const memorandumDate = hasMemorandum ? reportData[0].generated_at : null;
+
           return {
             ...session,
-            answer_count: count || 0
+            answer_count: count || 0,
+            has_memorandum: hasMemorandum,
+            memorandum_date: memorandumDate
           };
         })
       );
@@ -239,10 +256,38 @@ const Index = () => {
                   {sessions.map((session) => (
                     <div key={session.id} className="flex items-center justify-between p-4 border rounded-lg">
                       <div className="flex-1">
-                        <h3 className="font-medium">{session.taxpayer_name}</h3>
+                        <div className="flex items-center gap-3 mb-2">
+                          <h3 className="font-medium">{session.taxpayer_name}</h3>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div>
+                                  {session.has_memorandum ? (
+                                    <Badge variant="default" className="bg-green-100 text-green-800 hover:bg-green-200 flex items-center gap-1">
+                                      <CheckCircle className="h-3 w-3" />
+                                      Ready
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="secondary" className="bg-gray-100 text-gray-600 hover:bg-gray-200 flex items-center gap-1">
+                                      <Clock className="h-3 w-3" />
+                                      In progress
+                                    </Badge>
+                                  )}
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>
+                                  {session.has_memorandum 
+                                    ? `Memorandum generated on ${new Date(session.memorandum_date!).toLocaleDateString()}`
+                                    : "No memorandum generated yet"
+                                  }
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
                         <div className="text-sm text-muted-foreground space-y-1">
                           <p>Tax year: {session.fiscal_year}</p>
-                          <p>Questions answered: {session.answer_count}</p>
                           <p>Completed: {new Date(session.created_at).toLocaleDateString()}</p>
                         </div>
                       </div>
