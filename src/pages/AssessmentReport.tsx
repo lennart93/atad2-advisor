@@ -277,7 +277,7 @@ const AssessmentReport = () => {
                   </div>
                 </div>
                 <div>
-                  <h3 className="font-semibold mb-2">Risk assessment outcome</h3>
+                  <h3 className="font-semibold mb-2">Risk assessment outcome:</h3>
                   <div className="flex items-center gap-2">
                     {riskOutcome.icon}
                     <span className={`font-medium ${riskOutcome.color}`}>
