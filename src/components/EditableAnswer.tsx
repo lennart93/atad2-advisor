@@ -40,6 +40,8 @@ export const EditableAnswer: React.FC<EditableAnswerProps> = ({
   const [pendingAnswer, setPendingAnswer] = useState<string | null>(null);
 
   const checkIfAnswerChangeWouldLeadToDifferentQuestions = async (newAnswer: string): Promise<boolean> => {
+    console.log('🔍 Checking answer change impact:', { questionId, currentAnswer, newAnswer, sessionId });
+    
     try {
       // Get current question's next question for the new answer
       const { data: newNextQuestion, error: newError } = await supabase
@@ -49,7 +51,12 @@ export const EditableAnswer: React.FC<EditableAnswerProps> = ({
         .eq('answer_option', newAnswer)
         .single();
 
-      if (newError) return false;
+      console.log('📋 New answer next question:', newNextQuestion, newError);
+
+      if (newError) {
+        console.log('❌ Error getting new next question:', newError);
+        return false;
+      }
 
       // Get current question's next question for the old answer
       const { data: oldNextQuestion, error: oldError } = await supabase
@@ -59,30 +66,59 @@ export const EditableAnswer: React.FC<EditableAnswerProps> = ({
         .eq('answer_option', currentAnswer)
         .single();
 
-      if (oldError) return false;
+      console.log('📋 Old answer next question:', oldNextQuestion, oldError);
+
+      if (oldError) {
+        console.log('❌ Error getting old next question:', oldError);
+        return false;
+      }
 
       // If next questions are different, check if any questions were actually answered after this one
-      if (newNextQuestion.next_question_id !== oldNextQuestion.next_question_id) {
+      const nextQuestionsAreDifferent = newNextQuestion.next_question_id !== oldNextQuestion.next_question_id;
+      console.log('🔄 Next questions different?', nextQuestionsAreDifferent, {
+        new: newNextQuestion.next_question_id,
+        old: oldNextQuestion.next_question_id
+      });
+
+      if (nextQuestionsAreDifferent) {
+        // Get the timestamp of this answer
+        const { data: currentAnswerData, error: currentAnswerError } = await supabase
+          .from('atad2_answers')
+          .select('answered_at')
+          .eq('id', answerId)
+          .single();
+
+        if (currentAnswerError) {
+          console.log('❌ Error getting current answer timestamp:', currentAnswerError);
+          return false;
+        }
+
+        console.log('⏰ Current answer timestamp:', currentAnswerData.answered_at);
+
         // Get all answers for this session that came after this question
         const { data: laterAnswers, error: laterError } = await supabase
           .from('atad2_answers')
           .select('question_id, answered_at')
           .eq('session_id', sessionId)
-          .gt('answered_at', (await supabase
-            .from('atad2_answers')
-            .select('answered_at')
-            .eq('id', answerId)
-            .single()).data?.answered_at || '');
+          .gt('answered_at', currentAnswerData.answered_at);
 
-        if (laterError) return false;
+        console.log('📊 Later answers:', laterAnswers, laterError);
+
+        if (laterError) {
+          console.log('❌ Error getting later answers:', laterError);
+          return false;
+        }
 
         // If there are questions answered after this one, the change could affect the flow
-        return laterAnswers.length > 0;
+        const shouldShowWarning = laterAnswers.length > 0;
+        console.log('⚠️ Should show warning?', shouldShowWarning, 'Later answers count:', laterAnswers.length);
+        return shouldShowWarning;
       }
 
+      console.log('✅ Next questions are the same, no warning needed');
       return false;
     } catch (error) {
-      console.error('Error checking question flow:', error);
+      console.error('💥 Error checking question flow:', error);
       return false;
     }
   };
