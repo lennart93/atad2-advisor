@@ -143,19 +143,22 @@ const AssessmentReport = () => {
       return {
         text: "ATAD2 risk identified",
         icon: <AlertTriangle className="h-5 w-5 text-red-600" />,
-        color: "text-red-600"
+        color: "text-red-600",
+        description: "You can generate a memorandum highlighting potential ATAD2 risk areas for further review."
       };
     } else if (points >= 0.2) {
       return {
         text: "Insufficient information",
         icon: <Info className="h-5 w-5 text-orange-600" />,
-        color: "text-orange-600"
+        color: "text-orange-600",
+        description: "You can generate a memorandum outlining which information is missing to complete a full ATAD2 analysis."
       };
     } else {
       return {
         text: "Low",
         icon: <CheckCircle className="h-5 w-5 text-green-600" />,
-        color: "text-green-600"
+        color: "text-green-600",
+        description: "You can generate a memorandum confirming that no ATAD2 risks were identified based on the provided information."
       };
     }
   };
@@ -278,11 +281,16 @@ const AssessmentReport = () => {
                 </div>
                 <div>
                   <h3 className="font-semibold mb-2">Risk assessment outcome:</h3>
-                  <div className="flex items-center gap-2">
-                    {riskOutcome.icon}
-                    <span className={`font-medium ${riskOutcome.color}`}>
-                      {riskOutcome.text}
-                    </span>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      {riskOutcome.icon}
+                      <span className={`font-medium ${riskOutcome.color}`}>
+                        {riskOutcome.text}
+                      </span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {riskOutcome.description}
+                    </p>
                   </div>
                 </div>
               </div>
