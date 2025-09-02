@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/components/ui/sonner";
 import { format } from "date-fns";
-import { ArrowLeft, FileText, Bot, Loader2 } from "lucide-react";
+import { ArrowLeft, FileText, Bot, Loader2, AlertTriangle, Info, CheckCircle } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { EditableAnswer } from "@/components/EditableAnswer";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -138,6 +138,30 @@ const AssessmentReport = () => {
 
   const totalRiskPoints = Math.round((answers.reduce((sum, answer) => sum + answer.risk_points, 0)) * 100) / 100;
 
+  const getRiskOutcome = (points: number) => {
+    if (points >= 1.0) {
+      return {
+        text: "ATAD2 risk identified",
+        icon: <AlertTriangle className="h-5 w-5 text-red-600" />,
+        color: "text-red-600"
+      };
+    } else if (points >= 0.2) {
+      return {
+        text: "Insufficient information",
+        icon: <Info className="h-5 w-5 text-orange-600" />,
+        color: "text-orange-600"
+      };
+    } else {
+      return {
+        text: "Low",
+        icon: <CheckCircle className="h-5 w-5 text-green-600" />,
+        color: "text-green-600"
+      };
+    }
+  };
+
+  const riskOutcome = getRiskOutcome(totalRiskPoints);
+
   const handleAnswerUpdate = (answerId: string, newAnswer: string, newExplanation: string, newRiskPoints: number) => {
     setAnswers(prev => prev.map(answer => 
       answer.id === answerId 
@@ -256,7 +280,15 @@ const AssessmentReport = () => {
                   <h3 className="font-semibold mb-2">Assessment summary</h3>
                   <div className="space-y-1 text-sm">
                     <p><span className="font-medium">Questions answered:</span> {answers.length}</p>
-                    <p><span className="font-medium">Total risk points:</span> {totalRiskPoints}</p>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">Risk assessment outcome:</span>
+                      <div className="flex items-center gap-2">
+                        {riskOutcome.icon}
+                        <span className={`font-medium ${riskOutcome.color}`}>
+                          {riskOutcome.text}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
