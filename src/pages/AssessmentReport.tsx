@@ -260,7 +260,7 @@ const AssessmentReport = () => {
             <CardHeader>
               <CardTitle>Assessment report</CardTitle>
               <CardDescription>
-                ATAD2 Risk Assessment Results
+                ATAD2 risk assessment results
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
