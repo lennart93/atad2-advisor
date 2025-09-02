@@ -245,9 +245,6 @@ export const EditableAnswer: React.FC<EditableAnswerProps> = ({
               </Tooltip>
             </TooltipProvider>
           )}
-          <span className="text-sm font-medium px-2 py-1 rounded bg-muted">
-            {riskPoints} points
-          </span>
         </div>
       </div>
 
