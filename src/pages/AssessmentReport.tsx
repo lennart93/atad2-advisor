@@ -266,7 +266,7 @@ const AssessmentReport = () => {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <h3 className="font-semibold mb-2">Session details</h3>
+                  <h3 className="font-semibold mb-2">Session details:</h3>
                   <div className="space-y-1 text-sm">
                     <p><span className="font-medium">Taxpayer:</span> {sessionData.taxpayer_name}</p>
                     <p><span className="font-medium">Tax year:</span> {sessionData.fiscal_year}</p>
