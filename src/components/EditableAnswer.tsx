@@ -37,7 +37,6 @@ export const EditableAnswer: React.FC<EditableAnswerProps> = ({
   const [saving, setSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
   const [showWarningDialog, setShowWarningDialog] = useState(false);
-  const [pendingAnswer, setPendingAnswer] = useState<string | null>(null);
 
   const checkIfAnswerChangeWouldLeadToDifferentQuestions = async (newAnswer: string): Promise<boolean> => {
     console.log('🔍 Checking answer change impact:', { questionId, currentAnswer, newAnswer, sessionId });
@@ -123,31 +122,22 @@ export const EditableAnswer: React.FC<EditableAnswerProps> = ({
     }
   };
 
-  const handleAnswerChange = async (newAnswer: string) => {
-    if (newAnswer === currentAnswer) {
-      setAnswer(newAnswer);
-      return;
-    }
-
-    const wouldLeadToDifferentQuestions = await checkIfAnswerChangeWouldLeadToDifferentQuestions(newAnswer);
-    
-    if (wouldLeadToDifferentQuestions) {
-      setPendingAnswer(newAnswer);
-      setShowWarningDialog(true);
-    } else {
-      setAnswer(newAnswer);
-    }
-  };
-
-  const handleConfirmAnswerChange = () => {
-    if (pendingAnswer) {
-      setAnswer(pendingAnswer);
-      setPendingAnswer(null);
-    }
-    setShowWarningDialog(false);
-  };
-
   const handleSave = async () => {
+    // Check if the answer has actually changed (not just explanation)
+    if (answer !== currentAnswer) {
+      const wouldLeadToDifferentQuestions = await checkIfAnswerChangeWouldLeadToDifferentQuestions(answer);
+      
+      if (wouldLeadToDifferentQuestions) {
+        setShowWarningDialog(true);
+        return; // Don't save yet, wait for user confirmation
+      }
+    }
+    
+    // If no warning needed or only explanation changed, proceed with save
+    performSave();
+  };
+
+  const performSave = async () => {
     setSaving(true);
     try {
       // Get the risk points for the new answer
@@ -192,6 +182,11 @@ export const EditableAnswer: React.FC<EditableAnswerProps> = ({
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleConfirmSave = () => {
+    setShowWarningDialog(false);
+    performSave();
   };
 
   const handleCancel = () => {
@@ -259,21 +254,21 @@ export const EditableAnswer: React.FC<EditableAnswerProps> = ({
               <Button
                 variant={answer === 'Yes' ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => handleAnswerChange('Yes')}
+                onClick={() => setAnswer('Yes')}
               >
                 Yes
               </Button>
               <Button
                 variant={answer === 'No' ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => handleAnswerChange('No')}
+                onClick={() => setAnswer('No')}
               >
                 No
               </Button>
               <Button
                 variant={answer === 'Unknown' ? 'secondary' : 'outline'}
                 size="sm"
-                onClick={() => handleAnswerChange('Unknown')}
+                onClick={() => setAnswer('Unknown')}
                 className="text-gray-700 border-blue-300 hover:bg-blue-50"
               >
                 Unknown
@@ -334,10 +329,10 @@ export const EditableAnswer: React.FC<EditableAnswerProps> = ({
       <AnswerChangeWarningDialog
         open={showWarningDialog}
         onOpenChange={setShowWarningDialog}
-        onConfirm={handleConfirmAnswerChange}
+        onConfirm={handleConfirmSave}
         questionText={questionText}
         oldAnswer={currentAnswer}
-        newAnswer={pendingAnswer || ''}
+        newAnswer={answer}
       />
     </div>
   );

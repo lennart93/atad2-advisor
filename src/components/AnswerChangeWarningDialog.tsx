@@ -31,7 +31,7 @@ export const AnswerChangeWarningDialog: React.FC<AnswerChangeWarningDialogProps>
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent className="max-w-md">
         <AlertDialogHeader>
-          <AlertDialogTitle>Answer Change Warning</AlertDialogTitle>
+          <AlertDialogTitle>Warning</AlertDialogTitle>
           <AlertDialogDescription>
             Changing this answer may have led to different follow-up questions. The results might not be fully reliable. Consider starting a new assessment for the most accurate outcome.
           </AlertDialogDescription>
