@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from "@/components/ui/sonner";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Check, Edit, HelpCircle } from 'lucide-react';
+import { AnswerChangeWarningDialog } from './AnswerChangeWarningDialog';
 
 interface EditableAnswerProps {
   answerId: string;
@@ -14,6 +15,7 @@ interface EditableAnswerProps {
   currentExplanation: string;
   riskPoints: number;
   readOnly?: boolean;
+  sessionId: string;
   onUpdate: (newAnswer: string, newExplanation: string, newRiskPoints: number) => void;
 }
 
@@ -25,6 +27,7 @@ export const EditableAnswer: React.FC<EditableAnswerProps> = ({
   currentExplanation,
   riskPoints,
   readOnly = false,
+  sessionId,
   onUpdate,
 }) => {
   
@@ -33,6 +36,80 @@ export const EditableAnswer: React.FC<EditableAnswerProps> = ({
   const [explanation, setExplanation] = useState(currentExplanation);
   const [saving, setSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
+  const [showWarningDialog, setShowWarningDialog] = useState(false);
+  const [pendingAnswer, setPendingAnswer] = useState<string | null>(null);
+
+  const checkIfAnswerChangeWouldLeadToDifferentQuestions = async (newAnswer: string): Promise<boolean> => {
+    try {
+      // Get current question's next question for the new answer
+      const { data: newNextQuestion, error: newError } = await supabase
+        .from('atad2_questions')
+        .select('next_question_id')
+        .eq('question_id', questionId)
+        .eq('answer_option', newAnswer)
+        .single();
+
+      if (newError) return false;
+
+      // Get current question's next question for the old answer
+      const { data: oldNextQuestion, error: oldError } = await supabase
+        .from('atad2_questions')
+        .select('next_question_id')
+        .eq('question_id', questionId)
+        .eq('answer_option', currentAnswer)
+        .single();
+
+      if (oldError) return false;
+
+      // If next questions are different, check if any questions were actually answered after this one
+      if (newNextQuestion.next_question_id !== oldNextQuestion.next_question_id) {
+        // Get all answers for this session that came after this question
+        const { data: laterAnswers, error: laterError } = await supabase
+          .from('atad2_answers')
+          .select('question_id, answered_at')
+          .eq('session_id', sessionId)
+          .gt('answered_at', (await supabase
+            .from('atad2_answers')
+            .select('answered_at')
+            .eq('id', answerId)
+            .single()).data?.answered_at || '');
+
+        if (laterError) return false;
+
+        // If there are questions answered after this one, the change could affect the flow
+        return laterAnswers.length > 0;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Error checking question flow:', error);
+      return false;
+    }
+  };
+
+  const handleAnswerChange = async (newAnswer: string) => {
+    if (newAnswer === currentAnswer) {
+      setAnswer(newAnswer);
+      return;
+    }
+
+    const wouldLeadToDifferentQuestions = await checkIfAnswerChangeWouldLeadToDifferentQuestions(newAnswer);
+    
+    if (wouldLeadToDifferentQuestions) {
+      setPendingAnswer(newAnswer);
+      setShowWarningDialog(true);
+    } else {
+      setAnswer(newAnswer);
+    }
+  };
+
+  const handleConfirmAnswerChange = () => {
+    if (pendingAnswer) {
+      setAnswer(pendingAnswer);
+      setPendingAnswer(null);
+    }
+    setShowWarningDialog(false);
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -146,21 +223,21 @@ export const EditableAnswer: React.FC<EditableAnswerProps> = ({
               <Button
                 variant={answer === 'Yes' ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => setAnswer('Yes')}
+                onClick={() => handleAnswerChange('Yes')}
               >
                 Yes
               </Button>
               <Button
                 variant={answer === 'No' ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => setAnswer('No')}
+                onClick={() => handleAnswerChange('No')}
               >
                 No
               </Button>
               <Button
                 variant={answer === 'Unknown' ? 'secondary' : 'outline'}
                 size="sm"
-                onClick={() => setAnswer('Unknown')}
+                onClick={() => handleAnswerChange('Unknown')}
                 className="text-gray-700 border-blue-300 hover:bg-blue-50"
               >
                 Unknown
@@ -217,6 +294,15 @@ export const EditableAnswer: React.FC<EditableAnswerProps> = ({
           </div>
         )}
       </div>
+
+      <AnswerChangeWarningDialog
+        open={showWarningDialog}
+        onOpenChange={setShowWarningDialog}
+        onConfirm={handleConfirmAnswerChange}
+        questionText={questionText}
+        oldAnswer={currentAnswer}
+        newAnswer={pendingAnswer || ''}
+      />
     </div>
   );
 };
