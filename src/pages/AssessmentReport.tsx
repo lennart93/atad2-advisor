@@ -138,10 +138,10 @@ const AssessmentReport = () => {
 
   const totalRiskPoints = Math.round((answers.reduce((sum, answer) => sum + answer.risk_points, 0)) * 100) / 100;
 
-  const handleAnswerUpdate = (answerId: string, newAnswer: string, newExplanation: string) => {
+  const handleAnswerUpdate = (answerId: string, newAnswer: string, newExplanation: string, newRiskPoints: number) => {
     setAnswers(prev => prev.map(answer => 
       answer.id === answerId 
-        ? { ...answer, answer: newAnswer, explanation: newExplanation }
+        ? { ...answer, answer: newAnswer, explanation: newExplanation, risk_points: newRiskPoints }
         : answer
     ));
   };
@@ -366,13 +366,14 @@ const AssessmentReport = () => {
                   <EditableAnswer
                     key={answer.id}
                     answerId={answer.id}
+                    questionId={answer.question_id}
                     questionText={answer.question_text}
                     currentAnswer={answer.answer}
                     currentExplanation={answer.explanation}
                     riskPoints={answer.risk_points}
                     readOnly={!!latestReport}
-                    onUpdate={(newAnswer, newExplanation) => 
-                      handleAnswerUpdate(answer.id, newAnswer, newExplanation)
+                    onUpdate={(newAnswer, newExplanation, newRiskPoints) => 
+                      handleAnswerUpdate(answer.id, newAnswer, newExplanation, newRiskPoints)
                     }
                   />
                 ))}

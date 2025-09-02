@@ -8,16 +8,18 @@ import { Check, Edit, HelpCircle } from 'lucide-react';
 
 interface EditableAnswerProps {
   answerId: string;
+  questionId: string;
   questionText: string;
   currentAnswer: string;
   currentExplanation: string;
   riskPoints: number;
   readOnly?: boolean;
-  onUpdate: (newAnswer: string, newExplanation: string) => void;
+  onUpdate: (newAnswer: string, newExplanation: string, newRiskPoints: number) => void;
 }
 
 export const EditableAnswer: React.FC<EditableAnswerProps> = ({
   answerId,
+  questionId,
   questionText,
   currentAnswer,
   currentExplanation,
@@ -35,17 +37,31 @@ export const EditableAnswer: React.FC<EditableAnswerProps> = ({
   const handleSave = async () => {
     setSaving(true);
     try {
+      // Get the risk points for the new answer
+      const { data: questionData, error: questionError } = await supabase
+        .from('atad2_questions')
+        .select('risk_points')
+        .eq('question_id', questionId)
+        .eq('answer_option', answer)
+        .single();
+
+      if (questionError) throw questionError;
+
+      const newRiskPoints = questionData.risk_points;
+
+      // Update the answer with new risk points
       const { error } = await supabase
         .from('atad2_answers')
         .update({
           answer,
           explanation,
+          risk_points: newRiskPoints,
         })
         .eq('id', answerId);
 
       if (error) throw error;
 
-      onUpdate(answer, explanation);
+      onUpdate(answer, explanation, newRiskPoints);
       setIsEditing(false);
       setJustSaved(true);
       
