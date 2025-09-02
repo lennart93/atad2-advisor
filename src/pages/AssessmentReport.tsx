@@ -277,18 +277,12 @@ const AssessmentReport = () => {
                   </div>
                 </div>
                 <div>
-                  <h3 className="font-semibold mb-2">Assessment summary</h3>
-                  <div className="space-y-1 text-sm">
-                    <p><span className="font-medium">Questions answered:</span> {answers.length}</p>
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">Risk assessment outcome:</span>
-                      <div className="flex items-center gap-2">
-                        {riskOutcome.icon}
-                        <span className={`font-medium ${riskOutcome.color}`}>
-                          {riskOutcome.text}
-                        </span>
-                      </div>
-                    </div>
+                  <h3 className="font-semibold mb-2">Risk assessment outcome</h3>
+                  <div className="flex items-center gap-2">
+                    {riskOutcome.icon}
+                    <span className={`font-medium ${riskOutcome.color}`}>
+                      {riskOutcome.text}
+                    </span>
                   </div>
                 </div>
               </div>
