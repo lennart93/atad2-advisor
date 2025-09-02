@@ -294,7 +294,7 @@ const AssessmentReport = () => {
             <CardHeader>
               <CardTitle>Generate memorandum</CardTitle>
               <CardDescription>
-                Generate an AI-powered ATAD2 memorandum based on this assessment.
+                Generate an AI-powered ATAD2 memorandum based on this assessment
               </CardDescription>
             </CardHeader>
             <CardContent>
