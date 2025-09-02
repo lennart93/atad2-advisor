@@ -14,6 +14,7 @@ interface AnswerChangeWarningDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: () => void;
+  onCancel?: () => void;
   questionText: string;
   oldAnswer: string;
   newAnswer: string;
@@ -23,6 +24,7 @@ export const AnswerChangeWarningDialog: React.FC<AnswerChangeWarningDialogProps>
   open,
   onOpenChange,
   onConfirm,
+  onCancel,
   questionText,
   oldAnswer,
   newAnswer,
@@ -37,7 +39,7 @@ export const AnswerChangeWarningDialog: React.FC<AnswerChangeWarningDialogProps>
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel onClick={onCancel}>Cancel</AlertDialogCancel>
           <AlertDialogAction onClick={onConfirm}>
             Continue
           </AlertDialogAction>

@@ -195,6 +195,12 @@ export const EditableAnswer: React.FC<EditableAnswerProps> = ({
     setIsEditing(false);
   };
 
+  const handleCancelWarning = () => {
+    // Reset answer to original value when canceling from warning dialog
+    setAnswer(currentAnswer);
+    setShowWarningDialog(false);
+  };
+
   return (
     <div className="border-b border-border last:border-b-0 pb-4 last:pb-0">
       <div className="flex items-start justify-between mb-2">
@@ -330,6 +336,7 @@ export const EditableAnswer: React.FC<EditableAnswerProps> = ({
         open={showWarningDialog}
         onOpenChange={setShowWarningDialog}
         onConfirm={handleConfirmSave}
+        onCancel={handleCancelWarning}
         questionText={questionText}
         oldAnswer={currentAnswer}
         newAnswer={answer}
