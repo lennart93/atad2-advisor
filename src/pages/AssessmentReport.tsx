@@ -142,21 +142,21 @@ const AssessmentReport = () => {
     if (points >= 1.0) {
       return {
         text: "ATAD2 risk identified",
-        icon: <AlertTriangle className="h-5 w-5 text-red-600" />,
+        icon: <AlertTriangle className="h-4 w-4 text-red-600" />,
         color: "text-red-600",
         description: "You can generate a memorandum highlighting potential ATAD2 risk areas for further review."
       };
     } else if (points >= 0.2) {
       return {
         text: "Insufficient information",
-        icon: <Info className="h-5 w-5 text-orange-600" />,
+        icon: <Info className="h-4 w-4 text-orange-600" />,
         color: "text-orange-600",
         description: "You can generate a memorandum outlining which information is missing to complete a full ATAD2 analysis."
       };
     } else {
       return {
         text: "Low",
-        icon: <CheckCircle className="h-5 w-5 text-green-600" />,
+        icon: <CheckCircle className="h-4 w-4 text-green-600" />,
         color: "text-green-600",
         description: "You can generate a memorandum confirming that no ATAD2 risks were identified based on the provided information."
       };
