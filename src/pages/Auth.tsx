@@ -118,13 +118,21 @@ const Auth = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl">ATAD2 risk assessment</CardTitle>
-          <CardDescription>
-            Sign in or create an account to get started
-          </CardDescription>
-        </CardHeader>
+      <div className="w-full max-w-md space-y-6">
+        <div className="flex justify-center">
+          <img 
+            src="/lovable-uploads/27e282af-e1b5-4594-a78c-9dd2f6d7c969.png" 
+            alt="Logo" 
+            className="h-8 w-8 opacity-60"
+          />
+        </div>
+        <Card className="w-full">
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl">ATAD2 risk assessment</CardTitle>
+            <CardDescription>
+              Sign in or create an account to get started
+            </CardDescription>
+          </CardHeader>
         <CardContent>
           <Tabs defaultValue="signin" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
@@ -186,7 +194,8 @@ const Auth = () => {
             </TabsContent>
           </Tabs>
         </CardContent>
-      </Card>
+        </Card>
+      </div>
     </div>
   );
 };
