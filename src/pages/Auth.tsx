@@ -27,15 +27,6 @@ const Auth = () => {
       }
     };
     checkUser();
-
-    // Listen for auth changes - only navigate on SIGNED_IN event
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session) {
-        navigate("/");
-      }
-    });
-
-    return () => subscription.unsubscribe();
   }, [navigate]);
 
   const handleEmailChange = (fullEmail: string, parts: { localPart: string; domain: string }) => {
