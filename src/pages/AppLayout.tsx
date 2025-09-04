@@ -36,14 +36,7 @@ const AppLayout = () => {
   };
 
   const handleSignOut = async () => {
-    try {
-      await signOut();
-    } catch (error) {
-      console.error("Logout error:", error);
-    } finally {
-      // Always navigate to auth page even if logout fails
-      navigate("/auth");
-    }
+    await signOut();
   };
 
   return (
