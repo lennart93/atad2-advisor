@@ -103,7 +103,8 @@ export default function DownloadMemoButton({
       console.log('Tags detected in template:', tags);
 
       const missing: string[] = [];
-      for (const t of tags) {
+      for (let i = 0; i < tags.length; i++) {
+        const t = tags[i];
         const name = typeof t === 'string' ? t : (t?.raw || t?.name || '');
         if (!name || name === '.' || name.startsWith('@')) continue;
         if (!deepHas(docxData, name)) missing.push(name);
