@@ -87,8 +87,33 @@ export default function DownloadMemoButton({
       const doc = new Docxtemplater(zip, { 
         paragraphLoop: true, 
         linebreaks: true,
-        delimiters: { start: '{{', end: '}}' }
+        delimiters: { start: '{{', end: '}}' },
+        nullGetter: () => '', // Prevents literal 'undefined' in document
       });
+
+      // AUDIT: Check template tags vs docxData (for debugging)
+      console.group('DOCX TEMPLATE TAG AUDIT');
+      console.log('DocxData structure:', JSON.stringify(docxData, null, 2));
+      
+      function deepHas(obj: any, path: string): boolean {
+        return path.split('.').reduce((o, k) => (o && k in o ? o[k] : undefined), obj) !== undefined;
+      }
+
+      const tags = (doc as any).getFullTags?.() ?? (doc as any).getTags?.() ?? [];
+      console.log('Tags detected in template:', tags);
+
+      const missing: string[] = [];
+      for (const t of tags) {
+        const name = typeof t === 'string' ? t : (t?.raw || t?.name || '');
+        if (!name || name === '.' || name.startsWith('@')) continue;
+        if (!deepHas(docxData, name)) missing.push(name);
+      }
+      
+      if (missing.length) {
+        console.warn('Template expects paths missing in docxData:', missing);
+      }
+      console.groupEnd();
+
       doc.setData(docxData);
       
       try {
@@ -96,7 +121,10 @@ export default function DownloadMemoButton({
       } catch (renderError: any) {
         console.error('Template render error:', renderError);
         console.error('Template properties:', renderError.properties);
-        throw new Error(`Template render error: ${renderError.message}`);
+        throw new Error(`Template render error: ${JSON.stringify({ 
+          message: renderError?.message, 
+          properties: renderError?.properties 
+        }, null, 2)}`);
       }
       
       const blob = doc.getZip().generate({ type: 'blob' });
