@@ -9,6 +9,7 @@ import { Seo } from "@/components/Seo";
 import { useToast } from "@/hooks/use-toast";
 import { Download, ArrowLeft, Trash2 } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import DownloadMemoButton from "@/components/DownloadMemoButton";
 
 const ReportDetail = () => {
   const { reportId } = useParams<{ reportId: string }>();
@@ -155,11 +156,16 @@ const ReportDetail = () => {
             </p>
           </div>
           
-          <div className="flex gap-2">
-            <Button onClick={handleDownload} variant="outline">
-              <Download className="mr-2 h-4 w-4" />
-              Download .md
-            </Button>
+           <div className="flex gap-2">
+             <Button onClick={handleDownload} variant="outline">
+               <Download className="mr-2 h-4 w-4" />
+               Download .md
+             </Button>
+             
+             <DownloadMemoButton 
+               sessionId={report.session_id} 
+               memoMarkdown={report.report_md} 
+             />
             
             <AlertDialog>
               <AlertDialogTrigger asChild>

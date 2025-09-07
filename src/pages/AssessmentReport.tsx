@@ -14,6 +14,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import WaitingMessage from "@/components/WaitingMessage";
+import DownloadMemoButton from "@/components/DownloadMemoButton";
 
 interface SessionData {
   session_id: string;
@@ -354,32 +355,41 @@ const AssessmentReport = () => {
                   {latestReport.total_risk !== null && ` • Risk: ${latestReport.total_risk} points`}
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                {latestReport.report_md && (
-                  <div className="markdown-body text-justify">
-                    <ReactMarkdown
-                      rehypePlugins={[rehypeRaw]}
-                      components={{
-                        u: ({ children }) => (
-                          <span className="underline" style={{ textDecorationLine: 'underline', textUnderlineOffset: '3px' }}>{children}</span>
-                        ),
-                        p: ({ children }) => <p>{children}</p>,
-                        h1: ({ children }) => <p className="font-bold">{children}</p>,
-                        h2: ({ children }) => <p className="font-bold">{children}</p>,
-                        h3: ({ children }) => <h3 className="font-bold">{children}</h3>,
-                        h4: ({ children }) => <h4 className="font-bold">{children}</h4>,
-                        ul: ({ children }) => <ul>{children}</ul>,
-                        li: ({ children }) => <li>{children}</li>,
-                        br: () => <br />,
-                        sup: ({ children }) => <sup>{children}</sup>,
-                        sub: ({ children }) => <sub>{children}</sub>,
-                      }}
-                    >
-                      {latestReport.report_md}
-                    </ReactMarkdown>
-                  </div>
-                )}
-              </CardContent>
+               <CardContent>
+                 <div className="flex justify-between items-start mb-4">
+                   <div className="flex-1">
+                     {/* Content stays the same */}
+                   </div>
+                   <DownloadMemoButton 
+                     sessionId={sessionId!} 
+                     memoMarkdown={latestReport.report_md} 
+                   />
+                 </div>
+                 {latestReport.report_md && (
+                   <div className="markdown-body text-justify">
+                     <ReactMarkdown
+                       rehypePlugins={[rehypeRaw]}
+                       components={{
+                         u: ({ children }) => (
+                           <span className="underline" style={{ textDecorationLine: 'underline', textUnderlineOffset: '3px' }}>{children}</span>
+                         ),
+                         p: ({ children }) => <p>{children}</p>,
+                         h1: ({ children }) => <p className="font-bold">{children}</p>,
+                         h2: ({ children }) => <p className="font-bold">{children}</p>,
+                         h3: ({ children }) => <h3 className="font-bold">{children}</h3>,
+                         h4: ({ children }) => <h4 className="font-bold">{children}</h4>,
+                         ul: ({ children }) => <ul>{children}</ul>,
+                         li: ({ children }) => <li>{children}</li>,
+                         br: () => <br />,
+                         sup: ({ children }) => <sup>{children}</sup>,
+                         sub: ({ children }) => <sub>{children}</sub>,
+                       }}
+                     >
+                       {latestReport.report_md}
+                     </ReactMarkdown>
+                   </div>
+                 )}
+               </CardContent>
             </Card>
           )}
 
