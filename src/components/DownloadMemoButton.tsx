@@ -96,22 +96,39 @@ export default function DownloadMemoButton({
       console.log('DocxData structure:', JSON.stringify(docxData, null, 2));
       
       function deepHas(obj: any, path: string): boolean {
-        return path.split('.').reduce((o, k) => (o && k in o ? o[k] : undefined), obj) !== undefined;
+        try {
+          const keys = path.split('.');
+          let current = obj;
+          for (let i = 0; i < keys.length; i++) {
+            if (current && keys[i] in current) {
+              current = current[keys[i]];
+            } else {
+              return false;
+            }
+          }
+          return current !== undefined;
+        } catch (e) {
+          return false;
+        }
       }
 
-      const tags = (doc as any).getFullTags?.() ?? (doc as any).getTags?.() ?? [];
-      console.log('Tags detected in template:', tags);
+      try {
+        const tags = (doc as any).getFullTags?.() ?? (doc as any).getTags?.() ?? [];
+        console.log('Tags detected in template:', tags);
 
-      const missing: string[] = [];
-      for (let i = 0; i < tags.length; i++) {
-        const t = tags[i];
-        const name = typeof t === 'string' ? t : (t?.raw || t?.name || '');
-        if (!name || name === '.' || name.startsWith('@')) continue;
-        if (!deepHas(docxData, name)) missing.push(name);
-      }
-      
-      if (missing.length) {
-        console.warn('Template expects paths missing in docxData:', missing);
+        const missing: string[] = [];
+        for (let i = 0; i < tags.length; i++) {
+          const t = tags[i];
+          const name = typeof t === 'string' ? t : (t?.raw || t?.name || '');
+          if (!name || name === '.' || name.startsWith('@')) continue;
+          if (!deepHas(docxData, name)) missing.push(name);
+        }
+        
+        if (missing.length) {
+          console.warn('Template expects paths missing in docxData:', missing);
+        }
+      } catch (auditError) {
+        console.log('Template audit failed, continuing without audit:', auditError);
       }
       console.groupEnd();
 
