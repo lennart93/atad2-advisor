@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState } from 'react';
 import PizZip from 'pizzip';
 import Docxtemplater from 'docxtemplater';
@@ -5,17 +7,20 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 
 type Props = {
   sessionId: string;
   memoMarkdown?: string;
   templatePath?: string;
+  enabled?: boolean;
 };
 
 export default function DownloadMemoButton({ 
   sessionId, 
   memoMarkdown, 
-  templatePath = 'memo_atad2.docx' 
+  templatePath = 'memo_atad2.docx',
+  enabled = true
 }: Props) {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
@@ -53,7 +58,9 @@ export default function DownloadMemoButton({
         throw new Error(`Parse service error: ${parseResponse.error.message}`);
       }
 
-      const docxData = parseResponse.data?.docx_data;
+      const parseJson = parseResponse.data;
+      const envelope = Array.isArray(parseJson) ? parseJson[0] : parseJson;
+      const docxData = envelope?.docx_data;
       if (!docxData) {
         throw new Error('No docx_data returned from parser');
       }
@@ -79,10 +86,19 @@ export default function DownloadMemoButton({
       const zip = new PizZip(templateArrayBuffer);
       const doc = new Docxtemplater(zip, { 
         paragraphLoop: true, 
-        linebreaks: true 
+        linebreaks: true,
+        delimiters: { start: '{{', end: '}}' }
       });
       doc.setData(docxData);
-      doc.render();
+      
+      try {
+        doc.render();
+      } catch (renderError: any) {
+        console.error('Template render error:', renderError);
+        console.error('Template properties:', renderError.properties);
+        throw new Error(`Template render error: ${renderError.message}`);
+      }
+      
       const blob = doc.getZip().generate({ type: 'blob' });
 
       // F) Download
@@ -112,6 +128,30 @@ export default function DownloadMemoButton({
     } finally {
       setLoading(false);
     }
+  }
+
+  if (!enabled) {
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div>
+              <Button
+                disabled={true}
+                variant="outline"
+                className="flex items-center gap-2 opacity-50 cursor-not-allowed"
+              >
+                <Download className="h-4 w-4" />
+                Download Word (.docx)
+              </Button>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Memo nog niet beschikbaar</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
   }
 
   return (

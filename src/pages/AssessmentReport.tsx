@@ -339,12 +339,11 @@ const AssessmentReport = () => {
                     </Tooltip>
                   </TooltipProvider>
                   
-                  {latestReport && (
-                    <DownloadMemoButton 
-                      sessionId={sessionId!} 
-                      memoMarkdown={latestReport.report_md} 
-                    />
-                  )}
+                  <DownloadMemoButton 
+                    sessionId={sessionId!} 
+                    memoMarkdown={latestReport?.report_md} 
+                    enabled={!!latestReport}
+                  />
                 </div>
                 {isGeneratingReport && (
                   <WaitingMessage />
