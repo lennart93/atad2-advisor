@@ -308,35 +308,44 @@ const AssessmentReport = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div>
-                        <Button 
-                          onClick={handleGenerateReport}
-                          disabled={isGeneratingReport || !!latestReport}
-                          className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white disabled:opacity-50"
-                        >
-                          {isGeneratingReport ? (
-                            <>
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                              Generating memorandum...
-                            </>
-                          ) : latestReport ? (
-                            "Memorandum generated"
-                          ) : (
-                            "Generate memorandum"
-                          )}
-                        </Button>
-                      </div>
-                    </TooltipTrigger>
-                    {latestReport && (
-                      <TooltipContent>
-                        <p>This memorandum has already been generated</p>
-                      </TooltipContent>
-                    )}
-                  </Tooltip>
-                </TooltipProvider>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div>
+                          <Button 
+                            onClick={handleGenerateReport}
+                            disabled={isGeneratingReport || !!latestReport}
+                            className="bg-green-600 hover:bg-green-700 text-white disabled:opacity-50"
+                          >
+                            {isGeneratingReport ? (
+                              <>
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                Generating memorandum...
+                              </>
+                            ) : latestReport ? (
+                              "Memorandum generated"
+                            ) : (
+                              "Generate memorandum"
+                            )}
+                          </Button>
+                        </div>
+                      </TooltipTrigger>
+                      {latestReport && (
+                        <TooltipContent>
+                          <p>This memorandum has already been generated</p>
+                        </TooltipContent>
+                      )}
+                    </Tooltip>
+                  </TooltipProvider>
+                  
+                  {latestReport && (
+                    <DownloadMemoButton 
+                      sessionId={sessionId!} 
+                      memoMarkdown={latestReport.report_md} 
+                    />
+                  )}
+                </div>
                 {isGeneratingReport && (
                   <WaitingMessage />
                 )}
@@ -355,16 +364,7 @@ const AssessmentReport = () => {
                   {latestReport.total_risk !== null && ` • Risk: ${latestReport.total_risk} points`}
                 </CardDescription>
               </CardHeader>
-               <CardContent>
-                 <div className="flex justify-between items-start mb-4">
-                   <div className="flex-1">
-                     {/* Content stays the same */}
-                   </div>
-                   <DownloadMemoButton 
-                     sessionId={sessionId!} 
-                     memoMarkdown={latestReport.report_md} 
-                   />
-                 </div>
+                <CardContent>
                  {latestReport.report_md && (
                    <div className="markdown-body text-justify">
                      <ReactMarkdown
