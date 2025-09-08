@@ -95,41 +95,56 @@ export default function DownloadMemoButton({
       console.group('DOCX TEMPLATE TAG AUDIT');
       console.log('DocxData structure:', JSON.stringify(docxData, null, 2));
       
-      function deepHas(obj: any, path: string): boolean {
+      (function auditTemplate() {
+        function deepHas(obj: any, path: string): boolean {
+          try {
+            const keys = path.split('.');
+            let current = obj;
+            for (let i = 0; i < keys.length; i++) {
+              if (current && keys[i] in current) {
+                current = current[keys[i]];
+              } else {
+                return false;
+              }
+            }
+            return current !== undefined;
+          } catch (e) {
+            return false;
+          }
+        }
+
         try {
-          const keys = path.split('.');
-          let current = obj;
-          for (let i = 0; i < keys.length; i++) {
-            if (current && keys[i] in current) {
-              current = current[keys[i]];
+          const tags = (doc as any).getFullTags?.() ?? (doc as any).getTags?.() ?? [];
+          console.log('Tags detected in template:', tags);
+
+          const missing: string[] = [];
+          const found: string[] = [];
+          
+          for (let i = 0; i < tags.length; i++) {
+            const t = tags[i];
+            const name = typeof t === 'string' ? t : (t?.raw || t?.name || '');
+            if (!name) continue;
+
+            // skip helpers zoals "." in loops
+            if (name === '.' || name.startsWith('@')) continue;
+
+            if (!deepHas(docxData, name)) {
+              missing.push(name);
             } else {
-              return false;
+              found.push(name);
             }
           }
-          return current !== undefined;
-        } catch (e) {
-          return false;
+          
+          console.log('Found/valid paths:', found);
+          console.log('Missing/undefined paths:', missing);
+          
+          if (missing.length) {
+            console.warn('Template expects paths missing in docxData:', missing);
+          }
+        } catch (auditError) {
+          console.log('Template audit failed, continuing without audit:', auditError);
         }
-      }
-
-      try {
-        const tags = (doc as any).getFullTags?.() ?? (doc as any).getTags?.() ?? [];
-        console.log('Tags detected in template:', tags);
-
-        const missing: string[] = [];
-        for (let i = 0; i < tags.length; i++) {
-          const t = tags[i];
-          const name = typeof t === 'string' ? t : (t?.raw || t?.name || '');
-          if (!name || name === '.' || name.startsWith('@')) continue;
-          if (!deepHas(docxData, name)) missing.push(name);
-        }
-        
-        if (missing.length) {
-          console.warn('Template expects paths missing in docxData:', missing);
-        }
-      } catch (auditError) {
-        console.log('Template audit failed, continuing without audit:', auditError);
-      }
+      })();
       console.groupEnd();
 
       doc.setData(docxData);
