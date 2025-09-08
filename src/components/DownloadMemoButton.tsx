@@ -236,7 +236,7 @@ export default function DownloadMemoButton({
             </div>
           </TooltipTrigger>
           <TooltipContent>
-            <p>Memo nog niet beschikbaar</p>
+            <p>Memo not yet available</p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
