@@ -743,14 +743,38 @@ const Assessment = () => {
     
     const questionId = currentQuestion.question_id;
     
-    // Always update the selected answer first
+    // Check for flow changes during back-navigation BEFORE updating anything
+    if (navigationIndex !== -1) {
+      const newSelectedOption = questions.find(
+        q => q.question_id === questionId && q.answer_option === answer
+      );
+      
+      const currentAnswerEntry = questionFlow.find(entry => entry.question.question_id === currentQuestion.question_id);
+      const oldSelectedOption = questions.find(
+        q => q.question_id === currentQuestion.question_id && q.answer_option === currentAnswerEntry?.answer
+      );
+      
+      if (newSelectedOption && oldSelectedOption && 
+          newSelectedOption.next_question_id !== oldSelectedOption.next_question_id) {
+        
+        // Don't update anything yet - show dialog first
+        setPendingAnswerChange({
+          answer,
+          newNextQuestionId: newSelectedOption.next_question_id
+        });
+        setShowFlowChangeDialog(true);
+        return;
+      }
+    }
+    
+    // Only update the selected answer if no flow change dialog is needed
     setSelectedAnswer(answer);
     
     // Reset reminder state when changing answers
     setExplanationReminderShown(false);
     setReminderMessage("");
     
-    // Update answer in store immediately for consistent state
+    // Update answer in store for consistent state
     updateAnswer(answer as 'Yes' | 'No' | 'Unknown');
     
     // Get the selected option to check if explanation is required
@@ -803,41 +827,20 @@ const Assessment = () => {
       answer: storeState?.answer
     });
     
-    // Bij terugnavigatie: check context voor HUIDIGE vraag, niet volgende
-    if (navigationIndex !== -1) {
-      console.log(`🔄 Navigation mode: context check complete for Q${currentQuestion.question_id}`);
-      
-      // Als er context is, direct stoppen - geen flow change check
-      if (contextPrompt) {
-        console.log(`🛑 Context found for Q${currentQuestion.question_id}, stopping here - no auto-advance`);
-        return;
-      }
-      
-      // Alleen als er GEEN context is, dan flow change check
-      const newSelectedOption = questions.find(
-        q => q.question_id === currentQuestion.question_id && q.answer_option === answer
-      );
-      
-      const currentAnswerEntry = questionFlow.find(entry => entry.question.question_id === currentQuestion.question_id);
-      const oldSelectedOption = questions.find(
-        q => q.question_id === currentQuestion.question_id && q.answer_option === currentAnswerEntry?.answer
-      );
-      
-      if (newSelectedOption && oldSelectedOption && 
-          newSelectedOption.next_question_id !== oldSelectedOption.next_question_id) {
-        
-        setPendingAnswerChange({
-          answer,
-          newNextQuestionId: newSelectedOption.next_question_id
-        });
-        setShowFlowChangeDialog(true);
-        return;
-      }
-      
-      // Bij terugnavigatie stoppen we hier - geen auto-advance
-      console.log(`🔄 Navigation mode: no context, no flow change - staying on Q${currentQuestion.question_id}`);
-      return;
-    }
+     // Bij terugnavigatie: check context voor HUIDIGE vraag, niet volgende
+     if (navigationIndex !== -1) {
+       console.log(`🔄 Navigation mode: context check complete for Q${currentQuestion.question_id}`);
+       
+       // Als er context is, direct stoppen - geen flow change check
+       if (contextPrompt) {
+         console.log(`🛑 Context found for Q${currentQuestion.question_id}, stopping here - no auto-advance`);
+         return;
+       }
+       
+       // Bij terugnavigatie stoppen we hier - geen auto-advance (flow change already handled above)
+       console.log(`🔄 Navigation mode: no context, no flow change - staying on Q${currentQuestion.question_id}`);
+       return;
+     }
     
     setLoading(true);
 
@@ -1143,6 +1146,8 @@ const Assessment = () => {
       });
 
       setSelectedAnswer(pendingAnswerChange.answer);
+      // Update answer in store now that it's confirmed
+      updateAnswer(pendingAnswerChange.answer as 'Yes' | 'No' | 'Unknown');
       
       setTimeout(async () => {
         // Check if auto-advance is allowed before submitting
