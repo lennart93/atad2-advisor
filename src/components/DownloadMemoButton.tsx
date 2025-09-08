@@ -82,97 +82,46 @@ export default function DownloadMemoButton({
       }
       const templateArrayBuffer = await templateResponse.arrayBuffer();
 
-      // E) Render DOCX
+      // E) Render DOCX using v4 API
       const zip = new PizZip(templateArrayBuffer);
-      const doc = new Docxtemplater(zip, { 
-        paragraphLoop: true, 
+      const doc = new Docxtemplater(zip, {
+        paragraphLoop: true,
         linebreaks: true,
-        delimiters: { start: '{{', end: '}}' },
-        nullGetter: () => '', // Prevents literal 'undefined' in document
+        delimiters: { start: '{{', end: '}}' }, // onze .docx gebruikt {{ }}
+        nullGetter: () => '', // voorkom letterlijk "undefined" in output
       });
 
-      // AUDIT: Check template tags vs docxData (for debugging)
+      // ---- TAG AUDIT (laten staan voor nu) ----
+      const allTags = (doc as any).getFullTags?.() ?? (doc as any).getTags?.();
       console.group('DOCX TEMPLATE TAG AUDIT');
-      console.log('DocxData structure:', JSON.stringify(docxData, null, 2));
-      
-      (function auditTemplate() {
-        function deepHas(obj: any, path: string): boolean {
-          try {
-            const keys = path.split('.');
-            let current = obj;
-            for (let i = 0; i < keys.length; i++) {
-              if (current && keys[i] in current) {
-                current = current[keys[i]];
-              } else {
-                return false;
-              }
-            }
-            return current !== undefined;
-          } catch (e) {
-            return false;
-          }
-        }
-
-        try {
-          const tags = (doc as any).getFullTags?.() ?? (doc as any).getTags?.() ?? [];
-          console.log('Tags detected in template:', tags);
-
-          const missing: string[] = [];
-          const found: string[] = [];
-          
-          for (let i = 0; i < tags.length; i++) {
-            const t = tags[i];
-            const name = typeof t === 'string' ? t : (t?.raw || t?.name || '');
-            if (!name) continue;
-
-            // skip helpers zoals "." in loops
-            if (name === '.' || name.startsWith('@')) continue;
-
-            if (!deepHas(docxData, name)) {
-              missing.push(name);
-            } else {
-              found.push(name);
-            }
-          }
-          
-          console.log('Found/valid paths:', found);
-          console.log('Missing/undefined paths:', missing);
-          
-          if (missing.length) {
-            console.warn('Template expects paths missing in docxData:', missing);
-          }
-        } catch (auditError) {
-          console.log('Template audit failed, continuing without audit:', auditError);
-        }
-      })();
+      console.log('DocxData structure:', docxData);
+      console.log('Tags detected in template:', JSON.stringify(allTags, null, 2));
       console.groupEnd();
+      // ----------------------------------------
 
-      doc.setData(docxData);
-      
       try {
-        doc.render();
-      } catch (renderError: any) {
-        console.error('Template render error:', renderError);
-        console.error('Template properties:', renderError.properties);
-        throw new Error(`Template render error: ${JSON.stringify({ 
-          message: renderError?.message, 
-          properties: renderError?.properties 
-        }, null, 2)}`);
+        // ✅ v4 API: data direct meegeven
+        doc.render(docxData);
+      } catch (err: any) {
+        throw new Error(
+          'Template render error: ' +
+            JSON.stringify({ message: err?.message, properties: err?.properties }, null, 2),
+        );
       }
-      
+
       const blob = doc.getZip().generate({ type: 'blob' });
 
-      // F) Download
-      const nameSafe = (docxData.meta?.taxpayer_name || 'Taxpayer')
-        .replace(/[^\w\-]+/g, '_');
-      const fiscalYear = docxData.meta?.fiscal_year || '';
-      const fileName = `ATAD2_Memo_${nameSafe}_${fiscalYear}.docx`;
+      const nameSafe = (docxData?.meta?.taxpayer_name || 'Taxpayer').replace(/[^\w\-]+/g, '_');
+      const fy = docxData?.meta?.fiscal_year || '';
+      const fileName = `ATAD2_Memo_${nameSafe}_${fy}.docx`;
 
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = fileName;
-      link.click();
-      URL.revokeObjectURL(link.href);
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(a.href);
 
       toast({
         title: "Success",
