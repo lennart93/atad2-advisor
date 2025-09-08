@@ -4,12 +4,37 @@ import React, { useState } from 'react';
 import PizZip from 'pizzip';
 import Docxtemplater from 'docxtemplater';
 
+// HTML to Docxtemplater inline formatting converter
+function htmlToDocxFormatting(input: string): string {
+  if (typeof input !== 'string') return input as any;
+  // Onderstreping: <u>...</u> -> {u}...{/u}
+  let out = input.replace(/<u>([\s\S]*?)<\/u>/gi, '{u}$1{/u}');
+
+  // (optioneel, veilig & handig) extra's:
+  // <i> / <em> -> {i}...{/i}
+  out = out.replace(/<(i|em)>([\s\S]*?)<\/\1>/gi, '{i}$2{/i}');
+  // <b> / <strong> -> {b}...{/b}
+  out = out.replace(/<(b|strong)>([\s\S]*?)<\/\1>/gi, '{b}$2{/b}');
+  // Verwijder overige kale HTML-tags (preventief)
+  out = out.replace(/<\/?[^>]+>/g, '');
+  return out;
+}
+
 // Dot-parser for handling nested object paths like "meta.taxpayer_name"
 const dotParser = (tag: string) => ({
   get: (scope: any) => {
     const path = tag.trim();
     if (path === '.' || path === '') return scope;
-    return path.split('.').reduce((obj, key) => (obj == null ? obj : obj[key]), scope);
+    const value = path.split('.').reduce((obj, key) => (obj == null ? obj : obj[key]), scope);
+    // Alleen strings transformeren
+    if (typeof value === 'string') {
+      return htmlToDocxFormatting(value);
+    }
+    // Arrays (bijv. bullets) element-voor-element transformeren
+    if (Array.isArray(value)) {
+      return value.map(v => (typeof v === 'string' ? htmlToDocxFormatting(v) : v));
+    }
+    return value;
   },
 });
 import { supabase } from '@/integrations/supabase/client';
