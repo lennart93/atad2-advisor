@@ -3,6 +3,15 @@
 import React, { useState } from 'react';
 import PizZip from 'pizzip';
 import Docxtemplater from 'docxtemplater';
+
+// Dot-parser for handling nested object paths like "meta.taxpayer_name"
+const dotParser = (tag: string) => ({
+  get: (scope: any) => {
+    const path = tag.trim();
+    if (path === '.' || path === '') return scope;
+    return path.split('.').reduce((obj, key) => (obj == null ? obj : obj[key]), scope);
+  },
+});
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
@@ -91,6 +100,7 @@ export default function DownloadMemoButton({
         linebreaks: true,
         delimiters: { start: '{{', end: '}}' }, // onze .docx gebruikt {{ }}
         nullGetter: () => '', // voorkom letterlijk "undefined" in output
+        parser: dotParser, // ← BELANGRIJK voor nested paths
       });
 
       // ---- TAG AUDIT (laten staan voor nu) ----
