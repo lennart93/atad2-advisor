@@ -1208,14 +1208,19 @@ const Assessment = () => {
     console.log("selectedAnswer:", selectedAnswer);
     console.log("questionFlow.length:", questionFlow.length);
     
-    // Only show finish button when:
-    // 1. We're navigating (navigationIndex !== -1) AND at the last question in flow
-    // 2. OR we're at a new question (navigationIndex === -1) AND the current answer leads to end AND we have answered questions
-    const isAtLastQuestionInFlow = navigationIndex !== -1 && navigationIndex === questionFlow.length - 1;
-    const isNewQuestionThatEndsFlow = navigationIndex === -1 && questionFlow.length > 0 && selectedAnswer && isAtEndOfFlow();
+    // NEVER show finish button during back-navigation (navigationIndex !== -1)
+    // Only show when we're at a NEW question (navigationIndex === -1) AND it truly ends the flow
+    if (navigationIndex !== -1) {
+      console.log("Back-navigation mode: never show finish button");
+      console.log("shouldShowFinishButton RESULT: false");
+      console.log("=== END shouldShowFinishButton CHECK ===");
+      return false;
+    }
     
-    const shouldShow = selectedAnswer && (isAtLastQuestionInFlow || isNewQuestionThatEndsFlow);
-    console.log("isAtLastQuestionInFlow:", isAtLastQuestionInFlow);
+    // Only show finish button when we're at a new question AND it leads to end
+    const isNewQuestionThatEndsFlow = questionFlow.length > 0 && selectedAnswer && isAtEndOfFlow();
+    
+    const shouldShow = isNewQuestionThatEndsFlow;
     console.log("isNewQuestionThatEndsFlow:", isNewQuestionThatEndsFlow);
     console.log("shouldShowFinishButton RESULT:", shouldShow);
     console.log("=== END shouldShowFinishButton CHECK ===");
@@ -1226,188 +1231,190 @@ const Assessment = () => {
 
   if (!sessionStarted) {
     return (
-      <div className="min-h-screen bg-background p-4">
-        <div className="max-w-2xl mx-auto">
-          <div className="mb-8">
-            <Button variant="outline" onClick={() => navigate("/")}>
-              ← Back to dashboard
-            </Button>
-          </div>
-          
-          <Card>
-            <CardHeader>
-              <CardTitle>Start risk assessment</CardTitle>
-              <CardDescription>
-                Please provide some basic information to begin your ATAD2 risk assessment
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex items-center">
-                  <Label htmlFor="taxpayer_name">Taxpayer name</Label>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="text-red-500 text-sm ml-1 cursor-default">*</span>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>This field is required</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-                <Input
-                  id="taxpayer_name"
-                  value={sessionInfo.taxpayer_name}
-                  onChange={(e) => setSessionInfo({...sessionInfo, taxpayer_name: e.target.value})}
-                  placeholder="Enter taxpayer name"
-                  required
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <div className="flex items-center">
-                  <Label htmlFor="tax_year">Tax year</Label>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="text-red-500 text-sm ml-1 cursor-default">*</span>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>This field is required</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-                <Select 
-                  value={sessionInfo.tax_year} 
-                  onValueChange={(value) => setSessionInfo({...sessionInfo, tax_year: value})}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select tax year" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Array.from({ length: 6 }, (_, i) => {
-                      const year = 2025 - i;
-                      return (
-                        <SelectItem key={year} value={year.toString()}>
-                          {year}
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="border border-border rounded-lg p-4 space-y-4">
-                <TooltipProvider>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox 
-                      id="tax-year-different"
-                      checked={sessionInfo.tax_year_not_equals_calendar}
-                      onCheckedChange={(checked) => setSessionInfo({
-                        ...sessionInfo, 
-                        tax_year_not_equals_calendar: !!checked,
-                        period_start_date: checked ? sessionInfo.period_start_date : undefined,
-                        period_end_date: checked ? sessionInfo.period_end_date : undefined
-                      })}
-                    />
-                    <Label htmlFor="tax-year-different" className="cursor-pointer">
-                      The tax year does not equal the calendar year
-                    </Label>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <InfoIcon className="h-4 w-4 text-muted-foreground cursor-default ml-1" />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p className="max-w-xs">
-                          Only fill in a start and end date if the tax year deviates from the calendar year.
-                        </p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </div>
-                </TooltipProvider>
-
-                {sessionInfo.tax_year_not_equals_calendar && (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <div className="flex items-center">
-                        <Label htmlFor="period_start">Start date</Label>
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="text-red-500 text-sm ml-1 cursor-default">*</span>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>This field is required</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      </div>
-                      <Input
-                        id="period_start"
-                        type="date"
-                        value={sessionInfo.period_start_date || ""}
-                        onChange={(e) => setSessionInfo({...sessionInfo, period_start_date: e.target.value})}
-                        required
-                      />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <div className="flex items-center">
-                        <Label htmlFor="period_end">End date</Label>
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="text-red-500 text-sm ml-1 cursor-default">*</span>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>This field is required</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      </div>
-                      <Input
-                        id="period_end"
-                        type="date"
-                        value={sessionInfo.period_end_date || ""}
-                        onChange={(e) => setSessionInfo({...sessionInfo, period_end_date: e.target.value})}
-                        required
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-              
-              <Button 
-                disabled={loading} 
-                className="w-full"
-                onClick={validateAndShowWarning}
-              >
-                {loading ? "Starting assessment..." : "Start assessment"}
+      <>
+        <div className="min-h-screen bg-background p-4">
+          <div className="max-w-2xl mx-auto">
+            <div className="mb-8">
+              <Button variant="outline" onClick={() => navigate("/")}>
+                ← Back to dashboard
               </Button>
-            </CardContent>
-          </Card>
+            </div>
+            
+            <Card>
+              <CardHeader>
+                <CardTitle>Start risk assessment</CardTitle>
+                <CardDescription>
+                  Please provide some basic information to begin your ATAD2 risk assessment
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <div className="flex items-center">
+                    <Label htmlFor="taxpayer_name">Taxpayer name</Label>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="text-red-500 text-sm ml-1 cursor-default">*</span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>This field is required</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <Input
+                    id="taxpayer_name"
+                    value={sessionInfo.taxpayer_name}
+                    onChange={(e) => setSessionInfo({...sessionInfo, taxpayer_name: e.target.value})}
+                    placeholder="Enter taxpayer name"
+                    required
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <div className="flex items-center">
+                    <Label htmlFor="tax_year">Tax year</Label>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="text-red-500 text-sm ml-1 cursor-default">*</span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>This field is required</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <Select 
+                    value={sessionInfo.tax_year} 
+                    onValueChange={(value) => setSessionInfo({...sessionInfo, tax_year: value})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select tax year" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 6 }, (_, i) => {
+                        const year = 2025 - i;
+                        return (
+                          <SelectItem key={year} value={year.toString()}>
+                            {year}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="border border-border rounded-lg p-4 space-y-4">
+                  <TooltipProvider>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="tax-year-different"
+                        checked={sessionInfo.tax_year_not_equals_calendar}
+                        onCheckedChange={(checked) => setSessionInfo({
+                          ...sessionInfo, 
+                          tax_year_not_equals_calendar: !!checked,
+                          period_start_date: checked ? sessionInfo.period_start_date : undefined,
+                          period_end_date: checked ? sessionInfo.period_end_date : undefined
+                        })}
+                      />
+                      <Label htmlFor="tax-year-different" className="cursor-pointer">
+                        The tax year does not equal the calendar year
+                      </Label>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <InfoIcon className="h-4 w-4 text-muted-foreground cursor-default ml-1" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="max-w-xs">
+                            Only fill in a start and end date if the tax year deviates from the calendar year.
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                  </TooltipProvider>
+
+                  {sessionInfo.tax_year_not_equals_calendar && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <div className="flex items-center">
+                          <Label htmlFor="period_start">Start date</Label>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="text-red-500 text-sm ml-1 cursor-default">*</span>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>This field is required</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
+                        <Input
+                          id="period_start"
+                          type="date"
+                          value={sessionInfo.period_start_date || ""}
+                          onChange={(e) => setSessionInfo({...sessionInfo, period_start_date: e.target.value})}
+                          required
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div className="flex items-center">
+                          <Label htmlFor="period_end">End date</Label>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="text-red-500 text-sm ml-1 cursor-default">*</span>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>This field is required</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
+                        <Input
+                          id="period_end"
+                          type="date"
+                          value={sessionInfo.period_end_date || ""}
+                          onChange={(e) => setSessionInfo({...sessionInfo, period_end_date: e.target.value})}
+                          required
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                <Button 
+                  disabled={loading} 
+                  className="w-full"
+                  onClick={validateAndShowWarning}
+                >
+                  {loading ? "Starting assessment..." : "Start assessment"}
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
         </div>
-      </div>
-      
-      {/* Warning dialog that shows AFTER validation */}
-      <AlertDialog open={showStartWarningDialog} onOpenChange={setShowStartWarningDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Before you start</AlertDialogTitle>
-            <AlertDialogDescription>
-              You are about to use a tool powered by AI. Please be considerate about the information you provide. While the tool works best with as much context as possible, make sure not to share any commercially sensitive or confidential client information.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={startSession}>
-              I understand
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        
+        {/* Warning dialog that shows AFTER validation */}
+        <AlertDialog open={showStartWarningDialog} onOpenChange={setShowStartWarningDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Before you start</AlertDialogTitle>
+              <AlertDialogDescription>
+                You are about to use a tool powered by AI. Please be considerate about the information you provide. While the tool works best with as much context as possible, make sure not to share any commercially sensitive or confidential client information.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={startSession}>
+                I understand
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </>
     );
   }
 
