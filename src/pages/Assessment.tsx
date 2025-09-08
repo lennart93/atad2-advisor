@@ -1122,6 +1122,9 @@ const Assessment = () => {
         return prev.slice(0, currentIndex + 1);
       });
 
+      // Reset navigation index to -1 to indicate we're back on the active question
+      setNavigationIndex(-1);
+
       setAnswers(prev => {
         const newAnswers = { ...prev };
         subsequentQuestions.forEach(entry => {
