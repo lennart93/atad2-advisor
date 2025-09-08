@@ -177,6 +177,7 @@ const Assessment = () => {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [showFlowChangeDialog, setShowFlowChangeDialog] = useState(false);
+  const [showStartWarningDialog, setShowStartWarningDialog] = useState(false);
   const [pendingAnswerChange, setPendingAnswerChange] = useState<{answer: string, newNextQuestionId: string | null} | null>(null);
   const [autoAdvance, setAutoAdvance] = useState(true);
   const [pendingQuestion, setPendingQuestion] = useState<Question | null>(null);
@@ -348,7 +349,7 @@ const Assessment = () => {
     }
   };
 
-  const startSession = async () => {
+  const validateAndShowWarning = () => {
     if (!sessionInfo.taxpayer_name || !sessionInfo.tax_year) {
       toast.error("Missing information", {
         description: "Please fill in all required fields",
@@ -358,10 +359,18 @@ const Assessment = () => {
 
     if (sessionInfo.tax_year_not_equals_calendar && (!sessionInfo.period_start_date || !sessionInfo.period_end_date)) {
       toast.error("Missing information", {
-        description: "Please provide start and end dates for the tax period",
+        description: "Please fill in start and end dates for non-calendar tax year",
       });
       return;
     }
+
+    // If validation passes, show the warning dialog
+    setShowStartWarningDialog(true);
+  };
+
+  const startSession = async () => {
+    // Validation already done in validateAndShowWarning, proceed with session creation
+    setShowStartWarningDialog(false);
 
     if (sessionInfo.tax_year_not_equals_calendar && sessionInfo.period_start_date && sessionInfo.period_end_date) {
       if (new Date(sessionInfo.period_end_date) < new Date(sessionInfo.period_start_date)) {
@@ -1370,31 +1379,35 @@ const Assessment = () => {
                 )}
               </div>
               
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button disabled={loading} className="w-full">
-                    {loading ? "Starting assessment..." : "Start assessment"}
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Before you start</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      You are about to use a tool powered by AI. Please be considerate about the information you provide. While the tool works best with as much context as possible, make sure not to share any commercially sensitive or confidential client information.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={startSession}>
-                      I understand
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+              <Button 
+                disabled={loading} 
+                className="w-full"
+                onClick={validateAndShowWarning}
+              >
+                {loading ? "Starting assessment..." : "Start assessment"}
+              </Button>
             </CardContent>
           </Card>
         </div>
       </div>
+      
+      {/* Warning dialog that shows AFTER validation */}
+      <AlertDialog open={showStartWarningDialog} onOpenChange={setShowStartWarningDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Before you start</AlertDialogTitle>
+            <AlertDialogDescription>
+              You are about to use a tool powered by AI. Please be considerate about the information you provide. While the tool works best with as much context as possible, make sure not to share any commercially sensitive or confidential client information.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={startSession}>
+              I understand
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     );
   }
 
