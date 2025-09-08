@@ -60,7 +60,7 @@ export default function DownloadMemoButton({
 
       const parseJson = parseResponse.data;
       const envelope = Array.isArray(parseJson) ? parseJson[0] : parseJson;
-      const docxData = envelope?.docx_data;
+      let docxData = envelope?.docx_data;
       if (!docxData) {
         throw new Error('No docx_data returned from parser');
       }
@@ -74,6 +74,8 @@ export default function DownloadMemoButton({
       if (urlError || !signedUrlData?.signedUrl) {
         throw new Error('Could not create signed URL for template');
       }
+
+      console.log('Using templatePath:', templatePath, 'signed:', signedUrlData.signedUrl.slice(0, 80) + '...');
 
       // D) Download template
       const templateResponse = await fetch(signedUrlData.signedUrl);
@@ -99,15 +101,57 @@ export default function DownloadMemoButton({
       console.groupEnd();
       // ----------------------------------------
 
+      // Guard: vereiste velden checken en duidelijke error tonen
+      function hasPath(o: any, p: string) {
+        return p.split('.').reduce((v, k) => (v != null ? v[k] : undefined), o) !== undefined;
+      }
+      const required = [
+        'meta.taxpayer_name',
+        'meta.fiscal_year',
+        'sections.introduction',
+        'sections.general_background',
+        'sections.technical_assessment',
+        'sections.conclusion_next_steps',
+      ];
+      // log missende paden
+      const missing = required.filter((k) => !hasPath(docxData, k) || docxData?.meta?.taxpayer_name === '');
+      console.log('Missing/empty required keys:', missing);
+      if (missing.length) {
+        throw new Error('docxData missing required keys: ' + missing.join(', '));
+      }
+
+      console.group('DOCX RENDER DIAG');
+      console.log('docxData at render():', JSON.stringify(docxData, null, 2));
+
+      // Toggle deze in de console: window.__forceTestData = true
+      // Hiermee sluiten we uit dat de template of rendering stuk is.
+      if ((window as any).__forceTestData) {
+        docxData = {
+          meta: { taxpayer_name: 'TestCo BV', fiscal_year: '2024' },
+          sections: {
+            introduction: 'Intro text\nLine 2',
+            risk_outcome_line: 'Low risk',
+            executive_summary_bullets: ['Point A', 'Point B'],
+            general_background: 'Background…',
+            technical_assessment: 'Assessment…',
+            conclusion_next_steps: 'Next steps…',
+          },
+        };
+        console.warn('Using __forceTestData for render()');
+      }
+
       try {
         // ✅ v4 API: data direct meegeven
         doc.render(docxData);
+        console.log('Render OK');
       } catch (err: any) {
+        console.error('Render ERR properties:', err?.properties);
+        console.groupEnd();
         throw new Error(
-          'Template render error: ' +
-            JSON.stringify({ message: err?.message, properties: err?.properties }, null, 2),
+          'Template render error: ' + JSON.stringify({ message: err?.message, properties: err?.properties }, null, 2),
         );
       }
+      console.groupEnd();
 
       const blob = doc.getZip().generate({ type: 'blob' });
 
