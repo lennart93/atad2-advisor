@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { EmailSplitField, validateLocalPart } from "@/components/EmailSplitField";
+
 
 const Auth = () => {
   const [email, setEmail] = useState("");
@@ -29,9 +29,12 @@ const Auth = () => {
     checkUser();
   }, [navigate]);
 
-  const handleEmailChange = (fullEmail: string, parts: { localPart: string; domain: string }) => {
-    setEmail(fullEmail);
-    setIsEmailValid(fullEmail.length > 0 && validateLocalPart(parts.localPart).valid);
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const emailValue = e.target.value;
+    setEmail(emailValue);
+    // Simple email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    setIsEmailValid(emailRegex.test(emailValue));
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
@@ -135,13 +138,19 @@ const Auth = () => {
             
             <TabsContent value="signin">
               <form onSubmit={handleSignIn} className="space-y-4">
-                <EmailSplitField
-                  id="signin-email"
-                  value={email}
-                  onChange={handleEmailChange}
-                  autoFocus
-                  required
-                />
+                <div className="space-y-2">
+                  <Label htmlFor="signin-email">Email</Label>
+                  <Input
+                    id="signin-email"
+                    type="email"
+                    value={email}
+                    onChange={handleEmailChange}
+                    autoFocus
+                    required
+                    className="rounded-2xl border px-3 py-2 shadow-sm"
+                    placeholder="Enter your email"
+                  />
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="signin-password">Password</Label>
                   <Input
@@ -161,12 +170,18 @@ const Auth = () => {
             
             <TabsContent value="signup">
               <form onSubmit={handleSignUp} className="space-y-4">
-                <EmailSplitField
-                  id="signup-email"
-                  value={email}
-                  onChange={handleEmailChange}
-                  required
-                />
+                <div className="space-y-2">
+                  <Label htmlFor="signup-email">Email</Label>
+                  <Input
+                    id="signup-email"
+                    type="email"
+                    value={email}
+                    onChange={handleEmailChange}
+                    required
+                    className="rounded-2xl border px-3 py-2 shadow-sm"
+                    placeholder="Enter your email"
+                  />
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="signup-password">Password</Label>
                   <Input
