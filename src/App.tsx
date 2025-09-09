@@ -49,7 +49,7 @@ const App = () => (
                   <Route path="/auth" element={<PublicOnlyRoute><Auth /></PublicOnlyRoute>} />
 
                   <Route element={<AppLayout />}>
-                    <Route path="/" element={<Index />} />
+                    <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
                     <Route path="/assessment" element={<ProtectedRoute><Assessment /></ProtectedRoute>} />
                     <Route path="/assessment-report/:sessionId" element={<ProtectedRoute><AssessmentReport /></ProtectedRoute>} />
                     <Route path="/report/:reportId" element={<ProtectedRoute><ReportDetail /></ProtectedRoute>} />
