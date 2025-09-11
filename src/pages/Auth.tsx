@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmailSplitField, validateLocalPart } from "@/components/EmailSplitField";
+import { Mail, CheckCircle2 } from "lucide-react";
 
 const Auth = () => {
   const [email, setEmail] = useState("");
@@ -15,6 +16,7 @@ const Auth = () => {
   const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
   const [isEmailValid, setIsEmailValid] = useState(false);
+  const [showEmailConfirmation, setShowEmailConfirmation] = useState(false);
   const navigate = useNavigate();
   
 
@@ -62,9 +64,7 @@ const Auth = () => {
           });
         }
       } else {
-        toast.success("Registration successful", {
-          description: "Please check your email for confirmation.",
-        });
+        setShowEmailConfirmation(true);
       }
     } catch (error) {
       toast.error("Something went wrong", {
@@ -106,6 +106,69 @@ const Auth = () => {
       setLoading(false);
     }
   };
+
+  if (showEmailConfirmation) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <div className="w-full max-w-md space-y-8">
+          {/* Logo */}
+          <div className="flex justify-center">
+            <img 
+              src="/lovable-uploads/efcd43b8-7f08-4aea-87f2-be5e2978f8c1.png" 
+              alt="Company Logo" 
+              className="h-16 w-16 object-contain"
+            />
+          </div>
+          
+          <Card className="w-full">
+            <CardContent className="pt-6">
+              <div className="text-center space-y-6">
+                <div className="flex justify-center">
+                  <div className="relative">
+                    <Mail className="h-16 w-16 text-primary" />
+                    <CheckCircle2 className="h-6 w-6 text-green-500 absolute -top-1 -right-1 bg-background rounded-full" />
+                  </div>
+                </div>
+                
+                <div className="space-y-3">
+                  <h2 className="text-2xl font-semibold text-foreground">
+                    Thanks for signing up! 🎉
+                  </h2>
+                  <p className="text-muted-foreground">
+                    We've sent a confirmation email to
+                  </p>
+                  <p className="font-semibold text-foreground bg-muted px-3 py-2 rounded-lg">
+                    {email}
+                  </p>
+                </div>
+
+                <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 space-y-2">
+                  <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
+                    <Mail className="h-4 w-4" />
+                    <span className="font-medium">Check your inbox</span>
+                  </div>
+                  <p className="text-sm text-blue-600 dark:text-blue-400">
+                    Click the confirmation link in your email to activate your account and start using the ATAD2 assessment tool.
+                  </p>
+                </div>
+
+                <div className="text-sm text-muted-foreground space-y-2">
+                  <p>Don't see the email? Check your spam folder or</p>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setShowEmailConfirmation(false)}
+                  >
+                    Try a different email
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
