@@ -16,6 +16,7 @@ const Auth = lazy(() => import("./pages/Auth"));
 const Assessment = lazy(() => import("./pages/Assessment"));
 const AssessmentReport = lazy(() => import("./pages/AssessmentReport"));
 const ReportDetail = lazy(() => import("./pages/ReportDetail"));
+const EmailConfirmed = lazy(() => import("./pages/EmailConfirmed"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const AppLayout = lazy(() => import("./pages/AppLayout"));
 
@@ -47,6 +48,7 @@ const App = () => (
             <Suspense fallback={<LoadingSpinner />}>
                 <Routes>
                   <Route path="/auth" element={<PublicOnlyRoute><Auth /></PublicOnlyRoute>} />
+                  <Route path="/email-confirmed" element={<EmailConfirmed />} />
 
                   <Route element={<AppLayout />}>
                     <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
