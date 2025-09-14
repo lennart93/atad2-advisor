@@ -142,24 +142,14 @@ const Auth = () => {
                   </p>
                 </div>
 
-                <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 space-y-2">
-                  <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
-                    <Mail className="h-4 w-4" />
-                    <span className="font-medium">Check your inbox</span>
-                  </div>
-                  <p className="text-sm text-blue-600 dark:text-blue-400">
-                    Click the confirmation link in your email to activate your account and start using the ATAD2 assessment tool.
-                  </p>
-                </div>
-
                 <div className="text-sm text-muted-foreground space-y-2">
-                  <p>Don't see the email? Check your spam folder or</p>
+                  <p>Don't see the email? Check your spam folder.</p>
                   <Button 
                     variant="outline" 
                     size="sm"
                     onClick={() => setShowEmailConfirmation(false)}
                   >
-                    Try a different email
+                    Back to sign in
                   </Button>
                 </div>
               </div>
