@@ -415,17 +415,17 @@ const Auth = () => {
                     
                     {/* Inline hint */}
                     {showEmailHint && (
-                      <div id="email-hint" className="text-sm text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/20 px-3 py-2 rounded-md animate-fade-in" role="status" aria-live="polite">
+                      <div id="email-hint" className="text-sm text-muted-foreground animate-fade-in" role="status" aria-live="polite">
                         No need to add @svalneratlas.com — we've already got that.
                       </div>
                     )}
                     
                     {/* Paste notice */}
                     {pasteNotice && (
-                      <div className="flex items-center justify-between text-sm text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950/20 px-3 py-2 rounded-md animate-fade-in" role="status" aria-live="polite">
+                      <div className="flex items-center justify-between text-sm text-muted-foreground animate-fade-in" role="status" aria-live="polite">
                         <span>{pasteNotice}</span>
                         {showUndo && (
-                          <button onClick={handleUndo} className="text-green-700 dark:text-green-300 underline hover:no-underline">
+                          <button onClick={handleUndo} className="text-foreground underline hover:no-underline ml-2">
                             Undo
                           </button>
                         )}
