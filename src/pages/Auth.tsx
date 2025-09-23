@@ -413,13 +413,6 @@ const Auth = () => {
                       <p className="text-sm text-destructive" role="alert">{signInLocalPartError}</p>
                     )}
                     
-                    {/* Inline hint */}
-                    {showEmailHint && (
-                      <div id="email-hint" className="text-sm text-muted-foreground animate-fade-in" role="status" aria-live="polite">
-                        No need to add @svalneratlas.com — we've already got that.
-                      </div>
-                    )}
-                    
                     {/* Paste notice */}
                     {pasteNotice && (
                       <div className="flex items-center justify-between text-sm text-muted-foreground animate-fade-in" role="status" aria-live="polite">
@@ -432,9 +425,12 @@ const Auth = () => {
                       </div>
                     )}
                     
-                    {/* Helper text */}
-                    <p id="email-helper" className="text-sm text-muted-foreground">
-                      Fill in only the part before @. The domain is fixed.
+                    {/* Helper text that changes to hint when needed */}
+                    <p id="email-helper" className={cn("text-sm transition-colors duration-200", showEmailHint ? "text-foreground font-medium animate-pulse" : "text-muted-foreground")}>
+                      {showEmailHint 
+                        ? "No need to add @svalneratlas.com — we've already got that."
+                        : "Fill in only the part before @. The domain is fixed."
+                      }
                     </p>
                   </div>
                   
