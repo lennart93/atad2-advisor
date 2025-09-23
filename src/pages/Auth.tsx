@@ -61,6 +61,13 @@ const Auth = () => {
   const [localPartError, setLocalPartError] = useState("");
   const [signInLocalPartError, setSignInLocalPartError] = useState("");
   
+  // Email input hints and notifications
+  const [showEmailHint, setShowEmailHint] = useState(false);
+  const [pasteNotice, setPasteNotice] = useState("");
+  const [domainPulse, setDomainPulse] = useState(false);
+  const [showUndo, setShowUndo] = useState(false);
+  const [undoValue, setUndoValue] = useState("");
+  
   // Refs for smooth scrolling
   const step2Ref = useRef<HTMLDivElement>(null);
   const step3Ref = useRef<HTMLDivElement>(null);
@@ -138,6 +145,56 @@ const Auth = () => {
 
   const handleEmailEdit = () => {
     setIsEditingEmail(true);
+  };
+
+  // Enhanced email input handlers
+  const handleEmailInput = (value: string) => {
+    // Strip any @ and everything after it
+    const cleanValue = value.replace(/@.*$/, '');
+    
+    // Check if @ was attempted
+    if (value.includes('@')) {
+      setShowEmailHint(true);
+      setDomainPulse(true);
+      
+      // Auto-dismiss hint after 3 seconds
+      setTimeout(() => setShowEmailHint(false), 3000);
+      setTimeout(() => setDomainPulse(false), 200);
+    }
+    
+    setSignInLocalPart(cleanValue.toLowerCase());
+    setSignInLocalPartError("");
+  };
+  
+  const handleEmailPaste = (e: React.ClipboardEvent) => {
+    e.preventDefault();
+    const pasteText = e.clipboardData.getData('text');
+    const emailMatch = pasteText.match(/^\s*([^@\s]+)@([^\s]+)\s*$/);
+    
+    if (emailMatch) {
+      const localPart = emailMatch[1].toLowerCase();
+      setUndoValue(signInLocalPart); // Store current value for undo
+      setSignInLocalPart(localPart);
+      setPasteNotice(`We kept "${localPart}" and locked the domain.`);
+      setShowUndo(true);
+      
+      // Auto-dismiss notice and undo option after 3 seconds
+      setTimeout(() => {
+        setPasteNotice("");
+        setShowUndo(false);
+      }, 3000);
+    } else {
+      // Regular paste without @
+      const cleanValue = pasteText.replace(/@.*$/, '').toLowerCase();
+      setSignInLocalPart(cleanValue);
+    }
+    setSignInLocalPartError("");
+  };
+  
+  const handleUndo = () => {
+    setSignInLocalPart(undoValue);
+    setPasteNotice("");
+    setShowUndo(false);
   };
 
   const handleEmailSave = () => {
@@ -334,23 +391,50 @@ const Auth = () => {
                       <Input
                         id="signInEmail"
                         value={signInLocalPart}
-                        onChange={(e) => {
-                          setSignInLocalPart(e.target.value.toLowerCase());
-                          setSignInLocalPartError("");
-                        }}
+                        onChange={(e) => handleEmailInput(e.target.value)}
+                        onPaste={handleEmailPaste}
                         className="border-0 rounded-l-md focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-0 focus:outline-0 focus:border-0 focus-visible:border-0 bg-transparent shadow-none outline-0 [&:focus]:border-0 [&:focus]:outline-0 [&:focus]:ring-0"
-                        placeholder="email"
+                        placeholder="your.name"
+                        aria-describedby="email-helper email-hint"
                       />
-                      <div className="flex items-center gap-1 bg-muted px-3 py-2 h-10 rounded-r-md">
+                      <div 
+                        className={cn("flex items-center gap-1 bg-muted px-3 py-2 h-10 rounded-r-md transition-transform", domainPulse && "animate-pulse")}
+                        role="note"
+                        aria-label="Domain fixed to @svalneratlas.com"
+                        title="Domain is fixed to @svalneratlas.com"
+                      >
                         <span className="text-muted-foreground">@{DOMAIN}</span>
                         <Lock className="h-4 w-4 text-muted-foreground" />
                       </div>
                     </div>
+                    
+                    {/* Error message */}
                     {signInLocalPartError && (
-                      <p className="text-sm text-destructive">{signInLocalPartError}</p>
+                      <p className="text-sm text-destructive" role="alert">{signInLocalPartError}</p>
                     )}
-                    <p className="text-sm text-muted-foreground">
-                      Fill in only the part before @
+                    
+                    {/* Inline hint */}
+                    {showEmailHint && (
+                      <div id="email-hint" className="text-sm text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/20 px-3 py-2 rounded-md animate-fade-in" role="status" aria-live="polite">
+                        No need to add @svalneratlas.com — we've already got that.
+                      </div>
+                    )}
+                    
+                    {/* Paste notice */}
+                    {pasteNotice && (
+                      <div className="flex items-center justify-between text-sm text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950/20 px-3 py-2 rounded-md animate-fade-in" role="status" aria-live="polite">
+                        <span>{pasteNotice}</span>
+                        {showUndo && (
+                          <button onClick={handleUndo} className="text-green-700 dark:text-green-300 underline hover:no-underline">
+                            Undo
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* Helper text */}
+                    <p id="email-helper" className="text-sm text-muted-foreground">
+                      Fill in only the part before @. The domain is fixed.
                     </p>
                   </div>
                   
