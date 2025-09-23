@@ -330,7 +330,7 @@ const Auth = () => {
                 <form onSubmit={handleSignIn} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="signInEmail">Email address</Label>
-                    <div className="flex items-center">
+                    <div className="flex items-center group">
                       <Input
                         id="signInEmail"
                         value={signInLocalPart}
@@ -338,10 +338,10 @@ const Auth = () => {
                           setSignInLocalPart(e.target.value.toLowerCase());
                           setSignInLocalPartError("");
                         }}
-                        className={cn("rounded-r-none font-mono", signInLocalPartError && "border-destructive")}
+                        className={cn("rounded-r-none focus:ring-0 focus:border-primary group-focus-within:border-primary", signInLocalPartError && "border-destructive")}
                         placeholder="email"
                       />
-                      <div className="flex items-center gap-1 bg-muted border border-l-0 px-3 py-2 h-10 rounded-r-md">
+                      <div className={cn("flex items-center gap-1 bg-muted border border-l-0 px-3 py-2 h-10 rounded-r-md group-focus-within:border-primary", signInLocalPartError && "border-destructive")}>
                         <span className="text-muted-foreground">@{DOMAIN}</span>
                         <Lock className="h-4 w-4 text-muted-foreground" />
                       </div>
@@ -350,7 +350,7 @@ const Auth = () => {
                       <p className="text-sm text-destructive">{signInLocalPartError}</p>
                     )}
                     <p className="text-sm text-muted-foreground">
-                      Fill in only the part before @.
+                      Fill in only the part before @
                     </p>
                   </div>
                   
