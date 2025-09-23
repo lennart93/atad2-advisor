@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Mail, CheckCircle2, Lock, Eye, EyeOff, Edit2 } from "lucide-react";
+import { Mail, CheckCircle2, Lock, Eye, EyeOff, Edit2, Info } from "lucide-react";
 import { makeLocalPart, validateName, validateLocalPart } from "@/utils/emailNormalization";
 import { cn } from "@/lib/utils";
 
@@ -155,11 +155,12 @@ const Auth = () => {
     // Check if @ was attempted
     if (value.includes('@')) {
       setShowEmailHint(true);
-      setDomainPulse(true);
+      // Remove pulse animation as requested
+      // setDomainPulse(true);
       
       // Auto-dismiss hint after 3 seconds
       setTimeout(() => setShowEmailHint(false), 3000);
-      setTimeout(() => setDomainPulse(false), 200);
+      // setTimeout(() => setDomainPulse(false), 200);
     }
     
     setSignInLocalPart(cleanValue.toLowerCase());
@@ -433,9 +434,10 @@ const Auth = () => {
                     )}
                     
                     {/* Helper text that changes to hint when needed */}
-                    <p id="email-helper" className={cn("text-sm transition-colors duration-200", showEmailHint ? "text-foreground font-medium animate-pulse" : "text-muted-foreground")}>
+                    <p id="email-helper" className={cn("text-sm transition-all duration-200 flex items-center gap-1", showEmailHint ? "text-foreground font-medium animate-fade-in" : "text-muted-foreground")} role={showEmailHint ? "status" : undefined} aria-live={showEmailHint ? "polite" : undefined}>
+                      {showEmailHint && <Info className="h-3 w-3" />}
                       {showEmailHint 
-                        ? "No need to add @svalneratlas.com — we've already got that."
+                        ? "No need to add @svalneratlas.com, we've already got that"
                         : "Fill in only the part before @. The domain is fixed."
                       }
                     </p>
