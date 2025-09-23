@@ -338,7 +338,7 @@ const Auth = () => {
                           setSignInLocalPart(e.target.value.toLowerCase());
                           setSignInLocalPartError("");
                         }}
-                        className="border-0 rounded-l-md focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent shadow-none"
+                        className="border-0 rounded-l-md focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-0 focus:outline-0 bg-transparent shadow-none outline-0"
                         placeholder="email"
                       />
                       <div className="flex items-center gap-1 bg-muted px-3 py-2 h-10 rounded-r-md">
