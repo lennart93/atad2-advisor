@@ -17,6 +17,24 @@ const Auth = () => {
   // Tab state
   const [activeTab, setActiveTab] = useState("signin");
   
+  // Reset signup state when switching tabs
+  const handleTabChange = (newTab: string) => {
+    if (newTab !== activeTab && activeTab === "signup") {
+      // Reset all signup state when leaving signup
+      setFirstName("");
+      setLastName("");
+      setLocalPart("");
+      setPassword("");
+      setCurrentStep(1);
+      setIsEditingEmail(false);
+      setEmailWasEdited(false);
+      setFirstNameError("");
+      setLastNameError("");
+      setLocalPartError("");
+    }
+    setActiveTab(newTab);
+  };
+  
   // Sign In form state
   const [signInLocalPart, setSignInLocalPart] = useState("");
   const [signInPassword, setSignInPassword] = useState("");
@@ -208,17 +226,9 @@ const Auth = () => {
 
       if (error) {
         if (error.message.includes("User already registered")) {
-          // Try to sign in instead
-          const { error: signInError } = await supabase.auth.signInWithPassword({
-            email,
-            password,
+          toast.error("Email address already exists", {
+            description: "This email is already registered. Please try signing in instead.",
           });
-          
-          if (signInError) {
-            toast.error("Account exists with different password", {
-              description: "Please check your password or reset it.",
-            });
-          }
         } else {
           toast.error("Registration failed", {
             description: error.message,
@@ -275,7 +285,10 @@ const Auth = () => {
                   <Button 
                     variant="outline" 
                     size="sm"
-                    onClick={() => setShowEmailConfirmation(false)}
+                    onClick={() => {
+                      setShowEmailConfirmation(false);
+                      setActiveTab("signin");
+                    }}
                   >
                     Back to sign in
                   </Button>
@@ -307,7 +320,7 @@ const Auth = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="signin">Sign In</TabsTrigger>
                 <TabsTrigger value="signup">Sign Up</TabsTrigger>
