@@ -478,44 +478,68 @@ const Auth = () => {
               
               <TabsContent value="signup" className="space-y-4 mt-4">
                 {/* Step 1 - Name */}
-                <div className="space-y-3">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div className="space-y-2">
-                      <Label htmlFor="firstName">First name</Label>
-                      <Input
-                        id="firstName"
-                        value={firstName}
-                        onChange={(e) => {
-                          setFirstName(e.target.value);
-                          setFirstNameError("");
-                        }}
-                        placeholder="Enter your first name"
-                        className={cn(firstNameError && "border-destructive")}
-                        disabled={currentStep > 1 && !emailWasEdited}
-                      />
-                      {firstNameError && (
-                        <p className="text-sm text-destructive">{firstNameError}</p>
-                      )}
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="firstName">First name</Label>
+                          {currentStep > 1 && !emailWasEdited && (
+                            <button
+                              type="button"
+                              onClick={() => setCurrentStep(1)}
+                              className="text-muted-foreground hover:text-foreground transition-colors"
+                              title="Edit name"
+                            >
+                              <Edit2 className="h-3 w-3" />
+                            </button>
+                          )}
+                        </div>
+                        <Input
+                          id="firstName"
+                          value={firstName}
+                          onChange={(e) => {
+                            setFirstName(e.target.value);
+                            setFirstNameError("");
+                          }}
+                          placeholder="Enter your first name"
+                          className={cn(firstNameError && "border-destructive")}
+                          disabled={currentStep > 1 && !emailWasEdited}
+                        />
+                        {firstNameError && (
+                          <p className="text-sm text-destructive">{firstNameError}</p>
+                        )}
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="lastName">Last name</Label>
+                          {currentStep > 1 && !emailWasEdited && (
+                            <button
+                              type="button"
+                              onClick={() => setCurrentStep(1)}
+                              className="text-muted-foreground hover:text-foreground transition-colors"
+                              title="Edit name"
+                            >
+                              <Edit2 className="h-3 w-3" />
+                            </button>
+                          )}
+                        </div>
+                        <Input
+                          id="lastName"
+                          value={lastName}
+                          onChange={(e) => {
+                            setLastName(e.target.value);
+                            setLastNameError("");
+                          }}
+                          placeholder="Enter your last name"
+                          className={cn(lastNameError && "border-destructive")}
+                          disabled={currentStep > 1 && !emailWasEdited}
+                        />
+                        {lastNameError && (
+                          <p className="text-sm text-destructive">{lastNameError}</p>
+                        )}
+                      </div>
                     </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="lastName">Last name</Label>
-                      <Input
-                        id="lastName"
-                        value={lastName}
-                        onChange={(e) => {
-                          setLastName(e.target.value);
-                          setLastNameError("");
-                        }}
-                        placeholder="Enter your last name"
-                        className={cn(lastNameError && "border-destructive")}
-                        disabled={currentStep > 1 && !emailWasEdited}
-                      />
-                      {lastNameError && (
-                        <p className="text-sm text-destructive">{lastNameError}</p>
-                      )}
-                    </div>
-                  </div>
                   
                   {currentStep === 1 && (
                     <Button 
@@ -532,17 +556,30 @@ const Auth = () => {
                 {currentStep >= 2 && (
                   <div ref={step2Ref} className="space-y-3 animate-fade-in">
                     <div className="space-y-3">
-                      <Label className="text-sm font-medium">
-                        {currentStep === 2 ? "Does this look like your email?" : "Your email address"}
-                      </Label>
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm font-medium">
+                          {currentStep === 2 ? "Does this look like your email?" : "Your email address"}
+                        </Label>
+                        {currentStep > 2 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCurrentStep(2);
+                              setIsEditingEmail(true);
+                            }}
+                            className="text-muted-foreground hover:text-foreground transition-colors"
+                            title="Edit email"
+                          >
+                            <Edit2 className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
                       
                       {!isEditingEmail ? (
-                        <div className="flex justify-center">
-                          <div className="inline-flex items-center bg-muted px-3 py-2 rounded-md">
-                            <span className="font-medium text-sm">
-                              {localPart}@{DOMAIN}
-                            </span>
-                          </div>
+                        <div className="inline-flex items-center bg-muted px-3 py-2 rounded-md">
+                          <span className="font-medium text-sm">
+                            {localPart}@{DOMAIN}
+                          </span>
                         </div>
                       ) : (
                         <div className="space-y-2">
@@ -589,36 +626,9 @@ const Auth = () => {
                   </div>
                 )}
 
-                {/* Step 3 - Password with inline editing */}
+                {/* Step 3 - Password */}
                 {currentStep >= 3 && (
                   <div ref={step3Ref} className="space-y-3 animate-fade-in">
-                    {/* Inline edit for name and email */}
-                    <div className="space-y-2 p-3 bg-muted/30 rounded-md">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-muted-foreground">Name: {firstName} {lastName}</span>
-                        <button
-                          onClick={() => setCurrentStep(1)}
-                          className="text-primary hover:text-primary/80 transition-colors"
-                          title="Edit name"
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-muted-foreground">Email: {localPart}@{DOMAIN}</span>
-                        <button
-                          onClick={() => {
-                            setCurrentStep(2);
-                            setIsEditingEmail(true);
-                          }}
-                          className="text-primary hover:text-primary/80 transition-colors"
-                          title="Edit email"
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
-                    
                     <form onSubmit={handleSignUpSubmit} className="space-y-3">
                       <div className="space-y-2">
                         <Label htmlFor="password">Password</Label>
