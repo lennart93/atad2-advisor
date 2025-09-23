@@ -322,15 +322,15 @@ const Auth = () => {
           <CardContent className="space-y-4">
             <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="signin">Sign In</TabsTrigger>
-                <TabsTrigger value="signup">Sign Up</TabsTrigger>
+                <TabsTrigger value="signin">Sign in</TabsTrigger>
+                <TabsTrigger value="signup">Sign up</TabsTrigger>
               </TabsList>
               
               <TabsContent value="signin" className="space-y-4 mt-4">
                 <form onSubmit={handleSignIn} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="signInEmail">Email address</Label>
-                    <div className="flex items-center group">
+                    <div className={cn("flex items-center rounded-md border transition-colors", "focus-within:border-primary focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2", signInLocalPartError && "border-destructive")}>
                       <Input
                         id="signInEmail"
                         value={signInLocalPart}
@@ -338,10 +338,10 @@ const Auth = () => {
                           setSignInLocalPart(e.target.value.toLowerCase());
                           setSignInLocalPartError("");
                         }}
-                        className={cn("rounded-r-none focus:ring-0 focus:border-primary group-focus-within:border-primary", signInLocalPartError && "border-destructive")}
+                        className="border-0 rounded-none focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent"
                         placeholder="email"
                       />
-                      <div className={cn("flex items-center gap-1 bg-muted border border-l-0 px-3 py-2 h-10 rounded-r-md group-focus-within:border-primary", signInLocalPartError && "border-destructive")}>
+                      <div className="flex items-center gap-1 bg-muted px-3 py-2 h-10 rounded-r-md">
                         <span className="text-muted-foreground">@{DOMAIN}</span>
                         <Lock className="h-4 w-4 text-muted-foreground" />
                       </div>
