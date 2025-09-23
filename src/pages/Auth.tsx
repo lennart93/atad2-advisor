@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Mail, CheckCircle2, Lock, Eye, EyeOff } from "lucide-react";
 import { makeLocalPart, validateName, validateLocalPart } from "@/utils/emailNormalization";
 import { cn } from "@/lib/utils";
@@ -13,7 +14,16 @@ import { cn } from "@/lib/utils";
 const DOMAIN = "svalneratlas.com";
 
 const Auth = () => {
-  // Form state
+  // Tab state
+  const [activeTab, setActiveTab] = useState("signin");
+  
+  // Sign In form state
+  const [signInLocalPart, setSignInLocalPart] = useState("");
+  const [signInPassword, setSignInPassword] = useState("");
+  const [signInShowPassword, setSignInShowPassword] = useState(false);
+  const [signInLoading, setSignInLoading] = useState(false);
+  
+  // Sign Up form state
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [localPart, setLocalPart] = useState("");
@@ -22,7 +32,7 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
   const [showEmailConfirmation, setShowEmailConfirmation] = useState(false);
   
-  // Step state
+  // Step state for Sign Up
   const [currentStep, setCurrentStep] = useState(1);
   const [isEditingEmail, setIsEditingEmail] = useState(false);
   const [emailWasEdited, setEmailWasEdited] = useState(false);
@@ -31,6 +41,7 @@ const Auth = () => {
   const [firstNameError, setFirstNameError] = useState("");
   const [lastNameError, setLastNameError] = useState("");
   const [localPartError, setLocalPartError] = useState("");
+  const [signInLocalPartError, setSignInLocalPartError] = useState("");
   
   // Refs for smooth scrolling
   const step2Ref = useRef<HTMLDivElement>(null);
@@ -135,12 +146,44 @@ const Auth = () => {
     }
   };
 
-  const handleBackToEmail = () => {
-    setCurrentStep(2);
-    step2Ref.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  const handleSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!signInLocalPart || !signInPassword) {
+      toast.error("Please fill in all fields");
+      return;
+    }
+    
+    const validation = validateLocalPart(signInLocalPart);
+    if (!validation.valid) {
+      setSignInLocalPartError(validation.error || "Invalid email format");
+      return;
+    }
+    
+    setSignInLoading(true);
+    const email = `${signInLocalPart}@${DOMAIN}`;
+
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password: signInPassword,
+      });
+      
+      if (error) {
+        toast.error("Sign in failed", {
+          description: error.message,
+        });
+      }
+    } catch (error) {
+      toast.error("Something went wrong", {
+        description: "Please try again.",
+      });
+    } finally {
+      setSignInLoading(false);
+    }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSignUpSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!password || password.length < 8) {
@@ -248,7 +291,7 @@ const Auth = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md space-y-8">
+      <div className="w-full max-w-md space-y-6">
         <div className="flex justify-center">
           <img 
             src="/lovable-uploads/efcd43b8-7f08-4aea-87f2-be5e2978f8c1.png" 
@@ -257,165 +300,58 @@ const Auth = () => {
           />
         </div>
         
-        <Card className="w-full max-w-lg mx-auto">
-          <CardHeader className="text-center">
+        <Card className="w-full max-w-[480px] mx-auto">
+          <CardHeader className="text-center pb-4">
             <CardTitle className="text-2xl">ATAD2 risk assessment</CardTitle>
             <CardDescription>
-              Enter your details to access the assessment tool
+              Sign in or create an account to get started
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-8">
-            {/* Step 1 - Name */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs">1</span>
-                Your name
-              </div>
+          <CardContent className="space-y-4">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="signin">Sign In</TabsTrigger>
+                <TabsTrigger value="signup">Sign Up</TabsTrigger>
+              </TabsList>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="firstName">First name</Label>
-                  <Input
-                    id="firstName"
-                    value={firstName}
-                    onChange={(e) => {
-                      setFirstName(e.target.value);
-                      setFirstNameError("");
-                    }}
-                    placeholder="Enter your first name"
-                    className={cn(firstNameError && "border-destructive")}
-                    disabled={currentStep > 1 && !emailWasEdited}
-                  />
-                  {firstNameError && (
-                    <p className="text-sm text-destructive">{firstNameError}</p>
-                  )}
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="lastName">Last name</Label>
-                  <Input
-                    id="lastName"
-                    value={lastName}
-                    onChange={(e) => {
-                      setLastName(e.target.value);
-                      setLastNameError("");
-                    }}
-                    placeholder="Enter your last name"
-                    className={cn(lastNameError && "border-destructive")}
-                    disabled={currentStep > 1 && !emailWasEdited}
-                  />
-                  {lastNameError && (
-                    <p className="text-sm text-destructive">{lastNameError}</p>
-                  )}
-                </div>
-              </div>
-              
-              {currentStep === 1 && (
-                <Button 
-                  onClick={handleStep1Continue}
-                  className="w-full"
-                  disabled={!firstName.trim() || !lastName.trim()}
-                >
-                  Continue
-                </Button>
-              )}
-            </div>
-
-            {/* Step 2 - Email confirmation */}
-            {currentStep >= 2 && (
-              <div ref={step2Ref} className="space-y-4 animate-fade-in">
-                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs">2</span>
-                  Confirm your email
-                </div>
-                
-                <div className="space-y-4">
-                  <h3 className="text-lg font-medium">So this should be your email address, right?</h3>
-                  
-                  {!isEditingEmail ? (
-                    <div className="p-4 bg-muted rounded-lg">
-                      <div className="font-mono font-bold text-lg">
-                        {localPart}@{DOMAIN}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <div className="flex items-center">
-                        <Input
-                          value={localPart}
-                          onChange={(e) => {
-                            setLocalPart(e.target.value.toLowerCase());
-                            setLocalPartError("");
-                          }}
-                          className={cn("rounded-r-none font-mono", localPartError && "border-destructive")}
-                          placeholder="username"
-                        />
-                        <div className="flex items-center gap-1 bg-muted border border-l-0 px-3 py-2 h-10 rounded-r-md">
-                          <span className="text-muted-foreground">@{DOMAIN}</span>
-                          <Lock className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                      </div>
-                      {localPartError && (
-                        <p className="text-sm text-destructive">{localPartError}</p>
-                      )}
-                    </div>
-                  )}
-                  
-                  <p className="text-sm text-muted-foreground">
-                    We generated this from your name. You can adjust the part before @ if needed.
-                  </p>
-                  
-                  {emailWasEdited && !isEditingEmail && (
-                    <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                      <span className="text-sm text-blue-700 dark:text-blue-300">You edited the email.</span>
-                      <Button variant="link" size="sm" onClick={handleRegenerateEmail} className="h-auto p-0 text-blue-600 dark:text-blue-400">
-                        Update from name?
-                      </Button>
-                    </div>
-                  )}
-                  
-                  {currentStep === 2 && (
-                    <div className="flex gap-3">
-                      {!isEditingEmail ? (
-                        <>
-                          <Button onClick={handleEmailCorrect} className="flex-1">
-                            Correct
-                          </Button>
-                          <Button variant="outline" onClick={handleEmailEdit}>
-                            Edit
-                          </Button>
-                        </>
-                      ) : (
-                        <Button onClick={handleEmailSave} className="flex-1">
-                          Save
-                        </Button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Step 3 - Password */}
-            {currentStep >= 3 && (
-              <div ref={step3Ref} className="space-y-4 animate-fade-in">
-                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs">3</span>
-                  Password
-                </div>
-                
-                <form onSubmit={handleSubmit} className="space-y-4">
+              <TabsContent value="signin" className="space-y-4 mt-4">
+                <form onSubmit={handleSignIn} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="password">Password</Label>
+                    <Label htmlFor="signInEmail">Email address</Label>
+                    <div className="flex items-center">
+                      <Input
+                        id="signInEmail"
+                        value={signInLocalPart}
+                        onChange={(e) => {
+                          setSignInLocalPart(e.target.value.toLowerCase());
+                          setSignInLocalPartError("");
+                        }}
+                        className={cn("rounded-r-none font-mono", signInLocalPartError && "border-destructive")}
+                        placeholder="email"
+                      />
+                      <div className="flex items-center gap-1 bg-muted border border-l-0 px-3 py-2 h-10 rounded-r-md">
+                        <span className="text-muted-foreground">@{DOMAIN}</span>
+                        <Lock className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    </div>
+                    {signInLocalPartError && (
+                      <p className="text-sm text-destructive">{signInLocalPartError}</p>
+                    )}
+                    <p className="text-sm text-muted-foreground">
+                      Fill in only the part before @.
+                    </p>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="signInPassword">Password</Label>
                     <div className="relative">
                       <Input
-                        id="password"
-                        type={showPassword ? "text" : "password"}
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="Create or enter your password"
+                        id="signInPassword"
+                        type={signInShowPassword ? "text" : "password"}
+                        value={signInPassword}
+                        onChange={(e) => setSignInPassword(e.target.value)}
+                        placeholder="Enter your password"
                         className="pr-10"
-                        minLength={8}
                         required
                       />
                       <Button
@@ -423,29 +359,187 @@ const Auth = () => {
                         variant="ghost"
                         size="sm"
                         className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                        onClick={() => setShowPassword(!showPassword)}
+                        onClick={() => setSignInShowPassword(!signInShowPassword)}
                       >
-                        {showPassword ? (
+                        {signInShowPassword ? (
                           <EyeOff className="h-4 w-4" />
                         ) : (
                           <Eye className="h-4 w-4" />
                         )}
                       </Button>
                     </div>
-                    <p className="text-sm text-muted-foreground">At least 8 characters</p>
                   </div>
                   
-                  <div className="flex gap-3">
-                    <Button type="submit" className="flex-1" disabled={loading || password.length < 8}>
-                      {loading ? "Signing in..." : "Sign in"}
-                    </Button>
-                    <Button type="button" variant="outline" onClick={handleBackToEmail}>
-                      Back to email
-                    </Button>
-                  </div>
+                  <Button type="submit" className="w-full" disabled={signInLoading}>
+                    {signInLoading ? "Signing in..." : "Sign In"}
+                  </Button>
                 </form>
-              </div>
-            )}
+              </TabsContent>
+              
+              <TabsContent value="signup" className="space-y-4 mt-4">
+                {/* Step 1 - Name */}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="firstName">First name</Label>
+                      <Input
+                        id="firstName"
+                        value={firstName}
+                        onChange={(e) => {
+                          setFirstName(e.target.value);
+                          setFirstNameError("");
+                        }}
+                        placeholder="Enter your first name"
+                        className={cn(firstNameError && "border-destructive")}
+                        disabled={currentStep > 1 && !emailWasEdited}
+                      />
+                      {firstNameError && (
+                        <p className="text-sm text-destructive">{firstNameError}</p>
+                      )}
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="lastName">Last name</Label>
+                      <Input
+                        id="lastName"
+                        value={lastName}
+                        onChange={(e) => {
+                          setLastName(e.target.value);
+                          setLastNameError("");
+                        }}
+                        placeholder="Enter your last name"
+                        className={cn(lastNameError && "border-destructive")}
+                        disabled={currentStep > 1 && !emailWasEdited}
+                      />
+                      {lastNameError && (
+                        <p className="text-sm text-destructive">{lastNameError}</p>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {currentStep === 1 && (
+                    <Button 
+                      onClick={handleStep1Continue}
+                      className="w-full"
+                      disabled={!firstName.trim() || !lastName.trim()}
+                    >
+                      Continue
+                    </Button>
+                  )}
+                </div>
+
+                {/* Step 2 - Email confirmation */}
+                {currentStep >= 2 && (
+                  <div ref={step2Ref} className="space-y-3 animate-fade-in">
+                    <div className="space-y-3">
+                      <h3 className="text-base font-medium">Does this look like your email?</h3>
+                      
+                      {!isEditingEmail ? (
+                        <div className="inline-flex items-center bg-muted px-3 py-2 rounded-md">
+                          <span className="font-mono font-medium text-sm">
+                            {localPart}@{DOMAIN}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <div className="flex items-center">
+                            <Input
+                              value={localPart}
+                              onChange={(e) => {
+                                setLocalPart(e.target.value.toLowerCase());
+                                setLocalPartError("");
+                              }}
+                              className={cn("rounded-r-none font-mono", localPartError && "border-destructive")}
+                              placeholder="username"
+                            />
+                            <div className="flex items-center gap-1 bg-muted border border-l-0 px-3 py-2 h-10 rounded-r-md">
+                              <span className="text-muted-foreground">@{DOMAIN}</span>
+                              <Lock className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                          </div>
+                          {localPartError && (
+                            <p className="text-sm text-destructive">{localPartError}</p>
+                          )}
+                        </div>
+                      )}
+                      
+                      <p className="text-sm text-muted-foreground">
+                        We generated it from your name. Adjust the part before @ if needed.
+                      </p>
+                      
+                      {emailWasEdited && !isEditingEmail && (
+                        <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                          <span className="text-sm text-blue-700 dark:text-blue-300">You edited the email.</span>
+                          <Button variant="link" size="sm" onClick={handleRegenerateEmail} className="h-auto p-0 text-blue-600 dark:text-blue-400">
+                            Update from name?
+                          </Button>
+                        </div>
+                      )}
+                      
+                      {currentStep === 2 && (
+                        <div className="flex gap-3">
+                          {!isEditingEmail ? (
+                            <>
+                              <Button onClick={handleEmailCorrect} className="flex-1">
+                                Looks good
+                              </Button>
+                              <Button variant="outline" onClick={handleEmailEdit}>
+                                Edit
+                              </Button>
+                            </>
+                          ) : (
+                            <Button onClick={handleEmailSave} className="flex-1">
+                              Save
+                            </Button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 3 - Password */}
+                {currentStep >= 3 && (
+                  <div ref={step3Ref} className="space-y-3 animate-fade-in">
+                    <form onSubmit={handleSignUpSubmit} className="space-y-3">
+                      <div className="space-y-2">
+                        <Label htmlFor="password">Password</Label>
+                        <div className="relative">
+                          <Input
+                            id="password"
+                            type={showPassword ? "text" : "password"}
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder="Create or enter your password"
+                            className="pr-10"
+                            minLength={8}
+                            required
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                            onClick={() => setShowPassword(!showPassword)}
+                          >
+                            {showPassword ? (
+                              <EyeOff className="h-4 w-4" />
+                            ) : (
+                              <Eye className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </div>
+                        <p className="text-sm text-muted-foreground">At least 8 characters.</p>
+                      </div>
+                      
+                      <Button type="submit" className="w-full" disabled={loading || password.length < 8}>
+                        {loading ? "Creating account..." : "Create account"}
+                      </Button>
+                    </form>
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
       </div>
