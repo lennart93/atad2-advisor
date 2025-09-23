@@ -126,7 +126,6 @@ const Auth = () => {
     const validation = validateLocalPart(localPart);
     if (validation.valid) {
       setIsEditingEmail(false);
-      setEmailWasEdited(true);
       setLocalPartError("");
     } else {
       setLocalPartError(validation.error || "Invalid email format");
@@ -432,11 +431,13 @@ const Auth = () => {
                 {currentStep >= 2 && (
                   <div ref={step2Ref} className="space-y-3 animate-fade-in">
                     <div className="space-y-3">
-                      <h3 className="text-base font-medium">Does this look like your email?</h3>
+                      <Label className="text-sm font-medium">
+                        {currentStep === 2 ? "Does this look like your email?" : "Your email address"}
+                      </Label>
                       
                       {!isEditingEmail ? (
                         <div className="inline-flex items-center bg-muted px-3 py-2 rounded-md">
-                          <span className="font-mono font-medium text-sm">
+                          <span className="font-medium text-sm">
                             {localPart}@{DOMAIN}
                           </span>
                         </div>
@@ -449,7 +450,7 @@ const Auth = () => {
                                 setLocalPart(e.target.value.toLowerCase());
                                 setLocalPartError("");
                               }}
-                              className={cn("rounded-r-none font-mono", localPartError && "border-destructive")}
+                              className={cn("rounded-r-none", localPartError && "border-destructive")}
                               placeholder="username"
                             />
                             <div className="flex items-center gap-1 bg-muted border border-l-0 px-3 py-2 h-10 rounded-r-md">
@@ -460,19 +461,6 @@ const Auth = () => {
                           {localPartError && (
                             <p className="text-sm text-destructive">{localPartError}</p>
                           )}
-                        </div>
-                      )}
-                      
-                      <p className="text-sm text-muted-foreground">
-                        We generated it from your name. Adjust the part before @ if needed.
-                      </p>
-                      
-                      {emailWasEdited && !isEditingEmail && (
-                        <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                          <span className="text-sm text-blue-700 dark:text-blue-300">You edited the email.</span>
-                          <Button variant="link" size="sm" onClick={handleRegenerateEmail} className="h-auto p-0 text-blue-600 dark:text-blue-400">
-                            Update from name?
-                          </Button>
                         </div>
                       )}
                       
@@ -510,7 +498,7 @@ const Auth = () => {
                             type={showPassword ? "text" : "password"}
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            placeholder="Create or enter your password"
+                            placeholder="Enter your password"
                             className="pr-10"
                             minLength={8}
                             required
