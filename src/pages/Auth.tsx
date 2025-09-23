@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Mail, CheckCircle2, Lock, Eye, EyeOff } from "lucide-react";
+import { Mail, CheckCircle2, Lock, Eye, EyeOff, Edit2 } from "lucide-react";
 import { makeLocalPart, validateName, validateLocalPart } from "@/utils/emailNormalization";
 import { cn } from "@/lib/utils";
 
@@ -202,6 +202,13 @@ const Auth = () => {
     if (validation.valid) {
       setIsEditingEmail(false);
       setLocalPartError("");
+      // Advance to password step like "Looks good"
+      setCurrentStep(3);
+      
+      // Smooth scroll to step 3
+      setTimeout(() => {
+        step3Ref.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 100);
     } else {
       setLocalPartError(validation.error || "Invalid email format");
     }
@@ -529,10 +536,12 @@ const Auth = () => {
                       </Label>
                       
                       {!isEditingEmail ? (
-                        <div className="inline-flex items-center bg-muted px-3 py-2 rounded-md">
-                          <span className="font-medium text-sm">
-                            {localPart}@{DOMAIN}
-                          </span>
+                        <div className="flex justify-center">
+                          <div className="inline-flex items-center bg-muted px-3 py-2 rounded-md">
+                            <span className="font-medium text-sm">
+                              {localPart}@{DOMAIN}
+                            </span>
+                          </div>
                         </div>
                       ) : (
                         <div className="space-y-2">
@@ -579,9 +588,36 @@ const Auth = () => {
                   </div>
                 )}
 
-                {/* Step 3 - Password */}
+                {/* Step 3 - Password with inline editing */}
                 {currentStep >= 3 && (
                   <div ref={step3Ref} className="space-y-3 animate-fade-in">
+                    {/* Inline edit for name and email */}
+                    <div className="space-y-2 p-3 bg-muted/30 rounded-md">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">Name: {firstName} {lastName}</span>
+                        <button
+                          onClick={() => setCurrentStep(1)}
+                          className="text-primary hover:text-primary/80 transition-colors"
+                          title="Edit name"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">Email: {localPart}@{DOMAIN}</span>
+                        <button
+                          onClick={() => {
+                            setCurrentStep(2);
+                            setIsEditingEmail(true);
+                          }}
+                          className="text-primary hover:text-primary/80 transition-colors"
+                          title="Edit email"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                    
                     <form onSubmit={handleSignUpSubmit} className="space-y-3">
                       <div className="space-y-2">
                         <Label htmlFor="password">Password</Label>
@@ -610,7 +646,7 @@ const Auth = () => {
                             )}
                           </Button>
                         </div>
-                        <p className="text-sm text-muted-foreground">At least 8 characters.</p>
+                        <p className="text-sm text-muted-foreground">At least 8 characters</p>
                       </div>
                       
                       <Button type="submit" className="w-full" disabled={loading || password.length < 8}>
