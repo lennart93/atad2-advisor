@@ -434,8 +434,7 @@ const Auth = () => {
                     )}
                     
                     {/* Helper text that changes to hint when needed */}
-                    <p id="email-helper" className={cn("text-sm transition-all duration-200 flex items-center gap-1", showEmailHint ? "text-foreground font-medium animate-fade-in" : "text-muted-foreground")} role={showEmailHint ? "status" : undefined} aria-live={showEmailHint ? "polite" : undefined}>
-                      {showEmailHint && <Info className="h-3 w-3" />}
+                    <p id="email-helper" className={cn("text-sm transition-all duration-200", showEmailHint ? "text-foreground font-medium animate-fade-in" : "text-muted-foreground")} role={showEmailHint ? "status" : undefined} aria-live={showEmailHint ? "polite" : undefined}>
                       {showEmailHint 
                         ? "No need to add @svalneratlas.com, we've already got that"
                         : "Fill in only the part before @. The domain is fixed."
