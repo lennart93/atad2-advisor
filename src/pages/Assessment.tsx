@@ -438,16 +438,113 @@ const Assessment = () => {
   };
 
   const finishAssessment = async () => {
-    if (!sessionId) return;
+    if (!sessionId || !currentQuestion || !selectedAnswer) return;
 
+    // Check if explanation field is empty and we haven't shown reminder yet
+    if (shouldShowContextPanel && (!contextValue || contextValue.trim() === '') && !explanationReminderShown) {
+      // First time clicking Finish with empty explanation - show friendly reminder
+      const randomReminder = friendlyReminders[Math.floor(Math.random() * friendlyReminders.length)];
+      setReminderMessage(randomReminder);
+      setExplanationReminderShown(true);
+      
+      // Trigger shake animation
+      setShowExplanationShake(true);
+      setTimeout(() => setShowExplanationShake(false), 600);
+      
+      toast.info("Ho ho — vul a.u.b. nog wat in (klik nogmaals om door te gaan)");
+      
+      return; // Don't proceed to finish
+    }
+
+    // Second time clicking or explanation has content - proceed normally
     setLoading(true);
     try {
+      // First ensure the current answer is saved (upsert)
+      const selectedQuestionOption = questions.find(
+        q => q.question_id === currentQuestion.question_id && q.answer_option === selectedAnswer
+      );
+
+      if (!selectedQuestionOption) {
+        throw new Error("Selected answer not found");
+      }
+
+      // Get explanation from store with strict answer binding
+      const storeExplanation = store.getQuestionState(sessionId, currentQuestion.question_id, selectedAnswer)?.explanation || '';
+      
+      // For questions that require explanation but store is empty, check database
+      let finalExplanation = storeExplanation;
+      if (!storeExplanation && selectedQuestionOption.requires_explanation) {
+        const { data: dbAnswer } = await supabase
+          .from('atad2_answers')
+          .select('explanation')
+          .eq('session_id', sessionId)
+          .eq('question_id', currentQuestion.question_id)
+          .maybeSingle();
+        
+        if (dbAnswer?.explanation) {
+          finalExplanation = dbAnswer.explanation;
+        }
+      }
+
+      // Always upsert the current answer (insert if no record, update otherwise)
+      const { data: existingAnswer } = await supabase
+        .from('atad2_answers')
+        .select('id')
+        .eq('session_id', sessionId)
+        .eq('question_id', currentQuestion.question_id)
+        .maybeSingle();
+
+      if (existingAnswer) {
+        const { error } = await supabase
+          .from('atad2_answers')
+          .update({
+            question_text: currentQuestion.question,
+            answer: selectedAnswer,
+            explanation: finalExplanation,
+            risk_points: selectedQuestionOption.risk_points,
+            difficult_term: selectedQuestionOption.difficult_term,
+            term_explanation: selectedQuestionOption.term_explanation,
+            answered_at: new Date().toISOString()
+          })
+          .eq('id', existingAnswer.id);
+
+        if (error) throw error;
+        console.log("✅ Updated existing answer for finish:", finalExplanation.substring(0, 50));
+      } else {
+        const { error } = await supabase
+          .from('atad2_answers')
+          .insert({
+            session_id: sessionId,
+            question_id: currentQuestion.question_id,
+            question_text: currentQuestion.question,
+            answer: selectedAnswer,
+            explanation: finalExplanation,
+            risk_points: selectedQuestionOption.risk_points,
+            difficult_term: selectedQuestionOption.difficult_term,
+            term_explanation: selectedQuestionOption.term_explanation
+          });
+
+        if (error) throw error;
+        console.log("✅ Inserted new answer for finish:", finalExplanation.substring(0, 50));
+      }
+
+      // Update store with answer
+      store.updateAnswer(sessionId, currentQuestion.question_id, selectedAnswer as 'Yes' | 'No' | 'Unknown');
+      
+      // Update local state
+      setAnswers(prev => ({ ...prev, [currentQuestion.question_id]: selectedAnswer }));
+
+      // Now complete the session
       const { error } = await supabase
         .from('atad2_sessions')
         .update({ completed: true, status: 'completed' })
         .eq('session_id', sessionId);
 
       if (error) throw error;
+
+      // Reset reminder state
+      setExplanationReminderShown(false);
+      setReminderMessage("");
 
       toast.success("Assessment complete", {
         description: "Your risk assessment has been completed successfully.",
