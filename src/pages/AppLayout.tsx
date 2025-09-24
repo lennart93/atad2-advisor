@@ -30,6 +30,25 @@ const AppLayout = () => {
     staleTime: 60_000,
   });
 
+  const { data: userProfile } = useQuery({
+    queryKey: ["user-profile", user?.id],
+    queryFn: async () => {
+      if (!user) return null;
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("first_name")
+        .eq("user_id", user.id)
+        .single();
+      if (error) {
+        console.error("Profile fetch error", error);
+        return null;
+      }
+      return data;
+    },
+    enabled: !!user,
+    staleTime: 60_000,
+  });
+
   const handleBack = () => {
     if (window.history.length > 1) navigate(-1);
     else navigate(from);
@@ -52,7 +71,9 @@ const AppLayout = () => {
             <div>
               <h1 className="text-base sm:text-lg font-semibold">ATAD2 risk assessment</h1>
               {user && (
-                <p className="text-xs sm:text-sm text-muted-foreground">Welcome back, {user.email}</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">
+                  Welcome back, {userProfile?.first_name || user.email?.split('@')[0]}
+                </p>
               )}
             </div>
           </div>
