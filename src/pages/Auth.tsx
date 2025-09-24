@@ -400,13 +400,13 @@ const Auth = () => {
                 <form onSubmit={handleSignIn} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="signInEmail">Email address</Label>
-                    <div className={cn("flex items-center rounded-md border transition-colors", "focus-within:border-primary focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2", signInLocalPartError && "border-destructive")}>
+                    <div className={cn("flex items-center rounded-md border", signInLocalPartError && "border-destructive")}>
                       <Input
                         id="signInEmail"
                         value={signInLocalPart}
                         onChange={(e) => handleEmailInput(e.target.value)}
                         onPaste={handleEmailPaste}
-                        className="border-0 rounded-l-md focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-0 focus:outline-0 focus:border-0 focus-visible:border-0 bg-transparent shadow-none outline-0 [&:focus]:border-0 [&:focus]:outline-0 [&:focus]:ring-0"
+                        className="border-0 rounded-l-md bg-transparent shadow-none"
                         placeholder="your.name"
                         aria-describedby="email-helper email-hint"
                       />
