@@ -400,21 +400,25 @@ const Auth = () => {
                 <form onSubmit={handleSignIn} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="signInEmail">Email address</Label>
+                    {/* Hidden dummy field to trick autofill */}
+                    <input type="email" name="fakeusernameremembered" style={{display: 'none'}} tabIndex={-1} autoComplete="email" />
                     <div className={cn("flex items-center rounded-md border", signInLocalPartError && "border-destructive")}>
                       <Input
                         id="signInEmail"
                         type="text"
-                        name="username"
+                        name="signin-username-custom"
                         value={signInLocalPart}
                         onChange={(e) => handleEmailInput(e.target.value)}
                         onPaste={handleEmailPaste}
                         className="border-0 rounded-l-md bg-transparent shadow-none"
                         placeholder="your.name"
                         aria-describedby="email-helper email-hint"
-                        autoComplete="off"
+                        autoComplete="new-password"
                         autoCorrect="off"
                         autoCapitalize="none"
                         spellCheck="false"
+                        data-lpignore="true"
+                        data-form-type="other"
                       />
                       <div 
                         className={cn("flex items-center gap-1 bg-muted px-3 py-2 h-10 rounded-r-md transition-transform", domainPulse && "animate-pulse")}
@@ -584,10 +588,12 @@ const Auth = () => {
                         </div>
                       ) : (
                         <div className="space-y-2">
+                          {/* Hidden dummy field to trick autofill */}
+                          <input type="email" name="fakeusernamesignup" style={{display: 'none'}} tabIndex={-1} autoComplete="email" />
                           <div className="flex items-center">
                             <Input
                               type="text"
-                              name="username"
+                              name="signup-username-custom"
                               value={localPart}
                               onChange={(e) => {
                                 setLocalPart(e.target.value.toLowerCase());
@@ -595,10 +601,12 @@ const Auth = () => {
                               }}
                               className={cn("rounded-r-none", localPartError && "border-destructive")}
                               placeholder="username"
-                              autoComplete="off"
+                              autoComplete="new-password"
                               autoCorrect="off"
                               autoCapitalize="none"
                               spellCheck="false"
+                              data-lpignore="true"
+                              data-form-type="other"
                             />
                             <div className="flex items-center gap-1 bg-muted border border-l-0 px-3 py-2 h-10 rounded-r-md">
                               <span className="text-muted-foreground">@{DOMAIN}</span>
