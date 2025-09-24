@@ -1,18 +1,36 @@
 // Email normalization utility for progressive login flow
 
 /**
+ * Character mapping for special characters that don't get handled by NFD normalization
+ */
+const characterMap: Record<string, string> = {
+  'æ': 'ae', 'ø': 'o', 'å': 'a', 'đ': 'd', 'ð': 'd', 'þ': 'th',
+  'ß': 'ss', 'ĳ': 'ij', 'œ': 'oe', 'ł': 'l', 'ŋ': 'ng', 'ħ': 'h',
+  'ı': 'i', 'ĸ': 'k', 'ſ': 's', 'ŧ': 't', 'ź': 'z', 'ż': 'z'
+};
+
+/**
  * Normalizes a name string for use in email generation
+ * Converts special characters to ASCII equivalents and removes diacritics
  */
 function normalizeName(name: string): string {
   return name
     .trim()
     .toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // strip diacritics
-    .replace(/[''`",\/()]/g, '')                      // drop punctuation
-    .replace(/\s+/g, '')                               // remove spaces
-    .replace(/[^a-z0-9.-]/g, '')                        // allow only a-z 0-9 . -
-    .replace(/[.-]{2,}/g, m => m[0])                    // collapse repeats
-    .replace(/^[.-]+|[.-]+$/g, '');                     // trim ends
+    // Apply custom character mappings first for edge cases
+    .replace(/[æøåđðþßĳœłŋħıĸſŧźż]/g, char => characterMap[char] || char)
+    // Unicode normalization to decompose characters and remove diacritics
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') 
+    // Remove punctuation and special characters
+    .replace(/[''`",\/()]/g, '')                      
+    // Remove spaces
+    .replace(/\s+/g, '')                               
+    // Allow only alphanumeric, dots, and hyphens
+    .replace(/[^a-z0-9.-]/g, '')                        
+    // Collapse repeated dots or hyphens
+    .replace(/[.-]{2,}/g, m => m[0])                    
+    // Remove leading/trailing dots or hyphens
+    .replace(/^[.-]+|[.-]+$/g, '');                     
 }
 
 /**
