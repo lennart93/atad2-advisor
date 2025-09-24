@@ -64,7 +64,7 @@ const AppLayout = () => {
         <div className="mx-auto max-w-6xl px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img 
-              src="/lovable-uploads/efcd43b8-7f08-4aea-87f2-be5e2978f8c1.png" 
+              src="/lovable-uploads/new-logo.png" 
               alt="Company Logo" 
               className="h-8 w-8 object-contain"
             />

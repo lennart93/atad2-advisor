@@ -322,7 +322,7 @@ const Auth = () => {
         <div className="w-full max-w-md space-y-8">
           <div className="flex justify-center">
             <img 
-              src="/lovable-uploads/efcd43b8-7f08-4aea-87f2-be5e2978f8c1.png" 
+              src="/lovable-uploads/new-logo.png" 
               alt="Company Logo" 
               className="h-16 w-16 object-contain"
             />
@@ -376,7 +376,7 @@ const Auth = () => {
       <div className="w-full max-w-md space-y-6">
         <div className="flex justify-center">
           <img 
-            src="/lovable-uploads/efcd43b8-7f08-4aea-87f2-be5e2978f8c1.png" 
+            src="/lovable-uploads/new-logo.png" 
             alt="Company Logo" 
             className="h-16 w-16 object-contain"
           />
