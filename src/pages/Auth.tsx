@@ -23,20 +23,20 @@ const Auth = () => {
       // Reset all signup state when leaving signup
       setFirstName("");
       setLastName("");
-      setEmail("");
+      setLocalPart("");
       setPassword("");
       setCurrentStep(1);
       setIsEditingEmail(false);
       setEmailWasEdited(false);
       setFirstNameError("");
       setLastNameError("");
-      setEmailError("");
+      setLocalPartError("");
     }
     setActiveTab(newTab);
   };
   
   // Sign In form state
-  const [signInEmail, setSignInEmail] = useState("");
+  const [signInLocalPart, setSignInLocalPart] = useState("");
   const [signInPassword, setSignInPassword] = useState("");
   const [signInShowPassword, setSignInShowPassword] = useState(false);
   const [signInLoading, setSignInLoading] = useState(false);
@@ -44,7 +44,7 @@ const Auth = () => {
   // Sign Up form state
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [email, setEmail] = useState("");
+  const [localPart, setLocalPart] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -58,8 +58,8 @@ const Auth = () => {
   // Validation state
   const [firstNameError, setFirstNameError] = useState("");
   const [lastNameError, setLastNameError] = useState("");
-  const [emailError, setEmailError] = useState("");
-  const [signInEmailError, setSignInEmailError] = useState("");
+  const [localPartError, setLocalPartError] = useState("");
+  const [signInLocalPartError, setSignInLocalPartError] = useState("");
   
   // Email input hints and notifications
   const [showEmailHint, setShowEmailHint] = useState(false);
@@ -90,8 +90,8 @@ const Auth = () => {
     if (firstName && lastName && !emailWasEdited) {
       try {
         const generated = makeLocalPart(firstName, lastName);
-        setEmail(`${generated}@${DOMAIN}`);
-        setEmailError("");
+        setLocalPart(generated);
+        setLocalPartError("");
       } catch (error) {
         // Silent fail - user will see validation on continue
       }
@@ -112,8 +112,8 @@ const Auth = () => {
     if (validateStep1()) {
       try {
         const generated = makeLocalPart(firstName, lastName);
-        setEmail(`${generated}@${DOMAIN}`);
-        setEmailError("");
+        setLocalPart(generated);
+        setLocalPartError("");
         setCurrentStep(2);
         
         // Smooth scroll to step 2
@@ -129,17 +129,17 @@ const Auth = () => {
   };
 
   const handleEmailCorrect = () => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (emailRegex.test(email)) {
+    const validation = validateLocalPart(localPart);
+    if (validation.valid) {
       setCurrentStep(3);
-      setEmailError("");
+      setLocalPartError("");
       
       // Smooth scroll to step 3
       setTimeout(() => {
         step3Ref.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }, 100);
     } else {
-      setEmailError("Invalid email format");
+      setLocalPartError(validation.error || "Invalid email format");
     }
   };
 
@@ -149,22 +149,60 @@ const Auth = () => {
 
   // Enhanced email input handlers
   const handleEmailInput = (value: string) => {
-    setSignInEmail(value.toLowerCase());
-    setSignInEmailError("");
+    // Strip any @ and everything after it
+    const cleanValue = value.replace(/@.*$/, '');
+    
+    // Check if @ was attempted
+    if (value.includes('@')) {
+      setShowEmailHint(true);
+      // Remove pulse animation as requested
+      // setDomainPulse(true);
+      
+      // Auto-dismiss hint after 3 seconds
+      setTimeout(() => setShowEmailHint(false), 3000);
+      // setTimeout(() => setDomainPulse(false), 200);
+    }
+    
+    setSignInLocalPart(cleanValue.toLowerCase());
+    setSignInLocalPartError("");
   };
   
   const handleEmailPaste = (e: React.ClipboardEvent) => {
-    const pasteText = e.clipboardData.getData('text').toLowerCase();
-    setSignInEmail(pasteText);
-    setSignInEmailError("");
+    e.preventDefault();
+    const pasteText = e.clipboardData.getData('text');
+    const emailMatch = pasteText.match(/^\s*([^@\s]+)@([^\s]+)\s*$/);
+    
+    if (emailMatch) {
+      const localPart = emailMatch[1].toLowerCase();
+      setUndoValue(signInLocalPart); // Store current value for undo
+      setSignInLocalPart(localPart);
+      setPasteNotice(`We kept "${localPart}" and locked the domain.`);
+      setShowUndo(true);
+      
+      // Auto-dismiss notice and undo option after 3 seconds
+      setTimeout(() => {
+        setPasteNotice("");
+        setShowUndo(false);
+      }, 3000);
+    } else {
+      // Regular paste without @
+      const cleanValue = pasteText.replace(/@.*$/, '').toLowerCase();
+      setSignInLocalPart(cleanValue);
+    }
+    setSignInLocalPartError("");
   };
   
+  const handleUndo = () => {
+    setSignInLocalPart(undoValue);
+    setPasteNotice("");
+    setShowUndo(false);
+  };
 
   const handleEmailSave = () => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (emailRegex.test(email)) {
+    const validation = validateLocalPart(localPart);
+    if (validation.valid) {
       setIsEditingEmail(false);
-      setEmailError("");
+      setLocalPartError("");
       // Advance to password step like "Looks good"
       setCurrentStep(3);
       
@@ -173,16 +211,16 @@ const Auth = () => {
         step3Ref.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }, 100);
     } else {
-      setEmailError("Invalid email format");
+      setLocalPartError(validation.error || "Invalid email format");
     }
   };
 
   const handleRegenerateEmail = () => {
     try {
       const generated = makeLocalPart(firstName, lastName);
-      setEmail(`${generated}@${DOMAIN}`);
+      setLocalPart(generated);
       setEmailWasEdited(false);
-      setEmailError("");
+      setLocalPartError("");
     } catch (error) {
       toast.error("Unable to regenerate email", {
         description: "Please check your name format",
@@ -193,22 +231,23 @@ const Auth = () => {
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!signInEmail || !signInPassword) {
+    if (!signInLocalPart || !signInPassword) {
       toast.error("Please fill in all fields");
       return;
     }
     
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(signInEmail)) {
-      setSignInEmailError("Invalid email format");
+    const validation = validateLocalPart(signInLocalPart);
+    if (!validation.valid) {
+      setSignInLocalPartError(validation.error || "Invalid email format");
       return;
     }
     
     setSignInLoading(true);
+    const email = `${signInLocalPart}@${DOMAIN}`;
 
     try {
       const { error } = await supabase.auth.signInWithPassword({
-        email: signInEmail,
+        email,
         password: signInPassword,
       });
       
@@ -236,13 +275,8 @@ const Auth = () => {
       return;
     }
     
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      setEmailError("Invalid email format");
-      return;
-    }
-    
     setLoading(true);
+    const email = `${localPart}@${DOMAIN}`;
 
     try {
       const redirectUrl = `${window.location.origin}/email-confirmed`;
@@ -308,12 +342,12 @@ const Auth = () => {
                   <h2 className="text-2xl font-semibold text-foreground">
                     Account created
                   </h2>
-                   <p className="text-muted-foreground">
-                     We've sent a confirmation email to
+                  <p className="text-muted-foreground">
+                    We've sent a confirmation email to
+                  </p>
+                   <p className="font-semibold text-foreground bg-muted px-3 py-2 rounded-lg">
+                     {localPart}@{DOMAIN}
                    </p>
-                    <p className="font-semibold text-foreground bg-muted px-3 py-2 rounded-lg">
-                      {email}
-                    </p>
                 </div>
 
                 <div className="text-sm text-muted-foreground space-y-2">
@@ -363,24 +397,55 @@ const Auth = () => {
               </TabsList>
               
               <TabsContent value="signin" className="space-y-4 mt-4">
-                 <form onSubmit={handleSignIn} className="space-y-4">
-                   <div className="space-y-2">
-                     <Label htmlFor="signInEmail">Email address</Label>
-                     <Input
-                       id="signInEmail"
-                       type="email"
-                       value={signInEmail}
-                       onChange={(e) => handleEmailInput(e.target.value)}
-                       onPaste={handleEmailPaste}
-                       placeholder="your.name@example.com"
-                       required
-                     />
-                     
-                     {/* Error message */}
-                     {signInEmailError && (
-                       <p className="text-sm text-destructive" role="alert">{signInEmailError}</p>
-                     )}
-                   </div>
+                <form onSubmit={handleSignIn} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="signInEmail">Email address</Label>
+                    <div className={cn("flex items-center rounded-md border transition-colors", "focus-within:border-primary focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2", signInLocalPartError && "border-destructive")}>
+                      <Input
+                        id="signInEmail"
+                        value={signInLocalPart}
+                        onChange={(e) => handleEmailInput(e.target.value)}
+                        onPaste={handleEmailPaste}
+                        className="border-0 rounded-l-md focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-0 focus:outline-0 focus:border-0 focus-visible:border-0 bg-transparent shadow-none outline-0 [&:focus]:border-0 [&:focus]:outline-0 [&:focus]:ring-0"
+                        placeholder="your.name"
+                        aria-describedby="email-helper email-hint"
+                      />
+                      <div 
+                        className={cn("flex items-center gap-1 bg-muted px-3 py-2 h-10 rounded-r-md transition-transform", domainPulse && "animate-pulse")}
+                        role="note"
+                        aria-label="Domain fixed to @svalneratlas.com"
+                        title="Domain is fixed to @svalneratlas.com"
+                      >
+                        <span className="text-muted-foreground">@{DOMAIN}</span>
+                        <Lock className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    </div>
+                    
+                    {/* Error message */}
+                    {signInLocalPartError && (
+                      <p className="text-sm text-destructive" role="alert">{signInLocalPartError}</p>
+                    )}
+                    
+                    {/* Paste notice */}
+                    {pasteNotice && (
+                      <div className="flex items-center justify-between text-sm text-muted-foreground animate-fade-in" role="status" aria-live="polite">
+                        <span>{pasteNotice}</span>
+                        {showUndo && (
+                          <button onClick={handleUndo} className="text-foreground underline hover:no-underline ml-2">
+                            Undo
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* Helper text that changes to hint when needed */}
+                    <p id="email-helper" className={cn("text-sm transition-all duration-200", showEmailHint ? "text-foreground font-medium animate-fade-in" : "text-muted-foreground")} role={showEmailHint ? "status" : undefined} aria-live={showEmailHint ? "polite" : undefined}>
+                      {showEmailHint 
+                        ? "No need to add @svalneratlas.com, we've already got that"
+                        : "Fill in only the part before @. The domain is fixed."
+                      }
+                    </p>
+                  </div>
                   
                   <div className="space-y-2">
                     <Label htmlFor="signInPassword">Password</Label>
@@ -505,30 +570,34 @@ const Auth = () => {
                         )}
                       </div>
                       
-                       {!isEditingEmail ? (
-                         <div className="inline-flex items-center bg-muted px-3 py-2 rounded-md">
-                           <span className="font-medium text-sm">
-                             {email}
-                           </span>
-                         </div>
-                       ) : (
-                         <div className="space-y-2">
-                           <Input
-                             type="email"
-                             value={email}
-                             onChange={(e) => {
-                               setEmail(e.target.value.toLowerCase());
-                               setEmailError("");
-                               setEmailWasEdited(true);
-                             }}
-                             className={cn(emailError && "border-destructive")}
-                             placeholder="your.name@example.com"
-                           />
-                           {emailError && (
-                             <p className="text-sm text-destructive">{emailError}</p>
-                           )}
-                         </div>
-                       )}
+                      {!isEditingEmail ? (
+                        <div className="inline-flex items-center bg-muted px-3 py-2 rounded-md">
+                          <span className="font-medium text-sm">
+                            {localPart}@{DOMAIN}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <div className="flex items-center">
+                            <Input
+                              value={localPart}
+                              onChange={(e) => {
+                                setLocalPart(e.target.value.toLowerCase());
+                                setLocalPartError("");
+                              }}
+                              className={cn("rounded-r-none", localPartError && "border-destructive")}
+                              placeholder="username"
+                            />
+                            <div className="flex items-center gap-1 bg-muted border border-l-0 px-3 py-2 h-10 rounded-r-md">
+                              <span className="text-muted-foreground">@{DOMAIN}</span>
+                              <Lock className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                          </div>
+                          {localPartError && (
+                            <p className="text-sm text-destructive">{localPartError}</p>
+                          )}
+                        </div>
+                      )}
                       
                       {currentStep === 2 && (
                         <div className="flex gap-3">
