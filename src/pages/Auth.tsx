@@ -483,16 +483,6 @@ const Auth = () => {
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
                           <Label htmlFor="firstName">First name</Label>
-                          {currentStep > 1 && !emailWasEdited && (
-                            <button
-                              type="button"
-                              onClick={() => setCurrentStep(1)}
-                              className="text-muted-foreground hover:text-foreground transition-colors"
-                              title="Edit name"
-                            >
-                              <Edit2 className="h-3 w-3" />
-                            </button>
-                          )}
                         </div>
                         <Input
                           id="firstName"
