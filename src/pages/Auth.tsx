@@ -395,7 +395,7 @@ const Auth = () => {
                 <form onSubmit={handleSignIn} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="signInEmail">Email address</Label>
-                    <div className={cn("flex items-center rounded-md border transition-colors", "focus-within:border-primary", signInLocalPartError && "border-destructive")}>
+                    <div className={cn("flex items-center rounded-md border transition-colors", "focus-within:border-primary focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2", signInLocalPartError && "border-destructive")}>
                       <Input
                         id="signInEmail"
                         value={signInLocalPart}
