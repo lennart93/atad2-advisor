@@ -438,10 +438,24 @@ const Assessment = () => {
   };
 
   const finishAssessment = async () => {
-    if (!sessionId || !currentQuestion || !selectedAnswer) return;
+    console.log("🏁 finishAssessment called", {
+      sessionId: !!sessionId,
+      currentQuestion: !!currentQuestion,
+      selectedAnswer,
+      shouldShowContextPanel,
+      contextValue,
+      contextValueTrimmed: contextValue?.trim(),
+      explanationReminderShown
+    });
+
+    if (!sessionId || !currentQuestion || !selectedAnswer) {
+      console.log("❌ finishAssessment early return: missing required data");
+      return;
+    }
 
     // Check if explanation field is empty and we haven't shown reminder yet
     if (shouldShowContextPanel && (!contextValue || contextValue.trim() === '') && !explanationReminderShown) {
+      console.log("🔔 finishAssessment: showing reminder");
       // First time clicking Finish with empty explanation - show friendly reminder
       const randomReminder = friendlyReminders[Math.floor(Math.random() * friendlyReminders.length)];
       setReminderMessage(randomReminder);
@@ -455,6 +469,8 @@ const Assessment = () => {
       
       return; // Don't proceed to finish
     }
+
+    console.log("✅ finishAssessment: proceeding to save and finish");
 
     // Second time clicking or explanation has content - proceed normally
     setLoading(true);
