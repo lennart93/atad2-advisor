@@ -250,7 +250,7 @@ const Index = () => {
               {loading ? (
                 <p className="text-muted-foreground">Loading assessments...</p>
               ) : sessions.length === 0 ? (
-                <p className="text-muted-foreground text-sm">No completed assessments yet.</p>
+                <p className="text-muted-foreground text-sm">No completed assessments yet</p>
               ) : (
                 <div className="space-y-4">
                   {sessions.map((session) => (
