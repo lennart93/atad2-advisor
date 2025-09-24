@@ -403,12 +403,18 @@ const Auth = () => {
                     <div className={cn("flex items-center rounded-md border", signInLocalPartError && "border-destructive")}>
                       <Input
                         id="signInEmail"
+                        type="text"
+                        name="username"
                         value={signInLocalPart}
                         onChange={(e) => handleEmailInput(e.target.value)}
                         onPaste={handleEmailPaste}
                         className="border-0 rounded-l-md bg-transparent shadow-none"
                         placeholder="your.name"
                         aria-describedby="email-helper email-hint"
+                        autoComplete="off"
+                        autoCorrect="off"
+                        autoCapitalize="none"
+                        spellCheck="false"
                       />
                       <div 
                         className={cn("flex items-center gap-1 bg-muted px-3 py-2 h-10 rounded-r-md transition-transform", domainPulse && "animate-pulse")}
@@ -580,6 +586,8 @@ const Auth = () => {
                         <div className="space-y-2">
                           <div className="flex items-center">
                             <Input
+                              type="text"
+                              name="username"
                               value={localPart}
                               onChange={(e) => {
                                 setLocalPart(e.target.value.toLowerCase());
@@ -587,6 +595,10 @@ const Auth = () => {
                               }}
                               className={cn("rounded-r-none", localPartError && "border-destructive")}
                               placeholder="username"
+                              autoComplete="off"
+                              autoCorrect="off"
+                              autoCapitalize="none"
+                              spellCheck="false"
                             />
                             <div className="flex items-center gap-1 bg-muted border border-l-0 px-3 py-2 h-10 rounded-r-md">
                               <span className="text-muted-foreground">@{DOMAIN}</span>
