@@ -465,7 +465,7 @@ const Assessment = () => {
       setShowExplanationShake(true);
       setTimeout(() => setShowExplanationShake(false), 600);
       
-      toast.info("Ho ho — vul a.u.b. nog wat in (klik nogmaals om door te gaan)");
+      
       
       return; // Don't proceed to finish
     }
