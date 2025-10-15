@@ -317,17 +317,17 @@ const AssessmentReport = () => {
                           <Button 
                             onClick={handleGenerateReport}
                             disabled={isGeneratingReport || !!latestReport}
-                            className="bg-green-600 hover:bg-green-700 text-white disabled:opacity-50 rounded-2xl shadow-sm hover:shadow-md transition-all"
+                            className="bg-green-600 hover:bg-green-700 text-white disabled:opacity-50 rounded-2xl shadow-sm hover:shadow-md transition-all min-w-[180px]"
                           >
                             {isGeneratingReport ? (
                               <>
                                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                Generating memorandum...
+                                Generating...
                               </>
                             ) : latestReport ? (
-                              "Memorandum generated"
+                              "Generated"
                             ) : (
-                              "Generate memorandum"
+                              "Generate"
                             )}
                           </Button>
                         </div>

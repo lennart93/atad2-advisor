@@ -68,15 +68,15 @@ const EnhanceMemoButton = ({ sessionId, reportId, onEnhanced }: EnhanceMemoButto
   };
 
   return (
-    <div className="space-y-3 w-full">
+    <div className="space-y-3">
       <Button
         onClick={() => setIsExpanded(!isExpanded)}
         disabled={isEnhancing || hasEnhanced}
         variant="outline"
-        className="rounded-2xl shadow-sm hover:shadow-md transition-all"
+        className="rounded-2xl shadow-sm hover:shadow-md transition-all min-w-[180px]"
       >
         <Rocket className="h-4 w-4 mr-2" />
-        {hasEnhanced ? "Memorandum enhanced" : "Enhance memorandum"}
+        {hasEnhanced ? "Enhanced" : "Enhance"}
         {!hasEnhanced && (
           isExpanded ? (
             <ChevronUp className="h-4 w-4 ml-2" />
