@@ -228,7 +228,7 @@ export default function DownloadMemoButton({
               <Button
                 disabled={true}
                 variant="outline"
-                className="flex items-center gap-2 opacity-50 cursor-not-allowed"
+                className="rounded-2xl shadow-sm opacity-50 cursor-not-allowed"
               >
                 <Download className="h-4 w-4" />
                 Download Word (.docx)
@@ -248,7 +248,7 @@ export default function DownloadMemoButton({
       onClick={handleDownload}
       disabled={loading}
       variant="outline"
-      className="flex items-center gap-2"
+      className="rounded-2xl shadow-sm hover:shadow-md transition-all"
     >
       <Download className="h-4 w-4" />
       {loading ? 'Generating...' : 'Download Word (.docx)'}

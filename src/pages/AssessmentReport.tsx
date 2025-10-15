@@ -309,7 +309,7 @@ const AssessmentReport = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex items-center gap-2 flex-wrap">
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -317,7 +317,7 @@ const AssessmentReport = () => {
                           <Button 
                             onClick={handleGenerateReport}
                             disabled={isGeneratingReport || !!latestReport}
-                            className="bg-green-600 hover:bg-green-700 text-white disabled:opacity-50"
+                            className="bg-green-600 hover:bg-green-700 text-white disabled:opacity-50 rounded-2xl shadow-sm hover:shadow-md transition-all"
                           >
                             {isGeneratingReport ? (
                               <>
@@ -345,12 +345,8 @@ const AssessmentReport = () => {
                     memoMarkdown={latestReport?.report_md} 
                     enabled={!!latestReport}
                   />
-                </div>
-                {isGeneratingReport && (
-                  <WaitingMessage />
-                )}
-                {latestReport && (
-                  <div className="mt-4 pt-4 border-t">
+
+                  {latestReport && (
                     <EnhanceMemoButton
                       sessionId={sessionId!}
                       reportId={latestReport.id}
@@ -358,7 +354,10 @@ const AssessmentReport = () => {
                         queryClient.invalidateQueries({ queryKey: ["reports", sessionId] });
                       }}
                     />
-                  </div>
+                  )}
+                </div>
+                {isGeneratingReport && (
+                  <WaitingMessage />
                 )}
               </div>
             </CardContent>

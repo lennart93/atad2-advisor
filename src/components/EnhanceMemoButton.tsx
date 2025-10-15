@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Sparkles, Loader2, ChevronDown, ChevronUp } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Rocket, Loader2 } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -13,7 +13,7 @@ interface EnhanceMemoButtonProps {
 }
 
 const EnhanceMemoButton = ({ sessionId, reportId, onEnhanced }: EnhanceMemoButtonProps) => {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
   const [enhancementInput, setEnhancementInput] = useState("");
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [hasEnhanced, setHasEnhanced] = useState(false);
@@ -47,7 +47,8 @@ const EnhanceMemoButton = ({ sessionId, reportId, onEnhanced }: EnhanceMemoButto
       }
 
       setHasEnhanced(true);
-      setIsExpanded(false);
+      setIsOpen(false);
+      setEnhancementInput("");
       
       toast.success("Success", {
         description: "Memorandum enhanced successfully",
@@ -65,82 +66,65 @@ const EnhanceMemoButton = ({ sessionId, reportId, onEnhanced }: EnhanceMemoButto
     }
   };
 
-  if (hasEnhanced) {
-    return (
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Sparkles className="h-4 w-4" />
-        <span>Memorandum enhanced</span>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-3">
-      <Button
-        onClick={() => setIsExpanded(!isExpanded)}
-        disabled={isEnhancing}
-        variant="outline"
-        className="border-primary/50 hover:bg-primary/5"
-      >
-        <Sparkles className="h-4 w-4 mr-2" />
-        Enhance memorandum
-        {isExpanded ? (
-          <ChevronUp className="h-4 w-4 ml-2" />
-        ) : (
-          <ChevronDown className="h-4 w-4 ml-2" />
-        )}
-      </Button>
-
-      {isExpanded && (
-        <Card className="border-primary/20">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Enhancement request</CardTitle>
-            <CardDescription>
-              Describe what you want to improve in the memorandum
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <Textarea
-              placeholder="E.g., Add more details about the tax implications, improve the executive summary, clarify the technical assessment..."
-              value={enhancementInput}
-              onChange={(e) => setEnhancementInput(e.target.value)}
-              rows={4}
-              disabled={isEnhancing}
-              className="resize-none"
-            />
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setIsExpanded(false);
-                  setEnhancementInput("");
-                }}
-                disabled={isEnhancing}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleEnhance}
-                disabled={isEnhancing || !enhancementInput.trim()}
-                className="bg-primary hover:bg-primary/90"
-              >
-                {isEnhancing ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Enhancing...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="h-4 w-4 mr-2" />
-                    Enhance
-                  </>
-                )}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-    </div>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <Button
+          disabled={hasEnhanced || isEnhancing}
+          variant="outline"
+          className="rounded-2xl shadow-sm hover:shadow-md transition-all"
+        >
+          <Rocket className="h-4 w-4 mr-2" />
+          {hasEnhanced ? "Memorandum enhanced" : "Enhance memorandum"}
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[525px]">
+        <DialogHeader>
+          <DialogTitle>Enhance memorandum</DialogTitle>
+          <DialogDescription>
+            Describe what you want to improve in the memorandum
+          </DialogDescription>
+        </DialogHeader>
+        <div className="py-4">
+          <Textarea
+            placeholder="E.g., Add more details about the tax implications, improve the executive summary, clarify the technical assessment..."
+            value={enhancementInput}
+            onChange={(e) => setEnhancementInput(e.target.value)}
+            rows={6}
+            disabled={isEnhancing}
+            className="resize-none"
+          />
+        </div>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setIsOpen(false);
+              setEnhancementInput("");
+            }}
+            disabled={isEnhancing}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleEnhance}
+            disabled={isEnhancing || !enhancementInput.trim()}
+          >
+            {isEnhancing ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Enhancing...
+              </>
+            ) : (
+              <>
+                <Rocket className="h-4 w-4 mr-2" />
+                Enhance
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };
 
