@@ -15,6 +15,7 @@ import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import WaitingMessage from "@/components/WaitingMessage";
 import DownloadMemoButton from "@/components/DownloadMemoButton";
+import EnhanceMemoButton from "@/components/EnhanceMemoButton";
 
 interface SessionData {
   session_id: string;
@@ -347,6 +348,17 @@ const AssessmentReport = () => {
                 </div>
                 {isGeneratingReport && (
                   <WaitingMessage />
+                )}
+                {latestReport && (
+                  <div className="mt-4 pt-4 border-t">
+                    <EnhanceMemoButton
+                      sessionId={sessionId!}
+                      reportId={latestReport.id}
+                      onEnhanced={() => {
+                        queryClient.invalidateQueries({ queryKey: ["reports", sessionId] });
+                      }}
+                    />
+                  </div>
                 )}
               </div>
             </CardContent>
