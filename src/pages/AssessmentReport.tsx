@@ -15,7 +15,6 @@ import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import WaitingMessage from "@/components/WaitingMessage";
 import DownloadMemoButton from "@/components/DownloadMemoButton";
-import EnhanceMemoButton from "@/components/EnhanceMemoButton";
 
 interface SessionData {
   session_id: string;
@@ -309,7 +308,7 @@ const AssessmentReport = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-3 flex-wrap">
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -317,17 +316,17 @@ const AssessmentReport = () => {
                           <Button 
                             onClick={handleGenerateReport}
                             disabled={isGeneratingReport || !!latestReport}
-                            className="bg-green-600 hover:bg-green-700 text-white disabled:opacity-50 rounded-2xl shadow-sm hover:shadow-md transition-all min-w-[180px]"
+                            className="bg-green-600 hover:bg-green-700 text-white disabled:opacity-50"
                           >
                             {isGeneratingReport ? (
                               <>
                                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                Generating...
+                                Generating memorandum...
                               </>
                             ) : latestReport ? (
-                              "Generated"
+                              "Memorandum generated"
                             ) : (
-                              "Generate"
+                              "Generate memorandum"
                             )}
                           </Button>
                         </div>
@@ -345,16 +344,6 @@ const AssessmentReport = () => {
                     memoMarkdown={latestReport?.report_md} 
                     enabled={!!latestReport}
                   />
-
-                  {latestReport && (
-                    <EnhanceMemoButton
-                      sessionId={sessionId!}
-                      reportId={latestReport.id}
-                      onEnhanced={() => {
-                        queryClient.invalidateQueries({ queryKey: ["reports", sessionId] });
-                      }}
-                    />
-                  )}
                 </div>
                 {isGeneratingReport && (
                   <WaitingMessage />
