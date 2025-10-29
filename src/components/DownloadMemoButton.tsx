@@ -80,11 +80,40 @@ export default function DownloadMemoButton({
         memo = reportData.report_md;
       }
 
+      // Get session to find user_id
+      const { data: sessionData } = await supabase
+        .from('atad2_sessions')
+        .select('user_id')
+        .eq('session_id', sessionId)
+        .single();
+
+      // Fetch user profile data
+      let userFullName = '';
+      let userFirstName = '';
+      let userLastName = '';
+
+      if (sessionData?.user_id) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('full_name, first_name, last_name')
+          .eq('user_id', sessionData.user_id)
+          .single();
+        
+        if (profileData) {
+          userFullName = profileData.full_name || '';
+          userFirstName = profileData.first_name || '';
+          userLastName = profileData.last_name || '';
+        }
+      }
+
       // B) Parse to docx_data via edge function
       const parseResponse = await supabase.functions.invoke('parse-memo', {
         body: { 
           session_id: sessionId, 
-          memo_markdown: memo 
+          memo_markdown: memo,
+          user_full_name: userFullName,
+          user_first_name: userFirstName,
+          user_last_name: userLastName
         }
       });
 

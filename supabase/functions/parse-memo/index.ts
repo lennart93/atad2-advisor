@@ -21,7 +21,7 @@ Deno.serve(async (req) => {
       })
     }
 
-    const { session_id, memo_markdown } = await req.json()
+    const { session_id, memo_markdown, user_full_name, user_first_name, user_last_name } = await req.json()
 
     if (!session_id || !memo_markdown) {
       return new Response('Missing session_id or memo_markdown', { 
@@ -40,7 +40,10 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         session_id,
-        memo_markdown
+        memo_markdown,
+        user_full_name,
+        user_first_name,
+        user_last_name
       })
     })
 
