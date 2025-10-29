@@ -31,6 +31,7 @@ Deno.serve(async (req) => {
     }
 
     console.log(`Parsing memo for session: ${session_id}`)
+    console.log('User data received:', { user_full_name, user_first_name, user_last_name })
 
     // Call the n8n webhook
     const n8nResponse = await fetch('https://lennartwilming.app.n8n.cloud/webhook/parse-memo', {
