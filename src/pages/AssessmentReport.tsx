@@ -186,6 +186,10 @@ const AssessmentReport = () => {
       console.log('Starting report generation for session:', sessionId);
       
       // Call n8n webhook - n8n will process and the Edge Function will save the complete report
+      // Using AbortController with 5 minute timeout to allow for long-running AI processing
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5 * 60 * 1000); // 5 minutes
+      
       const n8nResponse = await fetch('https://lennartwilming.app.n8n.cloud/webhook/atad2/generate-report', {
         method: 'POST',
         headers: {
@@ -193,8 +197,11 @@ const AssessmentReport = () => {
         },
         body: JSON.stringify({
           session_id: sessionId
-        })
+        }),
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
 
       console.log('n8n response status:', n8nResponse.status);
 
