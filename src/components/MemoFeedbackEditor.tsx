@@ -34,28 +34,47 @@ const MemoFeedbackEditor: React.FC<MemoFeedbackEditorProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [generalFeedback, setGeneralFeedback] = useState("");
 
-  // Split memo into paragraphs, filtering out titles/headers
+  // Split memo into paragraphs, merging titles/headers with following content
   const paragraphs = useMemo(() => {
-    // Split on double newlines
-    const splits = memoMarkdown.split(/\n\n+/);
-    return splits
-      .map((p) => p.trim())
-      .filter((p) => {
-        if (p.length === 0) return false;
-        
-        // Filter out short title-like paragraphs (less than 100 chars and no sentence structure)
-        const isShort = p.length < 100;
-        const isHeader = /^#{1,6}\s/.test(p); // Starts with markdown header
-        const isMetadata = /^(Taxpayer|Tax year|Client|Date|Entity):/i.test(p);
-        const hasSentenceStructure = p.includes('. ') || p.length > 150;
-        
-        // Keep paragraph if it has sentence structure OR is long enough
-        // Exclude pure headers and metadata lines
-        if (isHeader || isMetadata) return false;
-        if (isShort && !hasSentenceStructure) return false;
-        
-        return true;
-      });
+    const splits = memoMarkdown.split(/\n\n+/).map((p) => p.trim()).filter((p) => p.length > 0);
+    
+    const isContentParagraph = (text: string) => {
+      const isHeader = /^#{1,6}\s/.test(text);
+      const isMetadata = /^(Taxpayer|Tax year|Client|Date|Entity):/i.test(text);
+      const hasSentenceStructure = text.includes('. ') || text.length > 150;
+      const isShort = text.length < 100;
+      
+      // Content paragraph = has sentences or is long, and not just a header
+      return hasSentenceStructure || (!isShort && !isHeader && !isMetadata);
+    };
+    
+    // Merge titles/headers with the next content paragraph
+    const merged: string[] = [];
+    let buffer = '';
+    
+    for (let i = 0; i < splits.length; i++) {
+      const current = splits[i];
+      
+      if (isContentParagraph(current)) {
+        // This is content - include any buffered titles before it
+        if (buffer) {
+          merged.push(buffer + '\n\n' + current);
+          buffer = '';
+        } else {
+          merged.push(current);
+        }
+      } else {
+        // This is a title/header - buffer it to merge with next content
+        buffer = buffer ? buffer + '\n\n' + current : current;
+      }
+    }
+    
+    // If there's leftover buffer (titles at the end), add them
+    if (buffer) {
+      merged.push(buffer);
+    }
+    
+    return merged;
   }, [memoMarkdown]);
 
   // Track feedback for each paragraph
