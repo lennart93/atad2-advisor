@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/components/ui/sonner";
 import { format } from "date-fns";
-import { ArrowLeft, FileText, Bot, Loader2, AlertTriangle, Info, CheckCircle } from "lucide-react";
+import { ArrowLeft, FileText, Bot, Loader2, AlertTriangle, Info, CheckCircle, Pencil } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { EditableAnswer } from "@/components/EditableAnswer";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -15,6 +15,7 @@ import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import WaitingMessage from "@/components/WaitingMessage";
 import DownloadMemoButton from "@/components/DownloadMemoButton";
+import MemoFeedbackEditor from "@/components/MemoFeedbackEditor";
 
 interface SessionData {
   session_id: string;
@@ -65,6 +66,8 @@ const AssessmentReport = () => {
   const [sessionData, setSessionData] = useState<SessionData | null>(null);
   const [answers, setAnswers] = useState<AnswerData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isFeedbackMode, setIsFeedbackMode] = useState(false);
+  const [currentMemoMarkdown, setCurrentMemoMarkdown] = useState<string | null>(null);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
   // Query for related reports
@@ -89,6 +92,16 @@ const AssessmentReport = () => {
   // Get the most recent report for inline display
   const latestReport = reports?.[0];
 
+  // Sync currentMemoMarkdown with latestReport when it changes
+  useEffect(() => {
+    if (latestReport?.report_md && !currentMemoMarkdown) {
+      setCurrentMemoMarkdown(latestReport.report_md);
+    }
+  }, [latestReport?.report_md]);
+
+  // Get the memo to display (either updated via feedback or from latestReport)
+  const displayMemo = currentMemoMarkdown || latestReport?.report_md;
+
   useEffect(() => {
     if (!user) {
       navigate("/auth");
@@ -99,6 +112,13 @@ const AssessmentReport = () => {
       loadSessionData();
     }
   }, [user, sessionId]);
+
+  const handleFeedbackSubmitted = (newMemoMarkdown: string) => {
+    setCurrentMemoMarkdown(newMemoMarkdown);
+    setIsFeedbackMode(false);
+    // Invalidate reports query to refresh data
+    queryClient.invalidateQueries({ queryKey: ["reports", sessionId] });
+  };
 
   const loadSessionData = async () => {
     if (!sessionId || !user) return;
@@ -348,7 +368,7 @@ const AssessmentReport = () => {
                   
                   <DownloadMemoButton 
                     sessionId={sessionId!} 
-                    memoMarkdown={latestReport?.report_md} 
+                    memoMarkdown={displayMemo} 
                     enabled={!!latestReport}
                   />
                 </div>
@@ -362,40 +382,62 @@ const AssessmentReport = () => {
           {/* Latest Generated Report */}
           {latestReport && (
             <Card>
-              <CardHeader>
-                <CardTitle>{latestReport.report_title}</CardTitle>
-                <CardDescription>
-                  Generated: {format(new Date(latestReport.generated_at), 'MMM d, yyyy HH:mm')}
-                  {latestReport.model && ` • Model: ${latestReport.model}`}
-                  {latestReport.total_risk !== null && ` • Risk: ${latestReport.total_risk} points`}
-                </CardDescription>
+              <CardHeader className="flex flex-row items-start justify-between space-y-0">
+                <div className="space-y-1.5">
+                  <CardTitle>{latestReport.report_title}</CardTitle>
+                  <CardDescription>
+                    Generated: {format(new Date(latestReport.generated_at), 'MMM d, yyyy HH:mm')}
+                    {latestReport.model && ` • Model: ${latestReport.model}`}
+                    {latestReport.total_risk !== null && ` • Risk: ${latestReport.total_risk} points`}
+                  </CardDescription>
+                </div>
+                {!isFeedbackMode && displayMemo && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsFeedbackMode(true)}
+                    className="shrink-0"
+                  >
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Edit memo
+                  </Button>
+                )}
               </CardHeader>
-                <CardContent>
-                 {latestReport.report_md && (
-                   <div className="markdown-body text-justify">
-                     <ReactMarkdown
-                       rehypePlugins={[rehypeRaw]}
-                       components={{
-                         u: ({ children }) => (
-                           <span className="underline" style={{ textDecorationLine: 'underline', textUnderlineOffset: '3px' }}>{children}</span>
-                         ),
-                         p: ({ children }) => <p>{children}</p>,
-                         h1: ({ children }) => <p className="font-bold">{children}</p>,
-                         h2: ({ children }) => <p className="font-bold">{children}</p>,
-                         h3: ({ children }) => <h3 className="font-bold">{children}</h3>,
-                         h4: ({ children }) => <h4 className="font-bold">{children}</h4>,
-                         ul: ({ children }) => <ul>{children}</ul>,
-                         li: ({ children }) => <li>{children}</li>,
-                         br: () => <br />,
-                         sup: ({ children }) => <sup>{children}</sup>,
-                         sub: ({ children }) => <sub>{children}</sub>,
-                       }}
-                     >
-                       {latestReport.report_md}
-                     </ReactMarkdown>
-                   </div>
-                 )}
-               </CardContent>
+              <CardContent>
+                {isFeedbackMode && displayMemo && sessionData ? (
+                  <MemoFeedbackEditor
+                    memoMarkdown={displayMemo}
+                    sessionId={sessionId!}
+                    taxpayerName={sessionData.taxpayer_name}
+                    fiscalYear={sessionData.fiscal_year}
+                    onFeedbackSubmitted={handleFeedbackSubmitted}
+                    onCancel={() => setIsFeedbackMode(false)}
+                  />
+                ) : displayMemo ? (
+                  <div className="markdown-body text-justify">
+                    <ReactMarkdown
+                      rehypePlugins={[rehypeRaw]}
+                      components={{
+                        u: ({ children }) => (
+                          <span className="underline" style={{ textDecorationLine: 'underline', textUnderlineOffset: '3px' }}>{children}</span>
+                        ),
+                        p: ({ children }) => <p>{children}</p>,
+                        h1: ({ children }) => <p className="font-bold">{children}</p>,
+                        h2: ({ children }) => <p className="font-bold">{children}</p>,
+                        h3: ({ children }) => <h3 className="font-bold">{children}</h3>,
+                        h4: ({ children }) => <h4 className="font-bold">{children}</h4>,
+                        ul: ({ children }) => <ul>{children}</ul>,
+                        li: ({ children }) => <li>{children}</li>,
+                        br: () => <br />,
+                        sup: ({ children }) => <sup>{children}</sup>,
+                        sub: ({ children }) => <sub>{children}</sub>,
+                      }}
+                    >
+                      {displayMemo}
+                    </ReactMarkdown>
+                  </div>
+                ) : null}
+              </CardContent>
             </Card>
           )}
 
