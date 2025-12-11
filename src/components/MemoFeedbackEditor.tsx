@@ -1,8 +1,10 @@
 import React, { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Loader2, Info, X } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import ReactMarkdown from "react-markdown";
@@ -36,27 +38,50 @@ const MemoFeedbackEditor: React.FC<MemoFeedbackEditorProps> = ({
 
   // Split memo into paragraphs (by double newlines or significant breaks)
   const paragraphs = useMemo(() => {
-    // Split on double newlines, but preserve markdown structure
     const splits = memoMarkdown.split(/\n\n+/);
     return splits
       .map((p) => p.trim())
       .filter((p) => p.length > 0);
   }, [memoMarkdown]);
 
-  // Track feedback for each paragraph
-  const [feedbackByParagraph, setFeedbackByParagraph] = useState<Record<number, string>>({});
+  // Track feedback tags for each paragraph (array of strings per paragraph)
+  const [feedbackTagsByParagraph, setFeedbackTagsByParagraph] = useState<Record<number, string[]>>({});
+  // Track current input value per paragraph
+  const [inputValues, setInputValues] = useState<Record<number, string>>({});
 
-  const handleFeedbackChange = (index: number, value: string) => {
-    setFeedbackByParagraph((prev) => ({
+  const handleInputChange = (index: number, value: string) => {
+    setInputValues((prev) => ({
       ...prev,
       [index]: value,
     }));
   };
 
+  const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && inputValues[index]?.trim()) {
+      e.preventDefault();
+      const newTag = inputValues[index].trim();
+      setFeedbackTagsByParagraph((prev) => ({
+        ...prev,
+        [index]: [...(prev[index] || []), newTag],
+      }));
+      setInputValues((prev) => ({
+        ...prev,
+        [index]: "",
+      }));
+    }
+  };
+
+  const removeTag = (paragraphIndex: number, tagIndex: number) => {
+    setFeedbackTagsByParagraph((prev) => ({
+      ...prev,
+      [paragraphIndex]: (prev[paragraphIndex] || []).filter((_, i) => i !== tagIndex),
+    }));
+  };
+
   const handleSubmit = async () => {
-    // Check if at least one feedback field is filled
-    const hasParagraphFeedback = Object.values(feedbackByParagraph).some(
-      (fb) => fb.trim().length > 0
+    // Check if at least one feedback tag or general feedback is provided
+    const hasParagraphFeedback = Object.values(feedbackTagsByParagraph).some(
+      (tags) => tags && tags.length > 0
     );
     const hasGeneralFeedback = generalFeedback.trim().length > 0;
 
@@ -70,14 +95,14 @@ const MemoFeedbackEditor: React.FC<MemoFeedbackEditorProps> = ({
     setIsSubmitting(true);
 
     try {
-      // Build paragraph feedback array
+      // Build paragraph feedback array - combine tags into single feedback string
       const paragraphFeedback: ParagraphFeedback[] = paragraphs
         .map((text, index) => ({
           paragraphIndex: index,
           originalText: text,
-          feedbackText: feedbackByParagraph[index] || "",
+          feedbackText: (feedbackTagsByParagraph[index] || []).join("; "),
         }))
-        .filter((item) => item.feedbackText.trim().length > 0);
+        .filter((item) => item.feedbackText.length > 0);
 
       const payload = {
         session_id: sessionId,
@@ -148,88 +173,103 @@ const MemoFeedbackEditor: React.FC<MemoFeedbackEditorProps> = ({
       <Alert className="bg-blue-50 border-blue-200 dark:bg-blue-950/30 dark:border-blue-800">
         <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
         <AlertDescription className="text-blue-800 dark:text-blue-200">
-          You are now reviewing the memorandum. Add feedback per paragraph; the AI will update the text based on your comments.
+          You are now reviewing the memorandum. Add feedback per paragraph by typing and pressing Enter. The AI will update the text based on your comments.
         </AlertDescription>
       </Alert>
 
-      {/* Paragraphs with Feedback */}
-      <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+      {/* Paragraphs with Feedback Tags */}
+      <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2">
         {paragraphs.map((paragraph, index) => (
-          <Card key={index} className="border border-border/50">
-            <CardContent className="p-4 space-y-3">
-              {/* Paragraph Number */}
-              <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                Paragraph {index + 1}
-              </div>
+          <div key={index} className="border border-border/40 rounded-lg p-3 space-y-2 bg-card/50">
+            {/* Paragraph Number */}
+            <div className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-wider">
+              Paragraph {index + 1}
+            </div>
 
-              {/* Original Text */}
-              <div className="bg-muted/30 rounded-md p-3 text-sm markdown-body">
-                <ReactMarkdown
-                  rehypePlugins={[rehypeRaw]}
-                  components={{
-                    u: ({ children }) => (
-                      <span className="underline" style={{ textDecorationLine: 'underline', textUnderlineOffset: '3px' }}>{children}</span>
-                    ),
-                    p: ({ children }) => <span>{children}</span>,
-                    h1: ({ children }) => <span className="font-bold">{children}</span>,
-                    h2: ({ children }) => <span className="font-bold">{children}</span>,
-                    h3: ({ children }) => <span className="font-bold">{children}</span>,
-                    ul: ({ children }) => <ul className="list-disc list-inside mt-1">{children}</ul>,
-                    li: ({ children }) => <li className="ml-2">{children}</li>,
-                  }}
+            {/* Original Text */}
+            <div className="text-sm text-foreground/90 markdown-body">
+              <ReactMarkdown
+                rehypePlugins={[rehypeRaw]}
+                components={{
+                  u: ({ children }) => (
+                    <span className="underline" style={{ textDecorationLine: 'underline', textUnderlineOffset: '3px' }}>{children}</span>
+                  ),
+                  p: ({ children }) => <span>{children}</span>,
+                  h1: ({ children }) => <span className="font-bold">{children}</span>,
+                  h2: ({ children }) => <span className="font-bold">{children}</span>,
+                  h3: ({ children }) => <span className="font-bold">{children}</span>,
+                  ul: ({ children }) => <ul className="list-disc list-inside mt-1">{children}</ul>,
+                  li: ({ children }) => <li className="ml-2">{children}</li>,
+                }}
+              >
+                {paragraph}
+              </ReactMarkdown>
+            </div>
+
+            {/* Feedback Tags + Input */}
+            <div className="flex flex-wrap items-center gap-1.5 pt-1">
+              {/* Existing Tags */}
+              {(feedbackTagsByParagraph[index] || []).map((tag, tagIndex) => (
+                <Badge
+                  key={tagIndex}
+                  variant="secondary"
+                  className="pl-2 pr-1 py-0.5 text-xs font-normal bg-primary/10 text-primary hover:bg-primary/15 gap-1"
                 >
-                  {paragraph}
-                </ReactMarkdown>
-              </div>
-
-              {/* Feedback Textarea */}
-              <div>
-                <label className="text-xs font-medium text-muted-foreground mb-1 block">
-                  Feedback for this paragraph
-                </label>
-                <Textarea
-                  value={feedbackByParagraph[index] || ""}
-                  onChange={(e) => handleFeedbackChange(index, e.target.value)}
-                  placeholder="Optional: suggest changes, clarifications, tone, legal nuance, etc."
-                  className="min-h-[80px] resize-y text-sm"
-                  disabled={isSubmitting}
-                />
-              </div>
-            </CardContent>
-          </Card>
+                  {tag}
+                  <button
+                    type="button"
+                    onClick={() => removeTag(index, tagIndex)}
+                    className="ml-0.5 hover:bg-primary/20 rounded-full p-0.5"
+                    disabled={isSubmitting}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              ))}
+              
+              {/* Tag Input */}
+              <Input
+                type="text"
+                value={inputValues[index] || ""}
+                onChange={(e) => handleInputChange(index, e.target.value)}
+                onKeyDown={(e) => handleKeyDown(index, e)}
+                placeholder="Add feedback..."
+                className="h-6 w-32 text-xs border-dashed border-muted-foreground/30 bg-transparent px-2 focus-visible:ring-1 focus-visible:ring-primary/30"
+                disabled={isSubmitting}
+              />
+            </div>
+          </div>
         ))}
       </div>
 
       {/* General Comments */}
-      <Card className="border border-border/50">
-        <CardContent className="p-4 space-y-2">
-          <label className="text-sm font-medium">
-            General comments (optional)
-          </label>
-          <Textarea
-            value={generalFeedback}
-            onChange={(e) => setGeneralFeedback(e.target.value)}
-            placeholder="Add any general feedback about the entire document..."
-            className="min-h-[100px] resize-y"
-            disabled={isSubmitting}
-          />
-        </CardContent>
-      </Card>
+      <div className="border border-border/40 rounded-lg p-3 space-y-2 bg-card/50">
+        <label className="text-xs font-medium text-muted-foreground">
+          General comments (optional)
+        </label>
+        <Textarea
+          value={generalFeedback}
+          onChange={(e) => setGeneralFeedback(e.target.value)}
+          placeholder="Add any general feedback about the entire document..."
+          className="min-h-[60px] resize-y text-sm"
+          disabled={isSubmitting}
+        />
+      </div>
 
       {/* Action Buttons */}
       <div className="flex items-center justify-end gap-3 pt-2">
         <Button
           variant="outline"
+          size="sm"
           onClick={onCancel}
           disabled={isSubmitting}
         >
-          <X className="h-4 w-4 mr-2" />
           Cancel
         </Button>
         <Button
+          size="sm"
           onClick={handleSubmit}
           disabled={isSubmitting}
-          className="bg-primary"
         >
           {isSubmitting ? (
             <>
