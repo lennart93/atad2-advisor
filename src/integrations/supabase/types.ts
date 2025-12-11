@@ -252,7 +252,7 @@ export type Database = {
           action: string
           created_at: string
           id: string
-          ip_address: unknown | null
+          ip_address: unknown
           new_values: Json | null
           old_values: Json | null
           record_id: string | null
@@ -264,7 +264,7 @@ export type Database = {
           action: string
           created_at?: string
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           new_values?: Json | null
           old_values?: Json | null
           record_id?: string | null
@@ -276,7 +276,7 @@ export type Database = {
           action?: string
           created_at?: string
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           new_values?: Json | null
           old_values?: Json | null
           record_id?: string | null
@@ -345,10 +345,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      anonymize_old_sessions: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
+      anonymize_old_sessions: { Args: never; Returns: undefined }
       can_modify_admin_role: {
         Args: { action: string; target_user_id: string }
         Returns: boolean
