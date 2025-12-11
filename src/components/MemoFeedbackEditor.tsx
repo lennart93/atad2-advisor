@@ -155,6 +155,7 @@ const MemoFeedbackEditor: React.FC<MemoFeedbackEditorProps> = ({
 
       // Extract the updated memo from various possible response formats
       const updatedMemo = 
+        data.revised_memo ||
         data.body?.report?.report_md || 
         data.report?.report_md ||
         data.report_md || 
