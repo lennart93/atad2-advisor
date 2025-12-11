@@ -16,6 +16,7 @@ import rehypeRaw from "rehype-raw";
 import WaitingMessage from "@/components/WaitingMessage";
 import DownloadMemoButton from "@/components/DownloadMemoButton";
 import MemoFeedbackEditor from "@/components/MemoFeedbackEditor";
+import MemoDiffViewer from "@/components/MemoDiffViewer";
 
 interface SessionData {
   session_id: string;
@@ -67,7 +68,10 @@ const AssessmentReport = () => {
   const [answers, setAnswers] = useState<AnswerData[]>([]);
   const [loading, setLoading] = useState(true);
   const [isFeedbackMode, setIsFeedbackMode] = useState(false);
+  const [isDiffMode, setIsDiffMode] = useState(false);
   const [currentMemoMarkdown, setCurrentMemoMarkdown] = useState<string | null>(null);
+  const [originalMemoBeforeFeedback, setOriginalMemoBeforeFeedback] = useState<string | null>(null);
+  const [revisedMemoFromFeedback, setRevisedMemoFromFeedback] = useState<string | null>(null);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
   // Query for related reports
@@ -114,10 +118,29 @@ const AssessmentReport = () => {
   }, [user, sessionId]);
 
   const handleFeedbackSubmitted = (newMemoMarkdown: string) => {
-    setCurrentMemoMarkdown(newMemoMarkdown);
+    // Store both original and revised for diff view
+    setOriginalMemoBeforeFeedback(displayMemo || null);
+    setRevisedMemoFromFeedback(newMemoMarkdown);
     setIsFeedbackMode(false);
+    setIsDiffMode(true);
+  };
+
+  const handleAcceptChanges = () => {
+    if (revisedMemoFromFeedback) {
+      setCurrentMemoMarkdown(revisedMemoFromFeedback);
+    }
+    setIsDiffMode(false);
+    setOriginalMemoBeforeFeedback(null);
+    setRevisedMemoFromFeedback(null);
     // Invalidate reports query to refresh data
     queryClient.invalidateQueries({ queryKey: ["reports", sessionId] });
+  };
+
+  const handleRejectChanges = () => {
+    // Keep the original memo, discard the revised version
+    setIsDiffMode(false);
+    setOriginalMemoBeforeFeedback(null);
+    setRevisedMemoFromFeedback(null);
   };
 
   const loadSessionData = async () => {
@@ -391,7 +414,7 @@ const AssessmentReport = () => {
                     {latestReport.total_risk !== null && ` • Risk: ${latestReport.total_risk} points`}
                   </CardDescription>
                 </div>
-                {!isFeedbackMode && displayMemo && (
+                {!isFeedbackMode && !isDiffMode && displayMemo && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -404,7 +427,14 @@ const AssessmentReport = () => {
                 )}
               </CardHeader>
               <CardContent>
-                {isFeedbackMode && displayMemo && sessionData ? (
+                {isDiffMode && originalMemoBeforeFeedback && revisedMemoFromFeedback ? (
+                  <MemoDiffViewer
+                    originalMemo={originalMemoBeforeFeedback}
+                    revisedMemo={revisedMemoFromFeedback}
+                    onAccept={handleAcceptChanges}
+                    onReject={handleRejectChanges}
+                  />
+                ) : isFeedbackMode && displayMemo && sessionData ? (
                   <MemoFeedbackEditor
                     memoMarkdown={displayMemo}
                     sessionId={sessionId!}
