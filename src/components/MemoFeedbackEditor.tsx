@@ -197,18 +197,18 @@ const MemoFeedbackEditor: React.FC<MemoFeedbackEditorProps> = ({
               </div>
 
               {/* Original Text */}
-              <div className="bg-muted/30 rounded-md p-3 text-sm markdown-body">
+              <div className="bg-muted/30 rounded-md p-3 text-sm markdown-body prose prose-sm max-w-none dark:prose-invert">
                 <ReactMarkdown
                   rehypePlugins={[rehypeRaw]}
                   components={{
                     u: ({ children }) => (
                       <span className="underline" style={{ textDecorationLine: 'underline', textUnderlineOffset: '3px' }}>{children}</span>
                     ),
-                    p: ({ children }) => <span>{children}</span>,
-                    h1: ({ children }) => <span className="font-bold">{children}</span>,
-                    h2: ({ children }) => <span className="font-bold">{children}</span>,
-                    h3: ({ children }) => <span className="font-bold">{children}</span>,
-                    ul: ({ children }) => <ul className="list-disc list-inside mt-1">{children}</ul>,
+                    p: ({ children }) => <p className="mb-3 last:mb-0">{children}</p>,
+                    h1: ({ children }) => <h1 className="font-bold text-base mb-2">{children}</h1>,
+                    h2: ({ children }) => <h2 className="font-bold text-base mb-2">{children}</h2>,
+                    h3: ({ children }) => <h3 className="font-bold text-sm mb-2">{children}</h3>,
+                    ul: ({ children }) => <ul className="list-disc list-inside mt-1 mb-3">{children}</ul>,
                     li: ({ children }) => <li className="ml-2">{children}</li>,
                   }}
                 >
