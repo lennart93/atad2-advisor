@@ -122,9 +122,11 @@ const MemoFeedbackEditor: React.FC<MemoFeedbackEditorProps> = ({
         general_feedback: generalFeedback.trim() || null,
       };
 
-      // 5 minute timeout for AI processing
+      // 10 minute timeout for AI processing (n8n can take a while)
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5 * 60 * 1000);
+      const timeoutId = setTimeout(() => controller.abort(), 10 * 60 * 1000);
+
+      console.log("Submitting feedback to n8n...", payload);
 
       const response = await fetch(
         "https://lennartwilming.app.n8n.cloud/webhook/atad2/submit-feedback",
@@ -140,16 +142,26 @@ const MemoFeedbackEditor: React.FC<MemoFeedbackEditorProps> = ({
 
       clearTimeout(timeoutId);
 
+      console.log("n8n response status:", response.status);
+
       if (!response.ok) {
         const errorText = await response.text();
+        console.error("n8n error response:", errorText);
         throw new Error(`Request failed: ${response.status} - ${errorText}`);
       }
 
       const data = await response.json();
-      console.log("Feedback response:", data);
+      console.log("n8n response data:", JSON.stringify(data, null, 2));
 
-      // Extract the updated memo from the response
-      const updatedMemo = data.body?.report?.report_md || data.report_md || data.updated_memo;
+      // Extract the updated memo from various possible response formats
+      const updatedMemo = 
+        data.body?.report?.report_md || 
+        data.report?.report_md ||
+        data.report_md || 
+        data.updated_memo ||
+        data.memo ||
+        data.body?.memo ||
+        data.body?.updated_memo;
 
       if (updatedMemo) {
         toast.success("Feedback applied", {
@@ -157,6 +169,7 @@ const MemoFeedbackEditor: React.FC<MemoFeedbackEditorProps> = ({
         });
         onFeedbackSubmitted(updatedMemo);
       } else {
+        console.error("Could not find updated memo in response. Full response:", data);
         throw new Error("No updated memo received in response");
       }
     } catch (error: any) {
