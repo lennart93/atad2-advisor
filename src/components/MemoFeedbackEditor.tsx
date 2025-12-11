@@ -127,7 +127,7 @@ const MemoFeedbackEditor: React.FC<MemoFeedbackEditorProps> = ({
       const timeoutId = setTimeout(() => controller.abort(), 5 * 60 * 1000);
 
       const response = await fetch(
-        "https://lennartwilming.app.n8n.cloud/webhook/atad2/update-memo",
+        "https://lennartwilming.app.n8n.cloud/webhook/atad2/submit-feedback",
         {
           method: "POST",
           headers: {
