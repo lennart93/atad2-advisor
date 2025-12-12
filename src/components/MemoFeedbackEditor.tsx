@@ -6,6 +6,7 @@ import { Loader2, Lightbulb, X } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
+import { useAuth } from "@/hooks/useAuth";
 
 interface ParagraphFeedback {
   paragraphIndex: number;
@@ -30,10 +31,19 @@ const MemoFeedbackEditor: React.FC<MemoFeedbackEditorProps> = ({
   onFeedbackSubmitted,
   onCancel,
 }) => {
+  const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [generalFeedback, setGeneralFeedback] = useState("");
   const [activeParagraphIndex, setActiveParagraphIndex] = useState<number | null>(null);
   const [feedbackByParagraph, setFeedbackByParagraph] = useState<Record<number, string>>({});
+
+  // Get first name from user metadata or email
+  const firstName = useMemo(() => {
+    if (user?.user_metadata?.first_name) return user.user_metadata.first_name;
+    if (user?.user_metadata?.full_name) return user.user_metadata.full_name.split(' ')[0];
+    if (user?.email) return user.email.split('@')[0];
+    return 'You';
+  }, [user]);
 
   // Split memo into paragraphs, merging titles/headers with following content
   const paragraphs = useMemo(() => {
@@ -332,8 +342,8 @@ Want to comment on a specific paragraph? Click on it below."
                   className="mt-1 ml-4 py-2 px-3 bg-primary/5 rounded-md border-l-2 border-primary/30 cursor-pointer hover:bg-primary/10 transition-colors"
                   onClick={() => handleParagraphClick(index)}
                 >
-                  <p className="text-xs text-muted-foreground mb-1">Your feedback:</p>
-                  <p className="text-sm text-foreground whitespace-pre-wrap">{feedbackByParagraph[index]}</p>
+                  <p className="text-xs text-muted-foreground mb-1">Feedback {firstName}:</p>
+                  <p className="text-sm text-foreground whitespace-pre-wrap italic">{feedbackByParagraph[index]}</p>
                 </div>
               )}
             </div>
