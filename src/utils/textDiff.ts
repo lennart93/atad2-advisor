@@ -83,7 +83,7 @@ export function computeTextDiff(original: string, revised: string): DiffToken[] 
  * Preserves HTML tags like <u>, </u>, <br>, etc.
  */
 export function renderDiffToHtml(tokens: DiffToken[]): string {
-  return tokens.map(token => {
+  const html = tokens.map(token => {
     // Don't escape < and > to allow HTML tags to render
     // Only escape ampersands and convert newlines
     const processedText = token.text
@@ -99,6 +99,9 @@ export function renderDiffToHtml(tokens: DiffToken[]): string {
         return processedText;
     }
   }).join('');
+
+  // Convert markdown bold **text** to <strong>text</strong>
+  return html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
 }
 
 /**
