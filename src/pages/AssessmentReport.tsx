@@ -73,6 +73,7 @@ const AssessmentReport = () => {
   const [originalMemoBeforeFeedback, setOriginalMemoBeforeFeedback] = useState<string | null>(null);
   const [revisedMemoFromFeedback, setRevisedMemoFromFeedback] = useState<string | null>(null);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const [hasAcceptedChanges, setHasAcceptedChanges] = useState(false);
 
   // Query for related reports
   const { data: reports } = useQuery({
@@ -132,6 +133,7 @@ const AssessmentReport = () => {
     setIsDiffMode(false);
     setOriginalMemoBeforeFeedback(null);
     setRevisedMemoFromFeedback(null);
+    setHasAcceptedChanges(true);
     // Invalidate reports query to refresh data
     queryClient.invalidateQueries({ queryKey: ["reports", sessionId] });
   };
@@ -414,7 +416,8 @@ const AssessmentReport = () => {
                     variant="outline"
                     size="sm"
                     onClick={() => setIsFeedbackMode(true)}
-                    className="shrink-0"
+                    disabled={hasAcceptedChanges}
+                    className={`shrink-0 ${hasAcceptedChanges ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     <Pencil className="h-4 w-4 mr-2" />
                     Improve memo
