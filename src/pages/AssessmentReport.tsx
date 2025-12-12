@@ -412,16 +412,27 @@ const AssessmentReport = () => {
                   <CardTitle>{latestReport.report_title}</CardTitle>
                 </div>
                 {!isFeedbackMode && !isDiffMode && displayMemo && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsFeedbackMode(true)}
-                    disabled={hasAcceptedChanges}
-                    className={`shrink-0 ${hasAcceptedChanges ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  >
-                    <Pencil className="h-4 w-4 mr-2" />
-                    Improve memo
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="shrink-0">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setIsFeedbackMode(true)}
+                          disabled={hasAcceptedChanges}
+                          className={hasAcceptedChanges ? 'opacity-50 cursor-not-allowed' : ''}
+                        >
+                          <Pencil className="h-4 w-4 mr-2" />
+                          Improve memo
+                        </Button>
+                      </span>
+                    </TooltipTrigger>
+                    {hasAcceptedChanges && (
+                      <TooltipContent>
+                        <p>You have already accepted the improved memo. Further edits are not available.</p>
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
                 )}
               </CardHeader>
               <CardContent>
