@@ -204,181 +204,162 @@ const MemoFeedbackEditor: React.FC<MemoFeedbackEditorProps> = ({
 
 
   return (
-    <div className="relative">
-      {/* Vertical connection line - only visible when there's paragraph feedback */}
-      {hasParagraphFeedback && (
-        <div 
-          className="absolute left-3 w-0.5 bg-primary/20 rounded-full"
-          style={{ 
-            top: '0px',
-            bottom: '0px'
-          }}
-        />
-      )}
-
-      <div className="space-y-4">
-        {/* Compact Feedback Panel */}
-        <div className="relative">
-          {/* Horizontal connector from general feedback to vertical line */}
-          {hasParagraphFeedback && (
-            <>
-              <div className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-0.5 bg-primary/30" />
-              <div className="absolute left-2 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-primary/40 border-2 border-background" />
-            </>
-          )}
-          <Card className={`border-primary/20 bg-primary/5 ${hasParagraphFeedback ? 'ml-6' : ''}`}>
-            <CardContent className="p-4 space-y-3">
-              {/* General Feedback Textarea */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">
-                  General feedback {firstName}:
-                </label>
-                <Textarea
-                  value={generalFeedback}
-                  onChange={(e) => setGeneralFeedback(e.target.value)}
-                  placeholder="Provide your technical feedback here (e.g. legal analysis, ATAD2 application, risk assessment, factual accuracy).
+    <div className="space-y-4">
+      {/* Compact Feedback Panel */}
+      <div className={`relative ${hasParagraphFeedback ? 'border-l-2 border-primary/30 pl-4' : ''}`}>
+        {/* Dot connector for general feedback */}
+        {hasParagraphFeedback && (
+          <div className="absolute -left-[5px] top-6 w-2 h-2 rounded-full bg-primary/50" />
+        )}
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="p-4 space-y-3">
+            {/* General Feedback Textarea */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">
+                General feedback {firstName}:
+              </label>
+              <Textarea
+                value={generalFeedback}
+                onChange={(e) => setGeneralFeedback(e.target.value)}
+                placeholder="Provide your technical feedback here (e.g. legal analysis, ATAD2 application, risk assessment, factual accuracy).
 
 Want to comment on a specific paragraph? Click on it below."
-                  className={`min-h-[100px] resize-y bg-background ${hasGeneralFeedback ? 'italic' : ''}`}
+                className={`min-h-[100px] resize-y bg-background ${hasGeneralFeedback ? 'italic' : ''}`}
+                disabled={isSubmitting}
+              />
+            </div>
+
+            {/* Tip + Action Buttons on same row */}
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                <Lightbulb className="h-3 w-3" />
+                Start with general feedback. Paragraph comments are optional.
+              </p>
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onCancel}
                   disabled={isSubmitting}
-                />
-              </div>
-
-              {/* Tip + Action Buttons on same row */}
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                  <Lightbulb className="h-3 w-3" />
-                  Start with general feedback. Paragraph comments are optional.
-                </p>
-                <div className="flex items-center gap-3">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={onCancel}
-                    disabled={isSubmitting}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={handleSubmit}
-                    disabled={isSubmitting || !canSubmit}
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Applying feedback...
-                      </>
-                    ) : (
-                      "Apply feedback"
-                    )}
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Memo Text with Interactive Paragraphs */}
-        <div className="space-y-1">
-          {paragraphs.map((paragraph, index) => {
-            const hasFeedback = (feedbackByParagraph[index] || "").trim().length > 0;
-            const isActive = activeParagraphIndex === index;
-            
-            return (
-              <div key={index} className="group relative">
-                {/* Clickable Paragraph */}
-                <div
-                  onClick={() => handleParagraphClick(index)}
-                  className={`
-                    relative px-4 py-3 rounded-lg cursor-pointer transition-all duration-200
-                    ${hasParagraphFeedback ? 'ml-6' : ''}
-                    ${isActive 
-                      ? 'bg-primary/10' 
-                      : hasFeedback 
-                        ? 'bg-primary/5 hover:bg-primary/10' 
-                        : 'hover:bg-muted/50'
-                    }
-                  `}
                 >
-                  <div className="markdown-body prose prose-sm max-w-none dark:prose-invert text-sm">
-                    <ReactMarkdown
-                      rehypePlugins={[rehypeRaw]}
-                      components={{
-                        u: ({ children }) => (
-                          <span className="underline" style={{ textDecorationLine: 'underline', textUnderlineOffset: '3px' }}>{children}</span>
-                        ),
-                        p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-                        h1: ({ children }) => <h1 className="font-bold text-base mb-2">{children}</h1>,
-                        h2: ({ children }) => <h2 className="font-bold text-base mb-2">{children}</h2>,
-                        h3: ({ children }) => <h3 className="font-bold text-sm mb-2">{children}</h3>,
-                        ul: ({ children }) => <ul className="list-disc list-inside mt-1 mb-2">{children}</ul>,
-                        li: ({ children }) => <li className="ml-2">{children}</li>,
-                      }}
-                    >
-                      {paragraph}
-                    </ReactMarkdown>
-                  </div>
-                  
-                </div>
-
-                {/* Inline Feedback Box (editing mode) */}
-                {isActive && (
-                  <div className={`mt-2 py-3 px-3 bg-muted/30 rounded-lg animate-in slide-in-from-top-2 duration-200 ${hasParagraphFeedback ? 'ml-6' : ''}`}>
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="text-xs font-medium text-muted-foreground">
-                        Feedback on this paragraph (optional)
-                      </label>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          closeParagraphFeedback(index);
-                        }}
-                        className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
-                      >
-                        <X className="h-3 w-3" />
-                        Hide
-                      </button>
-                    </div>
-                    <Textarea
-                      value={feedbackByParagraph[index] || ""}
-                      onChange={(e) => handleFeedbackChange(index, e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          closeParagraphFeedback(index);
-                        }
-                      }}
-                      placeholder="Type feedback and press Enter to save (Shift+Enter for new line)"
-                      className="min-h-[60px] resize-y text-sm bg-background"
-                      disabled={isSubmitting}
-                      autoFocus
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                  </div>
-                )}
-
-                {/* Locked feedback display (when not editing but has feedback) */}
-                {!isActive && hasFeedback && (
-                  <div className="relative mt-1">
-                    {/* Horizontal connector to vertical line */}
-                    <div className="absolute left-3 top-4 w-3 h-0.5 bg-primary/30" />
-                    {/* Dot at connection point */}
-                    <div className="absolute left-2 top-3 w-2.5 h-2.5 rounded-full bg-primary/40 border-2 border-background" />
-                    
-                    <div 
-                      className="ml-6 py-2 px-3 bg-primary/5 rounded-md border-l-2 border-primary/30 cursor-pointer hover:bg-primary/10 transition-colors"
-                      onClick={() => handleParagraphClick(index)}
-                    >
-                      <p className="text-xs text-muted-foreground mb-1">Feedback {firstName}:</p>
-                      <p className="text-sm text-foreground whitespace-pre-wrap italic">{feedbackByParagraph[index]}</p>
-                    </div>
-                  </div>
-                )}
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleSubmit}
+                  disabled={isSubmitting || !canSubmit}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Applying feedback...
+                    </>
+                  ) : (
+                    "Apply feedback"
+                  )}
+                </Button>
               </div>
-            );
-          })}
-        </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Memo Text with Interactive Paragraphs */}
+      <div className={`space-y-1 ${hasParagraphFeedback ? 'border-l-2 border-primary/30 pl-4' : ''}`}>
+        {paragraphs.map((paragraph, index) => {
+          const hasFeedback = (feedbackByParagraph[index] || "").trim().length > 0;
+          const isActive = activeParagraphIndex === index;
+          
+          return (
+            <div key={index} className="group relative">
+              {/* Clickable Paragraph */}
+              <div
+                onClick={() => handleParagraphClick(index)}
+                className={`
+                  relative px-4 py-3 rounded-lg cursor-pointer transition-all duration-200
+                  ${isActive 
+                    ? 'bg-primary/10' 
+                    : hasFeedback 
+                      ? 'bg-primary/5 hover:bg-primary/10' 
+                      : 'hover:bg-muted/50'
+                  }
+                `}
+              >
+                <div className="markdown-body prose prose-sm max-w-none dark:prose-invert text-sm">
+                  <ReactMarkdown
+                    rehypePlugins={[rehypeRaw]}
+                    components={{
+                      u: ({ children }) => (
+                        <span className="underline" style={{ textDecorationLine: 'underline', textUnderlineOffset: '3px' }}>{children}</span>
+                      ),
+                      p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                      h1: ({ children }) => <h1 className="font-bold text-base mb-2">{children}</h1>,
+                      h2: ({ children }) => <h2 className="font-bold text-base mb-2">{children}</h2>,
+                      h3: ({ children }) => <h3 className="font-bold text-sm mb-2">{children}</h3>,
+                      ul: ({ children }) => <ul className="list-disc list-inside mt-1 mb-2">{children}</ul>,
+                      li: ({ children }) => <li className="ml-2">{children}</li>,
+                    }}
+                  >
+                    {paragraph}
+                  </ReactMarkdown>
+                </div>
+                
+              </div>
+
+              {/* Inline Feedback Box (editing mode) */}
+              {isActive && (
+                <div className="mt-2 py-3 px-3 bg-muted/30 rounded-lg animate-in slide-in-from-top-2 duration-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-medium text-muted-foreground">
+                      Feedback on this paragraph (optional)
+                    </label>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        closeParagraphFeedback(index);
+                      }}
+                      className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
+                    >
+                      <X className="h-3 w-3" />
+                      Hide
+                    </button>
+                  </div>
+                  <Textarea
+                    value={feedbackByParagraph[index] || ""}
+                    onChange={(e) => handleFeedbackChange(index, e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        closeParagraphFeedback(index);
+                      }
+                    }}
+                    placeholder="Type feedback and press Enter to save (Shift+Enter for new line)"
+                    className="min-h-[60px] resize-y text-sm bg-background"
+                    disabled={isSubmitting}
+                    autoFocus
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </div>
+              )}
+
+              {/* Locked feedback display (when not editing but has feedback) */}
+              {!isActive && hasFeedback && (
+                <div className="relative mt-1">
+                  {/* Dot at connection point on the main line */}
+                  <div className="absolute -left-[21px] top-4 w-2 h-2 rounded-full bg-primary/50" />
+                  
+                  <div 
+                    className="py-2 px-3 bg-primary/5 rounded-md cursor-pointer hover:bg-primary/10 transition-colors"
+                    onClick={() => handleParagraphClick(index)}
+                  >
+                    <p className="text-xs text-muted-foreground mb-1">Feedback {firstName}:</p>
+                    <p className="text-sm text-foreground whitespace-pre-wrap italic">{feedbackByParagraph[index]}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
