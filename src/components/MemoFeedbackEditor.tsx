@@ -216,7 +216,7 @@ const MemoFeedbackEditor: React.FC<MemoFeedbackEditorProps> = ({
             {/* General Feedback Textarea */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">
-                General feedback {firstName}:
+                General feedback:
               </label>
               <Textarea
                 value={generalFeedback}
@@ -352,7 +352,7 @@ Want to comment on a specific paragraph? Click on it below."
                     className="py-2 px-3 bg-primary/5 rounded-md cursor-pointer hover:bg-primary/10 transition-colors"
                     onClick={() => handleParagraphClick(index)}
                   >
-                    <p className="text-xs text-muted-foreground mb-1">Paragraph-specific feedback {firstName}:</p>
+                    <p className="text-xs text-muted-foreground mb-1">Paragraph-specific feedback:</p>
                     <p className="text-sm text-foreground whitespace-pre-wrap italic">{feedbackByParagraph[index]}</p>
                   </div>
                 </div>
