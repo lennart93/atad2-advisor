@@ -211,7 +211,7 @@ const MemoFeedbackEditor: React.FC<MemoFeedbackEditorProps> = ({
           {/* General Feedback Textarea */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">
-              General feedback
+              General feedback {firstName}:
             </label>
             <Textarea
               value={generalFeedback}
