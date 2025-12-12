@@ -202,9 +202,9 @@ export const EditableAnswer: React.FC<EditableAnswerProps> = ({
   };
 
   return (
-    <div className="border-b border-border last:border-b-0 pb-4 last:pb-0">
+    <div className={`border-b border-border last:border-b-0 pb-4 last:pb-0 rounded-lg p-3 -mx-3 transition-colors ${readOnly ? 'bg-muted/50 opacity-75' : ''}`}>
       <div className="flex items-start justify-between mb-2">
-        <p className="text-sm font-medium text-muted-foreground flex-1 mr-4">
+        <p className={`text-sm font-medium flex-1 mr-4 ${readOnly ? 'text-muted-foreground/70' : 'text-muted-foreground'}`}>
           {questionText}
         </p>
         <div className="flex items-center gap-2">
