@@ -349,10 +349,13 @@ Want to comment on a specific paragraph? Click on it below."
                   <div className="absolute -left-[21px] top-4 w-2 h-2 rounded-full bg-primary/50" />
                   
                   <div 
-                    className="py-2 px-3 bg-primary/5 rounded-md cursor-pointer hover:bg-primary/10 transition-colors"
-                    onClick={() => handleParagraphClick(index)}
+                    className={`py-2 px-3 bg-primary/5 rounded-md transition-colors ${isSubmitting ? 'cursor-default' : 'cursor-pointer hover:bg-primary/10'}`}
+                    onClick={() => !isSubmitting && handleParagraphClick(index)}
                   >
-                    <p className="text-xs text-muted-foreground mb-1">Paragraph-specific feedback:</p>
+                    <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1.5">
+                      {isSubmitting && <Loader2 className="h-3 w-3 animate-spin" />}
+                      Paragraph-specific feedback:
+                    </p>
                     <p className="text-sm text-foreground whitespace-pre-wrap italic">{feedbackByParagraph[index]}</p>
                   </div>
                 </div>
