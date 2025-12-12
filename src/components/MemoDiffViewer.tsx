@@ -27,13 +27,8 @@ const MemoDiffViewer: React.FC<MemoDiffViewerProps> = ({
       {/* Header with legend and toggle */}
       <div className="flex items-center justify-between flex-wrap gap-3 pb-3 border-b border-border">
         <div className="flex items-center gap-4 text-sm">
-          <span className="font-medium text-muted-foreground">Legend:</span>
-          <span className="flex items-center gap-1">
-            <span className="text-red-600 line-through">Removed</span>
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="text-[#003366] italic">Added</span>
-          </span>
+          <span className="text-red-600 line-through">Removed</span>
+          <span className="text-[#003366] italic">Added</span>
         </div>
         <Button
           variant="outline"
