@@ -417,7 +417,7 @@ const AssessmentReport = () => {
                     className="shrink-0"
                   >
                     <Pencil className="h-4 w-4 mr-2" />
-                    Edit memo
+                    Improve memo
                   </Button>
                 )}
               </CardHeader>
