@@ -79,23 +79,35 @@ export function computeTextDiff(original: string, revised: string): DiffToken[] 
 }
 
 /**
+ * Check if a token is an HTML tag
+ */
+function isHtmlTag(text: string): boolean {
+  return /^<[^>]+>$/.test(text.trim());
+}
+
+/**
  * Render diff tokens to HTML string with track changes styling
+ * Preserves HTML tags like <u>, </u>, <br>, etc.
  */
 export function renderDiffToHtml(tokens: DiffToken[]): string {
   return tokens.map(token => {
-    const escapedText = token.text
+    // Preserve HTML tags without escaping or styling
+    if (isHtmlTag(token.text.trim())) {
+      return token.text;
+    }
+
+    // For non-HTML content, only escape ampersands and convert newlines
+    const processedText = token.text
       .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
       .replace(/\n/g, '<br/>');
 
     switch (token.type) {
       case 'removed':
-        return `<span style="color: #dc2626; text-decoration: line-through;">${escapedText}</span>`;
+        return `<span style="color: #dc2626; text-decoration: line-through;">${processedText}</span>`;
       case 'added':
-        return `<span style="color: #003366; font-style: italic;">${escapedText}</span>`;
+        return `<span style="color: #003366; font-style: italic;">${processedText}</span>`;
       default:
-        return escapedText;
+        return processedText;
     }
   }).join('');
 }
