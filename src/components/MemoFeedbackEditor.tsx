@@ -288,15 +288,9 @@ Want to comment on a specific paragraph? Click on it below."
                   </ReactMarkdown>
                 </div>
                 
-                {/* Feedback indicator badge */}
-                {hasFeedback && !isActive && (
-                  <div className="absolute top-2 right-2">
-                    <div className="w-2 h-2 rounded-full bg-primary" />
-                  </div>
-                )}
               </div>
 
-              {/* Inline Feedback Box (only visible when active) */}
+              {/* Inline Feedback Box (editing mode) */}
               {isActive && (
                 <div className="mt-2 py-3 px-3 bg-muted/30 rounded-lg animate-in slide-in-from-top-2 duration-200">
                   <div className="flex items-center justify-between mb-2">
@@ -329,6 +323,17 @@ Want to comment on a specific paragraph? Click on it below."
                     autoFocus
                     onClick={(e) => e.stopPropagation()}
                   />
+                </div>
+              )}
+
+              {/* Locked feedback display (when not editing but has feedback) */}
+              {!isActive && hasFeedback && (
+                <div 
+                  className="mt-1 ml-4 py-2 px-3 bg-primary/5 rounded-md border-l-2 border-primary/30 cursor-pointer hover:bg-primary/10 transition-colors"
+                  onClick={() => handleParagraphClick(index)}
+                >
+                  <p className="text-xs text-muted-foreground mb-1">Your feedback:</p>
+                  <p className="text-sm text-foreground whitespace-pre-wrap">{feedbackByParagraph[index]}</p>
                 </div>
               )}
             </div>
