@@ -408,11 +408,6 @@ const AssessmentReport = () => {
               <CardHeader className="flex flex-row items-start justify-between space-y-0">
                 <div className="space-y-1.5">
                   <CardTitle>{latestReport.report_title}</CardTitle>
-                  <CardDescription>
-                    Generated: {format(new Date(latestReport.generated_at), 'MMM d, yyyy HH:mm')}
-                    {latestReport.model && ` • Model: ${latestReport.model}`}
-                    {latestReport.total_risk !== null && ` • Risk: ${latestReport.total_risk} points`}
-                  </CardDescription>
                 </div>
                 {!isFeedbackMode && !isDiffMode && displayMemo && (
                   <Button
