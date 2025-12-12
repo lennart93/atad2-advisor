@@ -476,11 +476,12 @@ const AssessmentReport = () => {
           <Card>
             <CardHeader>
               <CardTitle>Question responses</CardTitle>
-              {!latestReport && (
-                <CardDescription>
-                  Click the edit button next to any answer to make changes
-                </CardDescription>
-              )}
+              <CardDescription>
+                {isGeneratingReport || latestReport 
+                  ? "Responses are locked because a memorandum has been (or is being) generated"
+                  : "Click the edit button next to any answer to make changes"
+                }
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-6">
@@ -493,7 +494,7 @@ const AssessmentReport = () => {
                     currentAnswer={answer.answer}
                     currentExplanation={answer.explanation}
                     riskPoints={answer.risk_points}
-                    readOnly={!!latestReport}
+                    readOnly={!!latestReport || isGeneratingReport}
                     sessionId={sessionId!}
                     onUpdate={(newAnswer, newExplanation, newRiskPoints) => 
                       handleAnswerUpdate(answer.id, newAnswer, newExplanation, newRiskPoints)
