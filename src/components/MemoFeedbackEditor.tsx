@@ -2,7 +2,7 @@ import React, { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, Lightbulb, X, MessageSquare } from "lucide-react";
+import { Loader2, Lightbulb, X } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
@@ -192,28 +192,12 @@ const MemoFeedbackEditor: React.FC<MemoFeedbackEditorProps> = ({
     }
   };
 
-  const paragraphsWithFeedbackCount = Object.values(feedbackByParagraph).filter(
-    (fb) => fb.trim().length > 0
-  ).length;
 
   return (
     <div className="space-y-4">
-      {/* Sticky Feedback Panel */}
+      {/* Compact Feedback Panel */}
       <Card className="border-primary/20 bg-primary/5">
-        <CardContent className="p-4 space-y-4">
-          <div className="flex items-start justify-between">
-            <div className="space-y-1">
-              <h3 className="text-base font-semibold flex items-center gap-2">
-                <MessageSquare className="h-4 w-4 text-primary" />
-                Improve this memorandum
-              </h3>
-              <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                <Lightbulb className="h-3 w-3" />
-                Start with general feedback. Paragraph comments are optional.
-              </p>
-            </div>
-          </div>
-
+        <CardContent className="p-4 space-y-3">
           {/* General Feedback Textarea */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">
@@ -222,7 +206,7 @@ const MemoFeedbackEditor: React.FC<MemoFeedbackEditorProps> = ({
             <Textarea
               value={generalFeedback}
               onChange={(e) => setGeneralFeedback(e.target.value)}
-              placeholder="Share your overall feedback here (e.g. tone, clarity, risk framing, completeness, wording).
+              placeholder="Provide your technical feedback here (e.g. legal analysis, ATAD2 application, risk assessment, factual accuracy).
 
 Want to comment on a specific paragraph? Click on it below."
               className="min-h-[100px] resize-y bg-background"
@@ -230,13 +214,12 @@ Want to comment on a specific paragraph? Click on it below."
             />
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex items-center justify-between pt-2">
-            <div className="text-xs text-muted-foreground">
-              {paragraphsWithFeedbackCount > 0 && (
-                <span>{paragraphsWithFeedbackCount} paragraph comment{paragraphsWithFeedbackCount !== 1 ? 's' : ''}</span>
-              )}
-            </div>
+          {/* Tip + Action Buttons on same row */}
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+              <Lightbulb className="h-3 w-3" />
+              Start with general feedback. Paragraph comments are optional.
+            </p>
             <div className="flex items-center gap-3">
               <Button
                 variant="outline"
@@ -279,10 +262,10 @@ Want to comment on a specific paragraph? Click on it below."
                 className={`
                   relative px-4 py-3 rounded-lg cursor-pointer transition-all duration-200
                   ${isActive 
-                    ? 'bg-primary/10 border-l-4 border-primary' 
+                    ? 'bg-primary/10' 
                     : hasFeedback 
-                      ? 'bg-primary/5 border-l-4 border-primary/50 hover:bg-primary/10' 
-                      : 'hover:bg-muted/50 border-l-4 border-transparent hover:border-muted-foreground/20'
+                      ? 'bg-primary/5 hover:bg-primary/10' 
+                      : 'hover:bg-muted/50'
                   }
                 `}
               >
@@ -315,7 +298,7 @@ Want to comment on a specific paragraph? Click on it below."
 
               {/* Inline Feedback Box (only visible when active) */}
               {isActive && (
-                <div className="ml-4 pl-4 border-l-4 border-primary py-2 animate-in slide-in-from-top-2 duration-200">
+                <div className="mt-2 py-3 px-3 bg-muted/30 rounded-lg animate-in slide-in-from-top-2 duration-200">
                   <div className="flex items-center justify-between mb-2">
                     <label className="text-xs font-medium text-muted-foreground">
                       Feedback on this paragraph (optional)
@@ -334,7 +317,13 @@ Want to comment on a specific paragraph? Click on it below."
                   <Textarea
                     value={feedbackByParagraph[index] || ""}
                     onChange={(e) => handleFeedbackChange(index, e.target.value)}
-                    placeholder="Suggest changes, clarifications, tone adjustments..."
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        closeParagraphFeedback(index);
+                      }
+                    }}
+                    placeholder="Type feedback and press Enter to save (Shift+Enter for new line)"
                     className="min-h-[60px] resize-y text-sm bg-background"
                     disabled={isSubmitting}
                     autoFocus
