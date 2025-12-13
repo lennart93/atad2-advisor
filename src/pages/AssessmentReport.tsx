@@ -549,7 +549,7 @@ const AssessmentReport = () => {
               <CardTitle>Question responses</CardTitle>
               <CardDescription>
                 {isGeneratingReport || latestReport 
-                  ? "Responses are locked because a memorandum has been (or is being) generated"
+                  ? "Responses are locked and can no longer be edited because a memorandum has been (or is being) generated"
                   : "Click the edit button next to any answer to make changes"
                 }
               </CardDescription>
