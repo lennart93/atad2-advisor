@@ -13,6 +13,7 @@ interface MissingExplanationsPopoverProps {
   onOpenChange: (open: boolean) => void;
   onGenerateAnyway: () => void;
   onReviewQuestions: () => void;
+  onTriggerClick?: () => void;
   children: React.ReactNode;
 }
 
@@ -22,11 +23,20 @@ const MissingExplanationsPopover: React.FC<MissingExplanationsPopoverProps> = ({
   onOpenChange,
   onGenerateAnyway,
   onReviewQuestions,
+  onTriggerClick,
   children,
 }) => {
+  const handleTriggerClick = () => {
+    if (isOpen && onTriggerClick) {
+      // If popover is already open, clicking the trigger generates anyway
+      onTriggerClick();
+      onOpenChange(false);
+    }
+  };
+
   return (
     <Popover open={isOpen} onOpenChange={onOpenChange}>
-      <PopoverTrigger asChild>
+      <PopoverTrigger asChild onClick={handleTriggerClick}>
         {children}
       </PopoverTrigger>
       <PopoverContent 
@@ -62,11 +72,6 @@ const MissingExplanationsPopover: React.FC<MissingExplanationsPopoverProps> = ({
               defensible ATAD2 memorandum.
             </p>
           </div>
-
-          {/* Subtle reassurance */}
-          <p className="text-xs text-muted-foreground/80 italic">
-            You can still generate the memorandum now — this is just a reminder.
-          </p>
 
           {/* Action buttons */}
           <div className="flex items-center gap-3 pt-2">

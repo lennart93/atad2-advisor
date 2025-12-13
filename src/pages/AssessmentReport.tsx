@@ -434,6 +434,7 @@ const AssessmentReport = () => {
                       onOpenChange={setShowMissingExplanationsPopover}
                       onGenerateAnyway={handleGenerateAnyway}
                       onReviewQuestions={handleReviewQuestions}
+                      onTriggerClick={handleGenerateAnyway}
                     >
                       <Button 
                         onClick={handleGenerateButtonClick}
