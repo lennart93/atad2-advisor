@@ -17,6 +17,7 @@ interface EditableAnswerProps {
   readOnly?: boolean;
   sessionId: string;
   onUpdate: (newAnswer: string, newExplanation: string, newRiskPoints: number) => void;
+  showMissingExplanationHint?: boolean;
 }
 
 export const EditableAnswer: React.FC<EditableAnswerProps> = ({
@@ -29,6 +30,7 @@ export const EditableAnswer: React.FC<EditableAnswerProps> = ({
   readOnly = false,
   sessionId,
   onUpdate,
+  showMissingExplanationHint = false,
 }) => {
   
   const [isEditing, setIsEditing] = useState(false);
@@ -219,7 +221,7 @@ export const EditableAnswer: React.FC<EditableAnswerProps> = ({
               variant="ghost"
               size="sm"
               onClick={() => setIsEditing(true)}
-              className="h-8 px-2"
+              className={`h-8 px-2 ${showMissingExplanationHint ? 'text-amber-600 animate-pulse' : ''}`}
             >
               <Edit className="h-3 w-3" />
             </Button>
@@ -301,9 +303,16 @@ export const EditableAnswer: React.FC<EditableAnswerProps> = ({
               rows={3}
             />
           ) : (
-            <span className="text-sm text-muted-foreground">
-              {currentExplanation || 'No explanation provided'}
-            </span>
+            <div className="inline-flex flex-col">
+              <span className="text-sm text-muted-foreground">
+                {currentExplanation || 'No explanation provided'}
+              </span>
+              {showMissingExplanationHint && !currentExplanation && (
+                <span className="text-xs text-amber-600 mt-1 flex items-center gap-1 animate-pulse">
+                  💡 No explanation added yet
+                </span>
+              )}
+            </div>
           )}
         </div>
 

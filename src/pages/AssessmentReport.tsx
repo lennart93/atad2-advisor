@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,6 +17,7 @@ import WaitingMessage from "@/components/WaitingMessage";
 import DownloadMemoButton from "@/components/DownloadMemoButton";
 import MemoFeedbackEditor from "@/components/MemoFeedbackEditor";
 import MemoDiffViewer from "@/components/MemoDiffViewer";
+import MissingExplanationsPopover from "@/components/MissingExplanationsPopover";
 
 interface SessionData {
   session_id: string;
@@ -74,6 +75,11 @@ const AssessmentReport = () => {
   const [revisedMemoFromFeedback, setRevisedMemoFromFeedback] = useState<string | null>(null);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [hasAcceptedChanges, setHasAcceptedChanges] = useState(false);
+  
+  // Missing explanations validation state
+  const [showMissingExplanationsPopover, setShowMissingExplanationsPopover] = useState(false);
+  const [highlightedQuestionIds, setHighlightedQuestionIds] = useState<string[]>([]);
+  const questionRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   // Query for related reports
   const { data: reports } = useQuery({
@@ -211,12 +217,54 @@ const AssessmentReport = () => {
 
   const riskOutcome = getRiskOutcome(totalRiskPoints);
 
+  // Calculate answers missing explanations
+  const answersWithoutExplanation = answers.filter(answer => {
+    const explanation = answer.explanation?.trim();
+    return answer.answer && (!explanation || explanation === "No explanation provided");
+  });
+  const missingExplanationCount = answersWithoutExplanation.length;
+  const missingExplanationQuestionIds = answersWithoutExplanation.map(a => a.question_id);
+
   const handleAnswerUpdate = (answerId: string, newAnswer: string, newExplanation: string, newRiskPoints: number) => {
     setAnswers(prev => prev.map(answer => 
       answer.id === answerId 
         ? { ...answer, answer: newAnswer, explanation: newExplanation, risk_points: newRiskPoints }
         : answer
     ));
+  };
+
+  // Handle Generate button click - check for missing explanations
+  const handleGenerateButtonClick = () => {
+    if (missingExplanationCount > 0) {
+      setShowMissingExplanationsPopover(true);
+    } else {
+      handleGenerateReport();
+    }
+  };
+
+  // Scroll to first question without explanation and highlight them
+  const handleReviewQuestions = useCallback(() => {
+    setHighlightedQuestionIds(missingExplanationQuestionIds);
+    
+    // Scroll to first missing explanation
+    if (missingExplanationQuestionIds.length > 0) {
+      const firstQuestionId = missingExplanationQuestionIds[0];
+      const element = questionRefs.current[firstQuestionId];
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+    
+    // Remove highlights after 8 seconds
+    setTimeout(() => {
+      setHighlightedQuestionIds([]);
+    }, 8000);
+  }, [missingExplanationQuestionIds]);
+
+  // Clear highlights when generating anyway
+  const handleGenerateAnyway = () => {
+    setHighlightedQuestionIds([]);
+    handleGenerateReport();
   };
 
   const handleGenerateReport = async () => {
@@ -361,35 +409,48 @@ const AssessmentReport = () => {
             <CardContent>
               <div className="space-y-3">
                 <div className="flex items-center gap-3 flex-wrap">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div>
-                          <Button 
-                            onClick={handleGenerateReport}
-                            disabled={isGeneratingReport || !!latestReport}
-                            className="bg-green-600 hover:bg-green-700 text-white disabled:opacity-50"
-                          >
-                            {isGeneratingReport ? (
-                              <>
-                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                Generating memorandum...
-                              </>
-                            ) : latestReport ? (
-                              "Memorandum generated"
-                            ) : (
-                              "Generate memorandum"
-                            )}
-                          </Button>
-                        </div>
-                      </TooltipTrigger>
-                      {latestReport && (
+                  {latestReport ? (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div>
+                            <Button 
+                              disabled
+                              className="bg-green-600 hover:bg-green-700 text-white disabled:opacity-50"
+                            >
+                              Memorandum generated
+                            </Button>
+                          </div>
+                        </TooltipTrigger>
                         <TooltipContent>
                           <p>This memorandum has already been generated</p>
                         </TooltipContent>
-                      )}
-                    </Tooltip>
-                  </TooltipProvider>
+                      </Tooltip>
+                    </TooltipProvider>
+                  ) : (
+                    <MissingExplanationsPopover
+                      missingCount={missingExplanationCount}
+                      isOpen={showMissingExplanationsPopover}
+                      onOpenChange={setShowMissingExplanationsPopover}
+                      onGenerateAnyway={handleGenerateAnyway}
+                      onReviewQuestions={handleReviewQuestions}
+                    >
+                      <Button 
+                        onClick={handleGenerateButtonClick}
+                        disabled={isGeneratingReport}
+                        className="bg-green-600 hover:bg-green-700 text-white disabled:opacity-50"
+                      >
+                        {isGeneratingReport ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Generating memorandum...
+                          </>
+                        ) : (
+                          "Generate memorandum"
+                        )}
+                      </Button>
+                    </MissingExplanationsPopover>
+                  )}
                   
                   <DownloadMemoButton 
                     sessionId={sessionId!} 
@@ -494,22 +555,37 @@ const AssessmentReport = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-6">
-                {answers.map((answer) => (
-                  <EditableAnswer
-                    key={answer.id}
-                    answerId={answer.id}
-                    questionId={answer.question_id}
-                    questionText={answer.question_text}
-                    currentAnswer={answer.answer}
-                    currentExplanation={answer.explanation}
-                    riskPoints={answer.risk_points}
-                    readOnly={!!latestReport || isGeneratingReport}
-                    sessionId={sessionId!}
-                    onUpdate={(newAnswer, newExplanation, newRiskPoints) => 
-                      handleAnswerUpdate(answer.id, newAnswer, newExplanation, newRiskPoints)
-                    }
-                  />
-                ))}
+                {answers.map((answer) => {
+                  const isHighlighted = highlightedQuestionIds.includes(answer.question_id);
+                  const isMissingExplanation = missingExplanationQuestionIds.includes(answer.question_id);
+                  
+                  return (
+                    <div
+                      key={answer.id}
+                      ref={(el) => { questionRefs.current[answer.question_id] = el; }}
+                      className={`transition-all duration-500 rounded-lg ${
+                        isHighlighted 
+                          ? 'border-l-4 border-amber-400 bg-amber-50/50 pl-4 -ml-4' 
+                          : ''
+                      }`}
+                    >
+                      <EditableAnswer
+                        answerId={answer.id}
+                        questionId={answer.question_id}
+                        questionText={answer.question_text}
+                        currentAnswer={answer.answer}
+                        currentExplanation={answer.explanation}
+                        riskPoints={answer.risk_points}
+                        readOnly={!!latestReport || isGeneratingReport}
+                        sessionId={sessionId!}
+                        onUpdate={(newAnswer, newExplanation, newRiskPoints) => 
+                          handleAnswerUpdate(answer.id, newAnswer, newExplanation, newRiskPoints)
+                        }
+                        showMissingExplanationHint={isMissingExplanation && isHighlighted}
+                      />
+                    </div>
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
