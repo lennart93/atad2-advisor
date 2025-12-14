@@ -40,7 +40,7 @@ const MissingExplanationsPopover: React.FC<MissingExplanationsPopoverProps> = ({
         {children}
       </PopoverTrigger>
       <PopoverContent 
-        className="w-96 p-5" 
+        className="w-[420px] p-5" 
         side="top" 
         align="start"
         sideOffset={8}
