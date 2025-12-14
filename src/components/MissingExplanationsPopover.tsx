@@ -68,7 +68,7 @@ const MissingExplanationsPopover: React.FC<MissingExplanationsPopoverProps> = ({
               without providing an explanation.
             </p>
             <p className="text-muted-foreground">
-              Adding brief context helps the AI generate a more accurate and 
+              Adding brief context helps to generate a more accurate and 
               defensible ATAD2 memorandum.
             </p>
           </div>
