@@ -212,7 +212,7 @@ const MemoFeedbackEditor: React.FC<MemoFeedbackEditorProps> = ({
           <div className="absolute -left-[5px] top-6 w-2 h-2 rounded-full bg-primary/50" />
         )}
         <Card className="border-primary/20 bg-primary/5">
-          <CardContent className="p-4 space-y-3">
+          <CardContent className="p-4 space-y-2">
             {/* Feedback Textarea */}
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-foreground">
@@ -221,17 +221,17 @@ const MemoFeedbackEditor: React.FC<MemoFeedbackEditorProps> = ({
               <Textarea
                 value={generalFeedback}
                 onChange={(e) => setGeneralFeedback(e.target.value)}
-                placeholder="Share any feedback here — technical, substantive, stylistic, or general impressions."
+                placeholder="Share any feedback here - technical, substantive, style, or general impressions."
                 className={`min-h-[100px] resize-y bg-background ${hasGeneralFeedback ? 'italic' : ''}`}
                 disabled={isSubmitting}
               />
+            </div>
+
+            {/* Helper text + Action Buttons */}
+            <div className="flex items-center justify-between">
               <p className="text-xs text-muted-foreground">
                 You can leave general feedback, comment on specific paragraphs, or both.
               </p>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex items-center justify-end">
               <div className="flex items-center gap-3">
                 <Button
                   variant="outline"
