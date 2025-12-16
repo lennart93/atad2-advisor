@@ -86,15 +86,11 @@ const MissingExplanationsPopover: React.FC<MissingExplanationsPopoverProps> = ({
           </div>
 
           {/* Body text */}
-          <div className="space-y-2 text-sm">
-            <p className="text-muted-foreground">
+          <div className="text-sm text-muted-foreground">
+            <p>
               {variant.line1}
+              {variant.line2 && <> {variant.line2}</>}
             </p>
-            {variant.line2 && (
-              <p className="text-muted-foreground">
-                {variant.line2}
-              </p>
-            )}
           </div>
 
           {/* Action buttons */}
