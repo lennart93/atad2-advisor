@@ -2,7 +2,13 @@ import React, { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, Lightbulb, X } from "lucide-react";
+import { Loader2, X } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { toast } from "@/components/ui/sonner";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
@@ -105,15 +111,9 @@ const MemoFeedbackEditor: React.FC<MemoFeedbackEditorProps> = ({
     (fb) => fb.trim().length > 0
   );
   const hasGeneralFeedback = generalFeedback.trim().length > 0;
-  const canSubmit = hasParagraphFeedback || hasGeneralFeedback;
+  const hasFeedback = hasParagraphFeedback || hasGeneralFeedback;
 
   const handleSubmit = async () => {
-    if (!canSubmit) {
-      toast.error("No feedback provided", {
-        description: "Please add general feedback or comment on a specific paragraph.",
-      });
-      return;
-    }
 
     setIsSubmitting(true);
 
@@ -213,28 +213,25 @@ const MemoFeedbackEditor: React.FC<MemoFeedbackEditorProps> = ({
         )}
         <Card className="border-primary/20 bg-primary/5">
           <CardContent className="p-4 space-y-3">
-            {/* General Feedback Textarea */}
-            <div className="space-y-2">
+            {/* Feedback Textarea */}
+            <div className="space-y-1.5">
               <label className="text-sm font-medium text-foreground">
-                General feedback:
+                Feedback
               </label>
               <Textarea
                 value={generalFeedback}
                 onChange={(e) => setGeneralFeedback(e.target.value)}
-                placeholder="Provide your technical feedback here (e.g. legal analysis, ATAD2 application, risk assessment, factual accuracy).
-
-Want to comment on a specific paragraph? Click on it below."
+                placeholder="Share any feedback here — technical, substantive, stylistic, or general impressions."
                 className={`min-h-[100px] resize-y bg-background ${hasGeneralFeedback ? 'italic' : ''}`}
                 disabled={isSubmitting}
               />
+              <p className="text-xs text-muted-foreground">
+                You can leave general feedback, comment on specific paragraphs, or both.
+              </p>
             </div>
 
-            {/* Tip + Action Buttons on same row */}
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                <Lightbulb className="h-3 w-3" />
-                Start with general feedback. Paragraph comments are optional.
-              </p>
+            {/* Action Buttons */}
+            <div className="flex items-center justify-end">
               <div className="flex items-center gap-3">
                 <Button
                   variant="outline"
@@ -247,7 +244,7 @@ Want to comment on a specific paragraph? Click on it below."
                 <Button
                   size="sm"
                   onClick={handleSubmit}
-                  disabled={isSubmitting || !canSubmit}
+                  disabled={isSubmitting}
                 >
                   {isSubmitting ? (
                     <>
@@ -272,39 +269,49 @@ Want to comment on a specific paragraph? Click on it below."
           
           return (
             <div key={index} className="group relative">
-              {/* Clickable Paragraph */}
-              <div
-                onClick={() => handleParagraphClick(index)}
-                className={`
-                  relative px-4 py-3 rounded-lg cursor-pointer transition-all duration-200
-                  ${isActive 
-                    ? 'bg-primary/10' 
-                    : hasFeedback 
-                      ? 'bg-primary/5 hover:bg-primary/10' 
-                      : 'hover:bg-muted/50'
-                  }
-                `}
-              >
-                <div className="markdown-body prose prose-sm max-w-none dark:prose-invert text-sm">
-                  <ReactMarkdown
-                    rehypePlugins={[rehypeRaw]}
-                    components={{
-                      u: ({ children }) => (
-                        <span className="underline" style={{ textDecorationLine: 'underline', textUnderlineOffset: '3px' }}>{children}</span>
-                      ),
-                      p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-                      h1: ({ children }) => <h1 className="font-bold text-base mb-2">{children}</h1>,
-                      h2: ({ children }) => <h2 className="font-bold text-base mb-2">{children}</h2>,
-                      h3: ({ children }) => <h3 className="font-bold text-sm mb-2">{children}</h3>,
-                      ul: ({ children }) => <ul className="list-disc list-inside mt-1 mb-2">{children}</ul>,
-                      li: ({ children }) => <li className="ml-2">{children}</li>,
-                    }}
-                  >
-                    {paragraph}
-                  </ReactMarkdown>
-                </div>
-                
-              </div>
+              {/* Clickable Paragraph with Tooltip */}
+              <TooltipProvider delayDuration={500}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div
+                      onClick={() => handleParagraphClick(index)}
+                      className={`
+                        relative px-4 py-3 rounded-lg cursor-pointer transition-all duration-200
+                        ${isActive 
+                          ? 'bg-primary/10' 
+                          : hasFeedback 
+                            ? 'bg-primary/5 hover:bg-primary/10' 
+                            : 'hover:bg-muted/50'
+                        }
+                      `}
+                    >
+                      <div className="markdown-body prose prose-sm max-w-none dark:prose-invert text-sm">
+                        <ReactMarkdown
+                          rehypePlugins={[rehypeRaw]}
+                          components={{
+                            u: ({ children }) => (
+                              <span className="underline" style={{ textDecorationLine: 'underline', textUnderlineOffset: '3px' }}>{children}</span>
+                            ),
+                            p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                            h1: ({ children }) => <h1 className="font-bold text-base mb-2">{children}</h1>,
+                            h2: ({ children }) => <h2 className="font-bold text-base mb-2">{children}</h2>,
+                            h3: ({ children }) => <h3 className="font-bold text-sm mb-2">{children}</h3>,
+                            ul: ({ children }) => <ul className="list-disc list-inside mt-1 mb-2">{children}</ul>,
+                            li: ({ children }) => <li className="ml-2">{children}</li>,
+                          }}
+                        >
+                          {paragraph}
+                        </ReactMarkdown>
+                      </div>
+                    </div>
+                  </TooltipTrigger>
+                  {!isActive && !hasFeedback && (
+                    <TooltipContent side="top" className="text-xs">
+                      Click to add paragraph-specific feedback (optional)
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              </TooltipProvider>
 
               {/* Inline Feedback Box (editing mode) */}
               {isActive && (
