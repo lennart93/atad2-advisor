@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -17,6 +17,29 @@ interface MissingExplanationsPopoverProps {
   children: React.ReactNode;
 }
 
+const explanationVariants = [
+  {
+    line1: "That's okay - not every question asks for one.",
+    line2: "Adding context where possible helps improve the memorandum.",
+  },
+  {
+    line1: "To keep things fast, we don't always ask for extra input.",
+    line2: "If you can add context, the memo will be stronger - but it's optional.",
+  },
+  {
+    line1: "Not required - but adding context can improve the memorandum.",
+    line2: null,
+  },
+  {
+    line1: "This is optional. Extra context (where relevant) helps generate a stronger memo.",
+    line2: null,
+  },
+  {
+    line1: "We keep the flow fast, so explanations aren't always requested.",
+    line2: "Adding context where you can will improve the memo.",
+  },
+];
+
 const MissingExplanationsPopover: React.FC<MissingExplanationsPopoverProps> = ({
   missingCount,
   isOpen,
@@ -28,11 +51,15 @@ const MissingExplanationsPopover: React.FC<MissingExplanationsPopoverProps> = ({
 }) => {
   const handleTriggerClick = () => {
     if (isOpen && onTriggerClick) {
-      // If popover is already open, clicking the trigger generates anyway
       onTriggerClick();
       onOpenChange(false);
     }
   };
+
+  const variant = useMemo(() => {
+    const randomIndex = Math.floor(Math.random() * explanationVariants.length);
+    return explanationVariants[randomIndex];
+  }, [isOpen]);
 
   return (
     <Popover open={isOpen} onOpenChange={onOpenChange}>
@@ -59,18 +86,15 @@ const MissingExplanationsPopover: React.FC<MissingExplanationsPopoverProps> = ({
           </div>
 
           {/* Body text */}
-          <div className="space-y-3 text-sm">
-            <p className="text-foreground">
-              You have answered{" "}
-              <span className="font-semibold text-amber-700">
-                {missingCount} question{missingCount !== 1 ? "s" : ""}
-              </span>{" "}
-              without providing an explanation.
-            </p>
+          <div className="space-y-2 text-sm">
             <p className="text-muted-foreground">
-              Adding brief context helps to generate a more accurate and 
-              defensible ATAD2 memorandum.
+              {variant.line1}
             </p>
+            {variant.line2 && (
+              <p className="text-muted-foreground">
+                {variant.line2}
+              </p>
+            )}
           </div>
 
           {/* Action buttons */}
@@ -85,7 +109,7 @@ const MissingExplanationsPopover: React.FC<MissingExplanationsPopoverProps> = ({
               className="flex-1"
             >
               <Pencil className="h-4 w-4 mr-2" />
-              Review questions
+              Add context
             </Button>
             <Button
               size="sm"
