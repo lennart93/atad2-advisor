@@ -20,7 +20,7 @@ interface MissingExplanationsPopoverProps {
 const explanationVariants = [
   {
     line1: "That's okay - not every question asks for one.",
-    line2: "Adding context where possible helps improve the memorandum.",
+    line2: "However, adding context where possible helps improve the memorandum.",
   },
   {
     line1: "To keep things fast, we don't always ask for extra input.",
