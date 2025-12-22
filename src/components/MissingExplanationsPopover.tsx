@@ -31,8 +31,8 @@ const explanationVariants = [
     line2: null,
   },
   {
-    line1: "This is optional. Extra context (where relevant) helps generate a stronger memo.",
-    line2: null,
+    line1: "This is optional.",
+    line2: "However, extra context (where relevant) helps generate a stronger memo.",
   },
   {
     line1: "We keep the flow fast, so explanations aren't always requested.",
