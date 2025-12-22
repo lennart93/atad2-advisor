@@ -36,7 +36,7 @@ const explanationVariants = [
   },
   {
     line1: "We keep the flow fast, so explanations aren't always requested.",
-    line2: "Adding context where you can will improve the memo.",
+    line2: "However, adding context where you can will improve the memo.",
   },
 ];
 
