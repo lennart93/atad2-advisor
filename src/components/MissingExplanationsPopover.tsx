@@ -24,7 +24,7 @@ const explanationVariants = [
   },
   {
     line1: "To keep things fast, we don't always ask for extra input.",
-    line2: "If you can add context, the memo will be stronger - but it's optional.",
+    line2: "However, adding context where you can will make the memo stronger.",
   },
   {
     line1: "Not required - but adding context can improve the memorandum.",
