@@ -103,6 +103,7 @@ export type Database = {
           id: string
           next_question_id: string | null
           question: string
+          question_explanation: string | null
           question_id: string
           question_title: string | null
           requires_explanation: boolean
@@ -117,6 +118,7 @@ export type Database = {
           id?: string
           next_question_id?: string | null
           question: string
+          question_explanation?: string | null
           question_id: string
           question_title?: string | null
           requires_explanation?: boolean
@@ -131,6 +133,7 @@ export type Database = {
           id?: string
           next_question_id?: string | null
           question?: string
+          question_explanation?: string | null
           question_id?: string
           question_title?: string | null
           requires_explanation?: boolean
