@@ -18,7 +18,7 @@ import { InfoIcon, ArrowLeft, HelpCircle } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { AssessmentSidebar } from "@/components/AssessmentSidebar";
-import { QuestionExplanationTooltip } from "@/components/QuestionExplanationTooltip";
+import { QuestionExplanationInline } from "@/components/QuestionExplanationInline";
 import { Textarea } from "@/components/ui/textarea";
 import { ContextSkeleton, ContextEmptyState, ContextErrorState } from "@/components/ContextPanelStates";
 import { ContextPanelFallback } from "@/components/ContextPanelFallback";
@@ -1615,11 +1615,10 @@ const Assessment = () => {
                     Question {currentQuestion.question_id}
                   </div>
                   {currentQuestion.question_title && (
-                    <div className="flex items-center justify-between gap-3 mb-4">
+                    <div className="mb-4">
                       <h2 className="text-lg md:text-xl font-semibold text-foreground">
                         {currentQuestion.question_title}
                       </h2>
-                      <QuestionExplanationTooltip explanation={currentQuestion.question_explanation} />
                     </div>
                   )}
                   <div className="mb-6">
@@ -1715,6 +1714,9 @@ const Assessment = () => {
                          );
                        })}
                     </div>
+
+                      {/* Question explanation - inline expandable */}
+                      <QuestionExplanationInline explanation={currentQuestion.question_explanation} />
 
                       {/* Context section - NEW hardened state machine */}
                       {/* RENDER GUARD: only show context panel when answer selected and requires explanation */}
