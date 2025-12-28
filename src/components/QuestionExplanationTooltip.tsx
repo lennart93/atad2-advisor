@@ -33,7 +33,7 @@ export const QuestionExplanationTooltip = ({ explanation }: QuestionExplanationT
           side="left"
           sideOffset={8}
         >
-          <p className="text-sm leading-relaxed text-popover-foreground">
+          <p className="text-sm leading-relaxed text-popover-foreground whitespace-pre-line">
             {explanation}
           </p>
         </TooltipContent>
