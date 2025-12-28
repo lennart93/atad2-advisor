@@ -18,6 +18,7 @@ import { InfoIcon, ArrowLeft, HelpCircle } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { AssessmentSidebar } from "@/components/AssessmentSidebar";
+import { QuestionExplanationTooltip } from "@/components/QuestionExplanationTooltip";
 import { Textarea } from "@/components/ui/textarea";
 import { ContextSkeleton, ContextEmptyState, ContextErrorState } from "@/components/ContextPanelStates";
 import { ContextPanelFallback } from "@/components/ContextPanelFallback";
@@ -34,6 +35,7 @@ interface Question {
   term_explanation: string | null;
   question_title: string | null;
   requires_explanation?: boolean;
+  question_explanation: string | null;
 }
 
 interface SessionInfo {
@@ -1613,9 +1615,12 @@ const Assessment = () => {
                     Question {currentQuestion.question_id}
                   </div>
                   {currentQuestion.question_title && (
-                    <h2 className="text-lg md:text-xl font-semibold text-gray-800 mb-4">
-                      {currentQuestion.question_title}
-                    </h2>
+                    <div className="flex items-center justify-between gap-3 mb-4">
+                      <h2 className="text-lg md:text-xl font-semibold text-foreground">
+                        {currentQuestion.question_title}
+                      </h2>
+                      <QuestionExplanationTooltip explanation={currentQuestion.question_explanation} />
+                    </div>
                   )}
                   <div className="mb-6">
                     <p className="text-lg leading-relaxed text-left">
