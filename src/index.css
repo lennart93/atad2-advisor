@@ -163,3 +163,28 @@ All colors MUST be HSL.
 .explanation-shake {
   animation: gentle-shake 0.5s ease-in-out, gentle-highlight 0.5s ease-in-out;
 }
+
+/* Feedback popup arrow */
+.feedback-popup-arrow {
+  position: absolute;
+  bottom: -8px;
+  right: 24px;
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-top: 8px solid hsl(var(--popover));
+}
+
+.feedback-popup-arrow::before {
+  content: '';
+  position: absolute;
+  bottom: 1px;
+  left: -9px;
+  width: 0;
+  height: 0;
+  border-left: 9px solid transparent;
+  border-right: 9px solid transparent;
+  border-top: 9px solid hsl(var(--border));
+  z-index: -1;
+}
