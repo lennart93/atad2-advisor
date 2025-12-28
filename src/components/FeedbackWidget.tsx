@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from "react";
-import { useLocation } from "react-router-dom";
 import { Lightbulb, X, User, Check, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
@@ -28,7 +27,6 @@ const WEBHOOK_URL = "https://lennartwilming.app.n8n.cloud/webhook/lovable-feedba
 
 export const FeedbackWidget = () => {
   const { user } = useAuth();
-  const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   const [feedbackType, setFeedbackType] = useState("");
   const [feedbackText, setFeedbackText] = useState("");
@@ -70,12 +68,22 @@ export const FeedbackWidget = () => {
   // Handle outside click
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target) return;
+
+      // Radix Select renders its content in a Portal (outside popupRef). If we treat that as
+      // an "outside click", the popup closes before the option can be selected.
+      const clickedInRadixPortal = !!target.closest(
+        "[data-radix-portal], [data-radix-popper-content-wrapper]"
+      );
+      if (clickedInRadixPortal) return;
+
       if (
         isOpen &&
         popupRef.current &&
         triggerRef.current &&
-        !popupRef.current.contains(event.target as Node) &&
-        !triggerRef.current.contains(event.target as Node)
+        !popupRef.current.contains(target) &&
+        !triggerRef.current.contains(target)
       ) {
         setIsOpen(false);
       }
