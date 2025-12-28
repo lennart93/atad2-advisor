@@ -320,10 +320,6 @@ export const FeedbackWidget = () => {
                   </div>
                 </div>
 
-                {/* Motivational Footer */}
-                <p className="text-xs text-muted-foreground italic text-center">
-                  Your input shapes what we build next
-                </p>
 
                 {/* Submit Button */}
                 <Button
