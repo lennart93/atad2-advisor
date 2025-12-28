@@ -45,7 +45,7 @@ export const FeedbackWidget = () => {
       if (!user) return null;
       const { data, error } = await supabase
         .from("profiles")
-        .select("first_name, full_name, email")
+        .select("first_name, last_name, full_name, email")
         .eq("user_id", user.id)
         .single();
       if (error) return null;
@@ -55,7 +55,16 @@ export const FeedbackWidget = () => {
     staleTime: 60_000,
   });
 
-  const displayName = userProfile?.first_name || userProfile?.full_name || user?.email?.split("@")[0] || "Anonymous User";
+  const getDisplayName = () => {
+    if (userProfile?.first_name && userProfile?.last_name) {
+      return `${userProfile.first_name} ${userProfile.last_name}`;
+    }
+    if (userProfile?.full_name) return userProfile.full_name;
+    if (userProfile?.first_name) return userProfile.first_name;
+    if (user?.email) return user.email.split("@")[0];
+    return "Anonymous User";
+  };
+  const displayName = getDisplayName();
   const userEmail = userProfile?.email || user?.email || "";
 
   // Handle outside click
@@ -218,13 +227,10 @@ export const FeedbackWidget = () => {
           <div className="p-4 border-b border-border">
             <div className="flex items-start justify-between">
               <div>
-                <h2 id="feedback-title" className="text-lg font-semibold flex items-center gap-2">
-                  <Lightbulb className="w-5 h-5 text-primary" />
-                  Help Us Improve
+                <h2 id="feedback-title" className="text-base font-semibold flex items-center gap-2">
+                  <Lightbulb className="w-5 h-5 text-primary flex-shrink-0" />
+                  <span>Help us improve — <span id="feedback-subtitle" className="font-normal text-muted-foreground">this app only gets better with your input ✨</span></span>
                 </h2>
-                <p id="feedback-subtitle" className="text-sm text-muted-foreground mt-1">
-                  This app only gets better with your input ✨
-                </p>
               </div>
               <button
                 onClick={() => setIsOpen(false)}
@@ -273,7 +279,7 @@ export const FeedbackWidget = () => {
                     <SelectTrigger className="w-full" aria-label="Select feedback type">
                       <SelectValue placeholder="What type of input?" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="z-[10000]">
                       {FEEDBACK_TYPES.map((type) => (
                         <SelectItem key={type.value} value={type.value}>
                           {type.label}
@@ -323,7 +329,7 @@ export const FeedbackWidget = () => {
                       Sending...
                     </>
                   ) : (
-                    "Send Your Input"
+                    "Send"
                   )}
                 </Button>
               </>
