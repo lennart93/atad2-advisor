@@ -22,9 +22,30 @@ export const QuestionExplanationInline = ({ explanation }: QuestionExplanationIn
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="mt-4">
       <CollapsibleContent className="overflow-hidden data-[state=open]:animate-collapsible-down data-[state=closed]:animate-collapsible-up">
         <div className="mb-3 p-4 bg-blue-50/50 border border-blue-100 rounded-lg">
-          <p className="text-sm leading-relaxed text-foreground whitespace-pre-line">
-            {explanation}
-          </p>
+          <div className="text-sm leading-relaxed text-foreground">
+            {explanation.split('\n').map((line, index) => {
+              const trimmedLine = line.trim();
+              
+              // Check if line starts with a dash (bullet point)
+              if (trimmedLine.startsWith('-')) {
+                const bulletText = trimmedLine.substring(1).trim();
+                return (
+                  <div key={index} className="flex gap-2 ml-4 my-1">
+                    <span className="text-primary">•</span>
+                    <span>{bulletText}</span>
+                  </div>
+                );
+              }
+              
+              // Empty line = paragraph break
+              if (trimmedLine === '') {
+                return <div key={index} className="h-3" />;
+              }
+              
+              // Regular paragraph
+              return <p key={index} className="my-1">{line}</p>;
+            })}
+          </div>
         </div>
       </CollapsibleContent>
       
