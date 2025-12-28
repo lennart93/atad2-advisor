@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Info, ChevronDown } from "lucide-react";
+import { Info } from "lucide-react";
 import {
   Collapsible,
   CollapsibleContent,
@@ -20,28 +20,25 @@ export const QuestionExplanationInline = ({ explanation }: QuestionExplanationIn
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="mt-4">
-      <div className="flex justify-end">
-        <CollapsibleTrigger asChild>
-          <button
-            type="button"
-            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors duration-150 px-3 py-1.5 rounded-lg hover:bg-primary/5 focus:outline-none focus:ring-2 focus:ring-primary/20"
-          >
-            <span>Meer info</span>
-            <Info className="h-4 w-4" />
-            <ChevronDown 
-              className={`h-4 w-4 transition-transform duration-150 ${isOpen ? 'rotate-180' : ''}`} 
-            />
-          </button>
-        </CollapsibleTrigger>
-      </div>
-      
       <CollapsibleContent className="overflow-hidden data-[state=open]:animate-collapsible-down data-[state=closed]:animate-collapsible-up">
-        <div className="mt-3 p-4 bg-blue-50/50 border border-blue-100 rounded-lg">
+        <div className="mb-3 p-4 bg-blue-50/50 border border-blue-100 rounded-lg">
           <p className="text-sm leading-relaxed text-foreground whitespace-pre-line">
             {explanation}
           </p>
         </div>
       </CollapsibleContent>
+      
+      <div className="flex justify-end">
+        <CollapsibleTrigger asChild>
+          <button
+            type="button"
+            className="text-muted-foreground hover:text-primary transition-all duration-150 hover:scale-110 p-1.5 rounded-full hover:bg-primary/10 focus:outline-none focus:ring-2 focus:ring-primary/20"
+            aria-label="View explanation"
+          >
+            <Info className="h-[18px] w-[18px]" />
+          </button>
+        </CollapsibleTrigger>
+      </div>
     </Collapsible>
   );
 };
