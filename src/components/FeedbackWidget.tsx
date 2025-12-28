@@ -16,9 +16,9 @@ import {
 import { cn } from "@/lib/utils";
 
 const FEEDBACK_TYPES = [
-  { value: "feature", label: "💡 Feature Idea", displayLabel: "Feature Idea" },
-  { value: "bug", label: "🐛 Bug Report", displayLabel: "Bug Report" },
-  { value: "design", label: "🎨 Design Suggestion", displayLabel: "Design Suggestion" },
+  { value: "feature", label: "💡 Feature idea", displayLabel: "Feature idea" },
+  { value: "bug", label: "🐛 Bug report", displayLabel: "Bug report" },
+  { value: "design", label: "🎨 Design suggestion", displayLabel: "Design suggestion" },
   { value: "question", label: "❓ Question", displayLabel: "Question" },
   { value: "other", label: "💬 Other", displayLabel: "Other" },
 ];
@@ -229,7 +229,7 @@ export const FeedbackWidget = () => {
               <div>
                 <h2 id="feedback-title" className="text-base font-semibold flex items-center gap-2">
                   <Lightbulb className="w-5 h-5 text-primary flex-shrink-0" />
-                  <span>Help us improve — <span id="feedback-subtitle" className="font-normal text-muted-foreground">this app only gets better with your input ✨</span></span>
+                  Help us improve
                 </h2>
               </div>
               <button
@@ -314,7 +314,7 @@ export const FeedbackWidget = () => {
 
                 {/* Motivational Footer */}
                 <p className="text-xs text-muted-foreground italic text-center">
-                  Every piece of input helps us build something amazing together
+                  Your input shapes what we build next
                 </p>
 
                 {/* Submit Button */}
