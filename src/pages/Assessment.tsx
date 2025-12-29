@@ -552,10 +552,33 @@ const Assessment = () => {
       // Update local state
       setAnswers(prev => ({ ...prev, [currentQuestion.question_id]: selectedAnswer }));
 
-      // Now complete the session
+      // Calculate preliminary outcome based on total risk points
+      const { data: allAnswers } = await supabase
+        .from('atad2_answers')
+        .select('risk_points')
+        .eq('session_id', sessionId);
+      
+      const totalRiskPoints = (allAnswers || []).reduce((sum, a) => sum + (a.risk_points || 0), 0);
+      
+      // Determine preliminary outcome using same logic as AssessmentReport
+      let preliminaryOutcome: 'risk_identified' | 'insufficient_information' | 'low_risk';
+      if (totalRiskPoints >= 1.0) {
+        preliminaryOutcome = 'risk_identified';
+      } else if (totalRiskPoints >= 0.2) {
+        preliminaryOutcome = 'insufficient_information';
+      } else {
+        preliminaryOutcome = 'low_risk';
+      }
+
+      // Now update the session with preliminary outcome (not confirmed yet)
       const { error } = await supabase
         .from('atad2_sessions')
-        .update({ completed: true, status: 'completed' })
+        .update({ 
+          completed: true, 
+          status: 'completed',
+          preliminary_outcome: preliminaryOutcome,
+          outcome_confirmed: false
+        })
         .eq('session_id', sessionId);
 
       if (error) throw error;
@@ -565,9 +588,11 @@ const Assessment = () => {
       setReminderMessage("");
 
       toast.success("Assessment complete", {
-        description: "Your risk assessment has been completed successfully.",
+        description: "Please confirm your preliminary assessment outcome.",
       });
-      navigate("/");
+      
+      // Navigate to confirmation page instead of dashboard
+      navigate(`/assessment-confirmation/${sessionId}`);
     } catch (error) {
       console.error('Error completing assessment:', error);
       toast.error("Error", {

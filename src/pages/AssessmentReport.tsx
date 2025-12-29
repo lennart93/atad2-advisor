@@ -27,6 +27,12 @@ interface SessionData {
   is_custom_period: boolean;
   period_start_date: string | null;
   period_end_date: string | null;
+  // Confirmation fields
+  preliminary_outcome: string | null;
+  outcome_confirmed: boolean;
+  outcome_overridden: boolean;
+  override_reason: string | null;
+  override_outcome: string | null;
 }
 
 interface AnswerData {
@@ -165,6 +171,13 @@ const AssessmentReport = () => {
         .single();
 
       if (sessionError) throw sessionError;
+      
+      // Check if outcome has been confirmed - if not, redirect to confirmation
+      if (!session.outcome_confirmed) {
+        navigate(`/assessment-confirmation/${sessionId}`);
+        return;
+      }
+      
       setSessionData(session);
 
       // Load answers
@@ -189,6 +202,35 @@ const AssessmentReport = () => {
   };
 
   const totalRiskPoints = Math.round((answers.reduce((sum, answer) => sum + answer.risk_points, 0)) * 100) / 100;
+
+  // Determine the final outcome - use override if applicable
+  const getFinalOutcome = () => {
+    if (sessionData?.outcome_overridden && sessionData?.override_outcome) {
+      // Map stored outcome string to display text
+      const outcomeMap: Record<string, { text: string; icon: JSX.Element; color: string; description: string }> = {
+        'risk_identified': {
+          text: "ATAD2 risk identified",
+          icon: <AlertTriangle className="h-4 w-4 text-red-600" />,
+          color: "text-red-600",
+          description: "This outcome was manually selected based on your expert assessment."
+        },
+        'insufficient_information': {
+          text: "Insufficient information",
+          icon: <Info className="h-4 w-4 text-orange-600" />,
+          color: "text-orange-600",
+          description: "This outcome was manually selected based on your expert assessment."
+        },
+        'low_risk': {
+          text: "Low ATAD2 risk",
+          icon: <CheckCircle className="h-4 w-4 text-green-600" />,
+          color: "text-green-600",
+          description: "This outcome was manually selected based on your expert assessment."
+        }
+      };
+      return outcomeMap[sessionData.override_outcome] || getRiskOutcome(totalRiskPoints);
+    }
+    return getRiskOutcome(totalRiskPoints);
+  };
 
   const getRiskOutcome = (points: number) => {
     if (points >= 1.0) {
@@ -215,7 +257,7 @@ const AssessmentReport = () => {
     }
   };
 
-  const riskOutcome = getRiskOutcome(totalRiskPoints);
+  const riskOutcome = getFinalOutcome();
 
   // Calculate answers missing explanations
   const answersWithoutExplanation = answers.filter(answer => {
@@ -388,10 +430,21 @@ const AssessmentReport = () => {
                       <span className={`font-medium ${riskOutcome.color}`}>
                         {riskOutcome.text}
                       </span>
+                      {sessionData.outcome_overridden && (
+                        <span className="text-xs bg-muted px-2 py-0.5 rounded text-muted-foreground">
+                          Adjusted
+                        </span>
+                      )}
                     </div>
                     <p className="text-sm text-muted-foreground">
                       {riskOutcome.description}
                     </p>
+                    {sessionData.outcome_overridden && sessionData.override_reason && (
+                      <div className="mt-2 p-3 bg-muted/50 rounded-lg">
+                        <p className="text-xs font-medium text-muted-foreground mb-1">Your reasoning:</p>
+                        <p className="text-sm">{sessionData.override_reason}</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

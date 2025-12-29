@@ -14,6 +14,7 @@ import ScrollRestoration from "@/components/routing/ScrollRestoration";
 const Index = lazy(() => import("./pages/Index"));
 const Auth = lazy(() => import("./pages/Auth"));
 const Assessment = lazy(() => import("./pages/Assessment"));
+const AssessmentConfirmation = lazy(() => import("./pages/AssessmentConfirmation"));
 const AssessmentReport = lazy(() => import("./pages/AssessmentReport"));
 const ReportDetail = lazy(() => import("./pages/ReportDetail"));
 const EmailConfirmed = lazy(() => import("./pages/EmailConfirmed"));
@@ -53,6 +54,7 @@ const App = () => (
                   <Route element={<AppLayout />}>
                     <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
                     <Route path="/assessment" element={<ProtectedRoute><Assessment /></ProtectedRoute>} />
+                    <Route path="/assessment-confirmation/:sessionId" element={<ProtectedRoute><AssessmentConfirmation /></ProtectedRoute>} />
                     <Route path="/assessment-report/:sessionId" element={<ProtectedRoute><AssessmentReport /></ProtectedRoute>} />
                     <Route path="/report/:reportId" element={<ProtectedRoute><ReportDetail /></ProtectedRoute>} />
 
