@@ -52,7 +52,7 @@ const AssessmentConfirmation = () => {
   const [selectedOverrideOutcome, setSelectedOverrideOutcome] = useState<OutcomeType | null>(null);
   
   // Validation
-  const MIN_REASON_LENGTH = 30;
+  const MIN_REASON_LENGTH = 100;
   const reasonCharCount = overrideReason.trim().length;
   const isReasonValid = reasonCharCount >= MIN_REASON_LENGTH;
   const isOverrideValid = isReasonValid && selectedOverrideOutcome && selectedOverrideOutcome !== sessionData?.preliminary_outcome;
