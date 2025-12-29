@@ -199,6 +199,7 @@ export type Database = {
       atad2_sessions: {
         Row: {
           completed: boolean | null
+          confirmed_at: string | null
           created_at: string
           date_filled: string
           entity_name: string | null
@@ -206,8 +207,13 @@ export type Database = {
           fiscal_year: string
           id: string
           is_custom_period: boolean
+          outcome_confirmed: boolean | null
+          outcome_overridden: boolean | null
+          override_outcome: string | null
+          override_reason: string | null
           period_end_date: string | null
           period_start_date: string | null
+          preliminary_outcome: string | null
           session_id: string
           status: string
           taxpayer_name: string
@@ -216,6 +222,7 @@ export type Database = {
         }
         Insert: {
           completed?: boolean | null
+          confirmed_at?: string | null
           created_at?: string
           date_filled?: string
           entity_name?: string | null
@@ -223,8 +230,13 @@ export type Database = {
           fiscal_year: string
           id?: string
           is_custom_period?: boolean
+          outcome_confirmed?: boolean | null
+          outcome_overridden?: boolean | null
+          override_outcome?: string | null
+          override_reason?: string | null
           period_end_date?: string | null
           period_start_date?: string | null
+          preliminary_outcome?: string | null
           session_id: string
           status?: string
           taxpayer_name: string
@@ -233,6 +245,7 @@ export type Database = {
         }
         Update: {
           completed?: boolean | null
+          confirmed_at?: string | null
           created_at?: string
           date_filled?: string
           entity_name?: string | null
@@ -240,8 +253,13 @@ export type Database = {
           fiscal_year?: string
           id?: string
           is_custom_period?: boolean
+          outcome_confirmed?: boolean | null
+          outcome_overridden?: boolean | null
+          override_outcome?: string | null
+          override_reason?: string | null
           period_end_date?: string | null
           period_start_date?: string | null
+          preliminary_outcome?: string | null
           session_id?: string
           status?: string
           taxpayer_name?: string
