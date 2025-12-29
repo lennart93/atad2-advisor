@@ -3,11 +3,12 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, AlertTriangle, Info, CheckCircle } from "lucide-react";
 
 type OutcomeType = 'risk_identified' | 'insufficient_information' | 'low_risk';
 
@@ -18,10 +19,22 @@ interface SessionData {
   outcome_confirmed: boolean;
 }
 
-const outcomeLabels: Record<OutcomeType, string> = {
-  risk_identified: "ATAD2 risk identified",
-  insufficient_information: "Insufficient information",
-  low_risk: "Low ATAD2 risk"
+const outcomeConfig: Record<OutcomeType, { label: string; icon: typeof AlertTriangle; colorClass: string }> = {
+  risk_identified: {
+    label: "ATAD2 risk identified",
+    icon: AlertTriangle,
+    colorClass: "text-red-600"
+  },
+  insufficient_information: {
+    label: "Insufficient information",
+    icon: Info,
+    colorClass: "text-orange-600"
+  },
+  low_risk: {
+    label: "Low ATAD2 risk",
+    icon: CheckCircle,
+    colorClass: "text-green-600"
+  }
 };
 
 const AssessmentConfirmation = () => {
@@ -177,17 +190,19 @@ const AssessmentConfirmation = () => {
   }
 
   const outcome = sessionData.preliminary_outcome as OutcomeType;
+  const config = outcomeConfig[outcome];
+  const OutcomeIcon = config.icon;
 
   // Filter out current outcome for override selection
-  const availableOverrideOutcomes = Object.entries(outcomeLabels).filter(
+  const availableOverrideOutcomes = Object.entries(outcomeConfig).filter(
     ([key]) => key !== outcome
   );
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-2xl mx-auto px-4 py-8">
+    <div className="min-h-screen bg-background p-4">
+      <div className="max-w-2xl mx-auto">
         {/* Back button */}
-        <div className="mb-12">
+        <div className="mb-6">
           <Button 
             variant="ghost" 
             size="sm"
@@ -199,144 +214,150 @@ const AssessmentConfirmation = () => {
           </Button>
         </div>
 
-        {/* Page content */}
-        <div className="space-y-8">
-          {/* Header */}
-          <div className="space-y-4">
-            <h1 className="text-xl font-medium text-foreground">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-xl font-medium">
               Preliminary ATAD2 assessment
-            </h1>
-            <p className="text-muted-foreground leading-relaxed">
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Intro text */}
+            <p className="text-muted-foreground">
               Thank you for completing the ATAD2 questionnaire for{" "}
-              <span className="text-foreground">{sessionData.taxpayer_name}</span>.
+              <span className="text-foreground font-medium">{sessionData.taxpayer_name}</span>.
               Based on your responses, a preliminary assessment has been determined 
               using predefined rule-based logic. This serves as a checkpoint before 
               generating the assessment report.
             </p>
-          </div>
 
-          {/* Preliminary outcome - understated */}
-          <div className="py-6 border-y border-border">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
-              Preliminary outcome
-            </p>
-            <p className="text-lg text-foreground">
-              {outcomeLabels[outcome]}
-            </p>
-          </div>
-
-          {/* Confirmation section */}
-          {!showOverrideForm ? (
-            <div className="space-y-6">
-              <p className="text-muted-foreground">
-                Before we continue, please confirm whether this preliminary outcome 
-                aligns with your own assessment.
+            {/* Preliminary outcome - with color, matching report style */}
+            <div className="py-4 border-y border-border">
+              <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
+                Preliminary outcome
               </p>
-
-              <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  onClick={handleConfirm}
-                  disabled={submitting}
-                  className="flex-1 sm:flex-none"
-                >
-                  Confirm outcome
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={handleAdjust}
-                  disabled={submitting}
-                  className="flex-1 sm:flex-none"
-                >
-                  Adjust outcome
-                </Button>
+              <div className="flex items-center gap-2">
+                <OutcomeIcon className={`h-4 w-4 ${config.colorClass}`} />
+                <span className={`font-medium ${config.colorClass}`}>
+                  {config.label}
+                </span>
               </div>
             </div>
-          ) : (
-            /* Override Form - inline, calm */
-            <div className="space-y-6">
-              <p className="text-muted-foreground">
-                Please explain why you do not agree with the preliminary outcome 
-                and select the outcome you consider more appropriate.
-              </p>
 
-              {/* Reason textarea */}
-              <div className="space-y-2">
-                <Label htmlFor="override-reason" className="text-sm text-muted-foreground">
-                  Your reasoning
-                </Label>
-                <Textarea
-                  id="override-reason"
-                  placeholder="Share your reasoning here..."
-                  value={overrideReason}
-                  onChange={(e) => setOverrideReason(e.target.value)}
-                  className="min-h-[100px] resize-none"
-                />
-                <p className="text-xs text-muted-foreground">
-                  {reasonCharCount < MIN_REASON_LENGTH 
-                    ? `${MIN_REASON_LENGTH - reasonCharCount} more characters needed`
-                    : `${reasonCharCount} characters`
-                  }
+            {/* Confirmation section */}
+            {!showOverrideForm ? (
+              <div className="space-y-5">
+                <p className="text-muted-foreground">
+                  Before we continue, please confirm whether this preliminary outcome 
+                  aligns with your own assessment.
                 </p>
-              </div>
 
-              {/* Alternative outcome selection */}
-              <div className="space-y-3">
-                <Label className="text-sm text-muted-foreground">
-                  Alternative outcome
-                </Label>
-                <RadioGroup
-                  value={selectedOverrideOutcome || ""}
-                  onValueChange={(value) => setSelectedOverrideOutcome(value as OutcomeType)}
-                  className="space-y-2"
-                >
-                  {availableOverrideOutcomes.map(([key, label]) => (
-                    <div
-                      key={key}
-                      className={`flex items-center space-x-3 p-3 rounded border cursor-pointer transition-colors ${
-                        selectedOverrideOutcome === key
-                          ? "border-foreground bg-muted/30"
-                          : "border-border hover:border-muted-foreground/50"
-                      }`}
-                      onClick={() => setSelectedOverrideOutcome(key as OutcomeType)}
-                    >
-                      <RadioGroupItem value={key} id={key} />
-                      <Label htmlFor={key} className="cursor-pointer flex-1 font-normal">
-                        {label}
-                      </Label>
-                    </div>
-                  ))}
-                </RadioGroup>
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={handleConfirm}
+                    disabled={submitting}
+                  >
+                    Confirm outcome
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={handleAdjust}
+                    disabled={submitting}
+                  >
+                    Adjust outcome
+                  </Button>
+                </div>
               </div>
-
-              {/* Confirmation note - only when valid */}
-              {isOverrideValid && (
-                <p className="text-sm text-muted-foreground">
-                  Your explanation will be taken into account when generating the 
-                  assessment report and memorandum.
+            ) : (
+              /* Override Form - inline */
+              <div className="space-y-5">
+                <p className="text-muted-foreground">
+                  Please explain why you do not agree with the preliminary outcome 
+                  and select the outcome you consider more appropriate.
                 </p>
-              )}
 
-              {/* Actions */}
-              <div className="flex gap-3 pt-2">
-                <Button
-                  variant="ghost"
-                  onClick={handleCancelOverride}
-                  disabled={submitting}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={handleConfirmOverride}
-                  disabled={!isOverrideValid || submitting}
-                >
-                  Confirm and continue
-                </Button>
+                {/* Reason textarea */}
+                <div className="space-y-2">
+                  <Label htmlFor="override-reason" className="text-sm text-muted-foreground">
+                    Your reasoning
+                  </Label>
+                  <Textarea
+                    id="override-reason"
+                    placeholder="Share your reasoning here..."
+                    value={overrideReason}
+                    onChange={(e) => setOverrideReason(e.target.value)}
+                    className="min-h-[100px] resize-none"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {reasonCharCount < MIN_REASON_LENGTH 
+                      ? `${MIN_REASON_LENGTH - reasonCharCount} more characters needed`
+                      : `${reasonCharCount} characters`
+                    }
+                  </p>
+                </div>
+
+                {/* Alternative outcome selection */}
+                <div className="space-y-3">
+                  <Label className="text-sm text-muted-foreground">
+                    Alternative outcome
+                  </Label>
+                  <RadioGroup
+                    value={selectedOverrideOutcome || ""}
+                    onValueChange={(value) => setSelectedOverrideOutcome(value as OutcomeType)}
+                    className="space-y-2"
+                  >
+                    {availableOverrideOutcomes.map(([key, cfg]) => {
+                      const Icon = cfg.icon;
+                      return (
+                        <div
+                          key={key}
+                          className={`flex items-center space-x-3 p-3 rounded border cursor-pointer transition-colors ${
+                            selectedOverrideOutcome === key
+                              ? "border-foreground bg-muted/30"
+                              : "border-border hover:border-muted-foreground/50"
+                          }`}
+                          onClick={() => setSelectedOverrideOutcome(key as OutcomeType)}
+                        >
+                          <RadioGroupItem value={key} id={key} />
+                          <Icon className={`h-4 w-4 ${cfg.colorClass}`} />
+                          <Label htmlFor={key} className="cursor-pointer flex-1 font-normal">
+                            {cfg.label}
+                          </Label>
+                        </div>
+                      );
+                    })}
+                  </RadioGroup>
+                </div>
+
+                {/* Confirmation note - only when valid */}
+                {isOverrideValid && (
+                  <p className="text-sm text-muted-foreground">
+                    Your explanation will be taken into account when generating the 
+                    assessment report and memorandum.
+                  </p>
+                )}
+
+                {/* Actions */}
+                <div className="flex gap-3 pt-2">
+                  <Button
+                    variant="ghost"
+                    onClick={handleCancelOverride}
+                    disabled={submitting}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={handleConfirmOverride}
+                    disabled={!isOverrideValid || submitting}
+                  >
+                    Confirm and continue
+                  </Button>
+                </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
