@@ -1716,7 +1716,10 @@ const Assessment = () => {
                     </div>
 
                       {/* Question explanation - inline expandable */}
-                      <QuestionExplanationInline explanation={currentQuestion.question_explanation} />
+                      <QuestionExplanationInline 
+                        key={currentQuestion.question_id} 
+                        explanation={currentQuestion.question_explanation} 
+                      />
 
                       {/* Context section - NEW hardened state machine */}
                       {/* RENDER GUARD: only show context panel when answer selected and requires explanation */}
