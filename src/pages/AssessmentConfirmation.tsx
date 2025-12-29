@@ -283,12 +283,11 @@ const AssessmentConfirmation = () => {
                     onChange={(e) => setOverrideReason(e.target.value)}
                     className="min-h-[100px] resize-none"
                   />
-                  <p className="text-xs text-muted-foreground">
-                    {reasonCharCount < MIN_REASON_LENGTH 
-                      ? `${MIN_REASON_LENGTH - reasonCharCount} more characters needed`
-                      : `${reasonCharCount} characters`
-                    }
-                  </p>
+                  {reasonCharCount < MIN_REASON_LENGTH && (
+                    <p className="text-xs text-muted-foreground">
+                      {MIN_REASON_LENGTH - reasonCharCount} more characters needed
+                    </p>
+                  )}
                 </div>
 
                 {/* Alternative outcome selection */}
