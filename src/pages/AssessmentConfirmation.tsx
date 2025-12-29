@@ -202,14 +202,9 @@ const AssessmentConfirmation = () => {
     <div className="min-h-screen bg-background p-4">
       <div className="max-w-2xl mx-auto">
         {/* Back button */}
-        <div className="mb-6">
-          <Button 
-            variant="ghost" 
-            size="sm"
-            onClick={() => navigate("/")}
-            className="text-muted-foreground hover:text-foreground -ml-2"
-          >
-            <ArrowLeft className="h-4 w-4 mr-1.5" />
+        <div className="mb-8">
+          <Button variant="outline" onClick={() => navigate("/")}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
             Back to dashboard
           </Button>
         </div>
