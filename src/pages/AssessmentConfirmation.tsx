@@ -252,12 +252,10 @@ const AssessmentConfirmation = () => {
             {/* Context Form - shown after confirm or override */}
             {showContextForm ? (
               <div className="space-y-5 animate-in fade-in-50 duration-300">
-                <div className="space-y-2">
-                  <p className="text-muted-foreground">
-                    Great! Before we generate your report, is there anything you'd like to add? 
-                    The more context you provide, the more tailored the memorandum will be.
-                  </p>
-                </div>
+                <p className="text-muted-foreground">
+                  Great! Before we proceed, is there anything you'd like to add? 
+                  The more context you provide, the more tailored the memorandum will be.
+                </p>
 
                 <Textarea
                   placeholder="Any additional considerations, background information, or specific points you'd like addressed..."
