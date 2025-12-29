@@ -33,6 +33,7 @@ interface SessionData {
   outcome_overridden: boolean;
   override_reason: string | null;
   override_outcome: string | null;
+  additional_context: string | null;
 }
 
 interface AnswerData {
@@ -331,7 +332,13 @@ const AssessmentReport = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          session_id: sessionId
+          session_id: sessionId,
+          // Context data for the memo generator
+          additional_context: sessionData?.additional_context || null,
+          outcome_overridden: sessionData?.outcome_overridden || false,
+          override_reason: sessionData?.override_reason || null,
+          override_outcome: sessionData?.override_outcome || null,
+          preliminary_outcome: sessionData?.preliminary_outcome || null
         }),
         signal: controller.signal
       });
@@ -443,6 +450,12 @@ const AssessmentReport = () => {
                       <div className="mt-2 p-3 bg-muted/50 rounded-lg overflow-hidden">
                         <p className="text-xs font-medium text-muted-foreground mb-1">Your reasoning:</p>
                         <p className="text-sm break-words">{sessionData.override_reason}</p>
+                      </div>
+                    )}
+                    {sessionData.additional_context && (
+                      <div className="mt-2 p-3 bg-muted/50 rounded-lg overflow-hidden">
+                        <p className="text-xs font-medium text-muted-foreground mb-1">Your additions:</p>
+                        <p className="text-sm break-words">{sessionData.additional_context}</p>
                       </div>
                     )}
                   </div>

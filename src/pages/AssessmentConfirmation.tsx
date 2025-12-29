@@ -51,6 +51,11 @@ const AssessmentConfirmation = () => {
   const [overrideReason, setOverrideReason] = useState("");
   const [selectedOverrideOutcome, setSelectedOverrideOutcome] = useState<OutcomeType | null>(null);
   
+  // Additional context flow state
+  const [showContextForm, setShowContextForm] = useState(false);
+  const [additionalContext, setAdditionalContext] = useState("");
+  const [pendingConfirmType, setPendingConfirmType] = useState<'confirm' | 'override' | null>(null);
+  
   // Validation
   const MIN_REASON_LENGTH = 100;
   const reasonCharCount = overrideReason.trim().length;
@@ -104,18 +109,39 @@ const AssessmentConfirmation = () => {
     }
   };
 
-  const handleConfirm = async () => {
+  const handleConfirm = () => {
+    // Show the optional context form instead of immediately saving
+    setPendingConfirmType('confirm');
+    setShowContextForm(true);
+  };
+
+  const handleFinalConfirm = async (skipContext: boolean = false) => {
     if (!sessionId || !user) return;
 
     setSubmitting(true);
     try {
+      const updateData: Record<string, any> = {
+        outcome_confirmed: true,
+        confirmed_at: new Date().toISOString()
+      };
+
+      // Add the additional context if provided
+      if (!skipContext && additionalContext.trim()) {
+        updateData.additional_context = additionalContext.trim();
+      }
+
+      // Handle override vs regular confirm
+      if (pendingConfirmType === 'override') {
+        updateData.outcome_overridden = true;
+        updateData.override_reason = overrideReason.trim();
+        updateData.override_outcome = selectedOverrideOutcome;
+      } else {
+        updateData.outcome_overridden = false;
+      }
+
       const { error } = await supabase
         .from('atad2_sessions')
-        .update({
-          outcome_confirmed: true,
-          outcome_overridden: false,
-          confirmed_at: new Date().toISOString()
-        })
+        .update(updateData)
         .eq('session_id', sessionId)
         .eq('user_id', user.id);
 
@@ -134,38 +160,23 @@ const AssessmentConfirmation = () => {
     setShowOverrideForm(true);
   };
 
-  const handleConfirmOverride = async () => {
-    if (!sessionId || !user || !isOverrideValid) return;
-
-    setSubmitting(true);
-    try {
-      const { error } = await supabase
-        .from('atad2_sessions')
-        .update({
-          outcome_confirmed: true,
-          outcome_overridden: true,
-          override_reason: overrideReason.trim(),
-          override_outcome: selectedOverrideOutcome,
-          confirmed_at: new Date().toISOString()
-        })
-        .eq('session_id', sessionId)
-        .eq('user_id', user.id);
-
-      if (error) throw error;
-
-      navigate(`/assessment-report/${sessionId}`);
-    } catch (error) {
-      console.error('Error overriding outcome:', error);
-      toast.error("Error", { description: "Failed to update outcome" });
-    } finally {
-      setSubmitting(false);
-    }
+  const handleConfirmOverride = () => {
+    if (!isOverrideValid) return;
+    // Show the optional context form instead of immediately saving
+    setPendingConfirmType('override');
+    setShowContextForm(true);
   };
 
   const handleCancelOverride = () => {
     setShowOverrideForm(false);
     setOverrideReason("");
     setSelectedOverrideOutcome(null);
+  };
+
+  const handleBackFromContext = () => {
+    setShowContextForm(false);
+    setAdditionalContext("");
+    setPendingConfirmType(null);
   };
 
   if (loading) {
@@ -238,8 +249,42 @@ const AssessmentConfirmation = () => {
               </div>
             </div>
 
-            {/* Confirmation section */}
-            {!showOverrideForm ? (
+            {/* Context Form - shown after confirm or override */}
+            {showContextForm ? (
+              <div className="space-y-5 animate-in fade-in-50 duration-300">
+                <div className="space-y-2">
+                  <p className="text-muted-foreground">
+                    Great! Before we generate your report, is there anything you'd like to add? 
+                    The more context you provide, the more tailored the memorandum will be.
+                  </p>
+                </div>
+
+                <Textarea
+                  placeholder="Any additional considerations, background information, or specific points you'd like addressed..."
+                  value={additionalContext}
+                  onChange={(e) => setAdditionalContext(e.target.value)}
+                  className="min-h-[100px] resize-none"
+                />
+
+                <div className="flex gap-3 pt-2">
+                  <Button
+                    variant="ghost"
+                    onClick={() => handleFinalConfirm(true)}
+                    disabled={submitting}
+                  >
+                    Skip and continue
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => handleFinalConfirm(false)}
+                    disabled={submitting}
+                  >
+                    Continue
+                  </Button>
+                </div>
+              </div>
+            ) : !showOverrideForm ? (
+              /* Confirmation section */
               <div className="space-y-5">
                 <p className="text-muted-foreground">
                   Before we continue, please confirm whether this preliminary outcome 
