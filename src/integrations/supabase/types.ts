@@ -198,6 +198,7 @@ export type Database = {
       }
       atad2_sessions: {
         Row: {
+          additional_context: string | null
           completed: boolean | null
           confirmed_at: string | null
           created_at: string
@@ -221,6 +222,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          additional_context?: string | null
           completed?: boolean | null
           confirmed_at?: string | null
           created_at?: string
@@ -244,6 +246,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          additional_context?: string | null
           completed?: boolean | null
           confirmed_at?: string | null
           created_at?: string
