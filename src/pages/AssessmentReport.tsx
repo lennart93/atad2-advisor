@@ -440,9 +440,9 @@ const AssessmentReport = () => {
                       {riskOutcome.description}
                     </p>
                     {sessionData.outcome_overridden && sessionData.override_reason && (
-                      <div className="mt-2 p-3 bg-muted/50 rounded-lg">
+                      <div className="mt-2 p-3 bg-muted/50 rounded-lg overflow-hidden">
                         <p className="text-xs font-medium text-muted-foreground mb-1">Your reasoning:</p>
-                        <p className="text-sm">{sessionData.override_reason}</p>
+                        <p className="text-sm break-words">{sessionData.override_reason}</p>
                       </div>
                     )}
                   </div>
