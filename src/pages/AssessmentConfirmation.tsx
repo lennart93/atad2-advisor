@@ -257,12 +257,19 @@ const AssessmentConfirmation = () => {
                   The more context you provide, the more tailored the memorandum will be.
                 </p>
 
-                <Textarea
-                  placeholder="Any additional considerations, background information, or specific points you'd like addressed..."
-                  value={additionalContext}
-                  onChange={(e) => setAdditionalContext(e.target.value)}
-                  className="min-h-[100px] resize-none"
-                />
+                <div className="space-y-2">
+                  <Textarea
+                    placeholder="Any additional considerations, background information, or specific points you'd like addressed..."
+                    value={additionalContext}
+                    onChange={(e) => setAdditionalContext(e.target.value)}
+                    className="min-h-[100px] resize-none"
+                  />
+                  {additionalContext.trim().length < 100 && (
+                    <p className="text-xs text-muted-foreground">
+                      {100 - additionalContext.trim().length} more characters needed
+                    </p>
+                  )}
+                </div>
 
                 <div className="flex gap-3 pt-2">
                   <Button
