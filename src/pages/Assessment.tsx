@@ -16,7 +16,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { InfoIcon, ArrowLeft, HelpCircle } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AssessmentSidebar } from "@/components/AssessmentSidebar";
 import { QuestionExplanationInline } from "@/components/QuestionExplanationInline";
 import { Textarea } from "@/components/ui/textarea";
@@ -180,6 +181,11 @@ const Assessment = () => {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [showFlowChangeDialog, setShowFlowChangeDialog] = useState(false);
   const [showStartWarningDialog, setShowStartWarningDialog] = useState(false);
+  const [confirmations, setConfirmations] = useState({
+    advisory: false,
+    highLevel: false,
+    factDriven: false,
+  });
   const [pendingAnswerChange, setPendingAnswerChange] = useState<{answer: string, newNextQuestionId: string | null} | null>(null);
   const [autoAdvance, setAutoAdvance] = useState(true);
   const [pendingQuestion, setPendingQuestion] = useState<Question | null>(null);
@@ -1543,22 +1549,83 @@ const Assessment = () => {
         </div>
         
         {/* Warning dialog that shows AFTER validation */}
-        <AlertDialog open={showStartWarningDialog} onOpenChange={setShowStartWarningDialog}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Before you start</AlertDialogTitle>
-              <AlertDialogDescription>
-                You are about to use a tool powered by AI. Please be considerate about the information you provide. While the tool works best with as much context as possible, make sure not to share any commercially sensitive or confidential client information.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={startSession}>
-                I understand
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        <Dialog open={showStartWarningDialog} onOpenChange={(open) => {
+          setShowStartWarningDialog(open);
+          if (!open) {
+            setConfirmations({ advisory: false, highLevel: false, factDriven: false });
+          }
+        }}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Before you start</DialogTitle>
+              <DialogDescription>
+                Please confirm the following before proceeding with the ATAD2 risk assessment.
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4 py-4">
+              <div className="flex items-start space-x-3">
+                <Checkbox 
+                  id="advisory" 
+                  checked={confirmations.advisory}
+                  onCheckedChange={(checked) => setConfirmations(prev => ({ ...prev, advisory: checked === true }))}
+                />
+                <label htmlFor="advisory" className="text-sm leading-relaxed cursor-pointer">
+                  <span className="font-medium">Advisory tool & responsibility</span>
+                  <br />
+                  <span className="text-muted-foreground">I understand that this tool is an analytical aid only and does not replace professional judgement. I remain fully responsible for the accuracy, completeness, and interpretation of the assessment.</span>
+                </label>
+              </div>
+              
+              <div className="flex items-start space-x-3">
+                <Checkbox 
+                  id="highLevel" 
+                  checked={confirmations.highLevel}
+                  onCheckedChange={(checked) => setConfirmations(prev => ({ ...prev, highLevel: checked === true }))}
+                />
+                <label htmlFor="highLevel" className="text-sm leading-relaxed cursor-pointer">
+                  <span className="font-medium">High-level ATAD2 risk indication</span>
+                  <br />
+                  <span className="text-muted-foreground">I understand that the assessment provides a high-level indication of potential ATAD2 risk only and does not determine whether a mismatch exists or whether a tax adjustment, denial of deduction, or reassessment will occur.</span>
+                </label>
+              </div>
+              
+              <div className="flex items-start space-x-3">
+                <Checkbox 
+                  id="factDriven" 
+                  checked={confirmations.factDriven}
+                  onCheckedChange={(checked) => setConfirmations(prev => ({ ...prev, factDriven: checked === true }))}
+                />
+                <label htmlFor="factDriven" className="text-sm leading-relaxed cursor-pointer">
+                  <span className="font-medium">Fact-driven & multi-jurisdictional nature</span>
+                  <br />
+                  <span className="text-muted-foreground">I understand that ATAD2 outcomes are highly fact-driven and often require further analysis across multiple jurisdictions. The quality of the outcome depends on the completeness and accuracy of the information provided.</span>
+                </label>
+              </div>
+            </div>
+            
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setShowStartWarningDialog(false);
+                  setConfirmations({ advisory: false, highLevel: false, factDriven: false });
+                }}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={() => {
+                  setShowStartWarningDialog(false);
+                  startSession();
+                }}
+                disabled={!confirmations.advisory || !confirmations.highLevel || !confirmations.factDriven}
+              >
+                Start assessment
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </>
     );
   }
