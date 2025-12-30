@@ -270,12 +270,12 @@ const AssessmentConfirmation = () => {
                     onClick={() => handleFinalConfirm(true)}
                     disabled={submitting}
                   >
-                    Skip and continue
+                    Skip
                   </Button>
                   <Button
                     variant="outline"
                     onClick={() => handleFinalConfirm(false)}
-                    disabled={submitting}
+                    disabled={submitting || additionalContext.trim().length < 100}
                   >
                     Continue
                   </Button>
