@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,7 +8,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
-import { ArrowLeft, AlertTriangle, Info, CheckCircle } from "lucide-react";
+import { ArrowLeft, AlertTriangle, Info, CheckCircle, Upload, FileText, X, Loader2 } from "lucide-react";
+
+interface UploadedFile {
+  name: string;
+  type: string;
+  status: 'pending' | 'uploading' | 'success' | 'error';
+  errorMessage?: string;
+}
+
+const N8N_CONTEXT_EXTRACT_URL = "https://lennartwilming.app.n8n.cloud/webhook/atad2/extract-context";
 
 type OutcomeType = 'risk_identified' | 'insufficient_information' | 'low_risk';
 
@@ -55,6 +64,11 @@ const AssessmentConfirmation = () => {
   const [showContextForm, setShowContextForm] = useState(false);
   const [additionalContext, setAdditionalContext] = useState("");
   const [pendingConfirmType, setPendingConfirmType] = useState<'confirm' | 'override' | null>(null);
+  
+  // File upload state
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [isProcessingFiles, setIsProcessingFiles] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Validation
   const MIN_REASON_LENGTH = 100;
@@ -176,8 +190,135 @@ const AssessmentConfirmation = () => {
   const handleBackFromContext = () => {
     setShowContextForm(false);
     setAdditionalContext("");
+    setUploadedFiles([]);
     setPendingConfirmType(null);
   };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0 || !sessionId) return;
+
+    const allowedTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ];
+
+    for (const file of Array.from(files)) {
+      if (!allowedTypes.includes(file.type)) {
+        toast.error("Invalid file type", { 
+          description: `${file.name} is not a supported file type. Please upload PDF or Word documents.` 
+        });
+        continue;
+      }
+
+      if (file.size > 20 * 1024 * 1024) {
+        toast.error("File too large", { 
+          description: `${file.name} exceeds the 20MB limit.` 
+        });
+        continue;
+      }
+
+      // Add file to list as pending
+      setUploadedFiles(prev => [...prev, { name: file.name, type: file.type, status: 'pending' }]);
+
+      // Process and upload file
+      processFile(file);
+    }
+
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const processFile = async (file: File) => {
+    setIsProcessingFiles(true);
+    
+    // Update file status to uploading
+    setUploadedFiles(prev => 
+      prev.map(f => f.name === file.name ? { ...f, status: 'uploading' as const } : f)
+    );
+
+    try {
+      // Convert file to base64
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result as string;
+          // Remove data URL prefix
+          const base64Data = result.split(',')[1];
+          resolve(base64Data);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      // Determine document type
+      let documentType = 'onbekend';
+      const lowerName = file.name.toLowerCase();
+      if (lowerName.includes('jaarrekening') || lowerName.includes('annual')) {
+        documentType = 'jaarrekening';
+      } else if (lowerName.includes('cit') || lowerName.includes('tax return')) {
+        documentType = 'CIT return';
+      } else if (lowerName.includes('advisory') || lowerName.includes('advies')) {
+        documentType = 'CIT advisory letter';
+      }
+
+      // Call n8n webhook with 5 minute timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5 * 60 * 1000);
+
+      const response = await fetch(N8N_CONTEXT_EXTRACT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: sessionId,
+          file_base64: base64,
+          file_name: file.name,
+          file_type: file.type,
+          document_type: documentType
+        }),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(`Upload failed: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      
+      if (result.success) {
+        setUploadedFiles(prev => 
+          prev.map(f => f.name === file.name ? { ...f, status: 'success' as const } : f)
+        );
+        toast.success("Document processed", { 
+          description: `Context extracted from ${file.name}` 
+        });
+      } else {
+        throw new Error(result.error || 'Failed to extract context');
+      }
+    } catch (error) {
+      console.error('File processing error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      setUploadedFiles(prev => 
+        prev.map(f => f.name === file.name ? { ...f, status: 'error' as const, errorMessage } : f)
+      );
+      toast.error("Processing failed", { 
+        description: `Failed to process ${file.name}` 
+      });
+    } finally {
+      setIsProcessingFiles(false);
+    }
+  };
+
+  const removeFile = (fileName: string) => {
+    setUploadedFiles(prev => prev.filter(f => f.name !== fileName));
+  };
+
+  const hasFilesProcessing = uploadedFiles.some(f => f.status === 'uploading' || f.status === 'pending');
 
   if (loading) {
     return (
@@ -264,10 +405,71 @@ const AssessmentConfirmation = () => {
                     onChange={(e) => setAdditionalContext(e.target.value)}
                     className="min-h-[100px] resize-none"
                   />
-                  {additionalContext.trim().length < 100 && (
+                  {additionalContext.trim().length < 100 && additionalContext.trim().length > 0 && (
                     <p className="text-xs text-muted-foreground">
                       {100 - additionalContext.trim().length} more characters needed
                     </p>
+                  )}
+                </div>
+
+                {/* File upload section */}
+                <div className="space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    You may also upload documents to provide additional context (annual accounts, CIT returns, advisory letters).
+                  </p>
+                  
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    onChange={handleFileSelect}
+                    multiple
+                    className="hidden"
+                  />
+                  
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isProcessingFiles}
+                    className="w-full border-dashed"
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Upload PDF or Word document
+                  </Button>
+
+                  {/* Uploaded files list */}
+                  {uploadedFiles.length > 0 && (
+                    <div className="space-y-2">
+                      {uploadedFiles.map((file) => (
+                        <div 
+                          key={file.name}
+                          className="flex items-center justify-between p-2 rounded border border-border bg-muted/30"
+                        >
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                            <span className="text-sm truncate">{file.name}</span>
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            {file.status === 'uploading' || file.status === 'pending' ? (
+                              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                            ) : file.status === 'success' ? (
+                              <CheckCircle className="h-4 w-4 text-green-600" />
+                            ) : file.status === 'error' ? (
+                              <AlertTriangle className="h-4 w-4 text-red-600" />
+                            ) : null}
+                            <button
+                              type="button"
+                              onClick={() => removeFile(file.name)}
+                              className="p-1 hover:bg-muted rounded"
+                              disabled={file.status === 'uploading'}
+                            >
+                              <X className="h-3 w-3 text-muted-foreground" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
 
@@ -275,16 +477,23 @@ const AssessmentConfirmation = () => {
                   <Button
                     variant="ghost"
                     onClick={() => handleFinalConfirm(true)}
-                    disabled={submitting}
+                    disabled={submitting || hasFilesProcessing}
                   >
                     Skip
                   </Button>
                   <Button
                     variant="outline"
                     onClick={() => handleFinalConfirm(false)}
-                    disabled={submitting || additionalContext.trim().length < 100}
+                    disabled={submitting || hasFilesProcessing || additionalContext.trim().length < 100}
                   >
-                    Continue
+                    {hasFilesProcessing ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      'Continue'
+                    )}
                   </Button>
                 </div>
               </div>
