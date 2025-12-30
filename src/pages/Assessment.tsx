@@ -1586,7 +1586,7 @@ const Assessment = () => {
                 <label htmlFor="highLevel" className="text-sm leading-relaxed cursor-pointer">
                   <span className="font-medium">High-level ATAD2 risk indication</span>
                   <br />
-                  <span className="text-muted-foreground">I understand that the assessment provides a high-level indication of potential ATAD2 risk only and does not determine whether a mismatch exists or whether a tax adjustment, denial of deduction, or reassessment will occur.</span>
+                  <span className="text-muted-foreground">I understand that the assessment provides a high-level indication of potential ATAD2 risk only and does not determine whether a mismatch actually exists or whether a tax adjustment, denial of deduction, or reassessment will occur.</span>
                 </label>
               </div>
               
@@ -1597,9 +1597,9 @@ const Assessment = () => {
                   onCheckedChange={(checked) => setConfirmations(prev => ({ ...prev, factDriven: checked === true }))}
                 />
                 <label htmlFor="factDriven" className="text-sm leading-relaxed cursor-pointer">
-                  <span className="font-medium">Fact-driven & multi-jurisdictional nature</span>
+                  <span className="font-medium">Completeness of information</span>
                   <br />
-                  <span className="text-muted-foreground">I understand that ATAD2 outcomes are highly fact-driven and often require further analysis across multiple jurisdictions. The quality of the outcome depends on the completeness and accuracy of the information provided.</span>
+                  <span className="text-muted-foreground">I understand that the quality of the assessment depends entirely on the completeness and accuracy of the information I provide. The more relevant context I include, the more reliable the outcome will be.</span>
                 </label>
               </div>
             </div>
