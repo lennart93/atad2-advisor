@@ -197,14 +197,15 @@ const VerifyEmail = () => {
                       setError("");
                     }}
                     disabled={isVerifying}
+                    containerClassName="gap-3"
                   >
-                    <InputOTPGroup>
-                      <InputOTPSlot index={0} />
-                      <InputOTPSlot index={1} />
-                      <InputOTPSlot index={2} />
-                      <InputOTPSlot index={3} />
-                      <InputOTPSlot index={4} />
-                      <InputOTPSlot index={5} />
+                    <InputOTPGroup className="gap-2">
+                      <InputOTPSlot index={0} className="rounded-md border" />
+                      <InputOTPSlot index={1} className="rounded-md border" />
+                      <InputOTPSlot index={2} className="rounded-md border" />
+                      <InputOTPSlot index={3} className="rounded-md border" />
+                      <InputOTPSlot index={4} className="rounded-md border" />
+                      <InputOTPSlot index={5} className="rounded-md border" />
                     </InputOTPGroup>
                   </InputOTP>
                 </div>
