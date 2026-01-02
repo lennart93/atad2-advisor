@@ -519,7 +519,7 @@ const AssessmentReport = () => {
                       <div className="flex items-center justify-between mb-1">
                         <p className="text-xs font-medium text-muted-foreground">Your reasoning:</p>
                         {!isEditingReasoning && (
-                          latestReport ? (
+                          latestReport || isGeneratingReport ? (
                             <TooltipProvider>
                               <Tooltip>
                                 <TooltipTrigger asChild>
@@ -528,7 +528,7 @@ const AssessmentReport = () => {
                                   </Button>
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                  <p>Memorandum already generated — content can no longer be changed</p>
+                                  <p>{isGeneratingReport ? "Memorandum is being generated" : "Memorandum already generated — content can no longer be changed"}</p>
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
@@ -590,7 +590,7 @@ const AssessmentReport = () => {
                       <div className="flex items-center justify-between mb-1">
                         <p className="text-xs font-medium text-muted-foreground">Your additions:</p>
                         {!isEditingContext && (
-                          latestReport ? (
+                          latestReport || isGeneratingReport ? (
                             <TooltipProvider>
                               <Tooltip>
                                 <TooltipTrigger asChild>
@@ -599,7 +599,7 @@ const AssessmentReport = () => {
                                   </Button>
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                  <p>Memorandum already generated — content can no longer be changed</p>
+                                  <p>{isGeneratingReport ? "Memorandum is being generated" : "Memorandum already generated — content can no longer be changed"}</p>
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
