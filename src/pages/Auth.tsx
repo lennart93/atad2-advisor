@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Mail, CheckCircle2, Lock, Eye, EyeOff, Edit2, Info } from "lucide-react";
+import { Lock, Eye, EyeOff, Edit2, Info } from "lucide-react";
 import { makeLocalPart, validateName, validateLocalPart } from "@/utils/emailNormalization";
 import { cn } from "@/lib/utils";
 
@@ -48,7 +48,7 @@ const Auth = () => {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [showEmailConfirmation, setShowEmailConfirmation] = useState(false);
+  
   
   // Step state for Sign Up
   const [currentStep, setCurrentStep] = useState(1);
@@ -246,7 +246,7 @@ const Auth = () => {
     const email = `${signInLocalPart}@${DOMAIN}`;
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password: signInPassword,
       });
@@ -255,7 +255,18 @@ const Auth = () => {
         toast.error("Sign in failed", {
           description: error.message,
         });
+      } else if (data.user && !data.user.email_confirmed_at) {
+        // User exists but email not confirmed - redirect to verification
+        await supabase.auth.signOut();
+        navigate("/verify-email", { 
+          replace: true, 
+          state: { email, needsVerification: true } 
+        });
+        toast.info("Please verify your email first", {
+          description: "We've sent a verification code to your email.",
+        });
       }
+      // If confirmed, the auth listener will handle the redirect
     } catch (error) {
       toast.error("Something went wrong", {
         description: "Please try again.",
@@ -279,13 +290,10 @@ const Auth = () => {
     const email = `${localPart}@${DOMAIN}`;
 
     try {
-      const redirectUrl = `${window.location.origin}/email-confirmed`;
-      
       const { error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: redirectUrl,
           data: {
             first_name: firstName,
             last_name: lastName,
@@ -305,7 +313,11 @@ const Auth = () => {
           });
         }
       } else {
-        setShowEmailConfirmation(true);
+        // Redirect to OTP verification page with email
+        navigate("/verify-email", { 
+          replace: true, 
+          state: { email } 
+        });
       }
     } catch (error) {
       toast.error("Something went wrong", {
@@ -316,60 +328,6 @@ const Auth = () => {
     }
   };
 
-  if (showEmailConfirmation) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <div className="w-full max-w-md space-y-8">
-          <div className="flex justify-center">
-            <img 
-              src="/lovable-uploads/new-logo.png" 
-              alt="Company Logo" 
-              className="h-16 w-16 object-contain"
-            />
-          </div>
-          
-          <Card className="w-full">
-            <CardContent className="pt-6">
-              <div className="text-center space-y-6">
-                <div className="flex justify-center">
-                  <div className="relative">
-                    <Mail className="h-16 w-16 text-primary" />
-                    <CheckCircle2 className="h-6 w-6 text-green-500 absolute -top-1 -right-1 bg-background rounded-full" />
-                  </div>
-                </div>
-                
-                <div className="space-y-3">
-                  <h2 className="text-2xl font-semibold text-foreground">
-                    Account created
-                  </h2>
-                  <p className="text-muted-foreground">
-                    We've sent a confirmation email to
-                  </p>
-                   <p className="font-semibold text-foreground bg-muted px-3 py-2 rounded-lg">
-                     {localPart}@{DOMAIN}
-                   </p>
-                </div>
-
-                <div className="text-sm text-muted-foreground space-y-2">
-                  <p>Don't see the email? Check your spam folder.</p>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => {
-                      setShowEmailConfirmation(false);
-                      setActiveTab("signin");
-                    }}
-                  >
-                    Back to sign in
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">

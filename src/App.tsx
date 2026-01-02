@@ -13,6 +13,7 @@ import ScrollRestoration from "@/components/routing/ScrollRestoration";
 // Route-based code splitting
 const Index = lazy(() => import("./pages/Index"));
 const Auth = lazy(() => import("./pages/Auth"));
+const VerifyEmail = lazy(() => import("./pages/VerifyEmail"));
 const Assessment = lazy(() => import("./pages/Assessment"));
 const AssessmentConfirmation = lazy(() => import("./pages/AssessmentConfirmation"));
 const AssessmentReport = lazy(() => import("./pages/AssessmentReport"));
@@ -49,6 +50,7 @@ const App = () => (
             <Suspense fallback={<LoadingSpinner />}>
                 <Routes>
                   <Route path="/auth" element={<PublicOnlyRoute><Auth /></PublicOnlyRoute>} />
+                  <Route path="/verify-email" element={<VerifyEmail />} />
                   <Route path="/email-confirmed" element={<EmailConfirmed />} />
 
                   <Route element={<AppLayout />}>
