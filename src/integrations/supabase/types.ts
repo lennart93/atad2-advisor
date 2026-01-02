@@ -203,6 +203,7 @@ export type Database = {
           confirmed_at: string | null
           created_at: string
           date_filled: string
+          docx_downloaded_at: string | null
           entity_name: string | null
           final_score: number | null
           fiscal_year: string
@@ -227,6 +228,7 @@ export type Database = {
           confirmed_at?: string | null
           created_at?: string
           date_filled?: string
+          docx_downloaded_at?: string | null
           entity_name?: string | null
           final_score?: number | null
           fiscal_year: string
@@ -251,6 +253,7 @@ export type Database = {
           confirmed_at?: string | null
           created_at?: string
           date_filled?: string
+          docx_downloaded_at?: string | null
           entity_name?: string | null
           final_score?: number | null
           fiscal_year?: string

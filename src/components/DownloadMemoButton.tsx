@@ -231,9 +231,15 @@ export default function DownloadMemoButton({
       a.remove();
       URL.revokeObjectURL(a.href);
 
+      // Record the download timestamp to start the 24-hour countdown
+      await supabase
+        .from('atad2_sessions')
+        .update({ docx_downloaded_at: new Date().toISOString() })
+        .eq('session_id', sessionId);
+
       toast({
         title: "Success",
-        description: "Word document downloaded successfully",
+        description: "Word document downloaded successfully. This assessment will be automatically deleted in 24 hours.",
       });
 
     } catch (error: any) {
