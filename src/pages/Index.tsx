@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/sonner";
-import { Trash2, FileText, FileBarChart, FileCheck, Clock, CheckCircle } from "lucide-react";
+import { Trash2, FileText, FileBarChart, FileCheck, Clock, CheckCircle, Timer } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useQuery } from "@tanstack/react-query";
@@ -31,6 +31,7 @@ interface CompletedSession {
   answer_count: number;
   has_memorandum?: boolean;
   memorandum_date?: string;
+  docx_downloaded_at?: string;
 }
 
 interface RecentReport {
@@ -41,6 +42,14 @@ interface RecentReport {
   taxpayer_name: string;
   model?: string;
 }
+// Helper function to calculate remaining hours until auto-delete
+const getRemainingHours = (downloadedAt: string): number => {
+  const downloadTime = new Date(downloadedAt).getTime();
+  const expiryTime = downloadTime + (24 * 60 * 60 * 1000); // 24 hours in ms
+  const now = Date.now();
+  const remainingMs = expiryTime - now;
+  return Math.max(0, Math.ceil(remainingMs / (60 * 60 * 1000))); // Convert to hours, round up
+};
 
 const Index = () => {
   const { user, loading: authLoading } = useAuth();
@@ -116,7 +125,8 @@ const Index = () => {
           session_id,
           taxpayer_name,
           fiscal_year,
-          created_at
+          created_at,
+          docx_downloaded_at
         `)
         .eq('completed', true)
         .order('created_at', { ascending: false });
@@ -146,7 +156,8 @@ const Index = () => {
             ...session,
             answer_count: count || 0,
             has_memorandum: hasMemorandum,
-            memorandum_date: memorandumDate
+            memorandum_date: memorandumDate,
+            docx_downloaded_at: session.docx_downloaded_at
           };
         })
       );
@@ -289,6 +300,12 @@ const Index = () => {
                         <div className="text-sm text-muted-foreground space-y-1">
                           <p>Tax year: {session.fiscal_year}</p>
                           <p>Completed: {new Date(session.created_at).toLocaleDateString()}</p>
+                          {session.docx_downloaded_at && (
+                            <p className="flex items-center gap-1 text-orange-600">
+                              <Timer className="h-3 w-3" />
+                              Auto-delete in {getRemainingHours(session.docx_downloaded_at)}h
+                            </p>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center gap-2">

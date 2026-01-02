@@ -2,3 +2,6 @@ project_id = "qdptlfgdiovghufruhsc"
 
 [functions.send-auth-email]
 verify_jwt = false
+
+[functions.cleanup-expired-sessions]
+verify_jwt = false
