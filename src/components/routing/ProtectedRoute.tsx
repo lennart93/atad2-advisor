@@ -22,6 +22,11 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     return <Navigate to="/auth" replace state={{ from: location }} />;
   }
 
+  // Check if email is confirmed
+  if (!user.email_confirmed_at) {
+    return <Navigate to="/auth" replace state={{ from: location, emailNotConfirmed: true }} />;
+  }
+
   return <>{children}</>;
 };
 
