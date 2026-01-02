@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/components/ui/sonner";
 import { format } from "date-fns";
-import { ArrowLeft, FileText, Bot, Loader2, AlertTriangle, Info, CheckCircle, Pencil } from "lucide-react";
+import { ArrowLeft, FileText, Bot, Loader2, AlertTriangle, Info, CheckCircle, Pencil, X, Check } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { EditableAnswer } from "@/components/EditableAnswer";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -82,6 +83,14 @@ const AssessmentReport = () => {
   const [revisedMemoFromFeedback, setRevisedMemoFromFeedback] = useState<string | null>(null);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [hasAcceptedChanges, setHasAcceptedChanges] = useState(false);
+  
+  // Editable reasoning and context state
+  const [isEditingReasoning, setIsEditingReasoning] = useState(false);
+  const [isEditingContext, setIsEditingContext] = useState(false);
+  const [editedReasoning, setEditedReasoning] = useState('');
+  const [editedContext, setEditedContext] = useState('');
+  const [isSavingReasoning, setIsSavingReasoning] = useState(false);
+  const [isSavingContext, setIsSavingContext] = useState(false);
   
   // Missing explanations validation state
   const [showMissingExplanationsPopover, setShowMissingExplanationsPopover] = useState(false);
@@ -276,6 +285,54 @@ const AssessmentReport = () => {
     ));
   };
 
+  // Save reasoning handler
+  const handleSaveReasoning = async () => {
+    if (!sessionId || editedReasoning.trim().length < 100) return;
+    
+    setIsSavingReasoning(true);
+    try {
+      const { error } = await supabase
+        .from('atad2_sessions')
+        .update({ override_reason: editedReasoning.trim() })
+        .eq('session_id', sessionId);
+
+      if (error) throw error;
+
+      setSessionData(prev => prev ? { ...prev, override_reason: editedReasoning.trim() } : null);
+      setIsEditingReasoning(false);
+      toast.success("Reasoning updated");
+    } catch (error) {
+      console.error('Error updating reasoning:', error);
+      toast.error("Failed to update reasoning");
+    } finally {
+      setIsSavingReasoning(false);
+    }
+  };
+
+  // Save additional context handler
+  const handleSaveContext = async () => {
+    if (!sessionId) return;
+    
+    setIsSavingContext(true);
+    try {
+      const { error } = await supabase
+        .from('atad2_sessions')
+        .update({ additional_context: editedContext.trim() || null })
+        .eq('session_id', sessionId);
+
+      if (error) throw error;
+
+      setSessionData(prev => prev ? { ...prev, additional_context: editedContext.trim() || null } : null);
+      setIsEditingContext(false);
+      toast.success("Additions updated");
+    } catch (error) {
+      console.error('Error updating context:', error);
+      toast.error("Failed to update additions");
+    } finally {
+      setIsSavingContext(false);
+    }
+  };
+
   // Handle Generate button click - check for missing explanations
   const handleGenerateButtonClick = () => {
     if (missingExplanationCount > 0) {
@@ -448,14 +505,139 @@ const AssessmentReport = () => {
                     </p>
                     {sessionData.outcome_overridden && sessionData.override_reason && (
                       <div className="mt-2 p-3 bg-muted/50 rounded-lg overflow-hidden">
-                        <p className="text-xs font-medium text-muted-foreground mb-1">Your reasoning:</p>
-                        <p className="text-sm break-words">{sessionData.override_reason}</p>
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-xs font-medium text-muted-foreground">Your reasoning:</p>
+                          {!isEditingReasoning && (
+                            latestReport ? (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button variant="ghost" size="sm" disabled className="h-6 w-6 p-0 opacity-50">
+                                      <Pencil className="h-3 w-3" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Memorandum already generated — content can no longer be changed</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            ) : (
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => {
+                                  setEditedReasoning(sessionData.override_reason || '');
+                                  setIsEditingReasoning(true);
+                                }} 
+                                className="h-6 w-6 p-0"
+                              >
+                                <Pencil className="h-3 w-3" />
+                              </Button>
+                            )
+                          )}
+                        </div>
+                        {isEditingReasoning ? (
+                          <div className="space-y-2">
+                            <Textarea 
+                              value={editedReasoning} 
+                              onChange={(e) => setEditedReasoning(e.target.value)}
+                              className="min-h-[80px] text-sm"
+                            />
+                            {editedReasoning.trim().length < 100 && (
+                              <p className="text-xs text-muted-foreground">
+                                {100 - editedReasoning.trim().length} more characters needed
+                              </p>
+                            )}
+                            <div className="flex gap-2">
+                              <Button 
+                                size="sm" 
+                                onClick={handleSaveReasoning} 
+                                disabled={editedReasoning.trim().length < 100 || isSavingReasoning}
+                                className="h-7"
+                              >
+                                {isSavingReasoning ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3 mr-1" />}
+                                Save
+                              </Button>
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => setIsEditingReasoning(false)}
+                                className="h-7"
+                              >
+                                <X className="h-3 w-3 mr-1" />
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-sm break-words">{sessionData.override_reason}</p>
+                        )}
                       </div>
                     )}
                     {sessionData.additional_context && (
                       <div className="mt-2 p-3 bg-muted/50 rounded-lg overflow-hidden">
-                        <p className="text-xs font-medium text-muted-foreground mb-1">Your additions:</p>
-                        <p className="text-sm break-words">{sessionData.additional_context}</p>
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-xs font-medium text-muted-foreground">Your additions:</p>
+                          {!isEditingContext && (
+                            latestReport ? (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button variant="ghost" size="sm" disabled className="h-6 w-6 p-0 opacity-50">
+                                      <Pencil className="h-3 w-3" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Memorandum already generated — content can no longer be changed</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            ) : (
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => {
+                                  setEditedContext(sessionData.additional_context || '');
+                                  setIsEditingContext(true);
+                                }} 
+                                className="h-6 w-6 p-0"
+                              >
+                                <Pencil className="h-3 w-3" />
+                              </Button>
+                            )
+                          )}
+                        </div>
+                        {isEditingContext ? (
+                          <div className="space-y-2">
+                            <Textarea 
+                              value={editedContext} 
+                              onChange={(e) => setEditedContext(e.target.value)}
+                              className="min-h-[80px] text-sm"
+                            />
+                            <div className="flex gap-2">
+                              <Button 
+                                size="sm" 
+                                onClick={handleSaveContext} 
+                                disabled={isSavingContext}
+                                className="h-7"
+                              >
+                                {isSavingContext ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3 mr-1" />}
+                                Save
+                              </Button>
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => setIsEditingContext(false)}
+                                className="h-7"
+                              >
+                                <X className="h-3 w-3 mr-1" />
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-sm break-words">{sessionData.additional_context}</p>
+                        )}
                       </div>
                     )}
                   </div>
