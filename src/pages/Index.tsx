@@ -300,15 +300,15 @@ const Index = () => {
                         <div className="text-sm text-muted-foreground space-y-1">
                           <p>Tax year: {session.fiscal_year}</p>
                           <p>Completed: {new Date(session.created_at).toLocaleDateString()}</p>
-                          {session.docx_downloaded_at && (
-                            <p className="flex items-center gap-1 text-orange-600">
-                              <Timer className="h-3 w-3" />
-                              Auto-delete in {getRemainingHours(session.docx_downloaded_at)}h
-                            </p>
-                          )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-3">
+                        {session.docx_downloaded_at && (
+                          <div className="flex items-center gap-1 text-orange-600 text-sm border border-orange-200 bg-orange-50 px-2 py-1 rounded">
+                            <Timer className="h-3 w-3" />
+                            Auto-delete in {getRemainingHours(session.docx_downloaded_at)}h
+                          </div>
+                        )}
                         <Button 
                           variant="outline" 
                           size="sm"
