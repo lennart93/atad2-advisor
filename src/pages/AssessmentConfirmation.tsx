@@ -242,12 +242,29 @@ const AssessmentConfirmation = () => {
               <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
                 Preliminary outcome
               </p>
-              <div className="flex items-center gap-2">
-                <OutcomeIcon className={`h-4 w-4 ${config.colorClass}`} />
-                <span className={`font-medium ${config.colorClass}`}>
-                  {config.label}
-                </span>
-              </div>
+              {pendingConfirmType === 'override' && selectedOverrideOutcome ? (
+                // Show the adjusted outcome when in override flow
+                (() => {
+                  const overrideConfig = outcomeConfig[selectedOverrideOutcome];
+                  const OverrideIcon = overrideConfig.icon;
+                  return (
+                    <div className="flex items-center gap-2">
+                      <OverrideIcon className={`h-4 w-4 ${overrideConfig.colorClass}`} />
+                      <span className={`font-medium ${overrideConfig.colorClass}`}>
+                        {overrideConfig.label}
+                      </span>
+                      <span className="text-xs text-muted-foreground ml-1">(adjusted)</span>
+                    </div>
+                  );
+                })()
+              ) : (
+                <div className="flex items-center gap-2">
+                  <OutcomeIcon className={`h-4 w-4 ${config.colorClass}`} />
+                  <span className={`font-medium ${config.colorClass}`}>
+                    {config.label}
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Context Form - shown after confirm or override */}
