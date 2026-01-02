@@ -48,7 +48,7 @@ const getRemainingHours = (downloadedAt: string): number => {
   const expiryTime = downloadTime + (24 * 60 * 60 * 1000); // 24 hours in ms
   const now = Date.now();
   const remainingMs = expiryTime - now;
-  return Math.max(0, Math.ceil(remainingMs / (60 * 60 * 1000))); // Convert to hours, round up
+  return Math.max(0, Math.floor(remainingMs / (60 * 60 * 1000))); // Convert to hours, round down to whole hours
 };
 
 const Index = () => {
