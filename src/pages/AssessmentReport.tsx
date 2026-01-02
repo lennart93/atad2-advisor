@@ -503,155 +503,156 @@ const AssessmentReport = () => {
                     <p className="text-sm text-muted-foreground">
                       {riskOutcome.description}
                     </p>
-                    {/* Grid layout when both reasoning and additions exist */}
-                    {(sessionData.outcome_overridden && sessionData.override_reason) || sessionData.additional_context ? (
-                      <div className={`mt-2 grid gap-3 ${
-                        sessionData.outcome_overridden && sessionData.override_reason && sessionData.additional_context 
-                          ? 'grid-cols-1 md:grid-cols-2' 
-                          : 'grid-cols-1'
-                      }`}>
-                        {sessionData.outcome_overridden && sessionData.override_reason && (
-                          <div className="p-3 bg-muted/50 rounded-lg overflow-hidden">
-                            <div className="flex items-center justify-between mb-1">
-                              <p className="text-xs font-medium text-muted-foreground">Your reasoning:</p>
-                              {!isEditingReasoning && (
-                                latestReport ? (
-                                  <TooltipProvider>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <Button variant="ghost" size="sm" disabled className="h-6 w-6 p-0 opacity-50">
-                                          <Pencil className="h-3 w-3" />
-                                        </Button>
-                                      </TooltipTrigger>
-                                      <TooltipContent>
-                                        <p>Memorandum already generated — content can no longer be changed</p>
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  </TooltipProvider>
-                                ) : (
-                                  <Button 
-                                    variant="ghost" 
-                                    size="sm" 
-                                    onClick={() => {
-                                      setEditedReasoning(sessionData.override_reason || '');
-                                      setIsEditingReasoning(true);
-                                    }} 
-                                    className="h-6 w-6 p-0"
-                                  >
-                                    <Pencil className="h-3 w-3" />
-                                  </Button>
-                                )
-                              )}
-                            </div>
-                            {isEditingReasoning ? (
-                              <div className="space-y-2">
-                                <Textarea 
-                                  value={editedReasoning} 
-                                  onChange={(e) => setEditedReasoning(e.target.value)}
-                                  className="min-h-[80px] text-sm"
-                                />
-                                {editedReasoning.trim().length < 100 && (
-                                  <p className="text-xs text-muted-foreground">
-                                    {100 - editedReasoning.trim().length} more characters needed
-                                  </p>
-                                )}
-                                <div className="flex gap-2">
-                                  <Button 
-                                    size="sm" 
-                                    onClick={handleSaveReasoning} 
-                                    disabled={editedReasoning.trim().length < 100 || isSavingReasoning}
-                                    className="h-7"
-                                  >
-                                    {isSavingReasoning ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3 mr-1" />}
-                                    Save
-                                  </Button>
-                                  <Button 
-                                    variant="outline" 
-                                    size="sm" 
-                                    onClick={() => setIsEditingReasoning(false)}
-                                    className="h-7"
-                                  >
-                                    <X className="h-3 w-3 mr-1" />
-                                    Cancel
-                                  </Button>
-                                </div>
-                              </div>
-                            ) : (
-                              <p className="text-sm break-words">{sessionData.override_reason}</p>
-                            )}
-                          </div>
-                        )}
-                        {sessionData.additional_context && (
-                          <div className="p-3 bg-muted/50 rounded-lg overflow-hidden">
-                            <div className="flex items-center justify-between mb-1">
-                              <p className="text-xs font-medium text-muted-foreground">Your additions:</p>
-                              {!isEditingContext && (
-                                latestReport ? (
-                                  <TooltipProvider>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <Button variant="ghost" size="sm" disabled className="h-6 w-6 p-0 opacity-50">
-                                          <Pencil className="h-3 w-3" />
-                                        </Button>
-                                      </TooltipTrigger>
-                                      <TooltipContent>
-                                        <p>Memorandum already generated — content can no longer be changed</p>
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  </TooltipProvider>
-                                ) : (
-                                  <Button 
-                                    variant="ghost" 
-                                    size="sm" 
-                                    onClick={() => {
-                                      setEditedContext(sessionData.additional_context || '');
-                                      setIsEditingContext(true);
-                                    }} 
-                                    className="h-6 w-6 p-0"
-                                  >
-                                    <Pencil className="h-3 w-3" />
-                                  </Button>
-                                )
-                              )}
-                            </div>
-                            {isEditingContext ? (
-                              <div className="space-y-2">
-                                <Textarea 
-                                  value={editedContext} 
-                                  onChange={(e) => setEditedContext(e.target.value)}
-                                  className="min-h-[80px] text-sm"
-                                />
-                                <div className="flex gap-2">
-                                  <Button 
-                                    size="sm" 
-                                    onClick={handleSaveContext} 
-                                    disabled={isSavingContext}
-                                    className="h-7"
-                                  >
-                                    {isSavingContext ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3 mr-1" />}
-                                    Save
-                                  </Button>
-                                  <Button 
-                                    variant="outline" 
-                                    size="sm" 
-                                    onClick={() => setIsEditingContext(false)}
-                                    className="h-7"
-                                  >
-                                    <X className="h-3 w-3 mr-1" />
-                                    Cancel
-                                  </Button>
-                                </div>
-                              </div>
-                            ) : (
-                              <p className="text-sm break-words">{sessionData.additional_context}</p>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    ) : null}
                   </div>
                 </div>
               </div>
+
+              {/* Reasoning and additions - full width grid below the main content */}
+              {(sessionData.outcome_overridden && sessionData.override_reason) || sessionData.additional_context ? (
+                <div className={`grid gap-3 ${
+                  sessionData.outcome_overridden && sessionData.override_reason && sessionData.additional_context 
+                    ? 'grid-cols-1 md:grid-cols-2' 
+                    : 'grid-cols-1'
+                }`}>
+                  {sessionData.outcome_overridden && sessionData.override_reason && (
+                    <div className="p-3 bg-muted/50 rounded-lg overflow-hidden">
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="text-xs font-medium text-muted-foreground">Your reasoning:</p>
+                        {!isEditingReasoning && (
+                          latestReport ? (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button variant="ghost" size="sm" disabled className="h-6 w-6 p-0 opacity-50">
+                                    <Pencil className="h-3 w-3" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Memorandum already generated — content can no longer be changed</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          ) : (
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => {
+                                setEditedReasoning(sessionData.override_reason || '');
+                                setIsEditingReasoning(true);
+                              }} 
+                              className="h-6 w-6 p-0"
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                          )
+                        )}
+                      </div>
+                      {isEditingReasoning ? (
+                        <div className="space-y-2">
+                          <Textarea 
+                            value={editedReasoning} 
+                            onChange={(e) => setEditedReasoning(e.target.value)}
+                            className="min-h-[80px] text-sm"
+                          />
+                          {editedReasoning.trim().length < 100 && (
+                            <p className="text-xs text-muted-foreground">
+                              {100 - editedReasoning.trim().length} more characters needed
+                            </p>
+                          )}
+                          <div className="flex gap-2">
+                            <Button 
+                              size="sm" 
+                              onClick={handleSaveReasoning} 
+                              disabled={editedReasoning.trim().length < 100 || isSavingReasoning}
+                              className="h-7"
+                            >
+                              {isSavingReasoning ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3 mr-1" />}
+                              Save
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => setIsEditingReasoning(false)}
+                              className="h-7"
+                            >
+                              <X className="h-3 w-3 mr-1" />
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-sm break-words">{sessionData.override_reason}</p>
+                      )}
+                    </div>
+                  )}
+                  {sessionData.additional_context && (
+                    <div className="p-3 bg-muted/50 rounded-lg overflow-hidden">
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="text-xs font-medium text-muted-foreground">Your additions:</p>
+                        {!isEditingContext && (
+                          latestReport ? (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button variant="ghost" size="sm" disabled className="h-6 w-6 p-0 opacity-50">
+                                    <Pencil className="h-3 w-3" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Memorandum already generated — content can no longer be changed</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          ) : (
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => {
+                                setEditedContext(sessionData.additional_context || '');
+                                setIsEditingContext(true);
+                              }} 
+                              className="h-6 w-6 p-0"
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                          )
+                        )}
+                      </div>
+                      {isEditingContext ? (
+                        <div className="space-y-2">
+                          <Textarea 
+                            value={editedContext} 
+                            onChange={(e) => setEditedContext(e.target.value)}
+                            className="min-h-[80px] text-sm"
+                          />
+                          <div className="flex gap-2">
+                            <Button 
+                              size="sm" 
+                              onClick={handleSaveContext} 
+                              disabled={isSavingContext}
+                              className="h-7"
+                            >
+                              {isSavingContext ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3 mr-1" />}
+                              Save
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => setIsEditingContext(false)}
+                              className="h-7"
+                            >
+                              <X className="h-3 w-3 mr-1" />
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-sm break-words">{sessionData.additional_context}</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : null}
             </CardContent>
           </Card>
 
