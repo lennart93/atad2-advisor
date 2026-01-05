@@ -30,6 +30,12 @@ const getRemainingHours = (downloadedAt: string): number => {
   return Math.max(0, Math.floor(remainingMs / (60 * 60 * 1000))); // Convert to hours, round down to whole hours
 };
 
+const isSessionExpired = (downloadedAt: string): boolean => {
+  const downloadTime = new Date(downloadedAt).getTime();
+  const expiryTime = downloadTime + (24 * 60 * 60 * 1000);
+  return Date.now() >= expiryTime;
+};
+
 interface SessionData {
   session_id: string;
   taxpayer_name: string;
@@ -196,6 +202,22 @@ const AssessmentReport = () => {
       // Check if outcome has been confirmed - if not, redirect to confirmation
       if (!session.outcome_confirmed) {
         navigate(`/assessment-confirmation/${sessionId}`);
+        return;
+      }
+
+      // If the session is past the 24h window, trigger cleanup and block access
+      if (session.docx_downloaded_at && isSessionExpired(session.docx_downloaded_at)) {
+        try {
+          await supabase.functions.invoke('cleanup-expired-sessions');
+        } catch (e) {
+          // ignore: cleanup is best-effort from the client
+          console.warn('Failed to invoke cleanup-expired-sessions', e);
+        }
+
+        toast.error("Assessment expired", {
+          description: "This assessment is scheduled for auto-delete and is no longer available.",
+        });
+        navigate("/");
         return;
       }
       
