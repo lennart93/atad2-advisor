@@ -51,6 +51,12 @@ const getRemainingHours = (downloadedAt: string): number => {
   return Math.max(0, Math.floor(remainingMs / (60 * 60 * 1000))); // Convert to hours, round down to whole hours
 };
 
+const isSessionExpired = (downloadedAt: string): boolean => {
+  const downloadTime = new Date(downloadedAt).getTime();
+  const expiryTime = downloadTime + (24 * 60 * 60 * 1000);
+  return Date.now() >= expiryTime;
+};
+
 const Index = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -116,6 +122,13 @@ const Index = () => {
   const loadCompletedSessions = async () => {
     try {
       setLoading(true);
+
+      // Best-effort: trigger server-side cleanup so expired sessions disappear promptly
+      try {
+        await supabase.functions.invoke('cleanup-expired-sessions');
+      } catch (e) {
+        console.warn('Failed to invoke cleanup-expired-sessions', e);
+      }
       
       // Get completed sessions with answer counts and memorandum status
       const { data: sessionsData, error: sessionsError } = await supabase
@@ -264,88 +277,98 @@ const Index = () => {
                 <p className="text-muted-foreground text-sm">No completed assessments yet</p>
               ) : (
                 <div className="space-y-4">
-                  {sessions.map((session) => (
-                    <div key={session.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <h3 className="font-medium">{session.taxpayer_name}</h3>
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <div>
-                                  {session.has_memorandum ? (
-                                    <Badge variant="default" className="bg-green-100 text-green-800 hover:bg-green-200 flex items-center gap-1">
-                                      <CheckCircle className="h-3 w-3" />
-                                      Ready
-                                    </Badge>
-                                  ) : (
-                                    <Badge variant="secondary" className="bg-gray-100 text-gray-600 hover:bg-gray-200 flex items-center gap-1">
-                                      <Clock className="h-3 w-3" />
-                                      In progress
-                                    </Badge>
-                                  )}
-                                </div>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>
-                                  {session.has_memorandum 
-                                    ? `Memorandum generated on ${new Date(session.memorandum_date!).toLocaleDateString()}`
-                                    : "No memorandum generated yet"
-                                  }
-                                </p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </div>
-                        <div className="text-sm text-muted-foreground space-y-1">
-                          <p>Tax year: {session.fiscal_year}</p>
-                          <p>Completed: {new Date(session.created_at).toLocaleDateString()}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        {session.docx_downloaded_at && (
-                          <div className="flex items-center gap-1 text-orange-600 text-sm border border-orange-200 bg-orange-50 px-2 py-1 rounded">
-                            <Timer className="h-3 w-3" />
-                            Auto-delete in {getRemainingHours(session.docx_downloaded_at)}h
+                  {sessions.map((session) => {
+                    const remainingHours = session.docx_downloaded_at
+                      ? getRemainingHours(session.docx_downloaded_at)
+                      : null;
+                    const expired = session.docx_downloaded_at
+                      ? isSessionExpired(session.docx_downloaded_at)
+                      : false;
+
+                    return (
+                      <div key={session.id} className="flex items-center justify-between p-4 border rounded-lg">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <h3 className="font-medium">{session.taxpayer_name}</h3>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div>
+                                    {session.has_memorandum ? (
+                                      <Badge variant="default" className="bg-green-100 text-green-800 hover:bg-green-200 flex items-center gap-1">
+                                        <CheckCircle className="h-3 w-3" />
+                                        Ready
+                                      </Badge>
+                                    ) : (
+                                      <Badge variant="secondary" className="bg-gray-100 text-gray-600 hover:bg-gray-200 flex items-center gap-1">
+                                        <Clock className="h-3 w-3" />
+                                        In progress
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>
+                                    {session.has_memorandum 
+                                      ? `Memorandum generated on ${new Date(session.memorandum_date!).toLocaleDateString()}`
+                                      : "No memorandum generated yet"
+                                    }
+                                  </p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                           </div>
-                        )}
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => navigate(`/assessment-report/${session.session_id}`)}
-                        >
-                          <FileText className="h-4 w-4 mr-2" />
-                          View report
-                        </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <button className="text-red-600 hover:text-red-800 text-sm flex items-center gap-1 transition-colors duration-200">
-                              <Trash2 className="h-4 w-4" />
-                              Delete
-                            </button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete assessment</AlertDialogTitle>
-                               <AlertDialogDescription>
-                                Are you sure you want to permanently delete this assessment for {session.taxpayer_name}? 
-                                This will delete all answers and cannot be undone.
-                               </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => deleteSession(session.session_id, session.id)}
-                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                              >
-                                Delete permanently
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                          <div className="text-sm text-muted-foreground space-y-1">
+                            <p>Tax year: {session.fiscal_year}</p>
+                            <p>Completed: {new Date(session.created_at).toLocaleDateString()}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          {session.docx_downloaded_at && (
+                            <div className="flex items-center gap-1 text-orange-600 text-sm border border-orange-200 bg-orange-50 px-2 py-1 rounded">
+                              <Timer className="h-3 w-3" />
+                              {expired ? "Auto-delete pending" : `Auto-delete in ${remainingHours}h`}
+                            </div>
+                          )}
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            disabled={expired}
+                            onClick={() => navigate(`/assessment-report/${session.session_id}`)}
+                          >
+                            <FileText className="h-4 w-4 mr-2" />
+                            View report
+                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <button className="text-red-600 hover:text-red-800 text-sm flex items-center gap-1 transition-colors duration-200">
+                                <Trash2 className="h-4 w-4" />
+                                Delete
+                              </button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete assessment</AlertDialogTitle>
+                                 <AlertDialogDescription>
+                                  Are you sure you want to permanently delete this assessment for {session.taxpayer_name}? 
+                                  This will delete all answers and cannot be undone.
+                                 </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => deleteSession(session.session_id, session.id)}
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                >
+                                  Delete permanently
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
