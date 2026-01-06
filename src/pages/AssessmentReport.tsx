@@ -100,6 +100,7 @@ const AssessmentReport = () => {
   const [revisedMemoFromFeedback, setRevisedMemoFromFeedback] = useState<string | null>(null);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [hasAcceptedChanges, setHasAcceptedChanges] = useState(false);
+  const [isApplyingFeedback, setIsApplyingFeedback] = useState(false);
   
   // Editable reasoning and context state
   const [isEditingReasoning, setIsEditingReasoning] = useState(false);
@@ -754,6 +755,7 @@ const AssessmentReport = () => {
                     sessionId={sessionId!} 
                     memoMarkdown={displayMemo} 
                     enabled={!!latestReport}
+                    disabled={isApplyingFeedback}
                   />
                 </div>
                 {isGeneratingReport && (
@@ -810,6 +812,7 @@ const AssessmentReport = () => {
                     fiscalYear={sessionData.fiscal_year}
                     onFeedbackSubmitted={handleFeedbackSubmitted}
                     onCancel={() => setIsFeedbackMode(false)}
+                    onSubmittingChange={setIsApplyingFeedback}
                   />
                 ) : displayMemo ? (
                   <div className="markdown-body text-justify">
