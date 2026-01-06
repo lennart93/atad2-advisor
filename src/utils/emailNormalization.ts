@@ -23,8 +23,8 @@ function normalizeName(name: string): string {
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '') 
     // Remove punctuation and special characters
     .replace(/[''`",\/()]/g, '')                      
-    // Replace spaces with dots
-    .replace(/\s+/g, '.')                               
+    // Remove spaces (so "van oostveen" becomes "vanoostveen")
+    .replace(/\s+/g, '')
     // Allow only alphanumeric, dots, and hyphens
     .replace(/[^a-z0-9.-]/g, '')                        
     // Collapse repeated dots or hyphens
