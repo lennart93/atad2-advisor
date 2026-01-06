@@ -27,6 +27,7 @@ interface MemoFeedbackEditorProps {
   fiscalYear: string;
   onFeedbackSubmitted: (newMemoMarkdown: string) => void;
   onCancel: () => void;
+  onSubmittingChange?: (isSubmitting: boolean) => void;
 }
 
 const MemoFeedbackEditor: React.FC<MemoFeedbackEditorProps> = ({
@@ -36,6 +37,7 @@ const MemoFeedbackEditor: React.FC<MemoFeedbackEditorProps> = ({
   fiscalYear,
   onFeedbackSubmitted,
   onCancel,
+  onSubmittingChange,
 }) => {
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -114,8 +116,8 @@ const MemoFeedbackEditor: React.FC<MemoFeedbackEditorProps> = ({
   const hasFeedback = hasParagraphFeedback || hasGeneralFeedback;
 
   const handleSubmit = async () => {
-
     setIsSubmitting(true);
+    onSubmittingChange?.(true);
 
     try {
       // Build paragraph feedback array - only non-empty
@@ -199,6 +201,7 @@ const MemoFeedbackEditor: React.FC<MemoFeedbackEditorProps> = ({
       }
     } finally {
       setIsSubmitting(false);
+      onSubmittingChange?.(false);
     }
   };
 

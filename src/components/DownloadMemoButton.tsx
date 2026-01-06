@@ -48,13 +48,15 @@ type Props = {
   memoMarkdown?: string;
   templatePath?: string;
   enabled?: boolean;
+  disabled?: boolean;
 };
 
 export default function DownloadMemoButton({ 
   sessionId, 
   memoMarkdown, 
   templatePath = 'memo_atad2.docx',
-  enabled = true
+  enabled = true,
+  disabled = false
 }: Props) {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
@@ -272,6 +274,30 @@ export default function DownloadMemoButton({
           </TooltipTrigger>
           <TooltipContent>
             <p>Memo not yet available</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
+
+  if (disabled) {
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div>
+              <Button
+                disabled
+                variant="outline"
+                className="flex items-center gap-2 opacity-50"
+              >
+                <Download className="h-4 w-4" />
+                Download Word (.docx)
+              </Button>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Wait for feedback to be applied</p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
