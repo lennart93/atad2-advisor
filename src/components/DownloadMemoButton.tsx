@@ -282,25 +282,14 @@ export default function DownloadMemoButton({
 
   if (disabled) {
     return (
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div>
-              <Button
-                disabled
-                variant="outline"
-                className="flex items-center gap-2 opacity-50"
-              >
-                <Download className="h-4 w-4" />
-                Download Word (.docx)
-              </Button>
-            </div>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Wait for feedback to be applied</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      <Button
+        disabled
+        variant="outline"
+        className="flex items-center gap-2"
+      >
+        <Download className="h-4 w-4" />
+        Download Word (.docx)
+      </Button>
     );
   }
 
