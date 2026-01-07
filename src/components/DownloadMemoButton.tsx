@@ -253,7 +253,7 @@ export default function DownloadMemoButton({
       toast({
         title: isFirstDownload ? "Document downloaded! 📥" : "Success",
         description: isFirstDownload 
-          ? "Heads up: we ruimen deze assessment over 24 uur op – bewaar je bestand goed! 😉"
+          ? "Heads up: we'll tidy up this assessment in 24 hours – keep your file safe! 😉"
           : "Word document downloaded successfully.",
       });
 
