@@ -240,8 +240,10 @@ export default function DownloadMemoButton({
         .eq('session_id', sessionId)
         .single();
 
+      const isFirstDownload = !currentSession?.docx_downloaded_at;
+
       // Only set timestamp if not already set (first download only)
-      if (!currentSession?.docx_downloaded_at) {
+      if (isFirstDownload) {
         await supabase
           .from('atad2_sessions')
           .update({ docx_downloaded_at: new Date().toISOString() })
@@ -249,8 +251,10 @@ export default function DownloadMemoButton({
       }
 
       toast({
-        title: "Success",
-        description: "Word document downloaded successfully. This assessment will be automatically deleted in 24 hours.",
+        title: isFirstDownload ? "Document downloaded! 📥" : "Success",
+        description: isFirstDownload 
+          ? "Heads up: we ruimen deze assessment over 24 uur op – bewaar je bestand goed! 😉"
+          : "Word document downloaded successfully.",
       });
 
     } catch (error: any) {
