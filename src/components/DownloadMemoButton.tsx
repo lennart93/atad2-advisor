@@ -233,11 +233,20 @@ export default function DownloadMemoButton({
       a.remove();
       URL.revokeObjectURL(a.href);
 
-      // Record the download timestamp to start the 24-hour countdown
-      await supabase
+      // Record the download timestamp to start the 24-hour countdown (only on first download)
+      const { data: currentSession } = await supabase
         .from('atad2_sessions')
-        .update({ docx_downloaded_at: new Date().toISOString() })
-        .eq('session_id', sessionId);
+        .select('docx_downloaded_at')
+        .eq('session_id', sessionId)
+        .single();
+
+      // Only set timestamp if not already set (first download only)
+      if (!currentSession?.docx_downloaded_at) {
+        await supabase
+          .from('atad2_sessions')
+          .update({ docx_downloaded_at: new Date().toISOString() })
+          .eq('session_id', sessionId);
+      }
 
       toast({
         title: "Success",
