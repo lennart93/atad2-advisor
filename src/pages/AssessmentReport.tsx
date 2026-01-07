@@ -413,9 +413,9 @@ const AssessmentReport = () => {
       console.log('Starting report generation for session:', sessionId);
       
       // Call n8n webhook - n8n will process and the Edge Function will save the complete report
-      // Using AbortController with 5 minute timeout to allow for long-running AI processing
+      // Using AbortController with 10 minute timeout to allow for long-running AI processing
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5 * 60 * 1000); // 5 minutes
+      const timeoutId = setTimeout(() => controller.abort(), 10 * 60 * 1000); // 10 minutes
       
       const n8nResponse = await fetch('https://lennartwilming.app.n8n.cloud/webhook/atad2/generate-report', {
         method: 'POST',
@@ -457,11 +457,24 @@ const AssessmentReport = () => {
         description: "Memorandum generated and saved successfully",
       });
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating report:', error);
-      toast.error("Error", {
-        description: `Failed to generate memorandum: ${error.message}`,
-      });
+      
+      // Check if it's a timeout/abort error
+      if (error.name === 'AbortError') {
+        toast.error("Request timed out", {
+          description: "The memorandum generation is taking longer than expected. Please wait a moment and refresh the page to check if it completed.",
+        });
+      } else if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
+        // Network error - might still be processing
+        toast.error("Connection issue", {
+          description: "Lost connection during generation. The memo may still be processing — refresh in a minute to check.",
+        });
+      } else {
+        toast.error("Error", {
+          description: `Failed to generate memorandum: ${error.message}`,
+        });
+      }
     } finally {
       setIsGeneratingReport(false);
     }
