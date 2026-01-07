@@ -197,8 +197,7 @@ export const FeedbackWidget = () => {
           "flex items-center justify-center",
           "transition-all duration-300 ease-out",
           "hover:scale-110 hover:shadow-xl",
-          "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
-          !isOpen && submitStatus !== "success" && "animate-pulse-glow"
+          "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
         )}
         aria-label={isOpen ? "Close feedback form" : "Open feedback form"}
         aria-expanded={isOpen}
