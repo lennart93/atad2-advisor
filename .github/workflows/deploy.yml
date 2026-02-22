@@ -39,17 +39,18 @@ jobs:
           VITE_SUPABASE_URL: https://api.atad2.tax
           VITE_SUPABASE_ANON_KEY: eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJyb2xlIjogImFub24iLCAiaXNzIjogInN1cGFiYXNlIiwgImlhdCI6IDE2NDE3NjkyMDAsICJleHAiOiAxNzk5NTM1NjAwfQ.rnsxsFRAvsoKzOta2QUNb7D_nzd4erNRN4WyqBw99UY
 
-      - name: Create deployment zip
-        run: cd dist && zip -r ../deploy.zip .
-
-      - name: Deploy to Azure (clean)
+      - name: Clean wwwroot before deploy
         env:
           PUBLISH_PROFILE: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
         run: |
           USERNAME=$(echo "$PUBLISH_PROFILE" | grep -oP 'userName="\K[^"]+' | head -1)
           PASSWORD=$(echo "$PUBLISH_PROFILE" | grep -oP 'userPWD="\K[^"]+' | head -1)
-          curl -X POST "https://app-atad2-prod.scm.azurewebsites.net/api/publish?type=zip&clean=true" \
+          curl -X DELETE "https://app-atad2-prod.scm.azurewebsites.net/api/vfs/site/wwwroot/?recursive=true" \
             -u "$USERNAME:$PASSWORD" \
-            -H "Content-Type: application/zip" \
-            --data-binary @deploy.zip \
-            --fail --show-error --silent -w "\nHTTP Status: %{http_code}\n"
+            --fail --show-error --silent -w "\nHTTP Status: %{http_code}\n" || true
+
+      - uses: azure/webapps-deploy@v3
+        with:
+          app-name: app-atad2-prod
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: dist/
