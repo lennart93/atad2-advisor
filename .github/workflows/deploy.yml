@@ -19,18 +19,18 @@ jobs:
           cat > src/integrations/supabase/client.ts << 'OVERRIDE'
           import { createClient } from '@supabase/supabase-js';
           import type { Database } from './types';
-
           const SUPABASE_URL = "https://api.atad2.tax";
           const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJyb2xlIjogImFub24iLCAiaXNzIjogInN1cGFiYXNlIiwgImlhdCI6IDE2NDE3NjkyMDAsICJleHAiOiAxNzk5NTM1NjAwfQ.rnsxsFRAvsoKzOta2QUNb7D_nzd4erNRN4WyqBw99UY";
-
           export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-            auth: {
-              storage: localStorage,
-              persistSession: true,
-              autoRefreshToken: true,
-            }
+            auth: { storage: localStorage, persistSession: true, autoRefreshToken: true }
           });
           OVERRIDE
+
+      - name: Override n8n webhook URLs
+        run: |
+          sed -i 's|https://lennartwilming.app.n8n.cloud/webhook/|https://n8n.atad2.tax/webhook/|g' src/pages/AssessmentReport.tsx
+          sed -i 's|https://lennartwilming.app.n8n.cloud/webhook/|https://n8n.atad2.tax/webhook/|g' src/components/MemoFeedbackEditor.tsx
+          sed -i 's|https://lennartwilming.app.n8n.cloud/webhook/|https://n8n.atad2.tax/webhook/|g' src/components/FeedbackWidget.tsx
 
       - run: npm install
 
