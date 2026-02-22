@@ -144,7 +144,7 @@ const MemoFeedbackEditor: React.FC<MemoFeedbackEditorProps> = ({
       console.log("Submitting feedback to n8n...", payload);
 
       const response = await fetch(
-        "https://lennartwilming.app.n8n.cloud/webhook/atad2/submit-feedback",
+        "https://n8n.atad2.tax/webhook/atad2/submit-feedback",
         {
           method: "POST",
           headers: {

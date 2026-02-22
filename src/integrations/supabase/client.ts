@@ -2,8 +2,8 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = "https://qdptlfgdiovghufruhsc.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFkcHRsZmdkaW92Z2h1ZnJ1aHNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQyMzg5MzIsImV4cCI6MjA2OTgxNDkzMn0.s51FbU-sTV_DSchNjI5paAIz4Yz8KufERHWMih1JEKA";
+const SUPABASE_URL = "https://api.atad2.tax";
+const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJyb2xlIjogImFub24iLCAiaXNzIjogInN1cGFiYXNlIiwgImlhdCI6IDE2NDE3NjkyMDAsICJleHAiOiAxNzk5NTM1NjAwfQ.rnsxsFRAvsoKzOta2QUNb7D_nzd4erNRN4WyqBw99UY";
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
