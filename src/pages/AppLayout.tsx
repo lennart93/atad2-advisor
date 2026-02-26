@@ -3,7 +3,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { FeedbackWidget } from "@/components/FeedbackWidget";
 
 const AppLayout = () => {
   const { user, loading, signOut } = useAuth();
@@ -107,8 +106,6 @@ const AppLayout = () => {
         </main>
       )}
 
-      {/* Feedback Widget */}
-      <FeedbackWidget />
     </div>
   );
 };
