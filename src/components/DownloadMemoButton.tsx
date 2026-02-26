@@ -108,22 +108,24 @@ export default function DownloadMemoButton({
         }
       }
 
-      // B) Parse to docx_data via edge function
-      const parseResponse = await supabase.functions.invoke('parse-memo', {
-        body: { 
-          session_id: sessionId, 
+      // B) Parse to docx_data via n8n webhook
+      const parseResponse = await fetch('https://n8n.atad2.tax/webhook/parse-memo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: sessionId,
           memo_markdown: memo,
           user_full_name: userFullName,
           user_first_name: userFirstName,
           user_last_name: userLastName
-        }
+        })
       });
 
-      if (parseResponse.error) {
-        throw new Error(`Parse service error: ${parseResponse.error.message}`);
+      if (!parseResponse.ok) {
+        throw new Error(`Parse service error: ${parseResponse.status} ${parseResponse.statusText}`);
       }
 
-      const parseJson = parseResponse.data;
+      const parseJson = await parseResponse.json();
       const envelope = Array.isArray(parseJson) ? parseJson[0] : parseJson;
       let docxData = envelope?.docx_data;
       if (!docxData) {
