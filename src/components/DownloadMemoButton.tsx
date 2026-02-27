@@ -108,18 +108,32 @@ export default function DownloadMemoButton({
         }
       }
 
-      // B) Parse to docx_data via n8n webhook
-      const parseResponse = await fetch('https://n8n.atad2.tax/webhook/parse-memo', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          session_id: sessionId,
-          memo_markdown: memo,
-          user_full_name: userFullName,
-          user_first_name: userFirstName,
-          user_last_name: userLastName
-        })
-      });
+      // B) Parse to docx_data via n8n webhook (can take 2-5 min)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6 * 60 * 1000); // 6 minutes
+
+      let parseResponse: Response;
+      try {
+        parseResponse = await fetch('https://n8n.atad2.tax/webhook/parse-memo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
+          body: JSON.stringify({
+            session_id: sessionId,
+            memo_markdown: memo,
+            user_full_name: userFullName,
+            user_first_name: userFirstName,
+            user_last_name: userLastName
+          })
+        });
+      } catch (err: any) {
+        clearTimeout(timeoutId);
+        if (err.name === 'AbortError') {
+          throw new Error('Generation took too long (>6 min). Please try again.');
+        }
+        throw err;
+      }
+      clearTimeout(timeoutId);
 
       if (!parseResponse.ok) {
         throw new Error(`Parse service error: ${parseResponse.status} ${parseResponse.statusText}`);
