@@ -183,19 +183,19 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer, answerO
 
   // Load context questions when answer changes
   const loadContextQuestions = useCallback(async (answer: string) => {
-    if (!questionId || !answerOptionText || !requiresExplanation) return null;
+    if (!questionId || !answer) return null;
 
-    console.log(`🔍 Loading context questions for Q${questionId}, answer: ${answerOptionText}`);
+    console.log(`🔍 Loading context questions for Q${questionId}, answer: ${answer}`);
 
     try {
       const { data: contextQuestions, error } = await supabase
         .from('atad2_context_questions')
         .select('context_question')
         .eq('question_id', questionId)
-        .eq('answer_trigger', answerOptionText);
+        .eq('answer_trigger', answer);
 
       // Add required logging for context fetch
-      console.debug('[context:fetch]', { qid: questionId, trigger: answerOptionText });
+      console.debug('[context:fetch]', { qid: questionId, trigger: answer });
 
       if (error) {
         console.error('Error loading context questions:', error);
@@ -254,7 +254,7 @@ export const useContextPanel = ({ sessionId, questionId, selectedAnswer, answerO
       store.setContextError(questionId, 'Failed to load context');
       return null;
     }
-  }, [sessionId, questionId, store]);
+  }, [sessionId, questionId, answerOptionText, store]);
 
   // Get context state from store
   const clearCtx = useAssessmentStore(s => s.clearContextForQuestion);
