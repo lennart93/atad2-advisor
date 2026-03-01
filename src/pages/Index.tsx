@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/sonner";
-import { Trash2, FileText, FileBarChart, FileCheck, Clock, CheckCircle, Timer } from "lucide-react";
+import { Trash2, FileText, FileBarChart, FileCheck, Clock, CheckCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useQuery } from "@tanstack/react-query";
@@ -31,7 +31,6 @@ interface CompletedSession {
   answer_count: number;
   has_memorandum?: boolean;
   memorandum_date?: string;
-  docx_downloaded_at?: string;
 }
 
 interface RecentReport {
@@ -42,20 +41,6 @@ interface RecentReport {
   taxpayer_name: string;
   model?: string;
 }
-// Helper function to calculate remaining hours until auto-delete
-const getRemainingHours = (downloadedAt: string): number => {
-  const downloadTime = new Date(downloadedAt).getTime();
-  const expiryTime = downloadTime + (24 * 60 * 60 * 1000); // 24 hours in ms
-  const now = Date.now();
-  const remainingMs = expiryTime - now;
-  return Math.max(0, Math.floor(remainingMs / (60 * 60 * 1000))); // Convert to hours, round down to whole hours
-};
-
-const isSessionExpired = (downloadedAt: string): boolean => {
-  const downloadTime = new Date(downloadedAt).getTime();
-  const expiryTime = downloadTime + (24 * 60 * 60 * 1000);
-  return Date.now() >= expiryTime;
-};
 
 const Index = () => {
   const { user, loading: authLoading } = useAuth();
@@ -123,13 +108,6 @@ const Index = () => {
     try {
       setLoading(true);
 
-      // Best-effort: trigger server-side cleanup so expired sessions disappear promptly
-      try {
-        await supabase.functions.invoke('cleanup-expired-sessions');
-      } catch (e) {
-        console.warn('Failed to invoke cleanup-expired-sessions', e);
-      }
-      
       // Get completed sessions with answer counts and memorandum status
       const { data: sessionsData, error: sessionsError } = await supabase
         .from('atad2_sessions')
@@ -138,8 +116,7 @@ const Index = () => {
           session_id,
           taxpayer_name,
           fiscal_year,
-          created_at,
-          docx_downloaded_at
+          created_at
         `)
         .eq('completed', true)
         .order('created_at', { ascending: false });
@@ -170,7 +147,6 @@ const Index = () => {
             answer_count: count || 0,
             has_memorandum: hasMemorandum,
             memorandum_date: memorandumDate,
-            docx_downloaded_at: session.docx_downloaded_at
           };
         })
       );
@@ -278,13 +254,6 @@ const Index = () => {
               ) : (
                 <div className="space-y-4">
                   {sessions.map((session) => {
-                    const remainingHours = session.docx_downloaded_at
-                      ? getRemainingHours(session.docx_downloaded_at)
-                      : null;
-                    const expired = session.docx_downloaded_at
-                      ? isSessionExpired(session.docx_downloaded_at)
-                      : false;
-
                     return (
                       <div key={session.id} className="flex items-center justify-between p-4 border rounded-lg">
                         <div className="flex-1">
@@ -324,16 +293,9 @@ const Index = () => {
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
-                          {session.docx_downloaded_at && (
-                            <div className="flex items-center gap-1 text-orange-600 text-sm border border-orange-200 bg-orange-50 px-2 py-1 rounded">
-                              <Timer className="h-3 w-3" />
-                              {expired ? "Auto-delete pending" : `Auto-delete in ${remainingHours}h`}
-                            </div>
-                          )}
-                          <Button 
-                            variant="outline" 
+                          <Button
+                            variant="outline"
                             size="sm"
-                            disabled={expired}
                             onClick={() => navigate(`/assessment-report/${session.session_id}`)}
                           >
                             <FileText className="h-4 w-4 mr-2" />

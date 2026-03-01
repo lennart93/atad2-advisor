@@ -249,28 +249,9 @@ export default function DownloadMemoButton({
       a.remove();
       URL.revokeObjectURL(a.href);
 
-      // Record the download timestamp to start the 24-hour countdown (only on first download)
-      const { data: currentSession } = await supabase
-        .from('atad2_sessions')
-        .select('docx_downloaded_at')
-        .eq('session_id', sessionId)
-        .single();
-
-      const isFirstDownload = !currentSession?.docx_downloaded_at;
-
-      // Only set timestamp if not already set (first download only)
-      if (isFirstDownload) {
-        await supabase
-          .from('atad2_sessions')
-          .update({ docx_downloaded_at: new Date().toISOString() })
-          .eq('session_id', sessionId);
-      }
-
       toast({
-        title: isFirstDownload ? "Document downloaded" : "Downloaded",
-        description: isFirstDownload
-          ? "Heads up: we'll tidy up this assessment in 24 hours — keep your file safe."
-          : "Word document downloaded successfully.",
+        title: "Downloaded",
+        description: "Word document downloaded successfully.",
       });
 
     } catch (error: any) {

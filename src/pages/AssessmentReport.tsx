@@ -19,23 +19,6 @@ import DownloadMemoButton from "@/components/DownloadMemoButton";
 import MemoFeedbackEditor from "@/components/MemoFeedbackEditor";
 import MemoDiffViewer from "@/components/MemoDiffViewer";
 import MissingExplanationsPopover from "@/components/MissingExplanationsPopover";
-import { Timer } from "lucide-react";
-
-// Helper function to calculate remaining hours until auto-delete
-const getRemainingHours = (downloadedAt: string): number => {
-  const downloadTime = new Date(downloadedAt).getTime();
-  const expiryTime = downloadTime + (24 * 60 * 60 * 1000); // 24 hours in ms
-  const now = Date.now();
-  const remainingMs = expiryTime - now;
-  return Math.max(0, Math.floor(remainingMs / (60 * 60 * 1000))); // Convert to hours, round down to whole hours
-};
-
-const isSessionExpired = (downloadedAt: string): boolean => {
-  const downloadTime = new Date(downloadedAt).getTime();
-  const expiryTime = downloadTime + (24 * 60 * 60 * 1000);
-  return Date.now() >= expiryTime;
-};
-
 interface SessionData {
   session_id: string;
   taxpayer_name: string;
@@ -51,7 +34,6 @@ interface SessionData {
   override_reason: string | null;
   override_outcome: string | null;
   additional_context: string | null;
-  docx_downloaded_at: string | null;
 }
 
 interface AnswerData {
@@ -206,22 +188,6 @@ const AssessmentReport = () => {
         return;
       }
 
-      // If the session is past the 24h window, trigger cleanup and block access
-      if (session.docx_downloaded_at && isSessionExpired(session.docx_downloaded_at)) {
-        try {
-          await supabase.functions.invoke('cleanup-expired-sessions');
-        } catch (e) {
-          // ignore: cleanup is best-effort from the client
-          console.warn('Failed to invoke cleanup-expired-sessions', e);
-        }
-
-        toast.error("Assessment expired", {
-          description: "This assessment is scheduled for auto-delete and is no longer available.",
-        });
-        navigate("/");
-        return;
-      }
-      
       setSessionData(session);
 
       // Load answers
@@ -514,17 +480,11 @@ const AssessmentReport = () => {
         <div className="space-y-6">
           {/* Session Summary */}
           <Card>
-            <CardHeader className="relative">
+            <CardHeader>
               <CardTitle>Assessment report</CardTitle>
               <CardDescription>
                 ATAD2 risk assessment results
               </CardDescription>
-              {sessionData.docx_downloaded_at && (
-                <div className="absolute top-4 right-6 flex items-center gap-1 text-orange-600 text-sm border border-orange-200 bg-orange-50 px-2 py-1 rounded">
-                  <Timer className="h-3 w-3" />
-                  Auto-delete in {getRemainingHours(sessionData.docx_downloaded_at)}h
-                </div>
-              )}
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
