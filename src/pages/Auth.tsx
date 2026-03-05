@@ -332,7 +332,6 @@ const Auth = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-md space-y-6">
-        <p className="text-center text-lg font-semibold">test</p>
         <div className="flex justify-center">
           <img 
             src="/lovable-uploads/new-logo.png" 
