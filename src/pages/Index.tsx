@@ -119,6 +119,7 @@ const Index = () => {
           created_at
         `)
         .eq('completed', true)
+        .eq('user_id', user!.id)
         .order('created_at', { ascending: false });
 
       if (sessionsError) throw sessionsError;
