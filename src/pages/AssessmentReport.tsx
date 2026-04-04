@@ -389,11 +389,10 @@ const AssessmentReport = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authSession?.access_token}`,
         },
         body: JSON.stringify({
           session_id: sessionId,
-          // Context data for the memo generator
+          auth_token: authSession?.access_token,
           additional_context: sessionData?.additional_context || null,
           outcome_overridden: sessionData?.outcome_overridden || false,
           override_reason: sessionData?.override_reason || null,

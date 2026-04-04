@@ -132,6 +132,7 @@ const MemoFeedbackEditor: React.FC<MemoFeedbackEditorProps> = ({
 
       const payload = {
         session_id: sessionId,
+        auth_token: authSession?.access_token,
         taxpayer_name: taxpayerName,
         fiscal_year: fiscalYear,
         original_memo: memoMarkdown,
@@ -152,7 +153,6 @@ const MemoFeedbackEditor: React.FC<MemoFeedbackEditorProps> = ({
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${authSession?.access_token}`,
           },
           body: JSON.stringify(payload),
           signal: controller.signal,

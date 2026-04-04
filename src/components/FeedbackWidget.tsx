@@ -149,9 +149,8 @@ export const FeedbackWidget = () => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${authSession?.access_token}`,
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ ...payload, auth_token: authSession?.access_token }),
       });
 
       if (!response.ok) {

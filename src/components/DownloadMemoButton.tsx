@@ -120,11 +120,11 @@ export default function DownloadMemoButton({
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${authSession?.access_token}`,
           },
           signal: controller.signal,
           body: JSON.stringify({
             session_id: sessionId,
+            auth_token: authSession?.access_token,
             memo_markdown: memo,
             user_full_name: userFullName,
             user_first_name: userFirstName,
