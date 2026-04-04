@@ -109,6 +109,8 @@ export default function DownloadMemoButton({
       }
 
       // B) Parse to docx_data via n8n webhook (can take 2-5 min)
+      const { data: { session: authSession } } = await supabase.auth.getSession();
+
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 6 * 60 * 1000); // 6 minutes
 
@@ -116,7 +118,10 @@ export default function DownloadMemoButton({
       try {
         parseResponse = await fetch(`${import.meta.env.VITE_N8N_WEBHOOK_BASE}/parse-memo`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authSession?.access_token}`,
+          },
           signal: controller.signal,
           body: JSON.stringify({
             session_id: sessionId,

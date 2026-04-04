@@ -383,10 +383,13 @@ const AssessmentReport = () => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10 * 60 * 1000); // 10 minutes
       
+      const { data: { session: authSession } } = await supabase.auth.getSession();
+
       const n8nResponse = await fetch(`${import.meta.env.VITE_N8N_WEBHOOK_BASE}/atad2/generate-report`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authSession?.access_token}`,
         },
         body: JSON.stringify({
           session_id: sessionId,

@@ -143,10 +143,13 @@ export const FeedbackWidget = () => {
     };
 
     try {
+      const { data: { session: authSession } } = await supabase.auth.getSession();
+
       const response = await fetch(WEBHOOK_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${authSession?.access_token}`,
         },
         body: JSON.stringify(payload),
       });

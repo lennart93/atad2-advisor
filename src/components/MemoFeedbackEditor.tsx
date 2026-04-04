@@ -10,6 +10,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { toast } from "@/components/ui/sonner";
+import { supabase } from "@/integrations/supabase/client";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import { useAuth } from "@/hooks/useAuth";
@@ -143,12 +144,15 @@ const MemoFeedbackEditor: React.FC<MemoFeedbackEditorProps> = ({
 
       console.log("Submitting feedback to n8n...", payload);
 
+      const { data: { session: authSession } } = await supabase.auth.getSession();
+
       const response = await fetch(
         `${import.meta.env.VITE_N8N_WEBHOOK_BASE}/atad2/submit-feedback`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            "Authorization": `Bearer ${authSession?.access_token}`,
           },
           body: JSON.stringify(payload),
           signal: controller.signal,
