@@ -1,7 +1,9 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
+const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") || "https://app-atad2-prod.azurewebsites.net";
+
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
@@ -21,14 +23,18 @@ Deno.serve(async (req) => {
       })
     }
 
-    const { session_id, memo_markdown, user_full_name, user_first_name, user_last_name } = await req.json()
+    const body = await req.json()
+    const { session_id, memo_markdown, user_full_name, user_first_name, user_last_name } = body
 
-    if (!session_id || !memo_markdown) {
-      return new Response('Missing session_id or memo_markdown', { 
-        status: 400, 
-        headers: corsHeaders 
+    if (!session_id || typeof session_id !== 'string' || !memo_markdown || typeof memo_markdown !== 'string') {
+      return new Response('Missing or invalid session_id or memo_markdown', {
+        status: 400,
+        headers: corsHeaders
       })
     }
+
+    // Validate optional string fields
+    const safeString = (val: unknown): string => (typeof val === 'string' ? val.slice(0, 200) : '')
 
     console.log(`Parsing memo for session: ${session_id}`)
     console.log('User data received:', { user_full_name, user_first_name, user_last_name })
@@ -42,9 +48,9 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         session_id,
         memo_markdown,
-        user_full_name,
-        user_first_name,
-        user_last_name
+        user_full_name: safeString(user_full_name),
+        user_first_name: safeString(user_first_name),
+        user_last_name: safeString(user_last_name)
       })
     })
 

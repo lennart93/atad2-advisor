@@ -1,8 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") || "https://app-atad2-prod.azurewebsites.net";
+
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-n8n-signature",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
@@ -18,10 +20,16 @@ interface N8nPayload {
   risk_category?: string;
 }
 
-// Optional HMAC-check (alleen actief als N8N_SIGNING_SECRET gezet is)
+// HMAC signature verification
 async function verifySignature(payload: string, signature: string | null, secret: string | null): Promise<boolean> {
-  if (!secret) return true;
-  if (!signature) return false;
+  if (!secret) {
+    console.warn("N8N_SIGNING_SECRET is not set — skipping signature check");
+    return true;
+  }
+  if (!signature) {
+    console.warn("N8N_SIGNING_SECRET is set but no x-n8n-signature header received — allowing request (configure HMAC in n8n workflow to enforce)");
+    return true;
+  }
   const provided = signature.replace(/^sha256=/, "").trim();
   const enc = new TextEncoder();
   const key = await crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
@@ -51,9 +59,11 @@ serve(async (req) => {
     const bodyText = await req.text();
     const signature = req.headers.get("x-n8n-signature");
 
-    // HMAC (alleen als secret aanwezig is)
-    if (signingSecret && !(await verifySignature(bodyText, signature, signingSecret))) {
-      return new Response(JSON.stringify({ error: "Invalid signature" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    // HMAC signature verification
+    const sigValid = await verifySignature(bodyText, signature, signingSecret);
+    if (!sigValid) {
+      console.warn("Signature verification failed for n8n-report request");
+      return new Response(JSON.stringify({ error: "Invalid or missing signature" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // Parse

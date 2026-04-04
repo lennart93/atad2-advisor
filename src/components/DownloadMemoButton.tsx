@@ -114,7 +114,7 @@ export default function DownloadMemoButton({
 
       let parseResponse: Response;
       try {
-        parseResponse = await fetch('https://n8n.atad2.tax/webhook/parse-memo', {
+        parseResponse = await fetch(`${import.meta.env.VITE_N8N_WEBHOOK_BASE}/parse-memo`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           signal: controller.signal,

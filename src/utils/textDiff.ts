@@ -84,10 +84,12 @@ export function computeTextDiff(original: string, revised: string): DiffToken[] 
  */
 export function renderDiffToHtml(tokens: DiffToken[]): string {
   const html = tokens.map(token => {
-    // Don't escape < and > to allow HTML tags to render
-    // Only escape ampersands and convert newlines
+    // Escape all HTML entities to prevent XSS
     const processedText = token.text
       .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
       .replace(/\n/g, '<br/>');
 
     switch (token.type) {

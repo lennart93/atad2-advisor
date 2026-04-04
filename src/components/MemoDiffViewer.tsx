@@ -1,4 +1,5 @@
 import React, { useMemo } from "react";
+import DOMPurify from "dompurify";
 import { Button } from "@/components/ui/button";
 import { Check, X } from "lucide-react";
 import { generateDiffHtml } from "@/utils/textDiff";
@@ -17,7 +18,11 @@ const MemoDiffViewer: React.FC<MemoDiffViewerProps> = ({
   onReject,
 }) => {
   const diffHtml = useMemo(() => {
-    return generateDiffHtml(originalMemo, revisedMemo);
+    const rawHtml = generateDiffHtml(originalMemo, revisedMemo);
+    return DOMPurify.sanitize(rawHtml, {
+      ALLOWED_TAGS: ['span', 'br', 'strong'],
+      ALLOWED_ATTR: ['style'],
+    });
   }, [originalMemo, revisedMemo]);
 
   return (

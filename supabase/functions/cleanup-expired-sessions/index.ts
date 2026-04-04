@@ -1,7 +1,9 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
+const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") || "https://app-atad2-prod.azurewebsites.net";
+
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
@@ -25,11 +27,13 @@ Deno.serve(async (req) => {
     console.log(`Cutoff time: ${cutoffTime}`)
     
     // Find sessions where docx was downloaded more than 24 hours ago
+    // OR sessions older than 30 days without a download
+    const staleTime = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+
     const { data: expiredSessions, error: fetchError } = await supabase
       .from('atad2_sessions')
       .select('session_id, taxpayer_name, docx_downloaded_at')
-      .not('docx_downloaded_at', 'is', null)
-      .lt('docx_downloaded_at', cutoffTime)
+      .or(`and(docx_downloaded_at.not.is.null,docx_downloaded_at.lt.${cutoffTime}),and(docx_downloaded_at.is.null,created_at.lt.${staleTime})`)
     
     if (fetchError) {
       console.error('Error fetching expired sessions:', fetchError)

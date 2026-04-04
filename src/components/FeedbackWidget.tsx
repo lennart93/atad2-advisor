@@ -23,7 +23,7 @@ const FEEDBACK_TYPES = [
 ];
 
 const MAX_CHARS = 500;
-const WEBHOOK_URL = "https://n8n.atad2.tax/webhook/lovable-feedback";
+const WEBHOOK_URL = `${import.meta.env.VITE_N8N_WEBHOOK_BASE}/lovable-feedback`;
 
 export const FeedbackWidget = () => {
   const { user } = useAuth();
