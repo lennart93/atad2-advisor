@@ -6,28 +6,13 @@ Add a functional "Forgot password" flow to the ATAD2 Advisor. Users can request 
 
 ## Decisions (from brainstorming)
 
-- **SMTP**: Replace Resend with IONOS (info@atad2.tax) in Supabase Auth config. All auth emails (signup OTP + password reset) will then originate from the atad2.tax domain.
+- **SMTP**: Keep Resend. The existing Resend config already works for signup/OTP emails — no change.
 - **UX**: Supabase native recovery link flow — no 6-digit OTP variant.
 - **Post-reset**: Auto-signed-in; redirect to home.
 - **Routes**: Two dedicated pages — `/forgot-password` and `/reset-password`.
 - **Language**: All email templates and UI copy in English.
 
 ## Server-side changes
-
-### Supabase Auth SMTP (on VM at ~/supabase/docker/.env)
-
-Replace current Resend config with:
-
-```
-SMTP_ADMIN_EMAIL=info@atad2.tax
-SMTP_HOST=smtp.ionos.de
-SMTP_PORT=587
-SMTP_USER=info@atad2.tax
-SMTP_PASS=<from IONOS>
-SMTP_SENDER_NAME=ATAD2 Advisor
-```
-
-Then restart the auth service: `docker compose restart auth` in `~/supabase/docker/`.
 
 ### Auth redirect allow-list
 
@@ -39,7 +24,14 @@ Supabase Studio (via db.atad2.tax) → Auth → URL Configuration:
 
 ### Email template
 
-Supabase Studio → Auth → Email Templates → "Reset Password". English copy with `{{ .ConfirmationURL }}` link. Plain, short, no marketing.
+Supabase Studio → Auth → Email Templates → "Reset Password". Must use `{{ .ConfirmationURL }}` (link), not `{{ .Token }}` (6-digit code). English copy, plain, short, no marketing:
+
+```html
+<h2>Reset your password</h2>
+<p>Follow this link to reset the password for your account:</p>
+<p><a href="{{ .ConfirmationURL }}">Reset Password</a></p>
+<p>If you did not request this, you can safely ignore this email.</p>
+```
 
 ## Frontend changes
 
