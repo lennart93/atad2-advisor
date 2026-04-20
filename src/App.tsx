@@ -15,6 +15,8 @@ import ScrollRestoration from "@/components/routing/ScrollRestoration";
 const Index = lazy(() => import("./pages/Index"));
 const Auth = lazy(() => import("./pages/Auth"));
 const VerifyEmail = lazy(() => import("./pages/VerifyEmail"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const Assessment = lazy(() => import("./pages/Assessment"));
 const AssessmentConfirmation = lazy(() => import("./pages/AssessmentConfirmation"));
 const AssessmentReport = lazy(() => import("./pages/AssessmentReport"));
@@ -55,6 +57,8 @@ const App = () => (
                 <Routes>
                   <Route path="/auth" element={<PublicOnlyRoute><Auth /></PublicOnlyRoute>} />
                   <Route path="/verify-email" element={<VerifyEmail />} />
+                  <Route path="/forgot-password" element={<ForgotPassword />} />
+                  <Route path="/reset-password" element={<ResetPassword />} />
                   <Route path="/email-confirmed" element={<EmailConfirmed />} />
 
                   <Route element={<AppLayout />}>
