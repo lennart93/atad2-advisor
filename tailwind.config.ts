@@ -109,7 +109,24 @@ export default {
 				'accordion-up': 'accordion-up 0.2s ease-out',
 				'fade-in': 'fade-in 0.2s ease-out',
 				'pulse-glow': 'pulse-glow 2s ease-in-out infinite'
-			}
+			},
+			fontFamily: {
+				sans: ['Inter Variable', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
+			},
+			letterSpacing: {
+				tight: 'var(--tracking-tight)',
+				snug: 'var(--tracking-snug)',
+			},
+			boxShadow: {
+				'xs': 'var(--shadow-xs)',
+				'sm': 'var(--shadow-sm)',
+				'md': 'var(--shadow-md)',
+				'btn-primary': 'var(--shadow-btn-primary)',
+			},
+			backgroundImage: {
+				'surface-card': 'var(--surface-card)',
+				'surface-header': 'var(--surface-header)',
+			},
 		}
 	},
 	plugins: [require("tailwindcss-animate")],
