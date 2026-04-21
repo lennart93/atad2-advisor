@@ -1,26 +1,12 @@
-
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/sonner";
-import { Trash2, FileText, FileBarChart, FileCheck, Clock, CheckCircle } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { useQuery } from "@tanstack/react-query";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import { SessionRow } from "@/components/SessionRow";
 
 interface CompletedSession {
   id: string;
@@ -33,63 +19,12 @@ interface CompletedSession {
   memorandum_date?: string;
 }
 
-interface RecentReport {
-  id: string;
-  session_id: string;
-  report_title: string;
-  generated_at: string;
-  taxpayer_name: string;
-  model?: string;
-}
-
 const Index = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  
+
   const [sessions, setSessions] = useState<CompletedSession[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // Query for recent reports
-  const { data: recentReports } = useQuery({
-    queryKey: ["recentReports"],
-    queryFn: async () => {
-      if (!user) return [];
-      
-      const { data, error } = await supabase
-        .from("atad2_reports")
-        .select(`
-          id,
-          session_id,
-          report_title,
-          generated_at,
-          model
-        `)
-        .eq("user_id", user.id)
-        .order("generated_at", { ascending: false })
-        .limit(3);
-
-      if (error) throw error;
-      
-      // Get taxpayer names for each report
-      const reportsWithTaxpayer = await Promise.all(
-        (data || []).map(async (report) => {
-          const { data: session } = await supabase
-            .from("atad2_sessions")
-            .select("taxpayer_name")
-            .eq("session_id", report.session_id)
-            .single();
-          
-          return {
-            ...report,
-            taxpayer_name: session?.taxpayer_name || "Unknown"
-          };
-        })
-      );
-      
-      return reportsWithTaxpayer as RecentReport[];
-    },
-    enabled: !!user,
-  });
 
 
   useEffect(() => {
@@ -165,7 +100,7 @@ const Index = () => {
 
   const deleteSession = async (sessionId: string, sessionUuid: string) => {
     console.log('DELETE ATTEMPT:', { sessionId, sessionUuid });
-    
+
     try {
       // First check if the session exists
       const { data: existingSession, error: checkError } = await supabase
@@ -173,9 +108,9 @@ const Index = () => {
         .select('session_id, id, user_id')
         .eq('session_id', sessionId)
         .single();
-      
+
       console.log('EXISTING SESSION:', existingSession, 'CHECK ERROR:', checkError);
-      
+
       // Delete the session by session_id - answers will be automatically deleted via CASCADE
       const { data: deleteData, error } = await supabase
         .from('atad2_sessions')
@@ -190,10 +125,10 @@ const Index = () => {
       // Remove from UI state immediately (no need to reload)
       setSessions(prev => {
         const newSessions = prev.filter(session => session.session_id !== sessionId);
-        console.log('UI STATE UPDATE:', { 
-          before: prev.length, 
-          after: newSessions.length, 
-          removedSessionId: sessionId 
+        console.log('UI STATE UPDATE:', {
+          before: prev.length,
+          after: newSessions.length,
+          removedSessionId: sessionId
         });
         return newSessions;
       });
@@ -213,7 +148,7 @@ const Index = () => {
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p>Loading...</p>
+        <p className="text-muted-foreground">Loading...</p>
       </div>
     );
   }
@@ -221,123 +156,61 @@ const Index = () => {
   if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-background p-4">
-      <div className="max-w-4xl mx-auto">
-        
-        <div className="grid gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Start new assessment</CardTitle>
-              <CardDescription>
-                Begin a new ATAD2 risk assessment for a taxpayer
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button onClick={() => navigate("/assessment")} size="lg">
-                Start assessment
-              </Button>
-            </CardContent>
-          </Card>
+    <div className="grid gap-6">
+      <Card>
+        <CardHeader>
+          <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/70 mb-1">
+            Get started
+          </div>
+          <CardTitle>Start new assessment</CardTitle>
+          <CardDescription>
+            Begin a new ATAD2 risk assessment for a taxpayer
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button onClick={() => navigate("/assessment")} size="lg">
+            Start assessment
+          </Button>
+        </CardContent>
+      </Card>
 
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Completed assessments</CardTitle>
-              <CardDescription className="text-sm">
-                View or delete your previously completed assessments
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <p className="text-muted-foreground">Loading assessments...</p>
-              ) : sessions.length === 0 ? (
-                <p className="text-muted-foreground text-sm">No completed assessments yet</p>
-              ) : (
-                <div className="space-y-4">
-                  {sessions.map((session) => {
-                    return (
-                      <div key={session.id} className="flex items-center justify-between p-4 border rounded-lg">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <h3 className="font-medium">{session.taxpayer_name}</h3>
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <div>
-                                    {session.has_memorandum ? (
-                                      <Badge variant="default" className="bg-green-100 text-green-800 hover:bg-green-200 flex items-center gap-1">
-                                        <CheckCircle className="h-3 w-3" />
-                                        Ready
-                                      </Badge>
-                                    ) : (
-                                      <Badge variant="secondary" className="bg-gray-100 text-gray-600 hover:bg-gray-200 flex items-center gap-1">
-                                        <Clock className="h-3 w-3" />
-                                        In progress
-                                      </Badge>
-                                    )}
-                                  </div>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>
-                                    {session.has_memorandum 
-                                      ? `Memorandum generated on ${new Date(session.memorandum_date!).toLocaleDateString()}`
-                                      : "No memorandum generated yet"
-                                    }
-                                  </p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          </div>
-                          <div className="text-sm text-muted-foreground space-y-1">
-                            <p>Tax year: {session.fiscal_year}</p>
-                            <p>Completed: {new Date(session.created_at).toLocaleDateString()}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => navigate(`/assessment-report/${session.session_id}`)}
-                          >
-                            <FileText className="h-4 w-4 mr-2" />
-                            View report
-                          </Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <button className="text-red-600 hover:text-red-800 text-sm flex items-center gap-1 transition-colors duration-200">
-                                <Trash2 className="h-4 w-4" />
-                                Delete
-                              </button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Delete assessment</AlertDialogTitle>
-                                 <AlertDialogDescription>
-                                  Are you sure you want to permanently delete this assessment for {session.taxpayer_name}? 
-                                  This will delete all answers and cannot be undone.
-                                 </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => deleteSession(session.session_id, session.id)}
-                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                >
-                                  Delete permanently
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+      <Card>
+        <CardHeader>
+          <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/70 mb-1">
+            History
+          </div>
+          <CardTitle>Completed assessments</CardTitle>
+          <CardDescription className="text-sm">
+            View or delete your previously completed assessments
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="space-y-3">
+              <Skeleton className="h-20 w-full" />
+              <Skeleton className="h-20 w-full" />
+              <Skeleton className="h-20 w-full" />
+            </div>
+          ) : sessions.length === 0 ? (
+            <p className="text-muted-foreground text-sm">No completed assessments yet</p>
+          ) : (
+            <div className="space-y-4">
+              {sessions.map((session) => (
+                <SessionRow
+                  key={session.id}
+                  sessionId={session.session_id}
+                  taxpayerName={session.taxpayer_name}
+                  fiscalYear={session.fiscal_year}
+                  completedAt={session.created_at}
+                  hasMemorandum={Boolean(session.has_memorandum)}
+                  memorandumDate={session.memorandum_date}
+                  onDelete={() => deleteSession(session.session_id, session.id)}
+                />
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };
