@@ -3,7 +3,7 @@ import { Webhook } from "https://esm.sh/standardwebhooks@1.0.0";
 import { Resend } from "npm:resend@4.0.0";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY") as string);
-const hookSecret = Deno.env.get("SEND_EMAIL_HOOK_SECRET") as string;
+const hookSecret = (Deno.env.get("SEND_EMAIL_HOOK_SECRET") as string).replace(/^v1,/, "");
 const AUTH_API_URL = Deno.env.get("PUBLIC_SUPABASE_URL") || "https://api.atad2.tax";
 
 const shellHeader = `<!DOCTYPE html>
