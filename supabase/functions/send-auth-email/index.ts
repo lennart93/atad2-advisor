@@ -72,7 +72,13 @@ const linkEmail = (heading: string, intro: string, buttonLabel: string, url: str
             </tr>
             <tr>
               <td style="padding:32px 48px 0 48px;" align="center">
-                <a href="${url}" style="display:inline-block;background-color:#0f172a;color:#ffffff;text-decoration:none;font-size:15px;font-weight:500;padding:12px 24px;border-radius:6px;">${buttonLabel}</a>
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:0 auto;">
+                  <tr>
+                    <td align="center" bgcolor="#0f172a" style="background-color:#0f172a;border-radius:8px;mso-padding-alt:16px 36px;">
+                      <a href="${url}" style="display:inline-block;padding:16px 36px;color:#ffffff;text-decoration:none;font-size:16px;font-weight:600;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;letter-spacing:0.2px;mso-padding-alt:0;border-radius:8px;">${buttonLabel}</a>
+                    </td>
+                  </tr>
+                </table>
               </td>
             </tr>
             <tr>
