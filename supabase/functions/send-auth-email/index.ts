@@ -15,17 +15,13 @@ const shellHeader = `<!DOCTYPE html>
           <table role="presentation" width="520" cellpadding="0" cellspacing="0" style="max-width:520px;background-color:#ffffff;border:1px solid #e5e7eb;border-radius:8px;">
             <tr>
               <td style="padding:40px 48px 8px 48px;">
-                <div style="font-size:13px;font-weight:600;letter-spacing:1.5px;color:#0f172a;text-transform:uppercase;">ATAD2 Advisor</div>
+                <div style="font-size:13px;font-weight:600;letter-spacing:1px;color:#0f172a;text-transform:uppercase;">ATAD2 risk assessment</div>
               </td>
             </tr>`;
 
 const shellFooter = `
             <tr>
-              <td style="padding:32px 48px 40px 48px;">
-                <div style="border-top:1px solid #f1f5f9;padding-top:24px;">
-                  <p style="margin:0;font-size:12px;color:#94a3b8;line-height:1.5;">Svalner Atlas Advisors<br/>Stadhouderskade 1, 1054 ES Amsterdam</p>
-                </div>
-              </td>
+              <td style="padding:40px 48px 40px 48px;"></td>
             </tr>
           </table>
         </td>
