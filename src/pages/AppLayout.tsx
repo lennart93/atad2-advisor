@@ -3,6 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { AnimatedLogo } from "@/components/AnimatedLogo";
 
 const AppLayout = () => {
   const { user, loading, signOut } = useAuth();
@@ -60,16 +61,12 @@ const AppLayout = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b">
-        <div className="mx-auto max-w-6xl px-4 h-14 flex items-center justify-between">
+      <header className="relative border-b border-[hsl(var(--border-subtle))] bg-surface-header after:pointer-events-none after:absolute after:inset-x-0 after:-bottom-px after:h-px after:bg-gradient-to-r after:from-transparent after:via-[hsl(var(--border-default))] after:to-transparent">
+        <div className="mx-auto max-w-6xl px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img 
-              src="/lovable-uploads/new-logo.png" 
-              alt="Company Logo" 
-              className="h-8 w-8 object-contain"
-            />
+            <AnimatedLogo size={36} />
             <div>
-              <h1 className="text-base sm:text-lg font-semibold">ATAD2 risk assessment</h1>
+              <h1 className="text-base sm:text-lg font-semibold tracking-tight">ATAD2 risk assessment</h1>
               {user && (
                 <p className="text-xs sm:text-sm text-muted-foreground">
                   Welcome back, {userProfile?.first_name || user.email?.split('@')[0]}

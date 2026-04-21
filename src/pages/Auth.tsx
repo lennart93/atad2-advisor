@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Lock, Eye, EyeOff, Edit2, Info } from "lucide-react";
 import { makeLocalPart, validateName, validateLocalPart } from "@/utils/emailNormalization";
 import { cn } from "@/lib/utils";
+import { AnimatedLogo } from "@/components/AnimatedLogo";
 
 const DOMAIN = "svalneratlas.com";
 
@@ -333,11 +334,7 @@ const Auth = () => {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-md space-y-6">
         <div className="flex justify-center">
-          <img 
-            src="/lovable-uploads/new-logo.png" 
-            alt="Company Logo" 
-            className="h-16 w-16 object-contain"
-          />
+          <AnimatedLogo size={64} />
         </div>
         
         <Card className="w-full max-w-[480px] mx-auto">
