@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { AnimatedLogo } from "@/components/AnimatedLogo";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const AppLayout = () => {
   const { user, loading, signOut } = useAuth();
@@ -64,7 +65,20 @@ const AppLayout = () => {
       <header className="relative border-b border-[hsl(var(--border-subtle))] bg-surface-header after:pointer-events-none after:absolute after:inset-x-0 after:-bottom-px after:h-px after:bg-gradient-to-r after:from-transparent after:via-[hsl(var(--border-default))] after:to-transparent">
         <div className="mx-auto max-w-6xl px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <AnimatedLogo size={36} />
+            <TooltipProvider delayDuration={300}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link
+                    to="/"
+                    aria-label="Naar dashboard"
+                    className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  >
+                    <AnimatedLogo size={36} />
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Naar dashboard</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
             <div>
               <h1 className="text-base sm:text-lg font-semibold tracking-tight">ATAD2 risk assessment</h1>
               {user && (
