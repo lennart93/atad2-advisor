@@ -1,6 +1,6 @@
 import { useMemo, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Plus } from "lucide-react";
+import { Plus, AlertTriangle } from "lucide-react";
 import { Seo } from "@/components/Seo";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -8,23 +8,23 @@ import { SearchFilterBar, ViewMode } from "@/components/admin/SearchFilterBar";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { RiskChip } from "@/components/admin/StatChip";
 import { SlideInPanel } from "@/components/admin/SlideInPanel";
-import { QuestionEditorPanel } from "@/components/admin/QuestionEditorPanel";
+import { QuestionEditorPanel, QuestionFormValues } from "@/components/admin/QuestionEditorPanel";
 import { QuestionFlowCanvas } from "@/components/admin/QuestionFlowCanvas";
 import { AccessRequiredDialog } from "@/components/admin/AccessRequiredDialog";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import {
-  useAdminQuestionsList,
-  useUpsertAdminQuestion,
-  useDeleteAdminQuestion,
-  AdminQuestion,
+  useAdminGroupedQuestions,
+  useSaveGroupedQuestion,
+  useDeleteGroupedQuestion,
+  GroupedQuestion,
 } from "@/components/admin/useAdminQuestions";
 
 const Questions = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id?: string }>();
-  const { data, isLoading } = useAdminQuestionsList();
-  const upsert = useUpsertAdminQuestion();
-  const del = useDeleteAdminQuestion();
+  const { data, isLoading } = useAdminGroupedQuestions();
+  const save = useSaveGroupedQuestion();
+  const del = useDeleteGroupedQuestion();
   const { canEdit } = useAdminAccess();
 
   const [search, setSearch] = useState("");
@@ -48,11 +48,34 @@ const Questions = () => {
   const closeEdit = useCallback(() => navigate("/admin/questions"), [navigate]);
 
   const isNewPath = id === "new";
-  const editingQuestion: AdminQuestion | null =
+  const editingQuestion: GroupedQuestion | null =
     !isNewPath && id
       ? (data ?? []).find((q) => q.question_id === id) ?? null
       : null;
   const panelOpen = Boolean(id);
+
+  const handleSave = async (values: QuestionFormValues) => {
+    await save.mutateAsync({
+      question_id: values.question_id,
+      question_title: values.question_title ?? null,
+      question: values.question,
+      difficult_term: values.difficult_term ?? null,
+      term_explanation: values.term_explanation ?? null,
+      question_explanation: values.question_explanation ?? null,
+      branches: values.branches.map((b) => ({
+        id: b.id,
+        answer_option: b.answer_option,
+        risk_points: b.risk_points,
+        next_question_id: b.next_question_id ?? null,
+      })),
+      isNew: isNewPath,
+    });
+    if (isNewPath) {
+      navigate(`/admin/questions/${values.question_id}`);
+    } else {
+      closeEdit();
+    }
+  };
 
   return (
     <main>
@@ -84,9 +107,9 @@ const Questions = () => {
 
       {isLoading ? (
         <div className="space-y-2">
-          <Skeleton className="h-12 w-full" />
-          <Skeleton className="h-12 w-full" />
-          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-16 w-full" />
+          <Skeleton className="h-16 w-full" />
+          <Skeleton className="h-16 w-full" />
         </div>
       ) : viewMode === "list" ? (
         <QuestionList items={filtered} activeId={id} onRowClick={openEdit} />
@@ -114,15 +137,11 @@ const Questions = () => {
             allQuestions={data ?? []}
             canEdit={canEdit}
             onRequestAccess={() => setAccessDialog(true)}
-            onSave={async (values) => {
-              const rowId = editingQuestion?.id;
-              await upsert.mutateAsync({ ...(rowId ? { id: rowId } : {}), ...values });
-              closeEdit();
-            }}
+            onSave={handleSave}
             onDelete={
               editingQuestion
                 ? async () => {
-                    await del.mutateAsync(editingQuestion.id);
+                    await del.mutateAsync(editingQuestion.question_id);
                     closeEdit();
                   }
                 : undefined
@@ -144,47 +163,69 @@ const Questions = () => {
 function QuestionList({
   items, activeId, onRowClick,
 }: {
-  items: AdminQuestion[];
+  items: GroupedQuestion[];
   activeId?: string;
   onRowClick: (qid: string) => void;
 }) {
   return (
     <div className="space-y-1.5">
-      {items.map((q, i) => (
-        <AdminCard
-          key={q.id}
-          interactive
-          onClick={() => onRowClick(q.question_id)}
-          className={`flex items-center gap-3 py-2.5 ${
-            activeId === q.question_id
-              ? "ring-2 ring-[#c7d2fe] border-[#c7d2fe]"
-              : ""
-          }`}
-        >
-          <div className="flex items-center justify-center h-6 w-6 rounded-md bg-muted text-[10px] font-bold text-muted-foreground shrink-0">
-            {i + 1}
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-semibold text-[#4f46e5]">
-                {q.question_id}
-              </span>
-              {q.question_title && (
-                <span className="text-[12px] font-semibold truncate">
-                  · {q.question_title}
+      {items.map((q, i) => {
+        const maxRisk = Math.max(0, ...q.branches.map((b) => b.risk_points));
+        return (
+          <AdminCard
+            key={q.question_id}
+            interactive
+            onClick={() => onRowClick(q.question_id)}
+            className={`flex items-start gap-3 py-2.5 ${
+              activeId === q.question_id
+                ? "ring-2 ring-[#c7d2fe] border-[#c7d2fe]"
+                : ""
+            }`}
+          >
+            <div className="flex items-center justify-center h-6 w-6 rounded-md bg-muted text-[10px] font-bold text-muted-foreground shrink-0 mt-0.5">
+              {i + 1}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[11px] font-semibold text-[#4f46e5]">
+                  {q.question_id}
                 </span>
-              )}
+                {q.question_title && (
+                  <span className="text-[12px] font-semibold truncate">
+                    · {q.question_title}
+                  </span>
+                )}
+                {q.outOfSync && (
+                  <span className="inline-flex items-center gap-1 rounded bg-amber-100 text-amber-800 text-[9px] px-1.5 py-0.5">
+                    <AlertTriangle className="h-2.5 w-2.5" /> Branches out of sync
+                  </span>
+                )}
+              </div>
+              <div className="text-[12px] text-muted-foreground truncate mt-0.5">
+                {q.question}
+              </div>
+              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                {q.branches.map((b) => (
+                  <span
+                    key={b.id}
+                    className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-1.5 py-0.5 text-[10px]"
+                  >
+                    <span className="font-semibold">{b.answer_option}</span>
+                    <span className="text-muted-foreground">
+                      → {b.next_question_id || "END"}
+                    </span>
+                    <RiskChip points={b.risk_points} className="text-[9px] px-1 py-0" />
+                  </span>
+                ))}
+              </div>
             </div>
-            <div className="text-[12px] text-muted-foreground truncate">
-              {q.question}
+            <div className="flex flex-col items-end shrink-0">
+              <RiskChip points={maxRisk} />
+              <div className="text-[9px] text-muted-foreground mt-0.5">max risk</div>
             </div>
-          </div>
-          <RiskChip points={q.risk_points ?? 0} />
-          <div className="text-[11px] text-muted-foreground whitespace-nowrap w-[92px] text-right">
-            → {q.next_question_id || "END"}
-          </div>
-        </AdminCard>
-      ))}
+          </AdminCard>
+        );
+      })}
       {items.length === 0 && (
         <div className="text-center text-muted-foreground py-8">
           No questions found.

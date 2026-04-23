@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Trash2, Info } from "lucide-react";
@@ -13,26 +13,39 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import type { AdminQuestion } from "./useAdminQuestions";
+import type { GroupedQuestion } from "./useAdminQuestions";
 import { RiskChip } from "./StatChip";
+
+const BranchSchema = z.object({
+  id: z.string(),
+  answer_option: z.string().min(1),
+  risk_points: z.coerce.number().min(0).multipleOf(0.1).default(0),
+  next_question_id: z.string().nullable().optional(),
+});
 
 const Schema = z.object({
   question_id: z.string().min(1, "Required"),
   question_title: z.string().nullable().optional(),
   question: z.string().min(1, "Required"),
-  answer_option: z.string().min(1, "Required"),
-  risk_points: z.coerce.number().min(0).multipleOf(0.1).default(0),
-  next_question_id: z.string().nullable().optional(),
   difficult_term: z.string().nullable().optional(),
   term_explanation: z.string().nullable().optional(),
   question_explanation: z.string().nullable().optional(),
+  branches: z.array(BranchSchema).length(3),
 });
 
 export type QuestionFormValues = z.infer<typeof Schema>;
 
+function defaultBranches(): QuestionFormValues["branches"] {
+  return [
+    { id: "", answer_option: "Yes", risk_points: 0, next_question_id: "" },
+    { id: "", answer_option: "No", risk_points: 0, next_question_id: "" },
+    { id: "", answer_option: "Unknown", risk_points: 0, next_question_id: "" },
+  ];
+}
+
 export interface QuestionEditorPanelProps {
-  question: AdminQuestion | null;
-  allQuestions: AdminQuestion[];
+  question: GroupedQuestion | null;
+  allQuestions: GroupedQuestion[];
   canEdit: boolean;
   onSave: (values: QuestionFormValues) => Promise<void>;
   onDelete?: () => Promise<void>;
@@ -51,30 +64,48 @@ export function QuestionEditorPanel({
       question_id: question?.question_id ?? "",
       question_title: question?.question_title ?? "",
       question: question?.question ?? "",
-      answer_option: question?.answer_option ?? "",
-      risk_points: question?.risk_points ?? 0,
-      next_question_id: question?.next_question_id ?? "",
       difficult_term: question?.difficult_term ?? "",
       term_explanation: question?.term_explanation ?? "",
       question_explanation: question?.question_explanation ?? "",
+      branches: question?.branches.map((b) => ({
+        id: b.id,
+        answer_option: b.answer_option,
+        risk_points: b.risk_points,
+        next_question_id: b.next_question_id ?? "",
+      })) ?? defaultBranches(),
     },
   });
 
+  const { fields: branchFields } = useFieldArray({
+    control: form.control,
+    name: "branches",
+  });
+
   const currentId = question?.question_id;
+
   const incomingRefs = useMemo(
     () =>
       allQuestions.filter(
-        (q) => q.next_question_id === currentId && q.question_id !== currentId
+        (q) =>
+          q.question_id !== currentId &&
+          q.branches.some((b) => b.next_question_id === currentId)
       ),
     [allQuestions, currentId]
   );
 
-  const watchedNext = form.watch("next_question_id");
+  const otherQuestionIds = useMemo(
+    () =>
+      allQuestions
+        .filter((q) => q.question_id !== currentId)
+        .map((q) => ({ id: q.question_id, label: q.question_title ?? "" })),
+    [allQuestions, currentId]
+  );
+
   const watchedQuestion = form.watch("question");
   const watchedTitle = form.watch("question_title");
-  const watchedOptions = form.watch("answer_option");
-  const watchedRisk = form.watch("risk_points");
   const watchedExplanation = form.watch("question_explanation");
+  const watchedBranches = form.watch("branches");
+  const previewMaxRisk = Math.max(0, ...watchedBranches.map((b) => Number(b.risk_points) || 0));
 
   return (
     <Form {...form}>
@@ -119,59 +150,6 @@ export function QuestionEditorPanel({
             </FormItem>
           )} />
 
-          <FormField control={form.control} name="answer_option" render={({ field }) => (
-            <FormItem>
-              <FormLabel className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                Answer options
-              </FormLabel>
-              <FormControl>
-                <Input {...field} disabled={!canEdit} placeholder="Yes|No or multiple options separated by |" />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )} />
-
-          <div className="grid grid-cols-2 gap-3">
-            <FormField control={form.control} name="risk_points" render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                  Risk points
-                </FormLabel>
-                <FormControl>
-                  <Input type="number" step="0.1" min="0" disabled={!canEdit} {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
-
-            <FormField control={form.control} name="next_question_id" render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                  Next question
-                </FormLabel>
-                <FormControl>
-                  <select
-                    {...field}
-                    value={field.value ?? ""}
-                    disabled={!canEdit}
-                    onChange={(e) => field.onChange(e.target.value || null)}
-                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <option value="">END (no follow-up)</option>
-                    {allQuestions
-                      .filter((q) => q.question_id !== currentId)
-                      .map((q) => (
-                        <option key={q.question_id} value={q.question_id}>
-                          {q.question_id} · {q.question_title ?? ""}
-                        </option>
-                      ))}
-                  </select>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
-          </div>
-
           <FormField control={form.control} name="difficult_term" render={({ field }) => (
             <FormItem>
               <FormLabel className="text-[10px] uppercase tracking-wide text-muted-foreground">
@@ -197,6 +175,7 @@ export function QuestionEditorPanel({
           )} />
         </div>
 
+        {/* User info panel (shared explanation) */}
         <div className="border border-blue-200 bg-blue-50/40 rounded-lg p-4">
           <div className="flex items-center gap-2 mb-2">
             <Info className="h-4 w-4 text-blue-700" />
@@ -224,6 +203,78 @@ export function QuestionEditorPanel({
           )} />
         </div>
 
+        {/* Answer branches (Yes / No / Unknown) */}
+        <div className="border border-[#ececec] rounded-lg p-4">
+          <div className="text-[13px] font-semibold mb-1">Answer branches</div>
+          <div className="text-[11px] text-muted-foreground mb-3">
+            Each answer has its own risk score and follow-up question.
+          </div>
+          <div className="space-y-3">
+            {branchFields.map((fld, idx) => {
+              const answerLabel = form.getValues(`branches.${idx}.answer_option`);
+              return (
+                <div key={fld.id} className="border border-[#ececec] rounded-md p-3 bg-muted/20">
+                  <div className="text-[11px] font-semibold text-foreground mb-2">
+                    {answerLabel}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <FormField
+                      control={form.control}
+                      name={`branches.${idx}.risk_points`}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                            Risk points
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              disabled={!canEdit}
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name={`branches.${idx}.next_question_id`}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                            Next question
+                          </FormLabel>
+                          <FormControl>
+                            <select
+                              {...field}
+                              value={field.value ?? ""}
+                              disabled={!canEdit}
+                              onChange={(e) => field.onChange(e.target.value || null)}
+                              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              <option value="">END (no follow-up)</option>
+                              {otherQuestionIds.map((q) => (
+                                <option key={q.id} value={q.id}>
+                                  {q.id}{q.label ? ` · ${q.label}` : ""}
+                                </option>
+                              ))}
+                            </select>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Flow context */}
         <div className="border-t border-[#ececec] pt-4">
           <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-2 font-semibold">
             Flow context
@@ -248,17 +299,22 @@ export function QuestionEditorPanel({
             </div>
             <div>
               <span className="text-muted-foreground">→ Goes to:</span>{" "}
-              {watchedNext ? (
-                <span className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-[10px]">
-                  {watchedNext}
-                </span>
-              ) : (
-                <span className="text-muted-foreground italic">END</span>
-              )}
+              <span className="inline-flex flex-wrap gap-1 align-middle">
+                {watchedBranches.map((b, i) => (
+                  <span
+                    key={i}
+                    className="rounded-md bg-muted px-1.5 py-0.5 text-[10px]"
+                  >
+                    {b.answer_option} →{" "}
+                    <span className="font-mono">{b.next_question_id || "END"}</span>
+                  </span>
+                ))}
+              </span>
             </div>
           </div>
         </div>
 
+        {/* Preview */}
         <div className="border-t border-[#ececec] pt-4">
           <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-2 font-semibold">
             Preview
@@ -266,7 +322,7 @@ export function QuestionEditorPanel({
           <div className="rounded-xl bg-gradient-to-b from-[#eff6ff] to-[#f3f4f6] p-4">
             <div className="rounded-lg bg-white shadow-sm p-4">
               <div className="text-[10px] font-semibold text-[#4f46e5] mb-1">
-                Question · risk {typeof watchedRisk === "number" ? watchedRisk.toFixed(1) : "0.0"}
+                Question · max risk {previewMaxRisk.toFixed(1)}
               </div>
               {watchedTitle && (
                 <div className="text-[13px] font-bold mb-1.5">{watchedTitle}</div>
@@ -285,16 +341,20 @@ export function QuestionEditorPanel({
                 </div>
               )}
               <div className="flex flex-wrap gap-1.5">
-                {(watchedOptions || "").split("|").map((opt, i) => (
+                {watchedBranches.map((b, i) => (
                   <span key={i} className="rounded-md bg-muted px-3 py-1 text-[11px]">
-                    {opt.trim() || "-"}
+                    {b.answer_option}
                   </span>
                 ))}
               </div>
             </div>
             <div className="mt-2 flex items-center gap-3 text-[10px] text-muted-foreground">
-              <span>Risk:</span>
-              <RiskChip points={Number(watchedRisk) || 0} />
+              {watchedBranches.map((b, i) => (
+                <div key={i} className="flex items-center gap-1">
+                  <span>{b.answer_option}:</span>
+                  <RiskChip points={Number(b.risk_points) || 0} />
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -317,7 +377,7 @@ export function QuestionEditorPanel({
                   <AlertDialogHeader>
                     <AlertDialogTitle>Delete question?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      {question?.question_id} will be permanently deleted. This cannot be undone.
+                      {question?.question_id} and all {question?.branches.length ?? 3} branches will be permanently deleted. This cannot be undone.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
