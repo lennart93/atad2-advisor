@@ -13,7 +13,7 @@ const AppLayout = () => {
 
   const isAdminRoute = location.pathname.startsWith("/admin");
 
-  const { hasAccess: isAdmin } = useAdminAccess();
+  const { hasAccess, isAdmin, isModerator } = useAdminAccess();
 
   const { data: userProfile } = useQuery({
     queryKey: ["user-profile", user?.id],
@@ -67,9 +67,11 @@ const AppLayout = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {isAdmin ? (
+            {hasAccess ? (
               <Button variant="secondary" asChild>
-                <Link to="/admin" state={{ from: location }}>Admin</Link>
+                <Link to="/admin" state={{ from: location }}>
+                  {isAdmin ? "Admin" : isModerator ? "Moderator" : "Admin"}
+                </Link>
               </Button>
             ) : null}
             {user && (
