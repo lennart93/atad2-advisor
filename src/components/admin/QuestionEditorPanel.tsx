@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { diffWordsWithSpace, type Change } from "diff";
 import { Trash2, Info, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -115,6 +116,27 @@ export function QuestionEditorPanel({
     term_explanation: "Term explanation",
   };
 
+  const renderDiff = (base: string, compared: string) => {
+    const parts: Change[] = diffWordsWithSpace(base, compared);
+    return parts.map((p, i) => {
+      if (p.added) {
+        return (
+          <span key={i} className="bg-green-100 text-green-900 rounded px-0.5">
+            {p.value}
+          </span>
+        );
+      }
+      if (p.removed) {
+        return (
+          <span key={i} className="bg-red-100 text-red-900 line-through rounded px-0.5">
+            {p.value}
+          </span>
+        );
+      }
+      return <span key={i}>{p.value}</span>;
+    });
+  };
+
   return (
     <Form {...form}>
       <form
@@ -135,31 +157,49 @@ export function QuestionEditorPanel({
               overwrite all branches with the form values.
             </div>
             <div className="space-y-2">
-              {question.conflicts.map((c) => (
-                <div key={c.field} className="bg-white border border-amber-200 rounded-md p-2">
-                  <div className="text-[10px] uppercase tracking-wide text-amber-900 font-semibold mb-1">
-                    {FIELD_LABELS[c.field] ?? c.field}
+              {question.conflicts.map((c) => {
+                const entries = Object.entries(c.byAnswer);
+                const baseEntry = entries.find(([, v]) => v !== null && v !== "") ?? entries[0];
+                const [baseAnswer, baseValue] = baseEntry;
+                return (
+                  <div key={c.field} className="bg-white border border-amber-200 rounded-md p-2">
+                    <div className="text-[10px] uppercase tracking-wide text-amber-900 font-semibold mb-1">
+                      {FIELD_LABELS[c.field] ?? c.field}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground mb-2">
+                      Base: <span className="font-semibold">{baseAnswer}</span> · other
+                      branches shown as diff
+                    </div>
+                    <div className="space-y-2">
+                      {entries.map(([ans, val]) => {
+                        const isEmpty = val === null || val === "";
+                        const isBase = ans === baseAnswer;
+                        return (
+                          <div key={ans} className="border-t border-amber-100 pt-1.5 first:border-t-0 first:pt-0">
+                            <div className="text-[11px] font-semibold text-foreground mb-0.5">
+                              {ans}
+                              {isBase && <span className="ml-1 text-[9px] text-muted-foreground font-normal">(base)</span>}
+                            </div>
+                            {isEmpty ? (
+                              <div className="text-[11px] text-muted-foreground italic">
+                                (empty)
+                              </div>
+                            ) : isBase ? (
+                              <div className="text-[11px] text-foreground whitespace-pre-wrap leading-snug">
+                                {val}
+                              </div>
+                            ) : (
+                              <div className="text-[11px] text-foreground whitespace-pre-wrap leading-snug">
+                                {renderDiff(baseValue ?? "", val ?? "")}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                  <div className="grid grid-cols-1 gap-1">
-                    {Object.entries(c.byAnswer).map(([ans, val]) => (
-                      <div key={ans} className="flex items-start gap-2 text-[11px]">
-                        <span className="font-semibold text-foreground w-[70px] shrink-0">
-                          {ans}
-                        </span>
-                        <span
-                          className={
-                            val === null || val === ""
-                              ? "text-muted-foreground italic"
-                              : "text-foreground"
-                          }
-                        >
-                          {val === null || val === "" ? "(empty)" : val}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
