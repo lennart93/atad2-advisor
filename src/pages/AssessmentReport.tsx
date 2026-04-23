@@ -3,6 +3,7 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { useCleanupDocuments } from "@/hooks/usePrefill";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/components/ui/sonner";
@@ -71,7 +72,8 @@ const AssessmentReport = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  
+  const cleanupDocs = useCleanupDocuments(sessionId ?? null);
+
   const [sessionData, setSessionData] = useState<SessionData | null>(null);
   const [answers, setAnswers] = useState<AnswerData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -378,11 +380,19 @@ const AssessmentReport = () => {
     try {
       console.log('Starting report generation for session:', sessionId);
       
+      // Delete uploaded source documents now that the report is being generated.
+      // The report uses answers + additional_context only — not the raw docs.
+      // If the n8n call subsequently fails, the user can retry without the docs.
+      const cleanupResult = await cleanupDocs.mutateAsync().catch(() => null);
+      if (cleanupResult?.deleted_count && cleanupResult.deleted_count > 0) {
+        toast.success("Source documents deleted", { description: "Generating your report…" });
+      }
+
       // Call n8n webhook - n8n will process and the Edge Function will save the complete report
       // Using AbortController with 10 minute timeout to allow for long-running AI processing
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10 * 60 * 1000); // 10 minutes
-      
+
       const { data: { session: authSession } } = await supabase.auth.getSession();
 
       const n8nResponse = await fetch(`${import.meta.env.VITE_N8N_WEBHOOK_BASE}/atad2/generate-report`, {
