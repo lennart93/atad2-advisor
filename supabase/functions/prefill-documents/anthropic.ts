@@ -32,8 +32,7 @@ export async function callOpus(opts: CallOptions): Promise<CallResult> {
         max_tokens: opts.maxTokens,
         temperature: opts.temperature,
         system: opts.systemPrompt,
-        // deno-lint-ignore no-explicit-any
-        messages: [{ role: "user", content: content as any }],
+        messages: [{ role: "user", content: content as unknown as Parameters<typeof client.messages.create>[0]["messages"][number]["content"] }],
       });
 
       const textBlock = response.content.find((b) => b.type === "text");
