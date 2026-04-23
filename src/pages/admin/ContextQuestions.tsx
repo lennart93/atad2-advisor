@@ -1,5 +1,5 @@
 import { useMemo, useState, useCallback } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Plus } from "lucide-react";
 import { Seo } from "@/components/Seo";
 import { Button } from "@/components/ui/button";
@@ -18,9 +18,16 @@ import { useAdminQuestionsList } from "@/components/admin/useAdminQuestions";
 import { AccessRequiredDialog } from "@/components/admin/AccessRequiredDialog";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 
+interface ContextGroup {
+  question_id: string;
+  triggers: { trigger: string; variants: AdminContextQuestion[] }[];
+  totalVariants: number;
+}
+
 const ContextQuestions = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id?: string }>();
+  const [searchParams] = useSearchParams();
   const { data, isLoading } = useAdminContextQuestionsList();
   const { data: parentQuestions } = useAdminQuestionsList();
   const upsert = useUpsertAdminContextQuestion();
@@ -40,11 +47,46 @@ const ContextQuestions = () => {
     );
   }, [data, search]);
 
+  const groups: ContextGroup[] = useMemo(() => {
+    const byQid = new Map<string, Map<string, AdminContextQuestion[]>>();
+    for (const row of filtered) {
+      if (!byQid.has(row.question_id)) byQid.set(row.question_id, new Map());
+      const byTrigger = byQid.get(row.question_id)!;
+      if (!byTrigger.has(row.answer_trigger)) byTrigger.set(row.answer_trigger, []);
+      byTrigger.get(row.answer_trigger)!.push(row);
+    }
+    const result: ContextGroup[] = [];
+    for (const [question_id, byTrigger] of byQid.entries()) {
+      const triggers = Array.from(byTrigger.entries())
+        .map(([trigger, variants]) => ({ trigger, variants }))
+        .sort((a, b) => a.trigger.localeCompare(b.trigger));
+      const totalVariants = triggers.reduce((n, t) => n + t.variants.length, 0);
+      result.push({ question_id, triggers, totalVariants });
+    }
+    return result.sort((a, b) =>
+      a.question_id.localeCompare(b.question_id, undefined, { numeric: true })
+    );
+  }, [filtered]);
+
   const openEdit = useCallback(
     (rid: string) => navigate(`/admin/context-questions/${rid}`),
     [navigate]
   );
   const closeEdit = useCallback(() => navigate("/admin/context-questions"), [navigate]);
+  const openNew = useCallback(
+    (prefill?: { qid?: string; trigger?: string }) => {
+      if (!canEdit) {
+        setAccessDialog(true);
+        return;
+      }
+      const params = new URLSearchParams();
+      if (prefill?.qid) params.set("qid", prefill.qid);
+      if (prefill?.trigger) params.set("trigger", prefill.trigger);
+      const qs = params.toString();
+      navigate(`/admin/context-questions/new${qs ? `?${qs}` : ""}`);
+    },
+    [canEdit, navigate]
+  );
 
   const isNewPath = id === "new";
   const editing: AdminContextQuestion | null =
@@ -52,6 +94,8 @@ const ContextQuestions = () => {
       ? (data ?? []).find((r) => r.id === id) ?? null
       : null;
   const panelOpen = Boolean(id);
+  const prefillQid = isNewPath ? searchParams.get("qid") ?? undefined : undefined;
+  const prefillTrigger = isNewPath ? searchParams.get("trigger") ?? undefined : undefined;
 
   return (
     <main>
@@ -71,7 +115,7 @@ const ContextQuestions = () => {
         actions={
           <Button
             size="sm"
-            onClick={() => canEdit ? navigate("/admin/context-questions/new") : setAccessDialog(true)}
+            onClick={() => openNew()}
             className={!canEdit ? "opacity-60 cursor-help" : ""}
           >
             <Plus className="mr-1 h-4 w-4" /> New context question
@@ -81,36 +125,77 @@ const ContextQuestions = () => {
 
       {isLoading ? (
         <div className="space-y-2">
-          <Skeleton className="h-12 w-full" />
-          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-24 w-full" />
         </div>
       ) : (
-        <div className="space-y-1.5">
-          {filtered.map((r) => (
-            <AdminCard
-              key={r.id}
-              interactive
-              onClick={() => openEdit(r.id)}
-              className={`flex items-center gap-3 py-2.5 ${
-                id === r.id ? "ring-2 ring-[#67e8f9] border-[#67e8f9]" : ""
-              }`}
+        <div className="space-y-3">
+          {groups.map((g) => (
+            <div
+              key={g.question_id}
+              className="rounded-[12px] border border-[#ececec] bg-white"
             >
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-semibold text-[#0891b2]">
-                    {r.question_id}
+              <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-[#f1f1f1]">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-[12px] font-bold text-[#0891b2]">
+                    Q{g.question_id}
                   </span>
-                  <span className="text-[10px] rounded bg-muted px-1.5 py-0.5">
-                    on: {r.answer_trigger}
+                  <span className="text-[10px] text-muted-foreground">
+                    {g.totalVariants} variant{g.totalVariants === 1 ? "" : "s"}
                   </span>
                 </div>
-                <div className="text-[12px] text-muted-foreground truncate mt-0.5">
-                  {r.context_question}
-                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className={`h-7 text-[11px] ${!canEdit ? "opacity-60 cursor-help" : ""}`}
+                  onClick={() => openNew({ qid: g.question_id })}
+                >
+                  <Plus className="mr-1 h-3 w-3" /> Add variant
+                </Button>
               </div>
-            </AdminCard>
+
+              <div className="p-2 space-y-2">
+                {g.triggers.map((t) => (
+                  <div key={t.trigger} className="space-y-1">
+                    <div className="flex items-center justify-between gap-2 px-1">
+                      <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                        on: <span className="font-semibold text-foreground">{t.trigger}</span>
+                        <span className="ml-1 text-muted-foreground">
+                          ({t.variants.length})
+                        </span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => openNew({ qid: g.question_id, trigger: t.trigger })}
+                        className={`text-[10px] text-[#0891b2] hover:underline ${
+                          !canEdit ? "opacity-60 cursor-help" : ""
+                        }`}
+                      >
+                        + Add "{t.trigger}" variant
+                      </button>
+                    </div>
+                    <div className="space-y-1">
+                      {t.variants.map((r) => (
+                        <AdminCard
+                          key={r.id}
+                          interactive
+                          onClick={() => openEdit(r.id)}
+                          className={`flex items-center gap-3 py-2 ${
+                            id === r.id ? "ring-2 ring-[#67e8f9] border-[#67e8f9]" : ""
+                          }`}
+                        >
+                          <div className="text-[12px] text-foreground min-w-0 flex-1">
+                            {r.context_question}
+                          </div>
+                        </AdminCard>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           ))}
-          {filtered.length === 0 && (
+          {groups.length === 0 && (
             <div className="text-center text-muted-foreground py-8">
               No context questions found.
             </div>
@@ -127,6 +212,8 @@ const ContextQuestions = () => {
         {panelOpen && (
           <ContextQuestionEditorPanel
             question={editing}
+            prefillQuestionId={prefillQid}
+            prefillAnswerTrigger={prefillTrigger}
             parentQuestionIds={(parentQuestions ?? []).map((p) => p.question_id)}
             canEdit={canEdit}
             onRequestAccess={() => setAccessDialog(true)}

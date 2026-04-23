@@ -191,6 +191,8 @@ const SessionDetail = () => {
         </TabsContent>
       </Tabs>
 
+      <PrefillSection sessionId={session.session_id} />
+
       <AccessRequiredDialog
         open={accessDialog}
         onOpenChange={setAccessDialog}
@@ -199,6 +201,56 @@ const SessionDetail = () => {
     </main>
   );
 };
+
+function PrefillSection({ sessionId }: { sessionId: string }) {
+  const { data: docs } = useQuery({
+    queryKey: ["admin-session-docs", sessionId],
+    queryFn: async () => {
+      const { data } = await supabase.from("atad2_session_documents").select("*").eq("session_id", sessionId);
+      return data ?? [];
+    },
+  });
+  const { data: prefills } = useQuery({
+    queryKey: ["admin-session-prefills", sessionId],
+    queryFn: async () => {
+      const { data } = await supabase.from("atad2_question_prefills").select("*").eq("session_id", sessionId);
+      return data ?? [];
+    },
+  });
+  const { data: job } = useQuery({
+    queryKey: ["admin-session-job", sessionId],
+    queryFn: async () => {
+      const { data } = await supabase.from("atad2_prefill_jobs").select("*").eq("session_id", sessionId).maybeSingle();
+      return data;
+    },
+  });
+
+  if (!job && (docs?.length ?? 0) === 0 && (prefills?.length ?? 0) === 0) return null;
+
+  return (
+    <section className="mt-6">
+      <h2 className="text-lg font-semibold mb-2">Document Pre-Fill</h2>
+      <div className="space-y-2 text-sm">
+        <div>Job status: {job?.status ?? "—"}</div>
+        <div>Documents: {(docs ?? []).length}</div>
+        <div>Suggestions: {(prefills ?? []).length}</div>
+        {(prefills ?? []).length > 0 && (
+          <details>
+            <summary className="cursor-pointer">Show suggestions</summary>
+            <div className="space-y-1 mt-2">
+              {prefills?.map((p) => (
+                <div key={p.id} className="border rounded p-2 text-xs">
+                  <div><strong>Q{p.question_id}</strong> · {p.user_action}</div>
+                  <div>{p.suggested_toelichting}</div>
+                </div>
+              ))}
+            </div>
+          </details>
+        )}
+      </div>
+    </section>
+  );
+}
 
 function InfoCell({ label, value }: { label: string; value: string }) {
   return (
