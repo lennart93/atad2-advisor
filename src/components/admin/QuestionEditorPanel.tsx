@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Trash2, Info } from "lucide-react";
+import { Trash2, Info, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -107,12 +107,63 @@ export function QuestionEditorPanel({
   const watchedBranches = form.watch("branches");
   const previewMaxRisk = Math.max(0, ...watchedBranches.map((b) => Number(b.risk_points) || 0));
 
+  const FIELD_LABELS: Record<string, string> = {
+    question: "Question text",
+    question_title: "Title",
+    question_explanation: "Info panel",
+    difficult_term: "Difficult term",
+    term_explanation: "Term explanation",
+  };
+
   return (
     <Form {...form}>
       <form
         className="space-y-5"
         onSubmit={form.handleSubmit(async (v) => { await onSave(v); })}
       >
+        {question && question.outOfSync && question.conflicts.length > 0 && (
+          <div className="border border-amber-300 bg-amber-50 rounded-lg p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <AlertTriangle className="h-4 w-4 text-amber-700" />
+              <div className="text-[13px] font-semibold text-amber-900">
+                Branches out of sync
+              </div>
+            </div>
+            <div className="text-[11px] text-amber-800 mb-3">
+              The {question.branches.length} rows for this question hold different values
+              on the fields below. The form shows the first non-empty value. Saving will
+              overwrite all branches with the form values.
+            </div>
+            <div className="space-y-2">
+              {question.conflicts.map((c) => (
+                <div key={c.field} className="bg-white border border-amber-200 rounded-md p-2">
+                  <div className="text-[10px] uppercase tracking-wide text-amber-900 font-semibold mb-1">
+                    {FIELD_LABELS[c.field] ?? c.field}
+                  </div>
+                  <div className="grid grid-cols-1 gap-1">
+                    {Object.entries(c.byAnswer).map(([ans, val]) => (
+                      <div key={ans} className="flex items-start gap-2 text-[11px]">
+                        <span className="font-semibold text-foreground w-[70px] shrink-0">
+                          {ans}
+                        </span>
+                        <span
+                          className={
+                            val === null || val === ""
+                              ? "text-muted-foreground italic"
+                              : "text-foreground"
+                          }
+                        >
+                          {val === null || val === "" ? "(empty)" : val}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="space-y-3">
           <FormField control={form.control} name="question_id" render={({ field }) => (
             <FormItem>

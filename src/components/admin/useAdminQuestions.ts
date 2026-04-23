@@ -24,6 +24,19 @@ export interface Branch {
   next_question_id: string | null;
 }
 
+export type SharedFieldKey =
+  | "question"
+  | "question_title"
+  | "question_explanation"
+  | "difficult_term"
+  | "term_explanation";
+
+export interface FieldConflict {
+  field: SharedFieldKey;
+  /** per-branch value, keyed by answer_option */
+  byAnswer: Record<string, string | null>;
+}
+
 export interface GroupedQuestion {
   question_id: string;
   question_title: string | null;
@@ -34,6 +47,8 @@ export interface GroupedQuestion {
   branches: Branch[];
   /** true when shared fields differ across rows for this question_id — data-integrity warning */
   outOfSync: boolean;
+  /** per-field list of conflicting values across branches (only fields with a real conflict) */
+  conflicts: FieldConflict[];
 }
 
 const DEFAULT_ANSWER_ORDER = ["Yes", "No", "Unknown"];
@@ -49,6 +64,29 @@ function sortBranches(branches: Branch[]): Branch[] {
   });
 }
 
+/**
+ * Pick the "best" shared value across branches:
+ *   - if all distinct non-empty values agree → return that value
+ *   - if only some branches have a value → return the first non-empty (null/"" treated as missing)
+ *   - if multiple different non-empty values exist → conflict, return first; caller flags `outOfSync`
+ */
+function resolveShared<K extends keyof AdminQuestion>(
+  rows: AdminQuestion[],
+  key: K
+): { value: AdminQuestion[K]; conflict: boolean } {
+  const nonEmpty = rows
+    .map((r) => r[key])
+    .filter((v) => v !== null && v !== undefined && v !== "");
+  if (nonEmpty.length === 0) {
+    return { value: rows[0][key], conflict: false };
+  }
+  const distinct = Array.from(new Set(nonEmpty.map((v) => String(v))));
+  return {
+    value: nonEmpty[0],
+    conflict: distinct.length > 1,
+  };
+}
+
 export function groupByQuestionId(rows: AdminQuestion[]): GroupedQuestion[] {
   const map = new Map<string, AdminQuestion[]>();
   rows.forEach((r) => {
@@ -60,22 +98,35 @@ export function groupByQuestionId(rows: AdminQuestion[]): GroupedQuestion[] {
   return Array.from(map.entries())
     .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
     .map(([question_id, group]) => {
-      const first = group[0];
-      const outOfSync = group.some(
-        (r) =>
-          r.question !== first.question ||
-          r.question_title !== first.question_title ||
-          r.question_explanation !== first.question_explanation ||
-          r.difficult_term !== first.difficult_term ||
-          r.term_explanation !== first.term_explanation
-      );
+      const question = resolveShared(group, "question");
+      const title = resolveShared(group, "question_title");
+      const explanation = resolveShared(group, "question_explanation");
+      const difficult = resolveShared(group, "difficult_term");
+      const termExpl = resolveShared(group, "term_explanation");
+
+      const conflictSpec: { key: SharedFieldKey; hit: boolean }[] = [
+        { key: "question", hit: question.conflict },
+        { key: "question_title", hit: title.conflict },
+        { key: "question_explanation", hit: explanation.conflict },
+        { key: "difficult_term", hit: difficult.conflict },
+        { key: "term_explanation", hit: termExpl.conflict },
+      ];
+      const conflicts: FieldConflict[] = conflictSpec
+        .filter((c) => c.hit)
+        .map((c) => ({
+          field: c.key,
+          byAnswer: Object.fromEntries(
+            group.map((r) => [r.answer_option, (r[c.key] as string | null) ?? null])
+          ),
+        }));
+
       return {
         question_id,
-        question_title: first.question_title,
-        question: first.question,
-        difficult_term: first.difficult_term,
-        term_explanation: first.term_explanation,
-        question_explanation: first.question_explanation,
+        question: (question.value as string) ?? "",
+        question_title: (title.value as string | null) ?? null,
+        question_explanation: (explanation.value as string | null) ?? null,
+        difficult_term: (difficult.value as string | null) ?? null,
+        term_explanation: (termExpl.value as string | null) ?? null,
         branches: sortBranches(
           group.map((r) => ({
             id: r.id,
@@ -84,7 +135,8 @@ export function groupByQuestionId(rows: AdminQuestion[]): GroupedQuestion[] {
             next_question_id: r.next_question_id,
           }))
         ),
-        outOfSync,
+        outOfSync: conflicts.length > 0,
+        conflicts,
       };
     });
 }
