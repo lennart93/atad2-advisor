@@ -27,6 +27,8 @@ import { QuestionExplanationInline } from "@/components/QuestionExplanationInlin
 import { Textarea } from "@/components/ui/textarea";
 import { ContextSkeleton, ContextEmptyState, ContextErrorState } from "@/components/ContextPanelStates";
 import { ContextPanelFallback } from "@/components/ContextPanelFallback";
+import { SuggestionCard } from "@/components/prefill/SuggestionCard";
+import { useQuestionPrefill, usePrefillJob } from "@/hooks/usePrefill";
 import { seededIndex } from "@/utils/random";
 
 interface Question {
@@ -344,6 +346,12 @@ const Assessment = () => {
   useEffect(() => {
     loadQuestions();
   }, []);
+
+  // Pre-fill suggestions for the current question + overall job status
+  const { data: currentPrefill } = useQuestionPrefill(sessionId || null, currentQuestion?.question_id ?? null);
+  const { data: prefillJob } = usePrefillJob(sessionId || null);
+  const isWaitingForPrefill =
+    prefillJob?.status === "stage2_running" && !currentPrefill && !!prefillJob?.locked_at;
 
   // Resume path: /assessment?session=<id> returns here from /assessment/upload.
   // Load the existing session, its answers, and jump into the question flow.
@@ -1777,7 +1785,8 @@ const Assessment = () => {
         
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           <div className="lg:col-span-1">
-            <AssessmentSidebar 
+            <AssessmentSidebar
+              sessionId={sessionId || null}
               answers={answers}
               questionHistory={questionFlow.map(entry => ({
                 question: {
@@ -1933,7 +1942,26 @@ const Assessment = () => {
                                   <span>Explanation</span>
                                 </div>
                               </div>
-                              
+
+                              {currentPrefill && currentQuestion && (
+                                <SuggestionCard
+                                  prefill={currentPrefill}
+                                  currentToelichting={contextValue ?? ""}
+                                  onCommit={(next) => updateExplanation(next)}
+                                />
+                              )}
+                              {isWaitingForPrefill && (
+                                <div className="rounded-md border bg-muted p-3 text-sm text-muted-foreground mb-3 flex items-center gap-2">
+                                  <span className="inline-block h-3 w-3 rounded-full bg-primary animate-pulse" />
+                                  Analyzing your documents for this question… (usually ~30 seconds)
+                                </div>
+                              )}
+                              {prefillJob?.status === "failed" && !currentPrefill && (
+                                <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm mb-3">
+                                  Couldn't generate suggestions — continue without them.
+                                </div>
+                              )}
+
                               <Textarea
                                 key={`explanation-${sessionId}-${qId}-${selectedAnswerId}`}
                                 value={contextValue}
@@ -1998,21 +2026,21 @@ const Assessment = () => {
                     
                     {/* Show Next button only when auto-advance is disabled and navigating */}
                     {!autoAdvance && navigationIndex !== -1 && navigationIndex < questionFlow.length - 1 && (
-                      <Button 
+                      <Button
                         onClick={goToNextQuestion}
-                        disabled={loading || isTransitioning}
+                        disabled={loading || isTransitioning || isWaitingForPrefill}
                         variant="outline"
                         className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         Next →
                       </Button>
                     )}
-                    
+
                     {/* Show Continue button when at last answered question and auto-advance is disabled */}
                     {!autoAdvance && navigationIndex === questionFlow.length - 1 && (
-                      <Button 
+                      <Button
                         onClick={continueToNextUnanswered}
-                        disabled={loading || isTransitioning}
+                        disabled={loading || isTransitioning || isWaitingForPrefill}
                         variant="outline"
                         className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
