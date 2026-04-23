@@ -1,5 +1,5 @@
 import { useState, useEffect, useLayoutEffect, useCallback, useMemo, memo, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useContextPanel } from "@/hooks/useContextPanel";
 import { usePanelController } from "@/hooks/usePanelController";
@@ -167,6 +167,9 @@ const Assessment = () => {
     return selectedOption?.requires_explanation !== true;
   }
   
+  const [searchParams] = useSearchParams();
+  const resumeSessionId = searchParams.get("session");
+
   const [sessionInfo, setSessionInfo] = useState<SessionInfo>({
     taxpayer_name: "",
     tax_year: "",
@@ -342,6 +345,49 @@ const Assessment = () => {
     loadQuestions();
   }, []);
 
+  // Resume path: /assessment?session=<id> returns here from /assessment/upload.
+  // Load the existing session, its answers, and jump into the question flow.
+  useEffect(() => {
+    if (!resumeSessionId || sessionStarted || questions.length === 0 || !user) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data: session, error: sessErr } = await supabase
+          .from("atad2_sessions")
+          .select("session_id, user_id, taxpayer_name, fiscal_year, is_custom_period, period_start_date, period_end_date")
+          .eq("session_id", resumeSessionId)
+          .maybeSingle();
+        if (sessErr || !session || session.user_id !== user.id) return;
+        if (cancelled) return;
+
+        setSessionInfo({
+          taxpayer_name: session.taxpayer_name ?? "",
+          tax_year: session.fiscal_year ?? "",
+          tax_year_not_equals_calendar: session.is_custom_period ?? false,
+          period_start_date: session.period_start_date ?? undefined,
+          period_end_date: session.period_end_date ?? undefined,
+        } as SessionInfo);
+
+        store.clearAllSessions();
+        setSessionId(session.session_id);
+        setSessionStarted(true);
+        setSelectedAnswer("");
+        setQuestionFlow([]);
+        setNavigationIndex(-1);
+
+        const firstQuestion = questions.find(q => q.question_id === "1" && q.answer_option === "Yes");
+        if (firstQuestion) {
+          setCurrentQuestion(firstQuestion);
+          setPendingQuestion(firstQuestion);
+        }
+      } catch (e) {
+        console.error("Resume session failed", e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [resumeSessionId, sessionStarted, questions.length, user, store]);
+
   // Context state is now managed by useContextPanel hook
 
   const loadQuestions = async () => {
@@ -425,20 +471,9 @@ const Assessment = () => {
       store.clearAllSessions();
       console.log('🧹 Cleared all sessions from store before starting new session');
 
-      setSessionId(newSessionId);
-      setSessionStarted(true);
-      
-      // Reset UI state for new session
-      setSelectedAnswer("");
-      setQuestionFlow([]);
-      setNavigationIndex(-1);
-      
-      // Load first question
-      const firstQuestion = questions.find(q => q.question_id === "1" && q.answer_option === "Yes");
-      if (firstQuestion) {
-        setCurrentQuestion(firstQuestion);
-        setPendingQuestion(firstQuestion); // Set as pending initially
-      }
+      // Route to the document upload step. User can skip to /assessment?session=... from there.
+      navigate(`/assessment/upload?session=${newSessionId}`);
+      return;
     } catch (error) {
       console.error('Error starting session:', error);
       toast.error("Error", {
