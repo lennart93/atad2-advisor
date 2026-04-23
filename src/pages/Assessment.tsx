@@ -644,8 +644,8 @@ const Assessment = () => {
         description: "Please confirm your preliminary assessment outcome.",
       });
       
-      // Navigate to confirmation page instead of dashboard
-      navigate(`/assessment-confirmation/${sessionId}`);
+      // Route via the pre-fill review step. It auto-skips to confirmation if no pre-fills exist.
+      navigate(`/assessment/review-prefills/${sessionId}`);
     } catch (error) {
       console.error('Error completing assessment:', error);
       toast.error("Error", {
