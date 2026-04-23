@@ -95,6 +95,195 @@ export type Database = {
         }
         Relationships: []
       }
+      // Manually added — no Supabase CLI available for self-hosted VM (feat/document-prefill)
+      atad2_document_summaries: {
+        Row: {
+          created_at: string
+          document_id: string
+          id: string
+          prompt_version: number
+          summary_json: Json
+          token_usage: Json
+        }
+        Insert: {
+          created_at?: string
+          document_id: string
+          id?: string
+          prompt_version: number
+          summary_json: Json
+          token_usage: Json
+        }
+        Update: {
+          created_at?: string
+          document_id?: string
+          id?: string
+          prompt_version?: number
+          summary_json?: Json
+          token_usage?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "atad2_document_summaries_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: true
+            referencedRelation: "atad2_session_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      atad2_prefill_jobs: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          failed_at: string | null
+          id: string
+          locked_at: string | null
+          session_id: string
+          stage1_finished_at: string | null
+          stage1_prompt_version: number | null
+          stage2_finished_at: string | null
+          stage2_prompt_version: number | null
+          started_at: string | null
+          status: string
+          total_token_usage: Json | null
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          failed_at?: string | null
+          id?: string
+          locked_at?: string | null
+          session_id: string
+          stage1_finished_at?: string | null
+          stage1_prompt_version?: number | null
+          stage2_finished_at?: string | null
+          stage2_prompt_version?: number | null
+          started_at?: string | null
+          status?: string
+          total_token_usage?: Json | null
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          failed_at?: string | null
+          id?: string
+          locked_at?: string | null
+          session_id?: string
+          stage1_finished_at?: string | null
+          stage1_prompt_version?: number | null
+          stage2_finished_at?: string | null
+          stage2_prompt_version?: number | null
+          started_at?: string | null
+          status?: string
+          total_token_usage?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "atad2_prefill_jobs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "atad2_sessions"
+            referencedColumns: ["session_id"]
+          },
+        ]
+      }
+      atad2_prompts: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          key: string
+          max_tokens: number
+          model: string
+          notes: string | null
+          system_prompt: string
+          temperature: number
+          user_prompt_template: string | null
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          key: string
+          max_tokens: number
+          model?: string
+          notes?: string | null
+          system_prompt: string
+          temperature?: number
+          user_prompt_template?: string | null
+          version: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          key?: string
+          max_tokens?: number
+          model?: string
+          notes?: string | null
+          system_prompt?: string
+          temperature?: number
+          user_prompt_template?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "atad2_prompts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      atad2_question_prefills: {
+        Row: {
+          actioned_at: string | null
+          created_at: string
+          id: string
+          question_id: string
+          session_id: string
+          source_refs: Json
+          suggested_toelichting: string
+          user_action: string
+          verbatim_quote: string | null
+        }
+        Insert: {
+          actioned_at?: string | null
+          created_at?: string
+          id?: string
+          question_id: string
+          session_id: string
+          source_refs: Json
+          suggested_toelichting: string
+          user_action?: string
+          verbatim_quote?: string | null
+        }
+        Update: {
+          actioned_at?: string | null
+          created_at?: string
+          id?: string
+          question_id?: string
+          session_id?: string
+          source_refs?: Json
+          suggested_toelichting?: string
+          user_action?: string
+          verbatim_quote?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "atad2_question_prefills_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "atad2_sessions"
+            referencedColumns: ["session_id"]
+          },
+        ]
+      }
       atad2_questions: {
         Row: {
           answer_option: string
@@ -142,6 +331,56 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      atad2_session_documents: {
+        Row: {
+          category: string
+          created_at: string
+          doc_label: string
+          error_message: string | null
+          filename: string
+          id: string
+          mime_type: string
+          session_id: string
+          size_bytes: number
+          status: string
+          storage_path: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          doc_label: string
+          error_message?: string | null
+          filename: string
+          id?: string
+          mime_type: string
+          session_id: string
+          size_bytes: number
+          status?: string
+          storage_path: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          doc_label?: string
+          error_message?: string | null
+          filename?: string
+          id?: string
+          mime_type?: string
+          session_id?: string
+          size_bytes?: number
+          status?: string
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "atad2_session_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "atad2_sessions"
+            referencedColumns: ["session_id"]
+          },
+        ]
       }
       atad2_reports: {
         Row: {
