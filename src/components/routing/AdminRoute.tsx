@@ -1,7 +1,5 @@
 import { ReactNode } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+import { useAdminAccess } from "@/hooks/useAdminAccess";
 import NotAuthorized from "@/pages/NotAuthorized";
 
 interface AdminRouteProps {
@@ -9,35 +7,17 @@ interface AdminRouteProps {
 }
 
 const AdminRoute = ({ children }: AdminRouteProps) => {
-  const { user, loading } = useAuth();
+  const { hasAccess, isLoading } = useAdminAccess();
 
-  const { data: isAdmin, isLoading } = useQuery({
-    queryKey: ["is-admin", user?.id],
-    queryFn: async () => {
-      if (!user) return false;
-      const { data, error } = await supabase.rpc("has_role", {
-        _user_id: user.id,
-        _role: "admin",
-      });
-      if (error) {
-        console.error("has_role rpc error", error);
-        return false;
-      }
-      return Boolean(data);
-    },
-    enabled: !!user,
-    staleTime: 60_000,
-  });
-
-  if (loading || isLoading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-muted-foreground">Bezig met laden...</p>
+        <p className="text-muted-foreground">Loading...</p>
       </div>
     );
   }
 
-  if (!isAdmin) {
+  if (!hasAccess) {
     return <NotAuthorized />;
   }
 

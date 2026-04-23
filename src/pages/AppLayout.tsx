@@ -1,36 +1,19 @@
-import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Link, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { AnimatedLogo } from "@/components/AnimatedLogo";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useAdminAccess } from "@/hooks/useAdminAccess";
 
 const AppLayout = () => {
-  const { user, loading, signOut } = useAuth();
+  const { user, signOut } = useAuth();
   const location = useLocation();
-  const navigate = useNavigate();
 
   const isAdminRoute = location.pathname.startsWith("/admin");
-  const from = (location.state as any)?.from?.pathname || "/";
 
-  const { data: isAdmin } = useQuery({
-    queryKey: ["is-admin", user?.id],
-    queryFn: async () => {
-      if (!user) return false;
-      const { data, error } = await supabase.rpc("has_role", {
-        _user_id: user.id,
-        _role: "admin",
-      });
-      if (error) {
-        console.error("has_role rpc error", error);
-        return false;
-      }
-      return Boolean(data);
-    },
-    enabled: !!user,
-    staleTime: 60_000,
-  });
+  const { hasAccess: isAdmin } = useAdminAccess();
 
   const { data: userProfile } = useQuery({
     queryKey: ["user-profile", user?.id],
@@ -51,11 +34,6 @@ const AppLayout = () => {
     staleTime: 60_000,
   });
 
-  const handleBack = () => {
-    if (window.history.length > 1) navigate(-1);
-    else navigate(from);
-  };
-
   const handleSignOut = async () => {
     await signOut();
   };
@@ -70,13 +48,13 @@ const AppLayout = () => {
                 <TooltipTrigger asChild>
                   <Link
                     to="/"
-                    aria-label="Naar dashboard"
+                    aria-label="To dashboard"
                     className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   >
                     <AnimatedLogo size={36} />
                   </Link>
                 </TooltipTrigger>
-                <TooltipContent side="bottom">Naar dashboard</TooltipContent>
+                <TooltipContent side="bottom">To dashboard</TooltipContent>
               </Tooltip>
             </TooltipProvider>
             <div>
@@ -89,11 +67,6 @@ const AppLayout = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {isAdminRoute && (
-              <Button variant="outline" size="sm" onClick={handleBack} aria-label="Back">
-                Terug
-              </Button>
-            )}
             {isAdmin ? (
               <Button variant="secondary" asChild>
                 <Link to="/admin" state={{ from: location }}>Admin</Link>

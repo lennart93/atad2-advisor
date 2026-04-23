@@ -4,11 +4,11 @@ import { Seo } from "@/components/Seo";
 const NotAuthorized = () => {
   return (
     <main className="min-h-[60vh] flex items-center justify-center">
-      <Seo title="Niet geautoriseerd" description="Je hebt geen toegang tot deze pagina" canonical="/not-authorized" />
+      <Seo title="Not authorized" description="You don't have access to this page" canonical="/not-authorized" />
       <div className="text-center">
-        <h1 className="text-xl font-semibold">Geen toegang</h1>
-        <p className="text-muted-foreground mt-2">Je account heeft geen rechten om dit onderdeel te bekijken.</p>
-        <Link to="/" className="inline-block mt-4 underline text-primary">Terug naar start</Link>
+        <h1 className="text-xl font-semibold">Access denied</h1>
+        <p className="text-muted-foreground mt-2">Your account doesn't have permission to view this section.</p>
+        <Link to="/" className="inline-block mt-4 underline text-primary">Back to home</Link>
       </div>
     </main>
   );

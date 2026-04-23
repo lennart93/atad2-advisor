@@ -31,7 +31,11 @@ const AdminDashboard = lazy(() => import("./pages/admin/Dashboard"));
 const AdminQuestions = lazy(() => import("./pages/admin/Questions"));
 const AdminContextQuestions = lazy(() => import("./pages/admin/ContextQuestions"));
 const AdminSessions = lazy(() => import("./pages/admin/Sessions"));
+const AdminSessionDetail = lazy(() => import("./pages/admin/SessionDetail"));
 const AdminUsers = lazy(() => import("./pages/admin/Users"));
+const AdminAuditLogs = lazy(() => import("./pages/admin/AuditLogs"));
+const AdminAnalytics = lazy(() => import("./pages/admin/Analytics"));
+const AdminDataExplorer = lazy(() => import("./pages/admin/DataExplorer"));
 const NotAuthorized = lazy(() => import("./pages/NotAuthorized"));
 
 const queryClient = new QueryClient();
@@ -72,9 +76,15 @@ const App = () => (
                       <Route index element={<AdminDashboard />} />
                       <Route path="dashboard" element={<AdminDashboard />} />
                       <Route path="questions" element={<AdminQuestions />} />
+                      <Route path="questions/:id" element={<AdminQuestions />} />
                       <Route path="context-questions" element={<AdminContextQuestions />} />
+                      <Route path="context-questions/:id" element={<AdminContextQuestions />} />
                       <Route path="sessions" element={<AdminSessions />} />
+                      <Route path="sessions/:id" element={<AdminSessionDetail />} />
                       <Route path="users" element={<AdminUsers />} />
+                      <Route path="audit" element={<AdminAuditLogs />} />
+                      <Route path="analytics" element={<AdminAnalytics />} />
+                      <Route path="explorer" element={<AdminDataExplorer />} />
                       <Route path="*" element={<NotAuthorized />} />
                     </Route>
 
