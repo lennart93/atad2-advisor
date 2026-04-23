@@ -3,7 +3,7 @@ import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { diffWordsWithSpace, type Change } from "diff";
-import { Trash2, Info, AlertTriangle } from "lucide-react";
+import { Trash2, Info, AlertTriangle, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -161,24 +161,69 @@ export function QuestionEditorPanel({
                 const entries = Object.entries(c.byAnswer);
                 const baseEntry = entries.find(([, v]) => v !== null && v !== "") ?? entries[0];
                 const [baseAnswer, baseValue] = baseEntry;
+                const currentFormValue = form.watch(c.field);
                 return (
                   <div key={c.field} className="bg-white border border-amber-200 rounded-md p-2">
-                    <div className="text-[10px] uppercase tracking-wide text-amber-900 font-semibold mb-1">
-                      {FIELD_LABELS[c.field] ?? c.field}
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="text-[10px] uppercase tracking-wide text-amber-900 font-semibold">
+                        {FIELD_LABELS[c.field] ?? c.field}
+                      </div>
+                      {canEdit && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            form.setValue(c.field, "" as never, { shouldDirty: true })
+                          }
+                          className="text-[10px] text-amber-900 underline hover:no-underline"
+                        >
+                          Clear field
+                        </button>
+                      )}
                     </div>
                     <div className="text-[10px] text-muted-foreground mb-2">
-                      Base: <span className="font-semibold">{baseAnswer}</span> · other
-                      branches shown as diff
+                      Pick which branch value should apply to all {question.branches.length} rows.
+                      Base: <span className="font-semibold">{baseAnswer}</span>, others shown as diff.
                     </div>
                     <div className="space-y-2">
                       {entries.map(([ans, val]) => {
                         const isEmpty = val === null || val === "";
                         const isBase = ans === baseAnswer;
+                        const isSelected =
+                          (currentFormValue ?? "") === (val ?? "") && !isEmpty;
                         return (
-                          <div key={ans} className="border-t border-amber-100 pt-1.5 first:border-t-0 first:pt-0">
-                            <div className="text-[11px] font-semibold text-foreground mb-0.5">
-                              {ans}
-                              {isBase && <span className="ml-1 text-[9px] text-muted-foreground font-normal">(base)</span>}
+                          <div
+                            key={ans}
+                            className={`border-t border-amber-100 pt-1.5 first:border-t-0 first:pt-0 ${
+                              isSelected ? "bg-green-50/60 -mx-2 px-2 rounded" : ""
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-0.5">
+                              <div className="text-[11px] font-semibold text-foreground">
+                                {ans}
+                                {isBase && (
+                                  <span className="ml-1 text-[9px] text-muted-foreground font-normal">
+                                    (base)
+                                  </span>
+                                )}
+                                {isSelected && (
+                                  <span className="ml-2 inline-flex items-center gap-0.5 text-[9px] text-green-700 font-semibold">
+                                    <Check className="h-2.5 w-2.5" /> currently in form
+                                  </span>
+                                )}
+                              </div>
+                              {canEdit && !isEmpty && !isSelected && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    form.setValue(c.field, (val ?? "") as never, {
+                                      shouldDirty: true,
+                                    })
+                                  }
+                                  className="text-[10px] text-amber-900 underline hover:no-underline"
+                                >
+                                  Use this
+                                </button>
+                              )}
                             </div>
                             {isEmpty ? (
                               <div className="text-[11px] text-muted-foreground italic">
