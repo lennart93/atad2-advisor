@@ -119,26 +119,6 @@ export function QuestionEditorPanel({
             </FormItem>
           )} />
 
-          <FormField control={form.control} name="question_explanation" render={({ field }) => (
-            <FormItem>
-              <FormLabel className="text-[10px] uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
-                <Info className="h-3 w-3" />
-                Info panel (shown to users as collapsible explanation)
-              </FormLabel>
-              <FormControl>
-                <Textarea
-                  {...field}
-                  value={field.value ?? ""}
-                  disabled={!canEdit}
-                  rows={6}
-                  placeholder="Guidance shown to users when they click the info icon next to this question. Supports bullets (lines starting with -) and blank-line paragraphs."
-                  className="bg-blue-50/50 border-blue-100 focus-visible:ring-blue-200"
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )} />
-
           <FormField control={form.control} name="answer_option" render={({ field }) => (
             <FormItem>
               <FormLabel className="text-[10px] uppercase tracking-wide text-muted-foreground">
@@ -211,6 +191,33 @@ export function QuestionEditorPanel({
               </FormLabel>
               <FormControl>
                 <Textarea {...field} value={field.value ?? ""} disabled={!canEdit} rows={2} placeholder="Optional" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )} />
+        </div>
+
+        <div className="border border-blue-200 bg-blue-50/40 rounded-lg p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Info className="h-4 w-4 text-blue-700" />
+            <div>
+              <div className="text-[13px] font-semibold text-blue-900">User info panel</div>
+              <div className="text-[11px] text-blue-700/80">
+                Collapsible explanation shown to users beneath the question
+              </div>
+            </div>
+          </div>
+          <FormField control={form.control} name="question_explanation" render={({ field }) => (
+            <FormItem>
+              <FormControl>
+                <Textarea
+                  {...field}
+                  value={field.value ?? ""}
+                  disabled={!canEdit}
+                  rows={10}
+                  placeholder="Guidance shown to users when they click the info icon. Supports bullet lists (lines starting with -) and blank-line paragraphs."
+                  className="bg-white border-blue-200 focus-visible:ring-blue-300 font-normal"
+                />
               </FormControl>
               <FormMessage />
             </FormItem>

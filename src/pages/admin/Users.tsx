@@ -91,13 +91,10 @@ const Users = () => {
     }
     const oldRole = currentRole(user.user_id, roles);
     if (oldRole === newRole) return;
-    const securitySensitive = oldRole === "admin" || newRole === "admin";
-    if (securitySensitive) {
-      setConfirmChange({ user, newRole, oldRole });
-    } else {
-      updateRole.mutate({ userId: user.user_id, role: newRole });
-    }
+    setConfirmChange({ user, newRole, oldRole });
   };
+
+  const roleLabel = (r: UserRole) => (r === "admin" ? "Admin" : r === "moderator" ? "Moderator" : "User");
 
   const isLoading = loadingProfiles || loadingRoles;
 
@@ -183,13 +180,11 @@ const Users = () => {
           {confirmChange && (
             <>
               <AlertDialogHeader>
-                <AlertDialogTitle>
-                  {confirmChange.newRole === "admin" ? "Grant admin rights" : "Revoke admin rights"}
-                </AlertDialogTitle>
+                <AlertDialogTitle>Change role</AlertDialogTitle>
                 <AlertDialogDescription>
-                  {confirmChange.newRole === "admin"
-                    ? `Grant admin rights to ${confirmChange.user.email}? This action is logged.`
-                    : `Revoke admin rights from ${confirmChange.user.email}? This action is logged.`}
+                  Change role for <strong>{confirmChange.user.email}</strong> from{" "}
+                  <strong>{roleLabel(confirmChange.oldRole)}</strong> to{" "}
+                  <strong>{roleLabel(confirmChange.newRole)}</strong>? This action is logged.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -203,7 +198,7 @@ const Users = () => {
                     setConfirmChange(null);
                   }}
                 >
-                  {confirmChange.newRole === "admin" ? "Grant" : "Revoke"}
+                  Confirm
                 </AlertDialogAction>
               </AlertDialogFooter>
             </>
