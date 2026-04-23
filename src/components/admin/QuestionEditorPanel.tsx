@@ -1,12 +1,15 @@
 import { useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { diffWordsWithSpace, type Change } from "diff";
-import { Trash2, Info, AlertTriangle, Check } from "lucide-react";
+import { Trash2, Info, AlertTriangle, Check, Plus, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from "@/components/ui/form";
@@ -83,6 +86,20 @@ export function QuestionEditorPanel({
   });
 
   const currentId = question?.question_id;
+  const navigate = useNavigate();
+
+  const { data: linkedContextQuestions = [] } = useQuery({
+    queryKey: ["context-questions-for", currentId],
+    enabled: !!currentId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("atad2_context_questions")
+        .select("id, answer_trigger, context_question")
+        .eq("question_id", currentId!);
+      if (error) return [];
+      return data ?? [];
+    },
+  });
 
   const incomingRefs = useMemo(
     () =>
@@ -409,6 +426,54 @@ export function QuestionEditorPanel({
             })}
           </div>
         </div>
+
+        {/* Context variants linked to this question */}
+        {!isNew && currentId && (
+          <div className="border border-[#ececec] rounded-lg p-4">
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <div className="text-[13px] font-semibold">Context variants</div>
+                <div className="text-[11px] text-muted-foreground">
+                  Follow-up questions shown to users based on their answer.
+                </div>
+              </div>
+              {canEdit && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => navigate(`/admin/context-questions/new?qid=${currentId}`)}
+                >
+                  <Plus className="mr-1 h-3.5 w-3.5" /> Add context variant
+                </Button>
+              )}
+            </div>
+            {linkedContextQuestions.length === 0 ? (
+              <div className="text-[11px] text-muted-foreground italic py-1">
+                No context variants yet.
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                {linkedContextQuestions.map((cq) => (
+                  <button
+                    key={cq.id}
+                    type="button"
+                    onClick={() => navigate(`/admin/context-questions/${cq.id}`)}
+                    className="w-full text-left border border-[#ececec] rounded-md px-3 py-2 hover:bg-muted/40 flex items-start gap-2"
+                  >
+                    <span className="text-[10px] rounded bg-muted px-1.5 py-0.5 shrink-0 mt-0.5">
+                      on: {cq.answer_trigger}
+                    </span>
+                    <span className="text-[12px] text-foreground flex-1 line-clamp-2">
+                      {cq.context_question}
+                    </span>
+                    <ExternalLink className="h-3 w-3 text-muted-foreground shrink-0 mt-1" />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Flow context */}
         <div className="border-t border-[#ececec] pt-4">

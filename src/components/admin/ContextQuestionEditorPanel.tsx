@@ -1,9 +1,8 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Trash2 } from "lucide-react";
+import { Trash2, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
@@ -23,6 +22,8 @@ export type ContextQuestionFormValues = z.infer<typeof Schema>;
 
 export interface ContextQuestionEditorPanelProps {
   question: AdminContextQuestion | null;
+  prefillQuestionId?: string;
+  prefillAnswerTrigger?: string;
   parentQuestionIds: string[];
   canEdit: boolean;
   onSave: (values: ContextQuestionFormValues) => Promise<void>;
@@ -32,21 +33,25 @@ export interface ContextQuestionEditorPanelProps {
 }
 
 export function ContextQuestionEditorPanel({
-  question, parentQuestionIds, canEdit, onSave, onDelete, onCancel, onRequestAccess,
+  question, prefillQuestionId, prefillAnswerTrigger, parentQuestionIds, canEdit, onSave, onDelete, onCancel, onRequestAccess,
 }: ContextQuestionEditorPanelProps) {
   const isNew = question === null;
 
   const form = useForm<ContextQuestionFormValues>({
     resolver: zodResolver(Schema),
     defaultValues: {
-      question_id: question?.question_id ?? "",
+      question_id: question?.question_id ?? prefillQuestionId ?? "",
       context_question: question?.context_question ?? "",
-      answer_trigger: question?.answer_trigger ?? "",
+      answer_trigger: question?.answer_trigger ?? prefillAnswerTrigger ?? "",
     },
   });
 
   const watchedQ = form.watch("context_question");
   const watchedTrigger = form.watch("answer_trigger");
+
+  const lockedQuestionId = Boolean(prefillQuestionId) && isNew;
+  const activeQuestionId = form.watch("question_id");
+  const TRIGGER_OPTIONS = ["Yes", "No", "Unknown"];
 
   return (
     <Form {...form}>
@@ -55,26 +60,36 @@ export function ContextQuestionEditorPanel({
         onSubmit={form.handleSubmit(async (v) => { await onSave(v); })}
       >
         <div className="space-y-3">
-          <FormField control={form.control} name="question_id" render={({ field }) => (
-            <FormItem>
-              <FormLabel className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                Linked to question
-              </FormLabel>
-              <FormControl>
-                <select
-                  {...field}
-                  disabled={!canEdit}
-                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <option value="">— pick question —</option>
-                  {parentQuestionIds.map((id) => (
-                    <option key={id} value={id}>{id}</option>
-                  ))}
-                </select>
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )} />
+          {lockedQuestionId ? (
+            <div className="rounded-md border border-[#ececec] bg-muted/40 px-3 py-2 flex items-center gap-2">
+              <Link2 className="h-3.5 w-3.5 text-muted-foreground" />
+              <div className="text-[11px]">
+                <span className="text-muted-foreground">Linked to question</span>{" "}
+                <span className="font-mono font-semibold">{activeQuestionId}</span>
+              </div>
+            </div>
+          ) : (
+            <FormField control={form.control} name="question_id" render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                  Linked to question
+                </FormLabel>
+                <FormControl>
+                  <select
+                    {...field}
+                    disabled={!canEdit}
+                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <option value="">— pick question —</option>
+                    {parentQuestionIds.map((id) => (
+                      <option key={id} value={id}>{id}</option>
+                    ))}
+                  </select>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+          )}
 
           <FormField control={form.control} name="answer_trigger" render={({ field }) => (
             <FormItem>
@@ -82,7 +97,16 @@ export function ContextQuestionEditorPanel({
                 Trigger (on which answer?)
               </FormLabel>
               <FormControl>
-                <Input {...field} disabled={!canEdit} placeholder='e.g. "Yes" or "No"' />
+                <select
+                  {...field}
+                  disabled={!canEdit}
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <option value="">— pick trigger —</option>
+                  {TRIGGER_OPTIONS.map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
               </FormControl>
               <FormMessage />
             </FormItem>
