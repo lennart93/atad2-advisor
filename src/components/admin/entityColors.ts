@@ -24,8 +24,8 @@ export const ENTITY_COLORS: Record<EntityKey, { fg: string; bg: string; ring: st
 export type RiskLevel = "low" | "medium" | "high";
 
 export function getRiskLevel(points: number): RiskLevel {
-  if (points <= 1.0) return "low";
-  if (points <= 3.0) return "medium";
+  if (points <= 0) return "low";
+  if (points < 1.0) return "medium";
   return "high";
 }
 

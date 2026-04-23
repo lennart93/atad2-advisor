@@ -17,10 +17,12 @@ export function useAdminContextQuestionsList() {
       const { data, error } = await supabase
         .from("atad2_context_questions")
         .select("*")
-        .order("question_id", { ascending: true })
         .limit(2000);
       if (error) throw error;
-      return (data ?? []) as AdminContextQuestion[];
+      const rows = (data ?? []) as AdminContextQuestion[];
+      return rows.sort((a, b) =>
+        a.question_id.localeCompare(b.question_id, undefined, { numeric: true })
+      );
     },
     staleTime: 30_000,
   });
