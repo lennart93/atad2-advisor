@@ -51,7 +51,10 @@ interface SessionInfo {
   tax_year_not_equals_calendar: boolean;
   period_start_date?: string;
   period_end_date?: string;
+  wants_documents?: boolean;
 }
+
+const BEFORE_YOU_START_DISMISSED_KEY = "atad2_before_you_start_dismissed";
 
 interface QuestionTextProps {
   question: string;
@@ -175,8 +178,10 @@ const Assessment = () => {
   const [sessionInfo, setSessionInfo] = useState<SessionInfo>({
     taxpayer_name: "",
     tax_year: "",
-    tax_year_not_equals_calendar: false
+    tax_year_not_equals_calendar: false,
+    wants_documents: false,
   });
+  const [dontShowBeforeYouStartAgain, setDontShowBeforeYouStartAgain] = useState(false);
   const [sessionStarted, setSessionStarted] = useState(false);
   const [sessionId, setSessionId] = useState<string>("");
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
@@ -430,7 +435,11 @@ const Assessment = () => {
       return;
     }
 
-    // If validation passes, show the warning dialog
+    // If the user previously opted "Don't show again" → skip modal and start directly.
+    if (localStorage.getItem(BEFORE_YOU_START_DISMISSED_KEY) === "true") {
+      startSession();
+      return;
+    }
     setShowStartWarningDialog(true);
   };
 
@@ -479,8 +488,14 @@ const Assessment = () => {
       store.clearAllSessions();
       console.log('🧹 Cleared all sessions from store before starting new session');
 
-      // Route to the document upload step. User can skip to /assessment?session=... from there.
-      navigate(`/assessment/upload?session=${newSessionId}`);
+      if (sessionInfo.wants_documents) {
+        // Route to the document upload step. User can skip to /assessment?session=... from there.
+        navigate(`/assessment/upload?session=${newSessionId}`);
+      } else {
+        // No documents wanted → go straight into the question flow.
+        // The resume-on-mount effect picks up the session via the query param.
+        navigate(`/assessment?session=${newSessionId}`);
+      }
       return;
     } catch (error) {
       console.error('Error starting session:', error);
@@ -1647,8 +1662,23 @@ const Assessment = () => {
                   )}
                 </div>
                 
-                <Button 
-                  disabled={loading} 
+                <div className="flex items-start space-x-3 pt-2 pb-1">
+                  <Checkbox
+                    id="wants_documents"
+                    checked={sessionInfo.wants_documents ?? false}
+                    onCheckedChange={(checked) =>
+                      setSessionInfo({ ...sessionInfo, wants_documents: checked === true })
+                    }
+                  />
+                  <label htmlFor="wants_documents" className="text-sm leading-relaxed cursor-pointer">
+                    <span className="font-medium">I want to upload supporting documents for additional context</span>
+                    <br />
+                    <span className="text-muted-foreground">Optional. The AI will extract relevant facts and pre-fill context on matching questions. You can skip this and type your own toelichting per question.</span>
+                  </label>
+                </div>
+
+                <Button
+                  disabled={loading}
                   className="w-full"
                   onClick={validateAndShowWarning}
                 >
@@ -1715,18 +1745,33 @@ const Assessment = () => {
               </div>
             </div>
             
+            <div className="flex items-start space-x-3 pt-1 border-t">
+              <Checkbox
+                id="dont_show_before_you_start"
+                checked={dontShowBeforeYouStartAgain}
+                onCheckedChange={(checked) => setDontShowBeforeYouStartAgain(checked === true)}
+              />
+              <label htmlFor="dont_show_before_you_start" className="text-sm text-muted-foreground cursor-pointer">
+                Don't show this again on this device
+              </label>
+            </div>
+
             <DialogFooter className="gap-2 sm:gap-0">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => {
                   setShowStartWarningDialog(false);
                   setConfirmations({ advisory: false, highLevel: false, factDriven: false });
+                  setDontShowBeforeYouStartAgain(false);
                 }}
               >
                 Cancel
               </Button>
-              <Button 
+              <Button
                 onClick={() => {
+                  if (dontShowBeforeYouStartAgain) {
+                    localStorage.setItem(BEFORE_YOU_START_DISMISSED_KEY, "true");
+                  }
                   setShowStartWarningDialog(false);
                   startSession();
                 }}
@@ -1959,6 +2004,11 @@ const Assessment = () => {
                               {prefillJob?.status === "failed" && !currentPrefill && (
                                 <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm mb-3">
                                   Couldn't generate suggestions — continue without them.
+                                </div>
+                              )}
+                              {prefillJob?.status === "completed" && !currentPrefill && (
+                                <div className="text-xs text-muted-foreground italic mb-3">
+                                  No relevant context found in your uploaded documents for this question.
                                 </div>
                               )}
 

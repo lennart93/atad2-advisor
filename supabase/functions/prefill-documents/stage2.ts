@@ -107,6 +107,29 @@ export async function runExtract(
     }
 
     const allowedDocIds = new Set(summaries.map((s) => s.document_id));
+    // Interpretive / hedging lead-ins that signal the model is summarizing
+    // rather than quoting facts. Suggestions starting with these are dropped
+    // as a safety net on top of the system-prompt rule.
+    const BAD_LEAD_INS = [
+      "based on",
+      "according to",
+      "from the document",
+      "from the documents",
+      "the document suggests",
+      "the documents suggest",
+      "the document indicates",
+      "the documents indicate",
+      "the document shows",
+      "the documents show",
+      "it appears that",
+      "it seems that",
+      "the document states",
+      "op basis van",
+      "volgens het document",
+      "het document suggereert",
+      "uit het document blijkt",
+      "blijkens het document",
+    ];
     const validPrefills: Stage2PrefillType[] = [];
     for (const p of parsed.prefills) {
       const badRef = p.source_refs.find((r) => !allowedDocIds.has(r.document_id));
@@ -115,6 +138,16 @@ export async function runExtract(
           level: "warn", event: "stage2_citation_drop",
           session_id: sessionId, question_id: p.question_id,
           reason: `document_id ${badRef.document_id} not in inputs`,
+        }));
+        continue;
+      }
+      const leadIn = p.suggested_toelichting.trim().toLowerCase();
+      const matchedBadLeadIn = BAD_LEAD_INS.find((phrase) => leadIn.startsWith(phrase));
+      if (matchedBadLeadIn) {
+        console.warn(JSON.stringify({
+          level: "warn", event: "stage2_suggestion_dropped",
+          session_id: sessionId, question_id: p.question_id,
+          reason: `interpretive lead-in: "${matchedBadLeadIn}"`,
         }));
         continue;
       }

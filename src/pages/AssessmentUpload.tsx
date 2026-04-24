@@ -23,12 +23,28 @@ export default function AssessmentUpload() {
   const allPendingCategorized = store.pendingFiles.every((p) => !!p.category);
   const allPendingUploaded = store.pendingFiles.every((p) => p.status === "uploaded" || p.status === "failed");
   const hasAtLeastOneUploaded = (docs?.length ?? 0) > 0;
+  // Wait for every server-side doc to reach a terminal Stage-1 state before
+  // enabling Start extraction. Otherwise the extract action throws
+  // "Documents still processing" and the user sees a confusing 500.
+  const allRemoteDocsTerminal = (docs ?? []).every(
+    (d) => d.status === "summarized" || d.status === "failed"
+  );
+  const anyRemoteSummarizing = (docs ?? []).some((d) => d.status === "summarizing");
 
   const canStart = !locked &&
     hasAtLeastOneUploaded &&
     allPendingCategorized &&
     allPendingUploaded &&
+    allRemoteDocsTerminal &&
     !startExtraction.isPending;
+
+  // Clear any leftover pending files from a previous session as soon as we
+  // mount for a new session. Remote docs are already session-scoped via
+  // React Query key, but pendingFiles is plain client state and leaks otherwise.
+  useEffect(() => {
+    store.reset();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId]);
 
   useEffect(() => {
     if (job?.status === "completed" && sessionStorage.getItem("atad2_upload_wait") === "1") {
@@ -60,6 +76,13 @@ export default function AssessmentUpload() {
 
       {locked && <ExtractionProgress sessionId={sessionId} />}
 
+      {!locked && hasAtLeastOneUploaded && (
+        <p className="text-xs text-muted-foreground">
+          Processing typically takes 10–30 seconds per document. Larger or image-heavy PDFs can take up to a minute.
+          {anyRemoteSummarizing && " Please wait for the spinner to finish before starting extraction."}
+        </p>
+      )}
+
       <div className="flex gap-3">
         {!locked ? (
           <>
@@ -67,7 +90,7 @@ export default function AssessmentUpload() {
               Skip — no documents
             </Button>
             <Button disabled={!canStart} onClick={() => startExtraction.mutate()}>
-              Start extraction
+              {anyRemoteSummarizing ? "Analyzing documents…" : "Start extraction"}
             </Button>
           </>
         ) : job?.status === "stage2_running" || job?.status === "stage1_running" ? (

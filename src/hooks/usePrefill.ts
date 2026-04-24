@@ -165,6 +165,53 @@ export function useUploadDocument(sessionId: string | null) {
   });
 }
 
+export function useUploadText(sessionId: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ text, category, label }: { text: string; category: string; label: string }) => {
+      if (!sessionId) throw new Error("No session id");
+      if (!text.trim()) throw new Error("Empty text");
+
+      const { data: authData } = await supabase.auth.getUser();
+      const userId = authData.user?.id;
+      if (!userId) throw new Error("Not authenticated");
+
+      const blob = new Blob([text], { type: "text/plain" });
+      const docId = crypto.randomUUID();
+      const storagePath = `${userId}/${sessionId}/${docId}.txt`;
+
+      const { error: upErr } = await supabase.storage
+        .from("session-documents")
+        .upload(storagePath, blob, { contentType: "text/plain" });
+      if (upErr) throw upErr;
+
+      const { data: inserted, error: insErr } = await supabase
+        .from("atad2_session_documents")
+        .insert({
+          id: docId,
+          session_id: sessionId,
+          filename: `${label}.txt`,
+          doc_label: label,
+          category,
+          storage_path: storagePath,
+          mime_type: "text/plain",
+          size_bytes: blob.size,
+        })
+        .select()
+        .single();
+      if (insErr) throw insErr;
+
+      invokePrefillFn({ action: "summarize", session_id: sessionId, document_id: docId })
+        .catch((e) => console.error("summarize failed", e));
+
+      return inserted;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["session-documents", sessionId] });
+    },
+  });
+}
+
 export function useStartExtraction(sessionId: string | null) {
   const qc = useQueryClient();
   return useMutation({
