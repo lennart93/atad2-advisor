@@ -11,25 +11,22 @@ export const DocumentCategory = z.enum([
   "other",
 ]);
 
-export const EntityType = z.enum([
-  "BV", "NV", "Cooperative", "LLC", "Ltd", "Inc", "Partnership",
-  "Branch", "PE", "Trust", "Foundation", "Individual", "Unknown",
-]);
-
-export const EntityRole = z.enum([
-  "taxpayer", "parent", "subsidiary", "counterparty",
-  "permanent_establishment", "other",
-]);
+// Previously strict enums were tripping Zod validation when the model emitted
+// reasonable variants ("individual" lowercase, "shareholder" as role, etc.).
+// The downstream Stage 2 prompt only uses these as hints, not as typed data,
+// so a plain string is sufficient and avoids brittle validation failures.
+export const EntityType = z.string();
+export const EntityRole = z.string();
 
 export const Stage1Output = z.object({
-  document_kind: DocumentCategory,
-  language: z.string(),
+  document_kind: DocumentCategory.or(z.string()),
+  language: z.string().default("unknown"),
   fiscal_periods: z.array(z.string()).default([]),
   entities: z.array(z.object({
     name: z.string(),
-    type: EntityType,
-    jurisdiction: z.string(),
-    role: EntityRole,
+    type: EntityType.optional().nullable(),
+    jurisdiction: z.string().nullable().optional(),
+    role: EntityRole.optional().nullable(),
     tax_residency: z.string().nullable().optional(),
     classification_notes: z.string().nullable().optional(),
   })).default([]),
