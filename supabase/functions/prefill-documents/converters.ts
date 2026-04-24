@@ -1,6 +1,7 @@
 import mammoth from "mammoth";
 import * as XLSX from "xlsx";
 import officeparser from "officeparser";
+import { extractText, getDocumentProxy } from "unpdf";
 
 export type AnthropicBlock =
   | { type: "text"; text: string }
@@ -31,7 +32,14 @@ export async function toAnthropicBlock(
   mimeType: string,
 ): Promise<AnthropicBlock> {
   if (mimeType === MIME.PDF) {
-    return { type: "document", source: { type: "base64", media_type: "application/pdf", data: toBase64(bytes) } };
+    // Extract text server-side instead of sending the raw PDF as a document
+    // block — Anthropic's native PDF processing is too slow for our edge-
+    // runtime wall-clock budget on larger PDFs. Layout/tables are lost,
+    // but for fact extraction that's an acceptable tradeoff.
+    const pdf = await getDocumentProxy(bytes);
+    const { text } = await extractText(pdf, { mergePages: true });
+    const combined = Array.isArray(text) ? text.join("\n\n") : (text as string);
+    return { type: "text", text: combined };
   }
   if (mimeType === MIME.PNG || mimeType === MIME.JPG || mimeType === MIME.WEBP) {
     return { type: "image", source: { type: "base64", media_type: mimeType, data: toBase64(bytes) } };
