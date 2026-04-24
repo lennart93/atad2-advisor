@@ -106,13 +106,36 @@ export function useUploadDocument(sessionId: string | null) {
       const userId = authData.user?.id;
       if (!userId) throw new Error("Not authenticated");
 
-      const ext = pending.file.name.split(".").pop() ?? "bin";
+      // For PDFs, parse text in the browser and upload the extracted text
+      // instead of the raw binary. The Supabase edge-runtime's wall-clock
+      // limit (60s in v1.70.3) kills server-side PDF parsing + Anthropic
+      // calls on large docs. Browser V8/WASM handles it in ~2-5s.
+      let uploadBlob: Blob = pending.file;
+      let uploadMime = pending.file.type;
+      let uploadSize = pending.file.size;
+      let uploadExt = pending.file.name.split(".").pop() ?? "bin";
+
+      if (pending.file.type === "application/pdf") {
+        const { getDocumentProxy, extractText } = await import("unpdf");
+        const buffer = await pending.file.arrayBuffer();
+        const pdf = await getDocumentProxy(new Uint8Array(buffer));
+        const { text } = await extractText(pdf, { mergePages: true });
+        const combined = Array.isArray(text) ? text.join("\n\n") : text;
+        if (!combined || combined.trim().length === 0) {
+          throw new Error("Could not extract any text from this PDF. It may be scanned or image-only.");
+        }
+        uploadBlob = new Blob([combined], { type: "text/plain" });
+        uploadMime = "text/plain";
+        uploadSize = uploadBlob.size;
+        uploadExt = "txt";
+      }
+
       const docId = crypto.randomUUID();
-      const storagePath = `${userId}/${sessionId}/${docId}.${ext}`;
+      const storagePath = `${userId}/${sessionId}/${docId}.${uploadExt}`;
 
       const { error: upErr } = await supabase.storage
         .from("session-documents")
-        .upload(storagePath, pending.file, { contentType: pending.file.type });
+        .upload(storagePath, uploadBlob, { contentType: uploadMime });
       if (upErr) throw upErr;
 
       const { data: inserted, error: insErr } = await supabase
@@ -124,8 +147,8 @@ export function useUploadDocument(sessionId: string | null) {
           doc_label: pending.docLabel,
           category: pending.category,
           storage_path: storagePath,
-          mime_type: pending.file.type,
-          size_bytes: pending.file.size,
+          mime_type: uploadMime,
+          size_bytes: uploadSize,
         })
         .select()
         .single();
