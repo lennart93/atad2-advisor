@@ -53,7 +53,6 @@ interface SessionInfo {
   tax_year_not_equals_calendar: boolean;
   period_start_date?: string;
   period_end_date?: string;
-  wants_documents?: boolean;
 }
 
 
@@ -181,9 +180,10 @@ const Assessment = () => {
     taxpayer_name: "",
     tax_year: "",
     tax_year_not_equals_calendar: false,
-    wants_documents: false,
   });
   const [dontShowBeforeYouStartAgain, setDontShowBeforeYouStartAgain] = useState(false);
+  const [showBackgroundInfoDialog, setShowBackgroundInfoDialog] = useState(false);
+  const [pendingNewSessionId, setPendingNewSessionId] = useState<string | null>(null);
   const [sessionStarted, setSessionStarted] = useState(false);
   const [sessionId, setSessionId] = useState<string>("");
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
@@ -490,14 +490,10 @@ const Assessment = () => {
       store.clearAllSessions();
       console.log('🧹 Cleared all sessions from store before starting new session');
 
-      if (sessionInfo.wants_documents) {
-        // Route to the document upload step. User can skip to /assessment?session=... from there.
-        navigate(`/assessment/upload?session=${newSessionId}`);
-      } else {
-        // No documents wanted → go straight into the question flow.
-        // The resume-on-mount effect picks up the session via the query param.
-        navigate(`/assessment?session=${newSessionId}`);
-      }
+      // Session created — ask the user whether they'd like to share background
+      // info before entering the question flow. The dialog handles routing.
+      setPendingNewSessionId(newSessionId);
+      setShowBackgroundInfoDialog(true);
       return;
     } catch (error) {
       console.error('Error starting session:', error);
@@ -1520,19 +1516,18 @@ const Assessment = () => {
                   </Select>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <OptionToggle
-                    id="tax-year-different"
-                    label="The tax year does not equal the calendar year"
-                    description="Only fill in a start and end date if the tax year deviates from the calendar year."
-                    checked={sessionInfo.tax_year_not_equals_calendar}
-                    onCheckedChange={(checked) => setSessionInfo({
-                      ...sessionInfo,
-                      tax_year_not_equals_calendar: checked,
-                      period_start_date: checked ? sessionInfo.period_start_date : undefined,
-                      period_end_date: checked ? sessionInfo.period_end_date : undefined,
-                    })}
-                  >
+                <OptionToggle
+                  id="tax-year-different"
+                  label="The tax year does not equal the calendar year"
+                  description="Only fill in a start and end date if the tax year deviates from the calendar year."
+                  checked={sessionInfo.tax_year_not_equals_calendar}
+                  onCheckedChange={(checked) => setSessionInfo({
+                    ...sessionInfo,
+                    tax_year_not_equals_calendar: checked,
+                    period_start_date: checked ? sessionInfo.period_start_date : undefined,
+                    period_end_date: checked ? sessionInfo.period_end_date : undefined,
+                  })}
+                >
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <div className="flex items-center">
@@ -1644,18 +1639,7 @@ const Assessment = () => {
                         </Popover>
                       </div>
                     </div>
-                  </OptionToggle>
-
-                  <OptionToggle
-                    id="wants_documents"
-                    label="I want to upload supporting documents"
-                    description="Optional. The AI will extract relevant facts and pre-fill context on matching questions. You can skip this and type your own toelichting per question."
-                    checked={sessionInfo.wants_documents ?? false}
-                    onCheckedChange={(checked) =>
-                      setSessionInfo({ ...sessionInfo, wants_documents: checked })
-                    }
-                  />
-                </div>
+                </OptionToggle>
 
                 <Button
                   disabled={loading}
@@ -1758,6 +1742,42 @@ const Assessment = () => {
                 disabled={!confirmations.advisory || !confirmations.highLevel || !confirmations.factDriven}
               >
                 Start assessment
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Background-info chooser shown after session is created. */}
+        <Dialog open={showBackgroundInfoDialog} onOpenChange={setShowBackgroundInfoDialog}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Before we start</DialogTitle>
+              <DialogDescription>
+                Would you like to share background information that can help with context for the report?
+                This is optional. You can paste text or upload financials, tax returns, or prior memos.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowBackgroundInfoDialog(false);
+                  if (pendingNewSessionId) {
+                    navigate(`/assessment?session=${pendingNewSessionId}`);
+                  }
+                }}
+              >
+                No, continue
+              </Button>
+              <Button
+                onClick={() => {
+                  setShowBackgroundInfoDialog(false);
+                  if (pendingNewSessionId) {
+                    navigate(`/assessment/upload?session=${pendingNewSessionId}`);
+                  }
+                }}
+              >
+                Yes, share background info
               </Button>
             </DialogFooter>
           </DialogContent>

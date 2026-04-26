@@ -136,6 +136,27 @@ export function useUploadDocument(sessionId: string | null) {
           console.error("[upload-document] step failed: pdf-extract", err);
           throw err;
         }
+      } else if (
+        pending.file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      ) {
+        try {
+          console.log("[upload-document] step: extract DOCX text in browser");
+          const mammothMod = await import("mammoth");
+          const buffer = await pending.file.arrayBuffer();
+          const result = await mammothMod.extractRawText({ arrayBuffer: buffer });
+          const combined = (result.value ?? "").trim();
+          if (!combined) {
+            throw new Error("Could not extract any text from this Word document.");
+          }
+          uploadBlob = new Blob([combined], { type: "text/plain" });
+          uploadMime = "text/plain";
+          uploadSize = uploadBlob.size;
+          uploadExt = "txt";
+          console.log("[upload-document] step: extracted DOCX text", { chars: combined.length });
+        } catch (err) {
+          console.error("[upload-document] step failed: docx-extract", err);
+          throw err;
+        }
       }
 
       const docId = crypto.randomUUID();
