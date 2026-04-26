@@ -1,5 +1,5 @@
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { DocumentUploader } from "@/components/prefill/DocumentUploader";
@@ -23,17 +23,39 @@ export default function AssessmentUpload() {
   const allPendingCategorized = store.pendingFiles.every((p) => !!p.category);
   const allPendingUploaded = store.pendingFiles.every((p) => p.status === "uploaded" || p.status === "failed");
   const hasAtLeastOneUploaded = (docs?.length ?? 0) > 0;
-  const anyRemoteSummarizing = (docs ?? []).some((d) => d.status === "summarizing");
+  const anyRemoteSummarizing = (docs ?? []).some((d) => d.status === "summarizing" || d.status === "uploaded");
+  const allRemoteDocsTerminal = (docs ?? []).every(
+    (d) => d.status === "summarized" || d.status === "failed"
+  );
 
-  // Don't gate on remote Stage-1 status: server-side summarize can take
-  // 10-30s and previously failed silently sometimes. Let the user click
-  // when their client-side uploads are done; the extract action handles
-  // the rest, and we surface remote progress in the labels below.
+  // Smart Start: if Stage 1 is still processing, defer the click and
+  // auto-fire extract once all docs reach a terminal state. Avoids the
+  // "click → 500 'still processing' → retry" loop.
+  const [pendingStartExtraction, setPendingStartExtraction] = useState(false);
+
   const canStart = !locked &&
     hasAtLeastOneUploaded &&
     allPendingCategorized &&
     allPendingUploaded &&
-    !startExtraction.isPending;
+    !startExtraction.isPending &&
+    !pendingStartExtraction;
+
+  const handleStartClick = () => {
+    if (allRemoteDocsTerminal && hasAtLeastOneUploaded) {
+      startExtraction.mutate();
+    } else {
+      setPendingStartExtraction(true);
+    }
+  };
+
+  // When the user clicked Start before Stage 1 finished, fire extract as
+  // soon as every server-side doc has settled.
+  useEffect(() => {
+    if (pendingStartExtraction && allRemoteDocsTerminal && hasAtLeastOneUploaded) {
+      setPendingStartExtraction(false);
+      startExtraction.mutate();
+    }
+  }, [pendingStartExtraction, allRemoteDocsTerminal, hasAtLeastOneUploaded, startExtraction]);
 
   // Clear any leftover pending files from a previous session as soon as we
   // mount for a new session. Remote docs are already session-scoped via
@@ -86,8 +108,12 @@ export default function AssessmentUpload() {
             <Button variant="outline" onClick={() => navigate(`/assessment?session=${sessionId}`)}>
               Skip — no documents
             </Button>
-            <Button disabled={!canStart} onClick={() => startExtraction.mutate()}>
-              {anyRemoteSummarizing ? "Analyzing documents…" : "Start extraction"}
+            <Button disabled={!canStart && !pendingStartExtraction} onClick={handleStartClick}>
+              {pendingStartExtraction
+                ? "Waiting for analysis to finish…"
+                : anyRemoteSummarizing
+                  ? "Start extraction (analysis still running…)"
+                  : "Start extraction"}
             </Button>
           </>
         ) : job?.status === "stage2_running" || job?.status === "stage1_running" ? (
