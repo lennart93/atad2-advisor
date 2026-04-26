@@ -20,7 +20,7 @@ interface Props {
 
 export function OptionToggle({ id, label, description, checked, onCheckedChange, disabled, children }: Props) {
   return (
-    <div className="border border-border rounded-lg p-4 min-h-[72px] space-y-3 h-full">
+    <div className="border border-border rounded-lg p-4 space-y-4">
       <TooltipProvider>
         <div className="flex items-center space-x-2">
           <Checkbox

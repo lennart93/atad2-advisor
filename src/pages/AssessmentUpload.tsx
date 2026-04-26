@@ -23,19 +23,16 @@ export default function AssessmentUpload() {
   const allPendingCategorized = store.pendingFiles.every((p) => !!p.category);
   const allPendingUploaded = store.pendingFiles.every((p) => p.status === "uploaded" || p.status === "failed");
   const hasAtLeastOneUploaded = (docs?.length ?? 0) > 0;
-  // Wait for every server-side doc to reach a terminal Stage-1 state before
-  // enabling Start extraction. Otherwise the extract action throws
-  // "Documents still processing" and the user sees a confusing 500.
-  const allRemoteDocsTerminal = (docs ?? []).every(
-    (d) => d.status === "summarized" || d.status === "failed"
-  );
   const anyRemoteSummarizing = (docs ?? []).some((d) => d.status === "summarizing");
 
+  // Don't gate on remote Stage-1 status: server-side summarize can take
+  // 10-30s and previously failed silently sometimes. Let the user click
+  // when their client-side uploads are done; the extract action handles
+  // the rest, and we surface remote progress in the labels below.
   const canStart = !locked &&
     hasAtLeastOneUploaded &&
     allPendingCategorized &&
     allPendingUploaded &&
-    allRemoteDocsTerminal &&
     !startExtraction.isPending;
 
   // Clear any leftover pending files from a previous session as soon as we
