@@ -1,5 +1,7 @@
 import { useState, useEffect, useLayoutEffect, useCallback, useMemo, memo, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useUserPreference } from "@/hooks/useUserPreference";
+import { OptionToggle } from "@/components/prefill/OptionToggle";
 import { useAuth } from "@/hooks/useAuth";
 import { useContextPanel } from "@/hooks/useContextPanel";
 import { usePanelController } from "@/hooks/usePanelController";
@@ -54,7 +56,6 @@ interface SessionInfo {
   wants_documents?: boolean;
 }
 
-const BEFORE_YOU_START_DISMISSED_KEY = "atad2_before_you_start_dismissed";
 
 interface QuestionTextProps {
   question: string;
@@ -166,7 +167,8 @@ const QuestionText = ({ question, difficultTerm, termExplanation, exampleText }:
 const Assessment = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  
+  const userPref = useUserPreference();
+
   // Helper function to check if auto-advance is allowed
   function canAutoAdvance(selectedOption?: { requires_explanation?: boolean }) {
     return selectedOption?.requires_explanation !== true;
@@ -436,7 +438,7 @@ const Assessment = () => {
     }
 
     // If the user previously opted "Don't show again" → skip modal and start directly.
-    if (localStorage.getItem(BEFORE_YOU_START_DISMISSED_KEY) === "true") {
+    if (userPref.dismissed) {
       startSession();
       return;
     }
@@ -1518,36 +1520,19 @@ const Assessment = () => {
                   </Select>
                 </div>
 
-                <div className="border border-border rounded-lg p-4 space-y-4">
-                  <TooltipProvider>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox 
-                        id="tax-year-different"
-                        checked={sessionInfo.tax_year_not_equals_calendar}
-                        onCheckedChange={(checked) => setSessionInfo({
-                          ...sessionInfo, 
-                          tax_year_not_equals_calendar: !!checked,
-                          period_start_date: checked ? sessionInfo.period_start_date : undefined,
-                          period_end_date: checked ? sessionInfo.period_end_date : undefined
-                        })}
-                      />
-                      <Label htmlFor="tax-year-different" className="cursor-pointer">
-                        The tax year does not equal the calendar year
-                      </Label>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <InfoIcon className="h-4 w-4 text-muted-foreground cursor-default ml-1" />
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p className="max-w-xs">
-                            Only fill in a start and end date if the tax year deviates from the calendar year.
-                          </p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </div>
-                  </TooltipProvider>
-
-                  {sessionInfo.tax_year_not_equals_calendar && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <OptionToggle
+                    id="tax-year-different"
+                    label="The tax year does not equal the calendar year"
+                    description="Only fill in a start and end date if the tax year deviates from the calendar year."
+                    checked={sessionInfo.tax_year_not_equals_calendar}
+                    onCheckedChange={(checked) => setSessionInfo({
+                      ...sessionInfo,
+                      tax_year_not_equals_calendar: checked,
+                      period_start_date: checked ? sessionInfo.period_start_date : undefined,
+                      period_end_date: checked ? sessionInfo.period_end_date : undefined,
+                    })}
+                  >
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <div className="flex items-center">
@@ -1659,22 +1644,17 @@ const Assessment = () => {
                         </Popover>
                       </div>
                     </div>
-                  )}
-                </div>
-                
-                <div className="flex items-start space-x-3 pt-2 pb-1">
-                  <Checkbox
+                  </OptionToggle>
+
+                  <OptionToggle
                     id="wants_documents"
+                    label="I want to upload supporting documents"
+                    description="Optional. The AI will extract relevant facts and pre-fill context on matching questions. You can skip this and type your own toelichting per question."
                     checked={sessionInfo.wants_documents ?? false}
                     onCheckedChange={(checked) =>
-                      setSessionInfo({ ...sessionInfo, wants_documents: checked === true })
+                      setSessionInfo({ ...sessionInfo, wants_documents: checked })
                     }
                   />
-                  <label htmlFor="wants_documents" className="text-sm leading-relaxed cursor-pointer">
-                    <span className="font-medium">I want to upload supporting documents for additional context</span>
-                    <br />
-                    <span className="text-muted-foreground">Optional. The AI will extract relevant facts and pre-fill context on matching questions. You can skip this and type your own toelichting per question.</span>
-                  </label>
                 </div>
 
                 <Button
@@ -1752,7 +1732,7 @@ const Assessment = () => {
                 onCheckedChange={(checked) => setDontShowBeforeYouStartAgain(checked === true)}
               />
               <label htmlFor="dont_show_before_you_start" className="text-sm text-muted-foreground cursor-pointer">
-                Don't show this again on this device
+                Don't show this again
               </label>
             </div>
 
@@ -1768,9 +1748,9 @@ const Assessment = () => {
                 Cancel
               </Button>
               <Button
-                onClick={() => {
+                onClick={async () => {
                   if (dontShowBeforeYouStartAgain) {
-                    localStorage.setItem(BEFORE_YOU_START_DISMISSED_KEY, "true");
+                    await userPref.dismiss().catch((e) => console.error("dismiss failed", e));
                   }
                   setShowStartWarningDialog(false);
                   startSession();

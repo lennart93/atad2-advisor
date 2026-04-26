@@ -101,6 +101,7 @@ export function useUploadDocument(sessionId: string | null) {
     mutationFn: async ({ pending }: { pending: PendingFile }) => {
       if (!sessionId) throw new Error("No session id");
       if (!pending.category) throw new Error("Category required");
+      console.log("[upload-document] start", { name: pending.file.name, mime: pending.file.type, size: pending.file.size });
 
       const { data: authData } = await supabase.auth.getUser();
       const userId = authData.user?.id;
@@ -116,46 +117,70 @@ export function useUploadDocument(sessionId: string | null) {
       let uploadExt = pending.file.name.split(".").pop() ?? "bin";
 
       if (pending.file.type === "application/pdf") {
-        const { getDocumentProxy, extractText } = await import("unpdf");
-        const buffer = await pending.file.arrayBuffer();
-        const pdf = await getDocumentProxy(new Uint8Array(buffer));
-        const { text } = await extractText(pdf, { mergePages: true });
-        const combined = Array.isArray(text) ? text.join("\n\n") : text;
-        if (!combined || combined.trim().length === 0) {
-          throw new Error("Could not extract any text from this PDF. It may be scanned or image-only.");
+        try {
+          console.log("[upload-document] step: extract PDF text in browser");
+          const { getDocumentProxy, extractText } = await import("unpdf");
+          const buffer = await pending.file.arrayBuffer();
+          const pdf = await getDocumentProxy(new Uint8Array(buffer));
+          const { text } = await extractText(pdf, { mergePages: true });
+          const combined = Array.isArray(text) ? text.join("\n\n") : text;
+          if (!combined || combined.trim().length === 0) {
+            throw new Error("Could not extract any text from this PDF. It may be scanned or image-only.");
+          }
+          uploadBlob = new Blob([combined], { type: "text/plain" });
+          uploadMime = "text/plain";
+          uploadSize = uploadBlob.size;
+          uploadExt = "txt";
+          console.log("[upload-document] step: extracted PDF text", { chars: combined.length });
+        } catch (err) {
+          console.error("[upload-document] step failed: pdf-extract", err);
+          throw err;
         }
-        uploadBlob = new Blob([combined], { type: "text/plain" });
-        uploadMime = "text/plain";
-        uploadSize = uploadBlob.size;
-        uploadExt = "txt";
       }
 
       const docId = crypto.randomUUID();
       const storagePath = `${userId}/${sessionId}/${docId}.${uploadExt}`;
 
-      const { error: upErr } = await supabase.storage
-        .from("session-documents")
-        .upload(storagePath, uploadBlob, { contentType: uploadMime });
-      if (upErr) throw upErr;
+      try {
+        console.log("[upload-document] step: storage upload", { docId, storagePath, mime: uploadMime, size: uploadSize });
+        const { error: upErr } = await supabase.storage
+          .from("session-documents")
+          .upload(storagePath, uploadBlob, { contentType: uploadMime });
+        if (upErr) throw upErr;
+      } catch (err) {
+        console.error("[upload-document] step failed: storage-upload", err);
+        throw err;
+      }
 
-      const { data: inserted, error: insErr } = await supabase
-        .from("atad2_session_documents")
-        .insert({
-          id: docId,
-          session_id: sessionId,
-          filename: pending.file.name,
-          doc_label: pending.docLabel,
-          category: pending.category,
-          storage_path: storagePath,
-          mime_type: uploadMime,
-          size_bytes: uploadSize,
-        })
-        .select()
-        .single();
-      if (insErr) throw insErr;
+      let inserted;
+      try {
+        console.log("[upload-document] step: db insert");
+        const { data, error: insErr } = await supabase
+          .from("atad2_session_documents")
+          .insert({
+            id: docId,
+            session_id: sessionId,
+            filename: pending.file.name,
+            doc_label: pending.docLabel,
+            category: pending.category,
+            storage_path: storagePath,
+            mime_type: uploadMime,
+            size_bytes: uploadSize,
+          })
+          .select()
+          .single();
+        if (insErr) throw insErr;
+        inserted = data;
+      } catch (err) {
+        console.error("[upload-document] step failed: db-insert", err);
+        throw err;
+      }
 
+      console.log("[upload-document] step: invoke summarize (fire-and-forget)", { docId });
       invokePrefillFn({ action: "summarize", session_id: sessionId, document_id: docId })
-        .catch((e) => console.error("summarize failed", e));
+        .catch((e) => console.error("[upload-document] summarize failed", e));
+
+      console.log("[upload-document] done", { docId });
 
       return inserted;
     },
@@ -171,6 +196,7 @@ export function useUploadText(sessionId: string | null) {
     mutationFn: async ({ text, category, label }: { text: string; category: string; label: string }) => {
       if (!sessionId) throw new Error("No session id");
       if (!text.trim()) throw new Error("Empty text");
+      console.log("[upload-text] start", { chars: text.length, category });
 
       const { data: authData } = await supabase.auth.getUser();
       const userId = authData.user?.id;
@@ -180,11 +206,18 @@ export function useUploadText(sessionId: string | null) {
       const docId = crypto.randomUUID();
       const storagePath = `${userId}/${sessionId}/${docId}.txt`;
 
-      const { error: upErr } = await supabase.storage
-        .from("session-documents")
-        .upload(storagePath, blob, { contentType: "text/plain" });
-      if (upErr) throw upErr;
+      try {
+        console.log("[upload-text] step: storage upload", { docId, size: blob.size });
+        const { error: upErr } = await supabase.storage
+          .from("session-documents")
+          .upload(storagePath, blob, { contentType: "text/plain" });
+        if (upErr) throw upErr;
+      } catch (err) {
+        console.error("[upload-text] step failed: storage-upload", err);
+        throw err;
+      }
 
+      console.log("[upload-text] step: db insert");
       const { data: inserted, error: insErr } = await supabase
         .from("atad2_session_documents")
         .insert({
@@ -199,11 +232,16 @@ export function useUploadText(sessionId: string | null) {
         })
         .select()
         .single();
-      if (insErr) throw insErr;
+      if (insErr) {
+        console.error("[upload-text] step failed: db-insert", insErr);
+        throw insErr;
+      }
 
+      console.log("[upload-text] step: invoke summarize (fire-and-forget)", { docId });
       invokePrefillFn({ action: "summarize", session_id: sessionId, document_id: docId })
-        .catch((e) => console.error("summarize failed", e));
+        .catch((e) => console.error("[upload-text] summarize failed", e));
 
+      console.log("[upload-text] done", { docId });
       return inserted;
     },
     onSuccess: () => {
@@ -236,6 +274,20 @@ export function useCleanupDocuments(sessionId: string | null) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["session-documents", sessionId] });
     },
+  });
+}
+
+export function useUpdateDocumentCategory(sessionId: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ docId, category }: { docId: string; category: string }) => {
+      const { error } = await supabase
+        .from("atad2_session_documents")
+        .update({ category })
+        .eq("id", docId);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["session-documents", sessionId] }),
   });
 }
 

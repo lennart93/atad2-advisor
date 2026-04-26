@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { usePrefillStore, type PendingFile } from "@/stores/prefillStore";
-import { useUploadDocument, useSessionDocuments } from "@/hooks/usePrefill";
+import { useUploadDocument, useSessionDocuments, useUpdateDocumentCategory } from "@/hooks/usePrefill";
 import {
   ACCEPTED_MIME_TYPES, MAX_FILE_BYTES, MAX_SESSION_BYTES, DOCUMENT_CATEGORIES,
   type DocumentCategory,
@@ -25,6 +25,7 @@ export function DocumentUploader({ sessionId, locked }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [pasteOpen, setPasteOpen] = useState(false);
   const upload = useUploadDocument(sessionId);
+  const updateCategory = useUpdateDocumentCategory(sessionId);
   const { data: uploadedDocs } = useSessionDocuments(sessionId);
 
   const onFilesSelected = (selected: FileList | null) => {
@@ -114,9 +115,14 @@ export function DocumentUploader({ sessionId, locked }: Props) {
               onValueChange={(v) => {
                 const cat = v as DocumentCategory;
                 store.setCategory(p.localId, cat);
-                if (p.status === "queued") kickUpload({ ...p, category: cat });
+                if (p.status === "queued") {
+                  kickUpload({ ...p, category: cat });
+                } else if (p.remoteDocumentId) {
+                  // Already uploaded — sync category to DB without re-summarizing.
+                  updateCategory.mutate({ docId: p.remoteDocumentId, category: cat });
+                }
               }}
-              disabled={locked || p.status === "uploading" || p.status === "uploaded"}
+              disabled={locked}
             >
               <SelectTrigger className="w-56"><SelectValue placeholder="Select category" /></SelectTrigger>
               <SelectContent>
@@ -157,9 +163,18 @@ export function DocumentUploader({ sessionId, locked }: Props) {
                   {formatBytes(d.size_bytes)} · {d.status === "summarized" ? "Ready" : d.status === "summarizing" ? "Analyzing…" : d.status}
                 </div>
               </div>
-              <div className="text-xs text-muted-foreground px-2 py-1 bg-muted rounded">
-                {DOCUMENT_CATEGORIES.find((c) => c.value === d.category)?.label ?? d.category}
-              </div>
+              <Select
+                value={d.category}
+                onValueChange={(v) => updateCategory.mutate({ docId: d.id, category: v as DocumentCategory })}
+                disabled={locked}
+              >
+                <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {DOCUMENT_CATEGORIES.map((c) => (
+                    <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </Card>
           ))}
       </div>

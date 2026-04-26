@@ -554,6 +554,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          before_you_start_dismissed: boolean
           created_at: string
           email: string | null
           first_name: string | null
@@ -564,6 +565,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          before_you_start_dismissed?: boolean
           created_at?: string
           email?: string | null
           first_name?: string | null
@@ -574,6 +576,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          before_you_start_dismissed?: boolean
           created_at?: string
           email?: string | null
           first_name?: string | null
