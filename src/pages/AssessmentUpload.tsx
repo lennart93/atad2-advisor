@@ -1,8 +1,9 @@
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { DocumentUploader } from "@/components/prefill/DocumentUploader";
+import { ExtractionProgress } from "@/components/prefill/ExtractionProgress";
 import { usePrefillStore } from "@/stores/prefillStore";
 import {
   useSessionDocuments, usePrefillJob,
@@ -17,6 +18,8 @@ export default function AssessmentUpload() {
   const { data: docs } = useSessionDocuments(sessionId);
   const { data: job } = usePrefillJob(sessionId);
 
+  const [waiting, setWaiting] = useState(false);
+
   const locked = !!job?.locked_at;
   const allPendingCategorized = store.pendingFiles.every((p) => !!p.category);
   const allPendingUploaded = store.pendingFiles.every((p) => p.status === "uploaded" || p.status === "failed");
@@ -30,7 +33,35 @@ export default function AssessmentUpload() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
 
+  // Auto-navigate when extraction job completes while we're in the wait state.
+  useEffect(() => {
+    if (waiting && job?.status === "completed") {
+      navigate(`/assessment?session=${sessionId}`);
+    }
+  }, [waiting, job?.status, navigate, sessionId]);
+
   if (!sessionId) return <div className="p-8">Missing session.</div>;
+
+  if (waiting) {
+    return (
+      <div className="max-w-2xl mx-auto p-6 space-y-6">
+        <header>
+          <h1 className="text-2xl font-semibold">Analysing your documents</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            We are reading your documents and preparing context suggestions for the assessment questions.
+            This typically takes 30 to 90 seconds. The questions will open automatically when ready —
+            you can also continue early below.
+          </p>
+        </header>
+
+        <ExtractionProgress sessionId={sessionId} />
+
+        <Button variant="outline" onClick={() => navigate(`/assessment?session=${sessionId}`)}>
+          Continue to questions now
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-3xl mx-auto p-6 space-y-6">
@@ -51,13 +82,6 @@ export default function AssessmentUpload() {
 
       <DocumentUploader sessionId={sessionId} locked={locked} />
 
-      {hasAtLeastOneUploaded && (
-        <p className="text-xs text-muted-foreground">
-          We continue analysing your documents in the background while you answer questions.
-          Suggestions will appear automatically as they become available.
-        </p>
-      )}
-
       <div className="flex gap-3">
         <Button variant="outline" onClick={() => navigate(`/assessment?session=${sessionId}`)}>
           {hasAtLeastOneUploaded ? "Skip suggestions" : "Skip — no documents"}
@@ -69,9 +93,10 @@ export default function AssessmentUpload() {
             !allPendingUploaded
           }
           onClick={() => {
-            // Navigate immediately. Stage 2 fires automatically server-side
-            // once Stage 1 has finished for every uploaded doc.
-            navigate(`/assessment?session=${sessionId}`);
+            // Switch to the wait screen so the user sees explicit progress
+            // while Stage 1 + Stage 2 finish in the background. The wait
+            // screen auto-navigates to /assessment when job.status === 'completed'.
+            setWaiting(true);
           }}
         >
           Continue to questions

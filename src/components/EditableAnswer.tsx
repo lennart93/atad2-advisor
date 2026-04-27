@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Card, CardContent } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from "@/components/ui/sonner";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Check, Edit, HelpCircle } from 'lucide-react';
 import { AnswerChangeWarningDialog } from './AnswerChangeWarningDialog';
+import { useQuestionPrefill, useUpdatePrefillAction } from '@/hooks/usePrefill';
 
 interface EditableAnswerProps {
   answerId: string;
@@ -39,6 +41,29 @@ export const EditableAnswer: React.FC<EditableAnswerProps> = ({
   const [saving, setSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
   const [showWarningDialog, setShowWarningDialog] = useState(false);
+
+  // AI prefill suggestion for this question (if any).
+  const { data: prefill } = useQuestionPrefill(sessionId, questionId);
+  const updatePrefillAction = useUpdatePrefillAction();
+  const showPrefillSuggestion =
+    !!prefill &&
+    prefill.user_action === "pending" &&
+    !readOnly &&
+    isEditing;
+
+  const acceptPrefillIntoEditor = () => {
+    if (!prefill) return;
+    const next = explanation.trim().length === 0
+      ? prefill.suggested_toelichting
+      : `${explanation}\n\n${prefill.suggested_toelichting}`;
+    setExplanation(next);
+    updatePrefillAction.mutate({ prefillId: prefill.id, action: "accepted" });
+  };
+
+  const dismissPrefill = () => {
+    if (!prefill) return;
+    updatePrefillAction.mutate({ prefillId: prefill.id, action: "dismissed" });
+  };
 
   const checkIfAnswerChangeWouldLeadToDifferentQuestions = async (newAnswer: string): Promise<boolean> => {
     console.log('🔍 Checking answer change impact:', { questionId, currentAnswer, newAnswer, sessionId });
@@ -294,6 +319,27 @@ export const EditableAnswer: React.FC<EditableAnswerProps> = ({
         {/* Explanation Section */}
         <div>
           <span className="text-sm font-medium">Explanation: </span>
+          {showPrefillSuggestion && prefill && (
+            <Card className="border-primary/30 bg-primary/5 mt-2 mb-2">
+              <CardContent className="space-y-2 pt-3 text-sm">
+                <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Suggested context from your documents
+                </div>
+                <p className="whitespace-pre-wrap">{prefill.suggested_toelichting}</p>
+                {prefill.source_refs && prefill.source_refs.length > 0 && (
+                  <div className="text-xs text-muted-foreground">
+                    From: {prefill.source_refs.map((r, i) => (
+                      <span key={i}>{i > 0 ? "; " : ""}{r.doc_label} {r.location}</span>
+                    ))}
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={acceptPrefillIntoEditor}>Accept</Button>
+                  <Button size="sm" variant="ghost" onClick={dismissPrefill}>Dismiss</Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
           {isEditing ? (
             <Textarea
               value={explanation}
