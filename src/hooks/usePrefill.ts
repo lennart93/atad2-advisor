@@ -187,6 +187,7 @@ export function useUploadDocument(sessionId: string | null) {
             storage_path: storagePath,
             mime_type: uploadMime,
             size_bytes: uploadSize,
+            relevance_note: pending.relevanceNote.trim() || null,
           })
           .select()
           .single();
@@ -214,7 +215,7 @@ export function useUploadDocument(sessionId: string | null) {
 export function useUploadText(sessionId: string | null) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ text, category, label }: { text: string; category: string; label: string }) => {
+    mutationFn: async ({ text, category, label, relevanceNote }: { text: string; category: string; label: string; relevanceNote?: string }) => {
       if (!sessionId) throw new Error("No session id");
       if (!text.trim()) throw new Error("Empty text");
       console.log("[upload-text] start", { chars: text.length, category });
@@ -250,6 +251,7 @@ export function useUploadText(sessionId: string | null) {
           storage_path: storagePath,
           mime_type: "text/plain",
           size_bytes: blob.size,
+          relevance_note: (relevanceNote ?? "").trim() || null,
         })
         .select()
         .single();

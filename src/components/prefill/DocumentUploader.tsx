@@ -99,52 +99,61 @@ export function DocumentUploader({ sessionId, locked }: Props) {
 
       <div className="space-y-2">
         {store.pendingFiles.map((p) => (
-          <Card key={p.localId} className="p-3 flex items-start gap-3">
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium break-all" title={p.file.name}>
-                {p.file.name}
+          <Card key={p.localId} className="p-3 space-y-3">
+            <div className="flex items-start gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium break-all" title={p.file.name}>
+                  {p.file.name}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {formatBytes(p.file.size)} · {labelForStatus(p)}
+                </div>
+                {p.errorMessage && <div className="text-xs text-destructive">{p.errorMessage}</div>}
               </div>
-              <div className="text-xs text-muted-foreground">
-                {formatBytes(p.file.size)} · {labelForStatus(p)}
-              </div>
-              {p.errorMessage && <div className="text-xs text-destructive">{p.errorMessage}</div>}
+
+              <Select
+                value={p.category ?? undefined}
+                onValueChange={(v) => {
+                  const cat = v as DocumentCategory;
+                  store.setCategory(p.localId, cat);
+                  if (p.status === "queued") {
+                    kickUpload({ ...p, category: cat });
+                  } else if (p.remoteDocumentId) {
+                    updateCategory.mutate({ docId: p.remoteDocumentId, category: cat });
+                  }
+                }}
+                disabled={locked}
+              >
+                <SelectTrigger className="w-56"><SelectValue placeholder="Select category" /></SelectTrigger>
+                <SelectContent>
+                  {DOCUMENT_CATEGORIES.map((c) => (
+                    <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Input
+                value={p.docLabel}
+                onChange={(e) => store.setDocLabel(p.localId, e.target.value)}
+                className="w-48"
+                disabled={locked || p.status === "uploaded"}
+                placeholder="Label"
+              />
+
+              {!locked && (
+                <Button variant="ghost" size="icon" onClick={() => store.removeFile(p.localId)}>
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
             </div>
 
-            <Select
-              value={p.category ?? undefined}
-              onValueChange={(v) => {
-                const cat = v as DocumentCategory;
-                store.setCategory(p.localId, cat);
-                if (p.status === "queued") {
-                  kickUpload({ ...p, category: cat });
-                } else if (p.remoteDocumentId) {
-                  // Already uploaded — sync category to DB without re-summarizing.
-                  updateCategory.mutate({ docId: p.remoteDocumentId, category: cat });
-                }
-              }}
-              disabled={locked}
-            >
-              <SelectTrigger className="w-56"><SelectValue placeholder="Select category" /></SelectTrigger>
-              <SelectContent>
-                {DOCUMENT_CATEGORIES.map((c) => (
-                  <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
             <Input
-              value={p.docLabel}
-              onChange={(e) => store.setDocLabel(p.localId, e.target.value)}
-              className="w-48"
+              value={p.relevanceNote}
+              onChange={(e) => store.setRelevanceNote(p.localId, e.target.value)}
+              className="text-xs"
               disabled={locked || p.status === "uploaded"}
-              placeholder="Label"
+              placeholder="Why is this document relevant? (optional, helps the AI focus on the right facts)"
             />
-
-            {!locked && (
-              <Button variant="ghost" size="icon" onClick={() => store.removeFile(p.localId)}>
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            )}
           </Card>
         ))}
 

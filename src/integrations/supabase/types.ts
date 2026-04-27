@@ -344,6 +344,7 @@ export type Database = {
           filename: string
           id: string
           mime_type: string
+          relevance_note: string | null
           session_id: string
           size_bytes: number
           status: string
@@ -357,6 +358,7 @@ export type Database = {
           filename: string
           id?: string
           mime_type: string
+          relevance_note?: string | null
           session_id: string
           size_bytes: number
           status?: string
@@ -370,6 +372,7 @@ export type Database = {
           filename?: string
           id?: string
           mime_type?: string
+          relevance_note?: string | null
           session_id?: string
           size_bytes?: number
           status?: string

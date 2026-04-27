@@ -6,6 +6,8 @@ export const DOCUMENT_CATEGORIES = [
   { value: "previous_year_atad2_analysis", label: "Previous Year ATAD2 Analysis" },
   { value: "trial_balance", label: "Trial Balance" },
   { value: "general_ledger", label: "General Ledger" },
+  { value: "memo", label: "Memo" },
+  { value: "comment_letter_to_tax_return", label: "Comment Letter to Tax Return" },
   { value: "other", label: "Other" },
 ] as const;
 
@@ -71,5 +73,6 @@ export interface SessionDocument {
   size_bytes: number;
   status: "uploaded" | "summarizing" | "summarized" | "failed";
   error_message: string | null;
+  relevance_note: string | null;
   created_at: string;
 }

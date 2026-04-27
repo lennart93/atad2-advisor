@@ -8,6 +8,7 @@ export interface PendingFile {
   file: File;
   category: DocumentCategory | null;
   docLabel: string;
+  relevanceNote: string;
   status: PendingFileStatus;
   progress: number;
   errorMessage: string | null;
@@ -19,6 +20,7 @@ interface PrefillState {
   addFiles: (files: File[]) => void;
   setCategory: (localId: string, cat: DocumentCategory) => void;
   setDocLabel: (localId: string, label: string) => void;
+  setRelevanceNote: (localId: string, note: string) => void;
   setStatus: (
     localId: string,
     status: PendingFileStatus,
@@ -39,6 +41,7 @@ export const usePrefillStore = create<PrefillState>((set, get) => ({
         file: f,
         category: null as DocumentCategory | null,
         docLabel: stripExt(f.name),
+        relevanceNote: "",
         status: "queued" as PendingFileStatus,
         progress: 0,
         errorMessage: null,
@@ -50,6 +53,9 @@ export const usePrefillStore = create<PrefillState>((set, get) => ({
   })),
   setDocLabel: (localId, label) => set((s) => ({
     pendingFiles: s.pendingFiles.map((p) => p.localId === localId ? { ...p, docLabel: label } : p),
+  })),
+  setRelevanceNote: (localId, note) => set((s) => ({
+    pendingFiles: s.pendingFiles.map((p) => p.localId === localId ? { ...p, relevanceNote: note } : p),
   })),
   setStatus: (localId, status, opts) => set((s) => ({
     pendingFiles: s.pendingFiles.map((p) =>

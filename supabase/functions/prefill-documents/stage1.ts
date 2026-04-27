@@ -15,7 +15,7 @@ export async function runSummarize(
   const started = Date.now();
   const { data: doc, error: docErr } = await serviceClient
     .from("atad2_session_documents")
-    .select("id, session_id, filename, doc_label, category, storage_path, mime_type")
+    .select("id, session_id, filename, doc_label, category, storage_path, mime_type, relevance_note")
     .eq("id", documentId)
     .eq("session_id", sessionId)
     .maybeSingle();
@@ -33,10 +33,12 @@ export async function runSummarize(
     const block = await toAnthropicBlock(bytes, doc.mime_type);
 
     const prompt = await loadActivePrompt(serviceClient, "prefill_stage1_system");
+    const relevanceLine = (doc as { relevance_note?: string | null }).relevance_note?.trim();
     const userHeader = renderTemplate(prompt.user_prompt_template, {
       category: doc.category,
       doc_label: doc.doc_label,
       filename: doc.filename,
+      relevance_note: relevanceLine || "(none provided)",
       document_block: "",
     });
 

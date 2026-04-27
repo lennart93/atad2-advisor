@@ -21,19 +21,21 @@ export function PasteTextDialog({ sessionId, open, onOpenChange }: Props) {
   const [text, setText] = useState("");
   const [category, setCategory] = useState<DocumentCategory | "">("");
   const [label, setLabel] = useState("");
+  const [relevanceNote, setRelevanceNote] = useState("");
   const upload = useUploadText(sessionId);
 
   const reset = () => {
     setText("");
     setCategory("");
     setLabel("");
+    setRelevanceNote("");
   };
 
   const save = () => {
     if (!text.trim() || !category) return;
     const finalLabel = label.trim() || `Pasted text — ${new Date().toLocaleString()}`;
     upload.mutate(
-      { text: text.trim(), category, label: finalLabel },
+      { text: text.trim(), category, label: finalLabel, relevanceNote: relevanceNote.trim() || undefined },
       {
         onSuccess: () => {
           toast({ title: "Text added", description: `Saved as "${finalLabel}"` });
@@ -92,6 +94,15 @@ export function PasteTextDialog({ sessionId, open, onOpenChange }: Props) {
                 placeholder="Pasted text"
               />
             </div>
+          </div>
+          <div>
+            <Label htmlFor="paste-relevance">Why is this relevant? (optional)</Label>
+            <Input
+              id="paste-relevance"
+              value={relevanceNote}
+              onChange={(e) => setRelevanceNote(e.target.value)}
+              placeholder="Short note that helps the AI focus on the right facts"
+            />
           </div>
         </div>
 
