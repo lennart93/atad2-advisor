@@ -135,6 +135,10 @@ export async function runExtract(
       "the general ledger",
       "the previous",
       "the linklaters memorandum",
+      "the memorandum",
+      "the memo",
+      "the advisory letter",
+      "the analysis",
       "it appears that",
       "it seems that",
       "the uploaded",
@@ -160,13 +164,41 @@ export async function runExtract(
         }));
         continue;
       }
-      const leadIn = p.suggested_toelichting.trim().toLowerCase();
-      const matchedBadLeadIn = BAD_LEAD_INS.find((phrase) => leadIn.startsWith(phrase));
+      const lower = p.suggested_toelichting.trim().toLowerCase();
+      const matchedBadLeadIn = BAD_LEAD_INS.find((phrase) => lower.startsWith(phrase));
       if (matchedBadLeadIn) {
         console.warn(JSON.stringify({
           level: "warn", event: "stage2_suggestion_dropped",
           session_id: sessionId, question_id: p.question_id,
           reason: `interpretive lead-in: "${matchedBadLeadIn}"`,
+        }));
+        continue;
+      }
+      // Also drop suggestions that reference document/memo concepts anywhere
+      // in the body. The advisor's voice doesn't mention them.
+      const FORBIDDEN_ANYWHERE = [
+        "the memorandum",
+        "the memo ",
+        "the advisory letter",
+        "in the document",
+        "in the documents",
+        "as analysed in",
+        "as analyzed in",
+        "as discussed in",
+        "as set out in",
+        "as documented in",
+        "the local file ",
+        "the master file ",
+        "the financial statement",
+        "the trial balance ",
+        "the previous atad2",
+      ];
+      const matchedAnywhere = FORBIDDEN_ANYWHERE.find((phrase) => lower.includes(phrase));
+      if (matchedAnywhere) {
+        console.warn(JSON.stringify({
+          level: "warn", event: "stage2_suggestion_dropped",
+          session_id: sessionId, question_id: p.question_id,
+          reason: `forbidden phrase: "${matchedAnywhere}"`,
         }));
         continue;
       }
@@ -187,15 +219,31 @@ export async function runExtract(
       );
     }
 
-    // Same lead-in filter applies to the session-level summary too.
+    // Same lead-in / phrase filter applies to the session-level summary too.
     let cleanAdditionalContext: string | null = parsed.additional_context ?? null;
     if (cleanAdditionalContext) {
       const lower = cleanAdditionalContext.trim().toLowerCase();
       const bad = BAD_LEAD_INS.find((p) => lower.startsWith(p));
-      if (bad) {
+      const forbidden = [
+        "the memorandum",
+        "the memo ",
+        "the advisory letter",
+        "in the document",
+        "in the documents",
+        "as analysed in",
+        "as analyzed in",
+        "as discussed in",
+        "as set out in",
+        "as documented in",
+        "the local file ",
+        "the master file ",
+        "the financial statement",
+      ].find((p) => lower.includes(p));
+      if (bad || forbidden) {
         console.warn(JSON.stringify({
           level: "warn", event: "stage2_additional_context_dropped",
-          session_id: sessionId, reason: `interpretive lead-in: "${bad}"`,
+          session_id: sessionId,
+          reason: bad ? `lead-in: "${bad}"` : `phrase: "${forbidden}"`,
         }));
         cleanAdditionalContext = null;
       }

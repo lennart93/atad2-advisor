@@ -1,13 +1,16 @@
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { DocumentUploader } from "@/components/prefill/DocumentUploader";
 import { ExtractionProgress } from "@/components/prefill/ExtractionProgress";
 import { usePrefillStore } from "@/stores/prefillStore";
 import {
   useSessionDocuments, usePrefillJob,
 } from "@/hooks/usePrefill";
+
+const WAIT_TIMEOUT_MS = 90_000;
 
 export default function AssessmentUpload() {
   const [params] = useSearchParams();
@@ -19,6 +22,8 @@ export default function AssessmentUpload() {
   const { data: job } = usePrefillJob(sessionId);
 
   const [waiting, setWaiting] = useState(false);
+  const [waitProgress, setWaitProgress] = useState(0);
+  const waitStartRef = useRef<number | null>(null);
 
   const locked = !!job?.locked_at;
   const allPendingCategorized = store.pendingFiles.every((p) => !!p.category);
@@ -36,9 +41,31 @@ export default function AssessmentUpload() {
   // Auto-navigate when extraction job completes while we're in the wait state.
   useEffect(() => {
     if (waiting && job?.status === "completed") {
-      navigate(`/assessment?session=${sessionId}`);
+      setWaitProgress(100);
+      const t = setTimeout(() => navigate(`/assessment?session=${sessionId}`), 250);
+      return () => clearTimeout(t);
     }
   }, [waiting, job?.status, navigate, sessionId]);
+
+  // Drive the time-based progress bar + safety auto-skip after WAIT_TIMEOUT_MS.
+  useEffect(() => {
+    if (!waiting) return;
+    waitStartRef.current = Date.now();
+    const tick = window.setInterval(() => {
+      if (waitStartRef.current === null) return;
+      const elapsed = Date.now() - waitStartRef.current;
+      // Logistic-ish curve: fast at first, asymptotes near 95% by 90s.
+      const pct = Math.min(95, (elapsed / WAIT_TIMEOUT_MS) * 95);
+      setWaitProgress(pct);
+      if (elapsed >= WAIT_TIMEOUT_MS) {
+        navigate(`/assessment?session=${sessionId}`);
+      }
+    }, 500);
+    return () => {
+      window.clearInterval(tick);
+      waitStartRef.current = null;
+    };
+  }, [waiting, navigate, sessionId]);
 
   if (!sessionId) return <div className="p-8">Missing session.</div>;
 
@@ -46,13 +73,19 @@ export default function AssessmentUpload() {
     return (
       <div className="max-w-2xl mx-auto p-6 space-y-6">
         <header>
-          <h1 className="text-2xl font-semibold">Analysing your documents</h1>
+          <h1 className="text-2xl font-semibold">Analyzing your documents</h1>
           <p className="text-sm text-muted-foreground mt-1">
             We are reading your documents and preparing context suggestions for the assessment questions.
-            This typically takes 30 to 90 seconds. The questions will open automatically when ready —
-            you can also continue early below.
+            This usually takes 30 to 90 seconds. The questions will open automatically when ready.
           </p>
         </header>
+
+        <div className="space-y-2">
+          <Progress value={waitProgress} />
+          <p className="text-xs text-muted-foreground text-right">
+            {Math.round(waitProgress)}%
+          </p>
+        </div>
 
         <ExtractionProgress sessionId={sessionId} />
 

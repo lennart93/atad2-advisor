@@ -99,10 +99,14 @@ export default function AssessmentReviewPrefills() {
       </div>
 
       <div className="space-y-4">
-        {prefills.map((p) => {
-          const q = questions?.find((qq) => qq.question_id === p.question_id);
-          const ans = answers?.find((a) => a.question_id === p.question_id);
-          return (
+        {prefills
+          // Only show suggestions for questions the user actually traversed.
+          // Untraversed questions are out of scope for this assessment path.
+          .filter((p) => answers?.some((a) => a.question_id === p.question_id))
+          .map((p) => {
+            const q = questions?.find((qq) => qq.question_id === p.question_id);
+            const ans = answers?.find((a) => a.question_id === p.question_id);
+            return (
             <Card key={p.id}>
               <CardContent className="space-y-3 pt-4">
                 <div className="text-sm">

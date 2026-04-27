@@ -29,7 +29,7 @@ export function ExtractionProgress({ sessionId }: Props) {
               {d.status === "summarized" && <CheckCircle2 className="h-4 w-4 text-green-600" />}
               {d.status === "failed" && <AlertCircle className="h-4 w-4 text-destructive" />}
               <span className="flex-1 truncate">{d.doc_label}</span>
-              <span className="text-xs text-muted-foreground">{d.status}</span>
+              <span className="text-xs text-muted-foreground">{labelForStatus(d.status)}</span>
             </Card>
           ))}
         </div>
@@ -47,4 +47,14 @@ export function ExtractionProgress({ sessionId }: Props) {
       )}
     </div>
   );
+}
+
+function labelForStatus(status: string): string {
+  switch (status) {
+    case "uploaded": return "Uploaded";
+    case "summarizing": return "Analyzing…";
+    case "summarized": return "Analyzed";
+    case "failed": return "Failed";
+    default: return status;
+  }
 }
