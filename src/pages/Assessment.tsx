@@ -659,8 +659,10 @@ const Assessment = () => {
         description: "Please confirm your preliminary assessment outcome.",
       });
       
-      // Route via the pre-fill review step. It auto-skips to confirmation if no pre-fills exist.
-      navigate(`/assessment/review-prefills/${sessionId}`);
+      // Per-question suggestions are reviewed on the assessment report page,
+      // where each answer can be edited inline. Skip the standalone review
+      // step entirely.
+      navigate(`/assessment-confirmation/${sessionId}`);
     } catch (error) {
       console.error('Error completing assessment:', error);
       toast.error("Error", {

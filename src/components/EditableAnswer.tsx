@@ -45,11 +45,15 @@ export const EditableAnswer: React.FC<EditableAnswerProps> = ({
   // AI prefill suggestion for this question (if any).
   const { data: prefill } = useQuestionPrefill(sessionId, questionId);
   const updatePrefillAction = useUpdatePrefillAction();
+  // Show the suggestion only when the explanation field is still empty.
+  // Once the user has typed (or accepted) anything, the card stays hidden
+  // on subsequent edits so they can't accidentally double-paste.
   const showPrefillSuggestion =
     !!prefill &&
     prefill.user_action === "pending" &&
     !readOnly &&
-    isEditing;
+    isEditing &&
+    explanation.trim().length === 0;
 
   const acceptPrefillIntoEditor = () => {
     if (!prefill) return;
@@ -190,6 +194,13 @@ export const EditableAnswer: React.FC<EditableAnswerProps> = ({
         .eq('id', answerId);
 
       if (error) throw error;
+
+      // Mark any pending prefill as accepted/dismissed so it doesn't reappear
+      // the next time the user clicks Edit.
+      if (prefill && prefill.user_action === "pending") {
+        const finalAction = explanation.trim().length > 0 ? "accepted" : "dismissed";
+        updatePrefillAction.mutate({ prefillId: prefill.id, action: finalAction });
+      }
 
       onUpdate(answer, explanation, newRiskPoints);
       setIsEditing(false);
