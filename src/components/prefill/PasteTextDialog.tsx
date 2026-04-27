@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { DOCUMENT_CATEGORIES, type DocumentCategory } from "@/lib/prefill/types";
+import { DOCUMENT_CATEGORIES, RELEVANCE_NOTE_MIN_LENGTH, type DocumentCategory } from "@/lib/prefill/types";
 import { useUploadText } from "@/hooks/usePrefill";
 import { toast } from "@/hooks/use-toast";
 
@@ -96,19 +96,32 @@ export function PasteTextDialog({ sessionId, open, onOpenChange }: Props) {
             </div>
           </div>
           <div>
-            <Label htmlFor="paste-relevance">Why is this relevant? (optional)</Label>
+            <Label htmlFor="paste-relevance">Why is this relevant? (required, min {RELEVANCE_NOTE_MIN_LENGTH} characters)</Label>
             <Input
               id="paste-relevance"
               value={relevanceNote}
               onChange={(e) => setRelevanceNote(e.target.value)}
               placeholder="Short note that helps the AI focus on the right facts"
             />
+            {relevanceNote.trim().length > 0 && relevanceNote.trim().length < RELEVANCE_NOTE_MIN_LENGTH && (
+              <p className="text-xs text-muted-foreground mt-1">
+                {RELEVANCE_NOTE_MIN_LENGTH - relevanceNote.trim().length} more characters needed
+              </p>
+            )}
           </div>
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button disabled={!text.trim() || !category || upload.isPending} onClick={save}>
+          <Button
+            disabled={
+              !text.trim() ||
+              !category ||
+              relevanceNote.trim().length < RELEVANCE_NOTE_MIN_LENGTH ||
+              upload.isPending
+            }
+            onClick={save}
+          >
             {upload.isPending ? "Saving…" : "Save"}
           </Button>
         </DialogFooter>

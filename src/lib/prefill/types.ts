@@ -1,15 +1,17 @@
 export const DOCUMENT_CATEGORIES = [
-  { value: "financial_statements", label: "Financial Statements" },
-  { value: "tax_returns", label: "Tax Returns" },
-  { value: "local_file", label: "Local File" },
-  { value: "master_file", label: "Master File" },
-  { value: "previous_year_atad2_analysis", label: "Previous Year ATAD2 Analysis" },
-  { value: "trial_balance", label: "Trial Balance" },
-  { value: "general_ledger", label: "General Ledger" },
+  { value: "financial_statements", label: "Financial statements" },
+  { value: "tax_returns", label: "Tax returns" },
+  { value: "local_file", label: "Local file" },
+  { value: "master_file", label: "Master file" },
+  { value: "previous_year_atad2_analysis", label: "Previous year ATAD2 analysis" },
+  { value: "trial_balance", label: "Trial balance" },
+  { value: "general_ledger", label: "General ledger" },
   { value: "memo", label: "Memo" },
-  { value: "comment_letter_to_tax_return", label: "Comment Letter to Tax Return" },
+  { value: "comment_letter_to_tax_return", label: "Comment letter to tax return" },
   { value: "other", label: "Other" },
 ] as const;
+
+export const RELEVANCE_NOTE_MIN_LENGTH = 30;
 
 export type DocumentCategory = typeof DOCUMENT_CATEGORIES[number]["value"];
 

@@ -3,6 +3,7 @@ import { usePrefillStore, type PendingFile } from "@/stores/prefillStore";
 import { useUploadDocument, useSessionDocuments, useUpdateDocumentCategory } from "@/hooks/usePrefill";
 import {
   ACCEPTED_MIME_TYPES, MAX_FILE_BYTES, MAX_SESSION_BYTES, DOCUMENT_CATEGORIES,
+  RELEVANCE_NOTE_MIN_LENGTH,
   type DocumentCategory,
 } from "@/lib/prefill/types";
 import { Button } from "@/components/ui/button";
@@ -57,8 +58,11 @@ export function DocumentUploader({ sessionId, locked }: Props) {
     store.addFiles(accepted);
   };
 
+  const isReadyToUpload = (p: PendingFile) =>
+    !!p.category && p.relevanceNote.trim().length >= RELEVANCE_NOTE_MIN_LENGTH;
+
   const kickUpload = (pending: PendingFile) => {
-    if (!pending.category) return;
+    if (!isReadyToUpload(pending)) return;
     store.setStatus(pending.localId, "uploading");
     upload.mutate({ pending }, {
       onSuccess: (doc) => store.setStatus(pending.localId, "uploaded", { remoteDocumentId: doc?.id }),
@@ -116,7 +120,7 @@ export function DocumentUploader({ sessionId, locked }: Props) {
                 onValueChange={(v) => {
                   const cat = v as DocumentCategory;
                   store.setCategory(p.localId, cat);
-                  if (p.status === "queued") {
+                  if (p.status === "queued" && isReadyToUpload({ ...p, category: cat })) {
                     kickUpload({ ...p, category: cat });
                   } else if (p.remoteDocumentId) {
                     updateCategory.mutate({ docId: p.remoteDocumentId, category: cat });
@@ -147,13 +151,30 @@ export function DocumentUploader({ sessionId, locked }: Props) {
               )}
             </div>
 
-            <Input
-              value={p.relevanceNote}
-              onChange={(e) => store.setRelevanceNote(p.localId, e.target.value)}
-              className="text-xs"
-              disabled={locked || p.status === "uploaded"}
-              placeholder="Why is this document relevant? (optional, helps the AI focus on the right facts)"
-            />
+            <div className="space-y-1">
+              <Input
+                value={p.relevanceNote}
+                onChange={(e) => {
+                  const note = e.target.value;
+                  store.setRelevanceNote(p.localId, note);
+                  if (p.status === "queued" && isReadyToUpload({ ...p, relevanceNote: note })) {
+                    kickUpload({ ...p, relevanceNote: note });
+                  }
+                }}
+                className="text-xs"
+                disabled={locked || p.status === "uploaded"}
+                placeholder={`Why is this document relevant? (required, min ${RELEVANCE_NOTE_MIN_LENGTH} characters)`}
+              />
+              {p.status === "queued" && (
+                <div className="text-xs text-muted-foreground">
+                  {!p.category
+                    ? "Pick a category to start."
+                    : p.relevanceNote.trim().length < RELEVANCE_NOTE_MIN_LENGTH
+                      ? `${RELEVANCE_NOTE_MIN_LENGTH - p.relevanceNote.trim().length} more character${RELEVANCE_NOTE_MIN_LENGTH - p.relevanceNote.trim().length === 1 ? "" : "s"} needed before upload starts.`
+                      : "Starting upload…"}
+                </div>
+              )}
+            </div>
           </Card>
         ))}
 
@@ -199,7 +220,7 @@ function formatBytes(n: number): string {
 
 function labelForStatus(p: PendingFile): string {
   switch (p.status) {
-    case "queued": return "Waiting for category";
+    case "queued": return "Waiting for details";
     case "uploading": return "Uploading...";
     case "uploaded": return "Uploaded";
     case "failed": return "Failed";
