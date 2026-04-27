@@ -357,8 +357,10 @@ const Assessment = () => {
   // Pre-fill suggestions for the current question + overall job status
   const { data: currentPrefill } = useQuestionPrefill(sessionId || null, currentQuestion?.question_id ?? null);
   const { data: prefillJob } = usePrefillJob(sessionId || null);
-  const isWaitingForPrefill =
-    prefillJob?.status === "stage2_running" && !currentPrefill && !!prefillJob?.locked_at;
+  // Background pipeline: never block Next on AI progress. Suggestions
+  // arrive via Realtime when ready; user can answer at their own pace.
+  const isWaitingForPrefill = false;
+  void prefillJob; // referenced via job-status banner only
 
   // Resume path: /assessment?session=<id> returns here from /assessment/upload.
   // Load the existing session, its answers, and jump into the question flow.
@@ -1994,12 +1996,6 @@ const Assessment = () => {
                                   currentToelichting={contextValue ?? ""}
                                   onCommit={(next) => updateExplanation(next)}
                                 />
-                              )}
-                              {isWaitingForPrefill && (
-                                <div className="rounded-md border bg-muted p-3 text-sm text-muted-foreground mb-3 flex items-center gap-2">
-                                  <span className="inline-block h-3 w-3 rounded-full bg-primary animate-pulse" />
-                                  Analyzing your documents for this question… (usually ~30 seconds)
-                                </div>
                               )}
                               {prefillJob?.status === "failed" && !currentPrefill && (
                                 <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm mb-3">

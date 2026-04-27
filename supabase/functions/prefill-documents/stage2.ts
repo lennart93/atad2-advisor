@@ -115,15 +115,34 @@ export async function runExtract(
       "according to",
       "from the document",
       "from the documents",
+      "the document concern",
+      "the documents concern",
+      "the document is",
+      "the documents are",
       "the document suggests",
       "the documents suggest",
       "the document indicates",
       "the documents indicate",
       "the document shows",
       "the documents show",
+      "the document states",
+      "the documents state",
+      "the financial statements",
+      "the local file",
+      "the master file",
+      "the tax return",
+      "the trial balance",
+      "the general ledger",
+      "the previous",
+      "the linklaters memorandum",
       "it appears that",
       "it seems that",
-      "the document states",
+      "the uploaded",
+      "in the attached",
+      "the attached",
+      "as set out in",
+      "as described in",
+      "as documented in",
       "op basis van",
       "volgens het document",
       "het document suggereert",
@@ -168,13 +187,27 @@ export async function runExtract(
       );
     }
 
+    // Same lead-in filter applies to the session-level summary too.
+    let cleanAdditionalContext: string | null = parsed.additional_context ?? null;
+    if (cleanAdditionalContext) {
+      const lower = cleanAdditionalContext.trim().toLowerCase();
+      const bad = BAD_LEAD_INS.find((p) => lower.startsWith(p));
+      if (bad) {
+        console.warn(JSON.stringify({
+          level: "warn", event: "stage2_additional_context_dropped",
+          session_id: sessionId, reason: `interpretive lead-in: "${bad}"`,
+        }));
+        cleanAdditionalContext = null;
+      }
+    }
+
     await serviceClient.from("atad2_prefill_jobs")
       .update({
         stage2_finished_at: new Date().toISOString(),
         status: "completed",
         total_token_usage: usage,
         stage2_prompt_version: prompt.version,
-        suggested_additional_context: parsed.additional_context ?? null,
+        suggested_additional_context: cleanAdditionalContext,
       })
       .eq("session_id", sessionId);
 

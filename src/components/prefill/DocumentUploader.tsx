@@ -192,7 +192,7 @@ function labelForStatus(p: PendingFile): string {
   switch (p.status) {
     case "queued": return "Waiting for category";
     case "uploading": return "Uploading...";
-    case "uploaded": return "Uploaded — ready for extraction";
+    case "uploaded": return "Uploaded";
     case "failed": return "Failed";
   }
 }
