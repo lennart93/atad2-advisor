@@ -174,6 +174,7 @@ export async function runExtract(
         status: "completed",
         total_token_usage: usage,
         stage2_prompt_version: prompt.version,
+        suggested_additional_context: parsed.additional_context ?? null,
       })
       .eq("session_id", sessionId);
 

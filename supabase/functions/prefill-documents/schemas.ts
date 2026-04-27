@@ -76,6 +76,7 @@ export type Stage2PrefillType = z.infer<typeof Stage2Prefill>;
 
 export const Stage2Output = z.object({
   prefills: z.array(Stage2Prefill),
+  additional_context: z.string().max(2000).nullable().optional(),
 });
 export type Stage2OutputType = z.infer<typeof Stage2Output>;
 

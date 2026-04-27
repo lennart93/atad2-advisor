@@ -145,6 +145,7 @@ export type Database = {
           stage2_prompt_version: number | null
           started_at: string | null
           status: string
+          suggested_additional_context: string | null
           total_token_usage: Json | null
         }
         Insert: {
@@ -160,6 +161,7 @@ export type Database = {
           stage2_prompt_version?: number | null
           started_at?: string | null
           status?: string
+          suggested_additional_context?: string | null
           total_token_usage?: Json | null
         }
         Update: {
@@ -175,6 +177,7 @@ export type Database = {
           stage2_prompt_version?: number | null
           started_at?: string | null
           status?: string
+          suggested_additional_context?: string | null
           total_token_usage?: Json | null
         }
         Relationships: [

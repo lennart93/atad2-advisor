@@ -55,6 +55,8 @@ const AssessmentConfirmation = () => {
   const [showContextForm, setShowContextForm] = useState(false);
   const [additionalContext, setAdditionalContext] = useState("");
   const [pendingConfirmType, setPendingConfirmType] = useState<'confirm' | 'override' | null>(null);
+  const [suggestedAdditionalContext, setSuggestedAdditionalContext] = useState<string | null>(null);
+  const [suggestedAccepted, setSuggestedAccepted] = useState(false);
   
   
   // Validation
@@ -70,8 +72,21 @@ const AssessmentConfirmation = () => {
     }
     if (sessionId) {
       loadSessionData();
+      loadSuggestedAdditionalContext();
     }
   }, [user, sessionId]);
+
+  const loadSuggestedAdditionalContext = async () => {
+    if (!sessionId) return;
+    const { data } = await supabase
+      .from("atad2_prefill_jobs")
+      .select("suggested_additional_context")
+      .eq("session_id", sessionId)
+      .maybeSingle();
+    if (data?.suggested_additional_context) {
+      setSuggestedAdditionalContext(data.suggested_additional_context);
+    }
+  };
 
   const loadSessionData = async () => {
     if (!sessionId || !user) return;
@@ -274,6 +289,38 @@ const AssessmentConfirmation = () => {
                   Great! Before we proceed, is there anything you'd like to add? 
                   The more context you provide, the more tailored the memorandum will be.
                 </p>
+
+                {suggestedAdditionalContext && !suggestedAccepted && (
+                  <Card className="border-primary/30 bg-primary/5">
+                    <CardContent className="space-y-3 pt-4 text-sm">
+                      <div className="font-medium text-xs uppercase tracking-wide text-muted-foreground">
+                        Suggested context from your documents
+                      </div>
+                      <p className="whitespace-pre-wrap">{suggestedAdditionalContext}</p>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            const next = additionalContext.trim().length === 0
+                              ? suggestedAdditionalContext
+                              : `${additionalContext}\n\n${suggestedAdditionalContext}`;
+                            setAdditionalContext(next);
+                            setSuggestedAccepted(true);
+                          }}
+                        >
+                          Accept
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setSuggestedAccepted(true)}
+                        >
+                          Dismiss
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
 
                 <div className="space-y-2">
                   <Textarea
