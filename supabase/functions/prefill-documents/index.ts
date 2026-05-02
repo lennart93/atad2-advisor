@@ -1,7 +1,6 @@
 import { serve } from "std/http/server.ts";
 import { createClient, SupabaseClient } from "supabase";
-import { runSummarize } from "./stage1.ts";
-import { runExtract } from "./stage2.ts";
+import { runAnalyze } from "./analyze.ts";
 import { runCleanup } from "./cleanup.ts";
 
 const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") || "*";
@@ -13,9 +12,8 @@ const corsHeaders = {
 };
 
 interface PrefillRequest {
-  action: "summarize" | "extract" | "cleanup";
+  action: "analyze" | "cleanup";
   session_id: string;
-  document_id?: string;
 }
 
 serve(async (req) => {
@@ -39,13 +37,8 @@ serve(async (req) => {
     if (!userId) return json({ error: "Forbidden" }, 403);
 
     switch (body.action) {
-      case "summarize": {
-        if (!body.document_id) return json({ error: "Missing document_id" }, 400);
-        const result = await runSummarize(serviceClient, body.session_id, body.document_id);
-        return json(result, result.ok ? 200 : 500);
-      }
-      case "extract": {
-        const result = await runExtract(serviceClient, body.session_id);
+      case "analyze": {
+        const result = await runAnalyze(serviceClient, body.session_id);
         return json(result, result.ok ? 200 : 500);
       }
       case "cleanup": {

@@ -8,6 +8,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Check, Edit, HelpCircle } from 'lucide-react';
 import { AnswerChangeWarningDialog } from './AnswerChangeWarningDialog';
 import { useQuestionPrefill, useUpdatePrefillAction } from '@/hooks/usePrefill';
+import { SuggestedAnswerChip } from '@/components/prefill/SuggestedAnswerChip';
 
 interface EditableAnswerProps {
   answerId: string;
@@ -288,6 +289,18 @@ export const EditableAnswer: React.FC<EditableAnswerProps> = ({
 
       {/* Answer Section */}
       <div className="space-y-3">
+        {prefill && isEditing && (
+          <SuggestedAnswerChip
+            suggestedAnswer={prefill.suggested_answer}
+            confidencePct={prefill.confidence_pct}
+            answerRationale={prefill.answer_rationale}
+            onUse={(ans) => {
+              const option = ans.charAt(0).toUpperCase() + ans.slice(1);
+              setAnswer(option);
+              updatePrefillAction.mutate({ prefillId: prefill.id, action: "accepted" });
+            }}
+          />
+        )}
         <div>
           <span className="text-sm font-medium">Answer: </span>
           {isEditing ? (

@@ -45,6 +45,9 @@ export interface QuestionPrefill {
   user_action: PrefillUserAction;
   actioned_at: string | null;
   created_at: string;
+  suggested_answer: "yes" | "no" | "unknown" | null;
+  confidence_pct: number | null;
+  answer_rationale: string | null;
 }
 
 export type PrefillJobStatus =

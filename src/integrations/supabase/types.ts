@@ -96,41 +96,6 @@ export type Database = {
         Relationships: []
       }
       // Manually added — no Supabase CLI available for self-hosted VM (feat/document-prefill)
-      atad2_document_summaries: {
-        Row: {
-          created_at: string
-          document_id: string
-          id: string
-          prompt_version: number
-          summary_json: Json
-          token_usage: Json
-        }
-        Insert: {
-          created_at?: string
-          document_id: string
-          id?: string
-          prompt_version: number
-          summary_json: Json
-          token_usage: Json
-        }
-        Update: {
-          created_at?: string
-          document_id?: string
-          id?: string
-          prompt_version?: number
-          summary_json?: Json
-          token_usage?: Json
-        }
-        Relationships: [
-          {
-            foreignKeyName: "atad2_document_summaries_document_id_fkey"
-            columns: ["document_id"]
-            isOneToOne: true
-            referencedRelation: "atad2_session_documents"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       atad2_prefill_jobs: {
         Row: {
           created_at: string
@@ -254,6 +219,9 @@ export type Database = {
           suggested_toelichting: string
           user_action: string
           verbatim_quote: string | null
+          suggested_answer: "yes" | "no" | "unknown" | null
+          confidence_pct: number | null
+          answer_rationale: string | null
         }
         Insert: {
           actioned_at?: string | null
@@ -265,6 +233,9 @@ export type Database = {
           suggested_toelichting: string
           user_action?: string
           verbatim_quote?: string | null
+          suggested_answer?: "yes" | "no" | "unknown" | null
+          confidence_pct?: number | null
+          answer_rationale?: string | null
         }
         Update: {
           actioned_at?: string | null
@@ -276,6 +247,9 @@ export type Database = {
           suggested_toelichting?: string
           user_action?: string
           verbatim_quote?: string | null
+          suggested_answer?: "yes" | "no" | "unknown" | null
+          confidence_pct?: number | null
+          answer_rationale?: string | null
         }
         Relationships: [
           {

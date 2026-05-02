@@ -273,12 +273,12 @@ export function useUploadText(sessionId: string | null) {
   });
 }
 
-export function useStartExtraction(sessionId: string | null) {
+export function useStartAnalyze(sessionId: string | null) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async () => {
       if (!sessionId) throw new Error("No session id");
-      return await invokePrefillFn({ action: "extract", session_id: sessionId });
+      return await invokePrefillFn({ action: "analyze", session_id: sessionId });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["prefill-job", sessionId] });

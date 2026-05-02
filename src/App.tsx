@@ -19,7 +19,6 @@ const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const Assessment = lazy(() => import("./pages/Assessment"));
 const AssessmentUpload = lazy(() => import("./pages/AssessmentUpload"));
-const AssessmentReviewPrefills = lazy(() => import("./pages/AssessmentReviewPrefills"));
 const AssessmentConfirmation = lazy(() => import("./pages/AssessmentConfirmation"));
 const AssessmentReport = lazy(() => import("./pages/AssessmentReport"));
 const ReportDetail = lazy(() => import("./pages/ReportDetail"));
@@ -73,7 +72,6 @@ const App = () => (
                     <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
                     <Route path="/assessment" element={<ProtectedRoute><Assessment /></ProtectedRoute>} />
                     <Route path="/assessment/upload" element={<ProtectedRoute><AssessmentUpload /></ProtectedRoute>} />
-                    <Route path="/assessment/review-prefills/:sessionId" element={<ProtectedRoute><AssessmentReviewPrefills /></ProtectedRoute>} />
                     <Route path="/assessment-confirmation/:sessionId" element={<ProtectedRoute><AssessmentConfirmation /></ProtectedRoute>} />
                     <Route path="/assessment-report/:sessionId" element={<ProtectedRoute><AssessmentReport /></ProtectedRoute>} />
                     <Route path="/report/:reportId" element={<ProtectedRoute><ReportDetail /></ProtectedRoute>} />

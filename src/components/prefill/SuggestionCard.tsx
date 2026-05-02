@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { ChevronDown, ChevronUp } from "lucide-react";
 import type { QuestionPrefill } from "@/lib/prefill/types";
 import { useUpdatePrefillAction } from "@/hooks/usePrefill";
 
@@ -14,7 +13,6 @@ interface Props {
 }
 
 export function SuggestionCard({ prefill, currentToelichting, onCommit, onDismissToAdditionalContext }: Props) {
-  const [showQuote, setShowQuote] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [draft, setDraft] = useState(prefill.suggested_toelichting);
   const updateAction = useUpdatePrefillAction();
@@ -63,20 +61,6 @@ export function SuggestionCard({ prefill, currentToelichting, onCommit, onDismis
             <span key={i}>{i > 0 ? "; " : ""}{r.doc_label} {r.location}</span>
           ))}
         </div>
-
-        {prefill.verbatim_quote && (
-          <div>
-            <button
-              type="button"
-              className="text-xs inline-flex items-center gap-1 underline"
-              onClick={() => setShowQuote((x) => !x)}
-            >
-              {showQuote ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-              {showQuote ? "Hide source quote" : "Show source quote"}
-            </button>
-            {showQuote && <blockquote className="mt-2 border-l-2 pl-3 text-xs italic">{prefill.verbatim_quote}</blockquote>}
-          </div>
-        )}
 
         <div className="flex gap-2 pt-1">
           {!editMode ? (

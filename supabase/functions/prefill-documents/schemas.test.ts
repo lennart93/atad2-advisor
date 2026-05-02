@@ -1,61 +1,55 @@
-import { Stage1Output, Stage2Output } from "./schemas.ts";
+import { SwarmPrefill } from "./schemas.ts";
 import { assertEquals, assertThrows } from "std/assert/mod.ts";
 
-Deno.test("Stage1Output parses minimal valid input", () => {
-  const parsed = Stage1Output.parse({
-    document_kind: "local_file",
-    language: "en",
+Deno.test("SwarmPrefill accepts a yes-answer with confidence + rationale", () => {
+  const parsed = SwarmPrefill.parse({
+    suggested_answer: "yes",
+    confidence_pct: 82,
+    answer_rationale: "Camden B.V. pays disregarded royalties to a US LLC.",
+    suggested_toelichting: "Camden B.V. is a Dutch BV that ...",
+    source_refs: [{ doc_label: "Local file 2025", location: "§3.2 p.14" }],
   });
-  assertEquals(parsed.fiscal_periods, []);
-  assertEquals(parsed.entities, []);
+  assertEquals(parsed.suggested_answer, "yes");
+  assertEquals(parsed.confidence_pct, 82);
 });
 
-Deno.test("Stage1Output rejects unknown document_kind", () => {
-  assertThrows(() => Stage1Output.parse({
-    document_kind: "unknown_kind",
-    language: "en",
-  }));
-});
-
-Deno.test("Stage2Output rejects prefill with no source_refs", () => {
-  assertThrows(() => Stage2Output.parse({
-    prefills: [{
-      question_id: "1",
-      suggested_toelichting: "test",
-      source_refs: [],
-      verbatim_quote: null,
-    }],
-  }));
-});
-
-Deno.test("Stage2Output rejects suggested_toelichting over 1000 chars", () => {
-  const long = "x".repeat(1001);
-  assertThrows(() => Stage2Output.parse({
-    prefills: [{
-      question_id: "1",
-      suggested_toelichting: long,
-      source_refs: [{ document_id: "d", doc_label: "l", location: "p.1" }],
-      verbatim_quote: null,
-    }],
-  }));
-});
-
-Deno.test("Stage2Output accepts a valid multi-prefill payload", () => {
-  const parsed = Stage2Output.parse({
-    prefills: [
-      {
-        question_id: "27",
-        suggested_toelichting: "Facts go here.",
-        source_refs: [{ document_id: "d", doc_label: "Local File 2025", location: "§3.2" }],
-        verbatim_quote: "Quote.",
-      },
-      {
-        question_id: "29",
-        suggested_toelichting: "Other facts.",
-        source_refs: [{ document_id: "d2", doc_label: "Trial Balance", location: "account 481000" }],
-        verbatim_quote: null,
-      },
-    ],
+Deno.test("SwarmPrefill accepts null answer + null confidence", () => {
+  const parsed = SwarmPrefill.parse({
+    suggested_answer: null,
+    confidence_pct: null,
+    answer_rationale: null,
+    suggested_toelichting: "Some context.",
+    source_refs: [{ doc_label: "Doc", location: "p.1" }],
   });
-  assertEquals(parsed.prefills.length, 2);
+  assertEquals(parsed.suggested_answer, null);
+});
+
+Deno.test("SwarmPrefill rejects confidence > 100", () => {
+  assertThrows(() => SwarmPrefill.parse({
+    suggested_answer: "yes",
+    confidence_pct: 120,
+    answer_rationale: "x",
+    suggested_toelichting: "y",
+    source_refs: [{ doc_label: "Doc", location: "p.1" }],
+  }));
+});
+
+Deno.test("SwarmPrefill rejects empty source_refs", () => {
+  assertThrows(() => SwarmPrefill.parse({
+    suggested_answer: "no",
+    confidence_pct: 50,
+    answer_rationale: "x",
+    suggested_toelichting: "y",
+    source_refs: [],
+  }));
+});
+
+Deno.test("SwarmPrefill rejects rationale over 200 chars", () => {
+  assertThrows(() => SwarmPrefill.parse({
+    suggested_answer: "yes",
+    confidence_pct: 80,
+    answer_rationale: "x".repeat(201),
+    suggested_toelichting: "y",
+    source_refs: [{ doc_label: "Doc", location: "p.1" }],
+  }));
 });

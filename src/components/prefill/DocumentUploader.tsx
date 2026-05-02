@@ -156,13 +156,19 @@ export function DocumentUploader({ sessionId, locked }: Props) {
                 value={p.relevanceNote}
                 onChange={(e) => {
                   const note = e.target.value;
+                  // Kick upload only on the transition from not-ready to ready,
+                  // not on every keystroke after that. Prevents the input from
+                  // freezing mid-typing as soon as the threshold is crossed.
+                  const wasReadyBefore = isReadyToUpload(p);
+                  const next: PendingFile = { ...p, relevanceNote: note };
+                  const isReadyNow = isReadyToUpload(next);
                   store.setRelevanceNote(p.localId, note);
-                  if (p.status === "queued" && isReadyToUpload({ ...p, relevanceNote: note })) {
-                    kickUpload({ ...p, relevanceNote: note });
+                  if (p.status === "queued" && !wasReadyBefore && isReadyNow) {
+                    kickUpload(next);
                   }
                 }}
                 className="text-xs"
-                disabled={locked || p.status === "uploaded"}
+                disabled={locked || p.status === "uploading" || p.status === "uploaded"}
                 placeholder={`Why is this document relevant? (required, min ${RELEVANCE_NOTE_MIN_LENGTH} characters)`}
               />
               {p.status === "queued" && (

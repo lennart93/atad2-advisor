@@ -30,6 +30,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ContextSkeleton, ContextEmptyState, ContextErrorState } from "@/components/ContextPanelStates";
 import { ContextPanelFallback } from "@/components/ContextPanelFallback";
 import { SuggestionCard } from "@/components/prefill/SuggestionCard";
+import { SuggestedAnswerChip } from "@/components/prefill/SuggestedAnswerChip";
 import { useQuestionPrefill, usePrefillJob } from "@/hooks/usePrefill";
 import { seededIndex } from "@/utils/random";
 
@@ -1885,6 +1886,19 @@ const Assessment = () => {
                     </p>
                   </div>
                   
+                   {/* AI suggested answer chip (only when confidence ≥40%) */}
+                   {currentPrefill && (
+                     <SuggestedAnswerChip
+                       suggestedAnswer={currentPrefill.suggested_answer}
+                       confidencePct={currentPrefill.confidence_pct}
+                       answerRationale={currentPrefill.answer_rationale}
+                       onUse={(ans) => {
+                         const option = ans.charAt(0).toUpperCase() + ans.slice(1);
+                         void handleAnswerSelect(option);
+                       }}
+                     />
+                   )}
+
                    {/* Answer options */}
                    <div className="space-y-3 mb-8">
                      {currentQuestionOptions.map((option, index) => {
