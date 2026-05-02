@@ -8,7 +8,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Check, Edit, HelpCircle } from 'lucide-react';
 import { AnswerChangeWarningDialog } from './AnswerChangeWarningDialog';
 import { useQuestionPrefill, useUpdatePrefillAction } from '@/hooks/usePrefill';
-import { SuggestedAnswerChip } from '@/components/prefill/SuggestedAnswerChip';
 
 interface EditableAnswerProps {
   answerId: string;
@@ -289,44 +288,40 @@ export const EditableAnswer: React.FC<EditableAnswerProps> = ({
 
       {/* Answer Section */}
       <div className="space-y-3">
-        {prefill && isEditing && (
-          <SuggestedAnswerChip
-            suggestedAnswer={prefill.suggested_answer}
-            confidencePct={prefill.confidence_pct}
-            answerRationale={prefill.answer_rationale}
-            onUse={(ans) => {
-              const option = ans.charAt(0).toUpperCase() + ans.slice(1);
-              setAnswer(option);
-              updatePrefillAction.mutate({ prefillId: prefill.id, action: "accepted" });
-            }}
-          />
+        {prefill && isEditing && prefill.suggested_answer && (prefill.confidence_pct ?? 0) >= 40 && (
+          <div className="text-xs text-muted-foreground">
+            Likelihood {prefill.confidence_pct}%
+            {prefill.answer_rationale ? ` · ${prefill.answer_rationale}` : ""}
+          </div>
         )}
         <div>
           <span className="text-sm font-medium">Answer: </span>
           {isEditing ? (
             <div className="flex gap-2 mt-1">
-              <Button
-                variant={answer === 'Yes' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setAnswer('Yes')}
-              >
-                Yes
-              </Button>
-              <Button
-                variant={answer === 'No' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setAnswer('No')}
-              >
-                No
-              </Button>
-              <Button
-                variant={answer === 'Unknown' ? 'secondary' : 'outline'}
-                size="sm"
-                onClick={() => setAnswer('Unknown')}
-                className="text-gray-700 border-blue-300 hover:bg-blue-50"
-              >
-                Unknown
-              </Button>
+              {(["Yes", "No", "Unknown"] as const).map((opt) => {
+                const isSuggested =
+                  prefill?.suggested_answer === opt.toLowerCase() &&
+                  (prefill?.confidence_pct ?? 0) >= 40;
+                const variant = answer === opt
+                  ? (opt === "Unknown" ? "secondary" : "default")
+                  : "outline";
+                return (
+                  <Button
+                    key={opt}
+                    variant={variant}
+                    size="sm"
+                    onClick={() => setAnswer(opt)}
+                    className={opt === "Unknown" ? "text-gray-700 border-blue-300 hover:bg-blue-50" : undefined}
+                  >
+                    {opt}
+                    {isSuggested && (
+                      <span className="ml-2 text-[10px] uppercase tracking-wide bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+                        Suggested
+                      </span>
+                    )}
+                  </Button>
+                );
+              })}
             </div>
           ) : (
             <span className="inline-flex items-center gap-1">

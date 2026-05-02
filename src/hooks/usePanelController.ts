@@ -1,7 +1,13 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useAssessmentStore } from "@/stores/assessmentStore";
 
-export function usePanelController(sessionId: string, questionId?: string, selectedAnswer?: string, requiresExplanation?: boolean) {
+export function usePanelController(
+  sessionId: string,
+  questionId?: string,
+  selectedAnswer?: string,
+  requiresExplanation?: boolean,
+  hasPrefill?: boolean,
+) {
   // Use sentinel value instead of falsy to avoid conditional hooks
   const qId = questionId || '__none__';
   
@@ -62,8 +68,11 @@ export function usePanelController(sessionId: string, questionId?: string, selec
   // Context status details
   const hasPrompts = contextPrompts.length > 0;
   
-  // Simplified render guard: only check if answer selected and requires explanation
-  const shouldRender = !!selectedAnswerId && requiresExplanation === true;
+  // Render whenever the user has picked an answer AND either the question
+  // explicitly requires an explanation OR the AI has produced a prefill
+  // suggestion the user might want to accept.
+  const shouldRender =
+    !!selectedAnswerId && (requiresExplanation === true || hasPrefill === true);
   
   console.log("🎮 PanelController DETAILED DEBUG", {
     questionId,

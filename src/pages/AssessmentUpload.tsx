@@ -1,8 +1,9 @@
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { DocumentUploader } from "@/components/prefill/DocumentUploader";
+import { AnalyzeProgress } from "@/components/prefill/AnalyzeProgress";
 import { usePrefillStore } from "@/stores/prefillStore";
 import {
   useSessionDocuments, usePrefillJob, useStartAnalyze,
@@ -18,6 +19,8 @@ export default function AssessmentUpload() {
   const { data: job } = usePrefillJob(sessionId);
   const startAnalyze = useStartAnalyze(sessionId);
 
+  const [waiting, setWaiting] = useState(false);
+
   const locked = !!job?.locked_at;
   const allPendingCategorized = store.pendingFiles.every((p) => !!p.category);
   const allPendingUploaded = store.pendingFiles.every((p) => p.status === "uploaded" || p.status === "failed");
@@ -29,6 +32,25 @@ export default function AssessmentUpload() {
   }, [sessionId]);
 
   if (!sessionId) return <div className="p-8">Missing session.</div>;
+
+  if (waiting) {
+    return (
+      <div className="max-w-2xl mx-auto p-6 space-y-6">
+        <header>
+          <h1 className="text-2xl font-semibold">Analyzing your documents</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            We are reading your documents and preparing context suggestions.
+            The questions will open automatically when ready — usually within 30 to 90 seconds.
+          </p>
+        </header>
+        <AnalyzeProgress
+          sessionId={sessionId}
+          onComplete={() => navigate(`/assessment?session=${sessionId}`)}
+          onSkip={() => navigate(`/assessment?session=${sessionId}`)}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-3xl mx-auto p-6 space-y-6">
@@ -60,12 +82,12 @@ export default function AssessmentUpload() {
             !allPendingUploaded
           }
           onClick={() => {
-            // Fire the swarm and immediately navigate. Suggestions arrive
-            // via Realtime as each per-question call completes.
+            // Fire the swarm. The wait state shows progress and either auto-
+            // navigates on completion, or the user can click the skip link.
             startAnalyze.mutate(undefined, {
               onError: (e) => console.warn("[continue] analyze dispatch failed", e),
             });
-            navigate(`/assessment?session=${sessionId}`);
+            setWaiting(true);
           }}
         >
           Continue to questions

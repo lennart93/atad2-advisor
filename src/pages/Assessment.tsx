@@ -30,7 +30,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { ContextSkeleton, ContextEmptyState, ContextErrorState } from "@/components/ContextPanelStates";
 import { ContextPanelFallback } from "@/components/ContextPanelFallback";
 import { SuggestionCard } from "@/components/prefill/SuggestionCard";
-import { SuggestedAnswerChip } from "@/components/prefill/SuggestedAnswerChip";
 import { useQuestionPrefill, usePrefillJob } from "@/hooks/usePrefill";
 import { seededIndex } from "@/utils/random";
 
@@ -245,16 +244,20 @@ const Assessment = () => {
 
   // New Panel Controller - single source of truth for context panel
   const qId = currentQuestion?.question_id ?? "";
-  const { 
-    shouldRender: shouldShowContextPanel, 
-    paneKey, 
-    value: contextValue, 
-    selectedAnswerId, 
+  // Pre-fetch the per-question prefill here so usePanelController can also
+  // gate the textarea visibility on a suggestion existing (not only on the
+  // static `requires_explanation` field).
+  const { data: currentPrefillForGate } = useQuestionPrefill(sessionId || null, qId || null);
+  const {
+    shouldRender: shouldShowContextPanel,
+    paneKey,
+    value: contextValue,
+    selectedAnswerId,
     requiresExplanation,
     contextPrompt,
     contextStatus,
     contextPrompts
-  } = usePanelController(sessionId, qId, answerOptionText, dbRequiresExplanation);
+  } = usePanelController(sessionId, qId, answerOptionText, dbRequiresExplanation, !!currentPrefillForGate);
 
   // Hardened context loader
   const { loadContextQuestions: hardenedLoadContext } = useHardenedContextLoader();
@@ -355,13 +358,29 @@ const Assessment = () => {
     loadQuestions();
   }, []);
 
-  // Pre-fill suggestions for the current question + overall job status
-  const { data: currentPrefill } = useQuestionPrefill(sessionId || null, currentQuestion?.question_id ?? null);
+  // Reuse the prefill we already fetched above for the panel controller.
+  const currentPrefill = currentPrefillForGate;
   const { data: prefillJob } = usePrefillJob(sessionId || null);
   // Background pipeline: never block Next on AI progress. Suggestions
   // arrive via Realtime when ready; user can answer at their own pace.
   const isWaitingForPrefill = false;
   void prefillJob; // referenced via job-status banner only
+
+  // Auto-select the AI's suggested answer the first time it lands for a
+  // given question — only if the user hasn't already picked something. The
+  // ref tracks per-question to avoid re-triggering after a manual change.
+  const autoSelectedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!currentQuestion || !currentPrefill) return;
+    if (selectedAnswer) return;
+    if (autoSelectedRef.current.has(currentQuestion.question_id)) return;
+    if (!currentPrefill.suggested_answer) return;
+    if ((currentPrefill.confidence_pct ?? 0) < 40) return;
+    autoSelectedRef.current.add(currentQuestion.question_id);
+    const option = currentPrefill.suggested_answer.charAt(0).toUpperCase() + currentPrefill.suggested_answer.slice(1);
+    void handleAnswerSelect(option);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentQuestion?.question_id, currentPrefill?.id, selectedAnswer]);
 
   // Resume path: /assessment?session=<id> returns here from /assessment/upload.
   // Load the existing session, its answers, and jump into the question flow.
@@ -1886,17 +1905,11 @@ const Assessment = () => {
                     </p>
                   </div>
                   
-                   {/* AI suggested answer chip (only when confidence ≥40%) */}
-                   {currentPrefill && (
-                     <SuggestedAnswerChip
-                       suggestedAnswer={currentPrefill.suggested_answer}
-                       confidencePct={currentPrefill.confidence_pct}
-                       answerRationale={currentPrefill.answer_rationale}
-                       onUse={(ans) => {
-                         const option = ans.charAt(0).toUpperCase() + ans.slice(1);
-                         void handleAnswerSelect(option);
-                       }}
-                     />
+                   {currentPrefill?.suggested_answer && (currentPrefill.confidence_pct ?? 0) >= 40 && (
+                     <div className="text-xs text-muted-foreground mb-2">
+                       Likelihood {currentPrefill.confidence_pct}%
+                       {currentPrefill.answer_rationale ? ` · ${currentPrefill.answer_rationale}` : ""}
+                     </div>
                    )}
 
                    {/* Answer options */}
@@ -1964,6 +1977,13 @@ const Assessment = () => {
                                }`}>
                                  {option.answer_option}
                                </span>
+                               {currentPrefill?.suggested_answer
+                                 && option.answer_option.toLowerCase() === currentPrefill.suggested_answer
+                                 && (currentPrefill.confidence_pct ?? 0) >= 40 && (
+                                 <span className="ml-2 text-[10px] uppercase tracking-wide bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+                                   Suggested
+                                 </span>
+                               )}
                                {/* Show "Previously answered" only for original submitted answers, not modified ones */}
                                {isSelected && isViewingAnsweredQuestion && (() => {
                                  const originalAnswer = questionFlow.find(entry => 

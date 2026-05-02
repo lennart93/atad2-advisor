@@ -120,9 +120,7 @@ export function DocumentUploader({ sessionId, locked }: Props) {
                 onValueChange={(v) => {
                   const cat = v as DocumentCategory;
                   store.setCategory(p.localId, cat);
-                  if (p.status === "queued" && isReadyToUpload({ ...p, category: cat })) {
-                    kickUpload({ ...p, category: cat });
-                  } else if (p.remoteDocumentId) {
+                  if (p.remoteDocumentId) {
                     updateCategory.mutate({ docId: p.remoteDocumentId, category: cat });
                   }
                 }}
@@ -154,30 +152,27 @@ export function DocumentUploader({ sessionId, locked }: Props) {
             <div className="space-y-1">
               <Input
                 value={p.relevanceNote}
-                onChange={(e) => {
-                  const note = e.target.value;
-                  // Kick upload only on the transition from not-ready to ready,
-                  // not on every keystroke after that. Prevents the input from
-                  // freezing mid-typing as soon as the threshold is crossed.
-                  const wasReadyBefore = isReadyToUpload(p);
-                  const next: PendingFile = { ...p, relevanceNote: note };
-                  const isReadyNow = isReadyToUpload(next);
-                  store.setRelevanceNote(p.localId, note);
-                  if (p.status === "queued" && !wasReadyBefore && isReadyNow) {
-                    kickUpload(next);
-                  }
-                }}
+                onChange={(e) => store.setRelevanceNote(p.localId, e.target.value)}
                 className="text-xs"
-                disabled={locked || p.status === "uploading" || p.status === "uploaded"}
+                disabled={locked || p.status === "uploaded"}
                 placeholder={`Why is this document relevant? (required, min ${RELEVANCE_NOTE_MIN_LENGTH} characters)`}
               />
               {p.status === "queued" && (
-                <div className="text-xs text-muted-foreground">
-                  {!p.category
-                    ? "Pick a category to start."
-                    : p.relevanceNote.trim().length < RELEVANCE_NOTE_MIN_LENGTH
-                      ? `${RELEVANCE_NOTE_MIN_LENGTH - p.relevanceNote.trim().length} more character${RELEVANCE_NOTE_MIN_LENGTH - p.relevanceNote.trim().length === 1 ? "" : "s"} needed before upload starts.`
-                      : "Starting upload…"}
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-xs text-muted-foreground">
+                    {!p.category
+                      ? "Pick a category to enable upload."
+                      : p.relevanceNote.trim().length < RELEVANCE_NOTE_MIN_LENGTH
+                        ? `${RELEVANCE_NOTE_MIN_LENGTH - p.relevanceNote.trim().length} more character${RELEVANCE_NOTE_MIN_LENGTH - p.relevanceNote.trim().length === 1 ? "" : "s"} needed.`
+                        : "Ready to upload."}
+                  </div>
+                  <Button
+                    size="sm"
+                    disabled={!isReadyToUpload(p) || locked}
+                    onClick={() => kickUpload(p)}
+                  >
+                    Upload
+                  </Button>
                 </div>
               )}
             </div>
