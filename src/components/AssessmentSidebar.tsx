@@ -1,9 +1,7 @@
-import { CheckCircle, Circle, Check, X, HelpCircle, FileText } from "lucide-react";
+import { CheckCircle, Circle, Check, X, HelpCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useEffect, useRef, useState } from "react";
-import { useAllPrefills, useSessionDocuments, usePrefillJob } from "@/hooks/usePrefill";
-import { useQuestionCount } from "@/hooks/useQuestionCount";
-import { UploadedDocumentsModal } from "@/components/prefill/UploadedDocumentsModal";
+import { useEffect, useRef } from "react";
+import { useAllPrefills, usePrefillJob } from "@/hooks/usePrefill";
 
 interface AssessmentSidebarProps {
   sessionId?: string | null;
@@ -32,23 +30,13 @@ interface AssessmentSidebarProps {
 
 export function AssessmentSidebar({ sessionId, answers, questionHistory, currentQuestion, pendingQuestion, onQuestionClick, onPendingQuestionClick }: AssessmentSidebarProps) {
   const { data: prefills } = useAllPrefills(sessionId ?? null);
-  const { data: docs } = useSessionDocuments(sessionId ?? null);
   const { data: job } = usePrefillJob(sessionId ?? null);
-  const { data: questionCount } = useQuestionCount();
-  const [docsModalOpen, setDocsModalOpen] = useState(false);
   const activeSuggestions = (prefills ?? []).filter((p) => p.user_action !== "dismissed" && p.user_action !== "moved_to_additional_context").length;
-  const readyCount = (prefills ?? []).length;
 
   let pillContent: string | null = null;
-  let pillTone: "default" | "success" | "warn" = "default";
-  if (job?.status === "stage2_running" && questionCount) {
-    pillContent = `Analyzing documents · ${readyCount} / ${questionCount} questions ready`;
-  } else if (job?.status === "completed" && readyCount > 0) {
-    pillContent = `Analysis complete · ${readyCount} suggestion${readyCount === 1 ? "" : "s"} ready`;
-    pillTone = "success";
-  } else if (job?.status === "failed") {
+  const pillTone: "default" | "success" | "warn" = "warn";
+  if (job?.status === "failed") {
     pillContent = "Analysis failed — continuing without suggestions";
-    pillTone = "warn";
   }
   const totalAnswered = questionHistory.length;
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -84,18 +72,6 @@ export function AssessmentSidebar({ sessionId, answers, questionHistory, current
           <p className="text-xs text-muted-foreground mt-1">
             {activeSuggestions} pre-fill suggestion{activeSuggestions === 1 ? "" : "s"} available
           </p>
-        )}
-        {sessionId && (docs?.length ?? 0) > 0 && (
-          <>
-            <button
-              type="button"
-              onClick={() => setDocsModalOpen(true)}
-              className="mt-2 flex items-center gap-2 text-xs text-primary hover:underline"
-            >
-              <FileText className="h-3 w-3" /> Uploaded documents ({docs?.length})
-            </button>
-            <UploadedDocumentsModal sessionId={sessionId} open={docsModalOpen} onOpenChange={setDocsModalOpen} />
-          </>
         )}
       </div>
       
