@@ -38,9 +38,24 @@ export default function AssessmentUpload() {
   const [waiting, setWaiting] = useState(false);
 
   const locked = !!job?.locked_at;
-  const allPendingCategorized = store.pendingFiles.every((p) => !!p.category);
   const allPendingUploaded = store.pendingFiles.every((p) => p.status === "uploaded" || p.status === "failed");
   const hasAtLeastOneUploaded = (docs?.length ?? 0) > 0;
+  const uncategorizedCount = (docs ?? []).filter((d) => !d.category).length;
+
+  const handleContinue = () => {
+    if (uncategorizedCount > 0) {
+      const ok = window.confirm(
+        `${uncategorizedCount} document${uncategorizedCount === 1 ? "" : "s"} ${uncategorizedCount === 1 ? "is" : "are"} missing a category. Suggestions will be slightly less targeted. Continue anyway?`
+      );
+      if (!ok) return;
+    }
+    // Fire the swarm. The wait state shows progress and either auto-
+    // navigates on completion, or the user can click the skip link.
+    startAnalyze.mutate(undefined, {
+      onError: (e) => console.warn("[continue] analyze dispatch failed", e),
+    });
+    setWaiting(true);
+  };
 
   useEffect(() => {
     store.reset();
@@ -98,19 +113,8 @@ export default function AssessmentUpload() {
           {hasAtLeastOneUploaded ? "Skip suggestions" : "Skip — no documents"}
         </Button>
         <Button
-          disabled={
-            !hasAtLeastOneUploaded ||
-            !allPendingCategorized ||
-            !allPendingUploaded
-          }
-          onClick={() => {
-            // Fire the swarm. The wait state shows progress and either auto-
-            // navigates on completion, or the user can click the skip link.
-            startAnalyze.mutate(undefined, {
-              onError: (e) => console.warn("[continue] analyze dispatch failed", e),
-            });
-            setWaiting(true);
-          }}
+          disabled={!hasAtLeastOneUploaded || !allPendingUploaded}
+          onClick={handleContinue}
         >
           Continue to questions
         </Button>
