@@ -20,11 +20,15 @@ function statusTone(status: string, completed: boolean | null): "success" | "war
   return "neutral";
 }
 
+// final_score is the sum of per-answer risk_points and lives on the
+// 0.0–~2.0 fractional scale. Tones match getRiskOutcome() in
+// AssessmentReport: ≥1.0 = risk identified (danger), ≥0.2 = insufficient
+// information (warning), below 0.2 = low risk (success).
 function scoreTone(score: number | null): "success" | "warning" | "danger" | "neutral" {
   if (score == null) return "neutral";
-  if (score >= 7) return "success";
-  if (score >= 4) return "warning";
-  return "danger";
+  if (score >= 1.0) return "danger";
+  if (score >= 0.2) return "warning";
+  return "success";
 }
 
 const Sessions = () => {

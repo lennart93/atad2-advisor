@@ -661,11 +661,12 @@ const Assessment = () => {
       // Now update the session with preliminary outcome (not confirmed yet)
       const { error } = await supabase
         .from('atad2_sessions')
-        .update({ 
-          completed: true, 
+        .update({
+          completed: true,
           status: 'completed',
           preliminary_outcome: preliminaryOutcome,
-          outcome_confirmed: false
+          outcome_confirmed: false,
+          final_score: totalRiskPoints,
         })
         .eq('session_id', sessionId);
 
