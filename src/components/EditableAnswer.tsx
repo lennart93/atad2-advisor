@@ -288,12 +288,6 @@ export const EditableAnswer: React.FC<EditableAnswerProps> = ({
 
       {/* Answer Section */}
       <div className="space-y-3">
-        {prefill && isEditing && prefill.suggested_answer && (prefill.confidence_pct ?? 0) >= 40 && (
-          <div className="text-xs text-muted-foreground">
-            Likelihood {prefill.confidence_pct}%
-            {prefill.answer_rationale ? ` · ${prefill.answer_rationale}` : ""}
-          </div>
-        )}
         <div>
           <span className="text-sm font-medium">Answer: </span>
           {isEditing ? (
@@ -316,7 +310,7 @@ export const EditableAnswer: React.FC<EditableAnswerProps> = ({
                     {opt}
                     {isSuggested && (
                       <span className="ml-2 text-[10px] uppercase tracking-wide bg-primary/10 text-primary px-1.5 py-0.5 rounded">
-                        Suggested
+                        Suggested ({prefill?.confidence_pct ?? 0}%)
                       </span>
                     )}
                   </Button>
