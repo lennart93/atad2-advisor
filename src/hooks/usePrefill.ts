@@ -100,7 +100,6 @@ export function useUploadDocument(sessionId: string | null) {
   return useMutation({
     mutationFn: async ({ pending }: { pending: PendingFile }) => {
       if (!sessionId) throw new Error("No session id");
-      if (!pending.category) throw new Error("Category required");
       console.log("[upload-document] start", { name: pending.file.name, mime: pending.file.type, size: pending.file.size });
 
       const { data: authData } = await supabase.auth.getUser();
@@ -183,11 +182,11 @@ export function useUploadDocument(sessionId: string | null) {
             session_id: sessionId,
             filename: pending.file.name,
             doc_label: pending.docLabel,
-            category: pending.category,
+            category: pending.category ?? null,
             storage_path: storagePath,
             mime_type: uploadMime,
             size_bytes: uploadSize,
-            relevance_note: pending.relevanceNote.trim() || null,
+            relevance_note: null,
           })
           .select()
           .single();

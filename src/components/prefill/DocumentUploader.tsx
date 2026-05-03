@@ -6,7 +6,6 @@ import {
   type DocumentCategory,
 } from "@/lib/prefill/types";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -142,21 +141,6 @@ export function DocumentUploader({ sessionId, locked }: Props) {
                   <Trash2 className="h-4 w-4" />
                 </Button>
               )}
-            </div>
-
-            <div className="space-y-1">
-              <Input
-                value={p.relevanceNote}
-                onChange={(e) => store.setRelevanceNote(p.localId, e.target.value)}
-                onBlur={() => {
-                  if (p.remoteDocumentId) {
-                    updateMeta.mutate({ docId: p.remoteDocumentId, relevanceNote: p.relevanceNote });
-                  }
-                }}
-                className="text-xs"
-                disabled={locked || p.status === "uploading"}
-                placeholder="Why is this document relevant? (optional, sharper suggestions if filled in)"
-              />
             </div>
           </Card>
         ))}
