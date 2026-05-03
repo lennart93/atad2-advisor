@@ -168,9 +168,14 @@ const Assessment = () => {
   const navigate = useNavigate();
   const userPref = useUserPreference();
 
-  // Helper function to check if auto-advance is allowed
+  // Helper function to check if auto-advance is allowed.
+  // Blocks auto-advance whenever (a) the answer requires explanation OR
+  // (b) the AI made a confident call (>=40% suggestion) — in case (b) the
+  // user must see the rationale and click Continue manually.
   function canAutoAdvance(selectedOption?: { requires_explanation?: boolean }) {
-    return selectedOption?.requires_explanation !== true;
+    if (selectedOption?.requires_explanation === true) return false;
+    if (currentPrefill?.suggested_answer && (currentPrefill.confidence_pct ?? 0) >= 40) return false;
+    return true;
   }
   
   const [searchParams] = useSearchParams();
@@ -1998,8 +2003,21 @@ const Assessment = () => {
                        })}
                     </div>
 
+                    {/* Inline rationale strip — only when AI suggested this exact answer
+                        AND the answer doesn't require explanation. Otherwise the
+                        zone-3 SuggestionCard inside the grey panel handles rationale. */}
+                    {currentPrefill?.suggested_answer
+                      && (currentPrefill.confidence_pct ?? 0) >= 40
+                      && selectedAnswer
+                      && selectedAnswer.toLowerCase() === currentPrefill.suggested_answer
+                      && !selectedQuestionOption?.requires_explanation && (
+                      <div className="text-xs italic text-muted-foreground mt-3 ml-1 mb-6">
+                        AI rationale: {currentPrefill.answer_rationale ?? "no rationale provided"}
+                      </div>
+                    )}
+
                       {/* Question explanation - inline expandable */}
-                      <QuestionExplanationInline 
+                      <QuestionExplanationInline
                         key={currentQuestion.question_id} 
                         explanation={currentQuestion.question_explanation} 
                       />
@@ -2137,9 +2155,21 @@ const Assessment = () => {
                        </Button>
                      )}
 
-                        {/* Show Submit/Continue button when context panel is visible and we have an answer, but NOT when it's the last question */}
-                        {shouldShowContextPanel && selectedAnswer && !shouldShowFinishButton && (
-                           <Button 
+                        {/* Show Submit/Continue button when (a) the context panel is visible OR
+                            (b) the AI made a >=40% suggestion that pre-selected this answer
+                            and the question doesn't require explanation (the rationale
+                            strip is rendered above and the user must click Continue). */}
+                        {(
+                          (shouldShowContextPanel && selectedAnswer)
+                          || (
+                            selectedAnswer
+                            && currentPrefill?.suggested_answer
+                            && (currentPrefill.confidence_pct ?? 0) >= 40
+                            && selectedAnswer.toLowerCase() === currentPrefill.suggested_answer
+                            && !selectedQuestionOption?.requires_explanation
+                          )
+                        ) && !shouldShowFinishButton && (
+                           <Button
                               onClick={handleContinueWithReminder}
                               disabled={loading || isTransitioning}
                               className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
