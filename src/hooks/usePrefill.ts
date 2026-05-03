@@ -198,10 +198,6 @@ export function useUploadDocument(sessionId: string | null) {
         throw err;
       }
 
-      console.log("[upload-document] step: invoke summarize (fire-and-forget)", { docId });
-      invokePrefillFn({ action: "summarize", session_id: sessionId, document_id: docId })
-        .catch((e) => console.error("[upload-document] summarize failed", e));
-
       console.log("[upload-document] done", { docId });
 
       return inserted;
@@ -259,10 +255,6 @@ export function useUploadText(sessionId: string | null) {
         console.error("[upload-text] step failed: db-insert", insErr);
         throw insErr;
       }
-
-      console.log("[upload-text] step: invoke summarize (fire-and-forget)", { docId });
-      invokePrefillFn({ action: "summarize", session_id: sessionId, document_id: docId })
-        .catch((e) => console.error("[upload-text] summarize failed", e));
 
       console.log("[upload-text] done", { docId });
       return inserted;
