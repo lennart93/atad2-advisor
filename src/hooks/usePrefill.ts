@@ -399,6 +399,32 @@ export function useUpdateDocumentCategory(sessionId: string | null) {
   });
 }
 
+export function useUpdateDocumentMetadata(sessionId: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      docId,
+      category,
+      relevanceNote,
+    }: {
+      docId: string;
+      category?: string | null;
+      relevanceNote?: string | null;
+    }) => {
+      const patch: Record<string, string | null> = {};
+      if (category !== undefined) patch.category = category;
+      if (relevanceNote !== undefined) patch.relevance_note = relevanceNote && relevanceNote.trim().length > 0 ? relevanceNote.trim() : null;
+      if (Object.keys(patch).length === 0) return;
+      const { error } = await supabase
+        .from("atad2_session_documents")
+        .update(patch)
+        .eq("id", docId);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["session-documents", sessionId] }),
+  });
+}
+
 export function useUpdatePrefillAction() {
   const qc = useQueryClient();
   return useMutation({
