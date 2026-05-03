@@ -182,7 +182,7 @@ export function useUploadDocument(sessionId: string | null) {
             session_id: sessionId,
             filename: pending.file.name,
             doc_label: pending.docLabel,
-            category: pending.category ?? null,
+            category: pending.category ?? "other",
             storage_path: storagePath,
             mime_type: uploadMime,
             size_bytes: uploadSize,

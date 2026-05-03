@@ -1,14 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { usePrefillStore, type PendingFile } from "@/stores/prefillStore";
-import { useUploadDocument, useSessionDocuments, useUpdateDocumentMetadata } from "@/hooks/usePrefill";
+import { useUploadDocument, useSessionDocuments } from "@/hooks/usePrefill";
 import {
-  ACCEPTED_MIME_TYPES, MAX_FILE_BYTES, MAX_SESSION_BYTES, DOCUMENT_CATEGORIES,
-  type DocumentCategory,
+  ACCEPTED_MIME_TYPES, MAX_FILE_BYTES, MAX_SESSION_BYTES,
 } from "@/lib/prefill/types";
 import { Button } from "@/components/ui/button";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
 import { Trash2, Upload, ClipboardPaste } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
@@ -24,7 +20,6 @@ export function DocumentUploader({ sessionId, locked }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [pasteOpen, setPasteOpen] = useState(false);
   const upload = useUploadDocument(sessionId);
-  const updateMeta = useUpdateDocumentMetadata(sessionId);
   const { data: uploadedDocs } = useSessionDocuments(sessionId);
 
   const onFilesSelected = (selected: FileList | null) => {
@@ -56,8 +51,6 @@ export function DocumentUploader({ sessionId, locked }: Props) {
     store.addFiles(accepted);
   };
 
-  // Auto-fire upload for any pending file in `queued` state. Metadata is
-  // optional and can be filled in after upload completes.
   useEffect(() => {
     if (locked) return;
     for (const p of store.pendingFiles) {
@@ -68,7 +61,6 @@ export function DocumentUploader({ sessionId, locked }: Props) {
         onError: (err) => store.setStatus(p.localId, "failed", { errorMessage: (err as Error).message }),
       });
     }
-    // intentionally only depend on pendingFiles + locked; mutation ref is stable
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [store.pendingFiles, locked]);
 
@@ -105,48 +97,24 @@ export function DocumentUploader({ sessionId, locked }: Props) {
 
       <div className="space-y-2">
         {store.pendingFiles.map((p) => (
-          <Card key={p.localId} className="p-3 space-y-3">
-            <div className="flex items-start gap-3">
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium break-all" title={p.file.name}>
-                  {p.file.name}
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {formatBytes(p.file.size)} · {labelForStatus(p)}
-                </div>
-                {p.errorMessage && <div className="text-xs text-destructive">{p.errorMessage}</div>}
+          <Card key={p.localId} className="p-3 flex items-start gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-medium break-all" title={p.file.name}>
+                {p.file.name}
               </div>
-
-              <Select
-                value={p.category ?? undefined}
-                onValueChange={(v) => {
-                  const cat = v as DocumentCategory;
-                  store.setCategory(p.localId, cat);
-                  if (p.remoteDocumentId) {
-                    updateMeta.mutate({ docId: p.remoteDocumentId, category: cat });
-                  }
-                }}
-                disabled={locked || p.status === "uploading"}
-              >
-                <SelectTrigger className="w-56"><SelectValue placeholder="Select category (optional)" /></SelectTrigger>
-                <SelectContent>
-                  {DOCUMENT_CATEGORIES.map((c) => (
-                    <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              {!locked && (
-                <Button variant="ghost" size="icon" onClick={() => store.removeFile(p.localId)}>
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              )}
+              <div className="text-xs text-muted-foreground">
+                {formatBytes(p.file.size)} · {labelForStatus(p)}
+              </div>
+              {p.errorMessage && <div className="text-xs text-destructive">{p.errorMessage}</div>}
             </div>
+            {!locked && (
+              <Button variant="ghost" size="icon" onClick={() => store.removeFile(p.localId)}>
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
           </Card>
         ))}
 
-        {/* Remote docs that aren't represented by a PendingFile — pasted-text
-            items go straight to the server so they live only here. */}
         {(uploadedDocs ?? [])
           .filter((d) => !store.pendingFiles.some((p) => p.remoteDocumentId === d.id))
           .map((d) => (
@@ -160,18 +128,6 @@ export function DocumentUploader({ sessionId, locked }: Props) {
                   {formatBytes(d.size_bytes)} · {d.status === "summarized" ? "Ready" : d.status === "summarizing" ? "Analyzing…" : d.status}
                 </div>
               </div>
-              <Select
-                value={d.category ?? undefined}
-                onValueChange={(v) => updateMeta.mutate({ docId: d.id, category: v as DocumentCategory })}
-                disabled={locked}
-              >
-                <SelectTrigger className="w-56"><SelectValue placeholder="Select category" /></SelectTrigger>
-                <SelectContent>
-                  {DOCUMENT_CATEGORIES.map((c) => (
-                    <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </Card>
           ))}
       </div>
