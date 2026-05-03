@@ -1905,13 +1905,6 @@ const Assessment = () => {
                       />
                     </p>
                   </div>
-                  
-                   {currentPrefill?.suggested_answer && (currentPrefill.confidence_pct ?? 0) >= 40 && (
-                     <div className="text-xs text-muted-foreground mb-2">
-                       Likelihood {currentPrefill.confidence_pct}%
-                       {currentPrefill.answer_rationale ? ` · ${currentPrefill.answer_rationale}` : ""}
-                     </div>
-                   )}
 
                    {/* Answer options */}
                    <div className="space-y-3 mb-8">
@@ -1982,7 +1975,7 @@ const Assessment = () => {
                                  && option.answer_option.toLowerCase() === currentPrefill.suggested_answer
                                  && (currentPrefill.confidence_pct ?? 0) >= 40 && (
                                  <span className="ml-2 text-[10px] uppercase tracking-wide bg-primary/10 text-primary px-1.5 py-0.5 rounded">
-                                   Suggested
+                                   Suggested ({currentPrefill.confidence_pct}%)
                                  </span>
                                )}
                                {/* Show "Previously answered" only for original submitted answers, not modified ones */}
