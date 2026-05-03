@@ -30,7 +30,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ContextSkeleton, ContextEmptyState, ContextErrorState } from "@/components/ContextPanelStates";
 import { ContextPanelFallback } from "@/components/ContextPanelFallback";
 import { SuggestionCard } from "@/components/prefill/SuggestionCard";
-import { useQuestionPrefill, usePrefillJob } from "@/hooks/usePrefill";
+import { useQuestionPrefill, usePrefillJob, useSessionDocuments } from "@/hooks/usePrefill";
 import { seededIndex } from "@/utils/random";
 
 interface Question {
@@ -248,6 +248,8 @@ const Assessment = () => {
   // gate the textarea visibility on a suggestion existing (not only on the
   // static `requires_explanation` field).
   const { data: currentPrefillForGate } = useQuestionPrefill(sessionId || null, qId || null);
+  const { data: sessionDocuments } = useSessionDocuments(sessionId || null);
+  const docsCount = sessionDocuments?.length ?? 0;
   const {
     shouldRender: shouldShowContextPanel,
     paneKey,
@@ -2032,9 +2034,9 @@ const Assessment = () => {
                                   Couldn't generate suggestions — continue without them.
                                 </div>
                               )}
-                              {prefillJob?.status === "completed" && !currentPrefill && (
-                                <div className="text-xs text-muted-foreground italic mb-3">
-                                  No relevant context found in your uploaded documents for this question.
+                              {prefillJob?.status === "completed" && !currentPrefill && docsCount > 0 && (
+                                <div className="text-xs italic text-muted-foreground mt-3 ml-1">
+                                  No relevant context found in the uploaded documents for this question.
                                 </div>
                               )}
 
