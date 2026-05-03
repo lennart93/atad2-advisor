@@ -11,15 +11,20 @@ interface Props {
   onDismissToAdditionalContext?: (text: string) => void;
 }
 
-export function SuggestionCard({ prefill, currentToelichting, onCommit, onDismissToAdditionalContext }: Props) {
+const MAX_RATIONALE_INLINE = 140;
+
+export function SuggestionCard({
+  prefill,
+  currentToelichting,
+  onCommit,
+  onDismissToAdditionalContext,
+}: Props) {
   const [editMode, setEditMode] = useState(false);
   const [draft, setDraft] = useState(prefill.suggested_toelichting);
+  const [showFullRationale, setShowFullRationale] = useState(false);
   const [dismissedLocally, setDismissedLocally] = useState(false);
   const updateAction = useUpdatePrefillAction();
 
-  // Hide the card immediately on Accept/Edit-Save/Dismiss/MoveToAdditional —
-  // either because of a local intent flag (Realtime hasn't yet refreshed the
-  // user_action field) or because the persisted user_action is non-pending.
   if (
     dismissedLocally ||
     prefill.user_action === "accepted" ||
@@ -56,29 +61,66 @@ export function SuggestionCard({ prefill, currentToelichting, onCommit, onDismis
     setDismissedLocally(true);
   };
 
+  const labels = (prefill.source_refs ?? []).map((r) => r.doc_label).filter(Boolean);
+  const headerLabels =
+    labels.length === 0
+      ? ""
+      : labels.length <= 2
+        ? labels.join(", ")
+        : `${labels.slice(0, 2).join(", ")} +${labels.length - 2} more`;
+
+  const rationale = prefill.answer_rationale ?? "";
+  const rationaleNeedsToggle = rationale.length > MAX_RATIONALE_INLINE;
+  const rationaleVisible = rationaleNeedsToggle && !showFullRationale
+    ? `${rationale.slice(0, MAX_RATIONALE_INLINE).trimEnd()}…`
+    : rationale;
+
   return (
     <div className="border-l-2 border-primary/40 bg-primary/5 pl-3 py-2 my-2 text-sm space-y-2">
       <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        Suggested context from your documents
+        AI suggestion{headerLabels ? ` · ${headerLabels}` : ""}
       </div>
 
-      {!editMode ? (
-        <p>{prefill.suggested_toelichting}</p>
-      ) : (
-        <Textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={4} />
+      {rationale && (
+        <div className="text-xs text-muted-foreground italic">
+          {rationaleVisible}
+          {rationaleNeedsToggle && (
+            <button
+              type="button"
+              className="ml-1 underline underline-offset-2 hover:text-foreground"
+              onClick={() => setShowFullRationale((v) => !v)}
+            >
+              {showFullRationale ? "Show less" : "Show more"}
+            </button>
+          )}
+        </div>
       )}
 
-      <div className="text-xs text-muted-foreground">
-        From: {prefill.source_refs.map((r, i) => (
-          <span key={i}>{i > 0 ? "; " : ""}{r.doc_label} {r.location}</span>
-        ))}
-      </div>
+      {!editMode ? (
+        <p className="whitespace-pre-wrap">{prefill.suggested_toelichting}</p>
+      ) : (
+        <Textarea
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          rows={5}
+          className="bg-background"
+        />
+      )}
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 pt-1">
         {!editMode ? (
           <>
             <Button size="sm" onClick={accept}>Accept</Button>
-            <Button size="sm" variant="outline" onClick={() => { setDraft(prefill.suggested_toelichting); setEditMode(true); }}>Edit</Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setDraft(prefill.suggested_toelichting);
+                setEditMode(true);
+              }}
+            >
+              Edit
+            </Button>
             <Button size="sm" variant="ghost" onClick={() => dismiss(false)}>Dismiss</Button>
           </>
         ) : (
