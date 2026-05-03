@@ -134,14 +134,6 @@ export function DocumentUploader({ sessionId, locked }: Props) {
                 </SelectContent>
               </Select>
 
-              <Input
-                value={p.docLabel}
-                onChange={(e) => store.setDocLabel(p.localId, e.target.value)}
-                className="w-48"
-                disabled={locked || p.status === "uploaded"}
-                placeholder="Label"
-              />
-
               {!locked && (
                 <Button variant="ghost" size="icon" onClick={() => store.removeFile(p.localId)}>
                   <Trash2 className="h-4 w-4" />

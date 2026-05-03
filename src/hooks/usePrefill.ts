@@ -273,12 +273,105 @@ export function useUploadText(sessionId: string | null) {
   });
 }
 
+/**
+ * Client-orchestrated swarm: each question gets its own Edge Function call,
+ * fired in parallel with a small concurrency cap. This avoids the per-isolate
+ * wall-clock limit that killed the previous server-side swarm.
+ */
 export function useStartAnalyze(sessionId: string | null) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async () => {
       if (!sessionId) throw new Error("No session id");
-      return await invokePrefillFn({ action: "analyze", session_id: sessionId });
+
+      // 1. Build the documents block from Storage on the client.
+      const { data: docs } = await supabase
+        .from("atad2_session_documents")
+        .select("id, doc_label, category, storage_path, relevance_note")
+        .eq("session_id", sessionId);
+      if (!docs || docs.length === 0) throw new Error("No documents to analyze");
+
+      const docTexts = await Promise.all(docs.map(async (d) => {
+        const { data: file } = await supabase.storage.from("session-documents").download(d.storage_path);
+        if (!file) return null;
+        const text = await file.text();
+        const noteAttr = d.relevance_note
+          ? ` relevance_note="${String(d.relevance_note).replace(/"/g, "'")}"`
+          : "";
+        return `<document doc_label="${d.doc_label}" category="${d.category}"${noteAttr}>\n${text}\n</document>`;
+      }));
+      const documentsBlock = docTexts.filter(Boolean).join("\n\n");
+      if (!documentsBlock) throw new Error("Could not assemble documents block");
+
+      // 2. Atomic claim — insert prefill_jobs row.
+      const { error: jobErr } = await supabase
+        .from("atad2_prefill_jobs")
+        .insert({
+          session_id: sessionId,
+          status: "stage2_running",
+          started_at: new Date().toISOString(),
+          stage1_finished_at: new Date().toISOString(),
+          locked_at: new Date().toISOString(),
+        });
+      if (jobErr && !`${jobErr.message}`.toLowerCase().includes("duplicate")) {
+        throw jobErr;
+      }
+
+      // 3. Load distinct questions.
+      const { data: rawQuestions } = await supabase
+        .from("atad2_questions")
+        .select("question_id, question, question_explanation");
+      const uniq = new Map<string, { question_id: string; question: string; question_explanation: string | null }>();
+      for (const q of rawQuestions ?? []) {
+        if (!uniq.has(q.question_id)) uniq.set(q.question_id, q as never);
+      }
+      const questions = Array.from(uniq.values());
+
+      // 4. Cache-warmup: fire ONE call first so the prompt-cache prefix is
+      //    written before we slam Anthropic with N parallel requests.
+      const failures: string[] = [];
+      const queue = [...questions];
+      const work = async (q: typeof questions[number]) => {
+        try {
+          await invokePrefillFn({
+            action: "analyze_one",
+            session_id: sessionId,
+            question_id: q.question_id,
+            question_text: q.question,
+            question_explanation: q.question_explanation ?? "",
+            documents_block: documentsBlock,
+          });
+        } catch (e) {
+          failures.push(`${q.question_id}: ${(e as Error).message}`);
+        }
+      };
+
+      const warmup = queue.shift();
+      if (warmup) await work(warmup);
+
+      // 5. Fan out with concurrency cap. Each call is ~5-15s and fits the
+      //    edge-runtime wall-clock budget on its own; the browser owns the
+      //    overall coordination, so total time = max single-call latency.
+      const CONCURRENCY = 12;
+      const workers: Promise<void>[] = [];
+      for (let i = 0; i < Math.min(CONCURRENCY, queue.length); i++) {
+        workers.push((async () => {
+          while (queue.length > 0) {
+            const q = queue.shift();
+            if (q) await work(q);
+          }
+        })());
+      }
+      await Promise.allSettled(workers);
+
+      // 6. Finalize the job row.
+      await supabase.from("atad2_prefill_jobs").update({
+        status: failures.length === questions.length ? "failed" : "completed",
+        stage2_finished_at: new Date().toISOString(),
+        error_message: failures.length === questions.length ? `All ${failures.length} questions failed` : null,
+      }).eq("session_id", sessionId);
+
+      return { ok: true, prefill_count: questions.length - failures.length, failure_count: failures.length };
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["prefill-job", sessionId] });

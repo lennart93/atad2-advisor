@@ -1,10 +1,12 @@
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { DocumentUploader } from "@/components/prefill/DocumentUploader";
 import { AnalyzeProgress } from "@/components/prefill/AnalyzeProgress";
 import { usePrefillStore } from "@/stores/prefillStore";
+import { supabase } from "@/integrations/supabase/client";
 import {
   useSessionDocuments, usePrefillJob, useStartAnalyze,
 } from "@/hooks/usePrefill";
@@ -18,6 +20,20 @@ export default function AssessmentUpload() {
   const { data: docs } = useSessionDocuments(sessionId);
   const { data: job } = usePrefillJob(sessionId);
   const startAnalyze = useStartAnalyze(sessionId);
+
+  const { data: sessionRow } = useQuery({
+    enabled: !!sessionId,
+    queryKey: ["session-info", sessionId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("atad2_sessions")
+        .select("taxpayer_name")
+        .eq("session_id", sessionId!)
+        .maybeSingle();
+      return data;
+    },
+  });
+  const taxpayerName = sessionRow?.taxpayer_name?.trim() || "the taxpayer";
 
   const [waiting, setWaiting] = useState(false);
 
@@ -37,10 +53,16 @@ export default function AssessmentUpload() {
     return (
       <div className="max-w-2xl mx-auto p-6 space-y-6">
         <header>
-          <h1 className="text-2xl font-semibold">Analyzing your documents</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            We are reading your documents and preparing context suggestions.
-            The questions will open automatically when ready — usually within 30 to 90 seconds.
+          <h1 className="text-2xl font-semibold">One moment — preparing your assessment</h1>
+          <p className="text-sm text-muted-foreground mt-2">
+            Next you will work through a series of questions to determine whether ATAD2
+            applies to <span className="font-medium text-foreground">{taxpayerName}</span>.
+          </p>
+          <p className="text-sm text-muted-foreground mt-2">
+            We are now reading the documents you uploaded to see whether we can pre-fill
+            answers for some of those questions. You can wait for this to complete or
+            jump straight into the questionnaire — suggestions will appear inline as
+            they become available.
           </p>
         </header>
         <AnalyzeProgress
