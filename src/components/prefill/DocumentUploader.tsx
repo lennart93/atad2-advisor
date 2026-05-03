@@ -1,9 +1,8 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePrefillStore, type PendingFile } from "@/stores/prefillStore";
-import { useUploadDocument, useSessionDocuments, useUpdateDocumentCategory } from "@/hooks/usePrefill";
+import { useUploadDocument, useSessionDocuments, useUpdateDocumentMetadata } from "@/hooks/usePrefill";
 import {
   ACCEPTED_MIME_TYPES, MAX_FILE_BYTES, MAX_SESSION_BYTES, DOCUMENT_CATEGORIES,
-  RELEVANCE_NOTE_MIN_LENGTH,
   type DocumentCategory,
 } from "@/lib/prefill/types";
 import { Button } from "@/components/ui/button";
@@ -26,7 +25,7 @@ export function DocumentUploader({ sessionId, locked }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [pasteOpen, setPasteOpen] = useState(false);
   const upload = useUploadDocument(sessionId);
-  const updateCategory = useUpdateDocumentCategory(sessionId);
+  const updateMeta = useUpdateDocumentMetadata(sessionId);
   const { data: uploadedDocs } = useSessionDocuments(sessionId);
 
   const onFilesSelected = (selected: FileList | null) => {
@@ -58,17 +57,21 @@ export function DocumentUploader({ sessionId, locked }: Props) {
     store.addFiles(accepted);
   };
 
-  const isReadyToUpload = (p: PendingFile) =>
-    !!p.category && p.relevanceNote.trim().length >= RELEVANCE_NOTE_MIN_LENGTH;
-
-  const kickUpload = (pending: PendingFile) => {
-    if (!isReadyToUpload(pending)) return;
-    store.setStatus(pending.localId, "uploading");
-    upload.mutate({ pending }, {
-      onSuccess: (doc) => store.setStatus(pending.localId, "uploaded", { remoteDocumentId: doc?.id }),
-      onError: (err) => store.setStatus(pending.localId, "failed", { errorMessage: (err as Error).message }),
-    });
-  };
+  // Auto-fire upload for any pending file in `queued` state. Metadata is
+  // optional and can be filled in after upload completes.
+  useEffect(() => {
+    if (locked) return;
+    for (const p of store.pendingFiles) {
+      if (p.status !== "queued") continue;
+      store.setStatus(p.localId, "uploading");
+      upload.mutate({ pending: p }, {
+        onSuccess: (doc) => store.setStatus(p.localId, "uploaded", { remoteDocumentId: doc?.id }),
+        onError: (err) => store.setStatus(p.localId, "failed", { errorMessage: (err as Error).message }),
+      });
+    }
+    // intentionally only depend on pendingFiles + locked; mutation ref is stable
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [store.pendingFiles, locked]);
 
   return (
     <div className="space-y-4">
@@ -121,12 +124,12 @@ export function DocumentUploader({ sessionId, locked }: Props) {
                   const cat = v as DocumentCategory;
                   store.setCategory(p.localId, cat);
                   if (p.remoteDocumentId) {
-                    updateCategory.mutate({ docId: p.remoteDocumentId, category: cat });
+                    updateMeta.mutate({ docId: p.remoteDocumentId, category: cat });
                   }
                 }}
-                disabled={locked}
+                disabled={locked || p.status === "uploading"}
               >
-                <SelectTrigger className="w-56"><SelectValue placeholder="Select category" /></SelectTrigger>
+                <SelectTrigger className="w-56"><SelectValue placeholder="Select category (optional)" /></SelectTrigger>
                 <SelectContent>
                   {DOCUMENT_CATEGORIES.map((c) => (
                     <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
@@ -145,28 +148,15 @@ export function DocumentUploader({ sessionId, locked }: Props) {
               <Input
                 value={p.relevanceNote}
                 onChange={(e) => store.setRelevanceNote(p.localId, e.target.value)}
+                onBlur={() => {
+                  if (p.remoteDocumentId) {
+                    updateMeta.mutate({ docId: p.remoteDocumentId, relevanceNote: p.relevanceNote });
+                  }
+                }}
                 className="text-xs"
-                disabled={locked || p.status === "uploaded"}
-                placeholder={`Why is this document relevant? (required, min ${RELEVANCE_NOTE_MIN_LENGTH} characters)`}
+                disabled={locked || p.status === "uploading"}
+                placeholder="Why is this document relevant? (optional, sharper suggestions if filled in)"
               />
-              {p.status === "queued" && (
-                <div className="flex items-center justify-between gap-3">
-                  <div className="text-xs text-muted-foreground">
-                    {!p.category
-                      ? "Pick a category to enable upload."
-                      : p.relevanceNote.trim().length < RELEVANCE_NOTE_MIN_LENGTH
-                        ? `${RELEVANCE_NOTE_MIN_LENGTH - p.relevanceNote.trim().length} more character${RELEVANCE_NOTE_MIN_LENGTH - p.relevanceNote.trim().length === 1 ? "" : "s"} needed.`
-                        : "Ready to upload."}
-                  </div>
-                  <Button
-                    size="sm"
-                    disabled={!isReadyToUpload(p) || locked}
-                    onClick={() => kickUpload(p)}
-                  >
-                    Upload
-                  </Button>
-                </div>
-              )}
             </div>
           </Card>
         ))}
@@ -187,11 +177,11 @@ export function DocumentUploader({ sessionId, locked }: Props) {
                 </div>
               </div>
               <Select
-                value={d.category}
-                onValueChange={(v) => updateCategory.mutate({ docId: d.id, category: v as DocumentCategory })}
+                value={d.category ?? undefined}
+                onValueChange={(v) => updateMeta.mutate({ docId: d.id, category: v as DocumentCategory })}
                 disabled={locked}
               >
-                <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-56"><SelectValue placeholder="Select category" /></SelectTrigger>
                 <SelectContent>
                   {DOCUMENT_CATEGORIES.map((c) => (
                     <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
@@ -213,8 +203,8 @@ function formatBytes(n: number): string {
 
 function labelForStatus(p: PendingFile): string {
   switch (p.status) {
-    case "queued": return "Waiting for details";
-    case "uploading": return "Uploading...";
+    case "queued": return "Preparing…";
+    case "uploading": return "Uploading…";
     case "uploaded": return "Uploaded";
     case "failed": return "Failed";
   }
