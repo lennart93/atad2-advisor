@@ -11,8 +11,6 @@ interface Props {
   onDismissToAdditionalContext?: (text: string) => void;
 }
 
-const MAX_RATIONALE_INLINE = 140;
-
 export function SuggestionCard({
   prefill,
   currentToelichting,
@@ -21,7 +19,6 @@ export function SuggestionCard({
 }: Props) {
   const [editMode, setEditMode] = useState(false);
   const [draft, setDraft] = useState(prefill.suggested_toelichting);
-  const [showFullRationale, setShowFullRationale] = useState(false);
   const [dismissedLocally, setDismissedLocally] = useState(false);
   const updateAction = useUpdatePrefillAction();
 
@@ -61,41 +58,8 @@ export function SuggestionCard({
     setDismissedLocally(true);
   };
 
-  const labels = (prefill.source_refs ?? []).map((r) => r.doc_label).filter(Boolean);
-  const headerLabels =
-    labels.length === 0
-      ? ""
-      : labels.length <= 2
-        ? labels.join(", ")
-        : `${labels.slice(0, 2).join(", ")} +${labels.length - 2} more`;
-
-  const rationale = prefill.answer_rationale ?? "";
-  const rationaleNeedsToggle = rationale.length > MAX_RATIONALE_INLINE;
-  const rationaleVisible = rationaleNeedsToggle && !showFullRationale
-    ? `${rationale.slice(0, MAX_RATIONALE_INLINE).trimEnd()}…`
-    : rationale;
-
   return (
     <div className="border-l-2 border-primary/40 bg-primary/5 pl-3 py-2 my-2 text-sm space-y-2">
-      <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        AI suggestion{headerLabels ? ` · ${headerLabels}` : ""}
-      </div>
-
-      {rationale && (
-        <div className="text-xs text-muted-foreground italic">
-          {rationaleVisible}
-          {rationaleNeedsToggle && (
-            <button
-              type="button"
-              className="ml-1 underline underline-offset-2 hover:text-foreground"
-              onClick={() => setShowFullRationale((v) => !v)}
-            >
-              {showFullRationale ? "Show less" : "Show more"}
-            </button>
-          )}
-        </div>
-      )}
-
       {!editMode ? (
         <p className="whitespace-pre-wrap">{prefill.suggested_toelichting}</p>
       ) : (
