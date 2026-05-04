@@ -23,7 +23,7 @@ import { RiskChip } from "./StatChip";
 const BranchSchema = z.object({
   id: z.string(),
   answer_option: z.string().min(1),
-  risk_points: z.coerce.number().min(0).multipleOf(0.1).default(0),
+  risk_points: z.coerce.number().multipleOf(0.1).default(0),
   next_question_id: z.string().nullable().optional(),
 });
 
@@ -123,7 +123,7 @@ export function QuestionEditorPanel({
   const watchedTitle = form.watch("question_title");
   const watchedExplanation = form.watch("question_explanation");
   const watchedBranches = form.watch("branches");
-  const previewMaxRisk = Math.max(0, ...watchedBranches.map((b) => Number(b.risk_points) || 0));
+  const previewMaxRisk = Math.max(...watchedBranches.map((b) => Number(b.risk_points) || 0));
 
   const FIELD_LABELS: Record<string, string> = {
     question: "Question text",
@@ -383,7 +383,6 @@ export function QuestionEditorPanel({
                             <Input
                               type="number"
                               step="0.1"
-                              min="0"
                               disabled={!canEdit}
                               {...field}
                             />
