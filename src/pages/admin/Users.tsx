@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ShieldCheck, Shield, User as UserIcon } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
 import { Seo } from "@/components/Seo";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -26,6 +27,15 @@ interface ProfileRow {
   email: string;
   full_name: string | null;
   created_at: string;
+  last_seen_at: string | null;
+}
+
+function formatLastSeen(ts: string | null): string {
+  if (!ts) return "Never seen";
+  const seen = new Date(ts).getTime();
+  const ageMs = Date.now() - seen;
+  if (ageMs < 5 * 60 * 1000) return "Online now";
+  return `${formatDistanceToNow(seen)} ago`;
 }
 
 function currentRole(userId: string, roles: { user_id: string; role: UserRole }[]): UserRole {
@@ -49,7 +59,7 @@ const Users = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("user_id, email, full_name, created_at")
+        .select("user_id, email, full_name, created_at, last_seen_at")
         .order("created_at", { ascending: false })
         .limit(1000);
       if (error) throw error;
@@ -132,7 +142,9 @@ const Users = () => {
                     {p.full_name || p.email}
                     {isSelf && <span className="ml-2 text-[10px] text-muted-foreground font-normal">(you)</span>}
                   </div>
-                  <div className="text-[11px] text-muted-foreground truncate">{p.email}</div>
+                  <div className="text-[11px] text-muted-foreground truncate">
+                    {p.email} · Last seen: {formatLastSeen(p.last_seen_at)}
+                  </div>
                 </div>
                 <StatusChip
                   label={role === "admin" ? "Admin" : role === "moderator" ? "Moderator" : "User"}

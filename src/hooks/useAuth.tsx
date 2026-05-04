@@ -36,6 +36,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Heartbeat: stamp profiles.last_seen_at via a security-definer RPC.
+  // Throttled to once every 5 min via localStorage so we don't hammer
+  // the DB on every render.
+  useEffect(() => {
+    if (!user) return;
+    const HEARTBEAT_KEY = `last_seen_at:${user.id}`;
+    const FIVE_MIN = 5 * 60 * 1000;
+    const lastPing = Number(localStorage.getItem(HEARTBEAT_KEY) ?? 0);
+    if (Date.now() - lastPing < FIVE_MIN) return;
+    void supabase.rpc("mark_user_seen").then(({ error }) => {
+      if (error) {
+        console.warn("[useAuth] mark_user_seen failed", error);
+        return;
+      }
+      localStorage.setItem(HEARTBEAT_KEY, String(Date.now()));
+    });
+  }, [user]);
+
   const signOut = async () => {
     try {
       await supabase.auth.signOut();
