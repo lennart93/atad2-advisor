@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
 interface Props {
-  promptKey: "prefill_stage1_system" | "prefill_stage2_system";
+  promptKey: "prefill_stage1_system" | "prefill_stage2_system" | "prefill_swarm_system";
   onClose: () => void;
 }
 

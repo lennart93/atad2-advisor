@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { IconChip } from "@/components/admin/IconChip";
 import { cn } from "@/lib/utils";
+import { useAdminAccess } from "@/hooks/useAdminAccess";
 
 type Item = { title: string; url: string; icon: LucideIcon };
 
@@ -30,6 +31,8 @@ const linkClasses = ({ isActive }: { isActive: boolean }) =>
   );
 
 export function AppSidebar() {
+  const { isAdmin, isModerator } = useAdminAccess();
+  const sectionLabel = isAdmin ? "Admin" : isModerator ? "Moderator" : "Admin";
   return (
     <aside className="w-52 shrink-0">
       <nav className="flex flex-col gap-1">
@@ -42,7 +45,7 @@ export function AppSidebar() {
         </NavLink>
 
         <div className="mt-4 mb-1 px-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-          Admin
+          {sectionLabel}
         </div>
         {ITEMS.map((item) => (
           <NavLink key={item.title} to={item.url} end className={linkClasses}>

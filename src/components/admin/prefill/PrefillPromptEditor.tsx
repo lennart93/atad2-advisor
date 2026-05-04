@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
 interface Props {
-  promptKey: "prefill_stage1_system" | "prefill_stage2_system";
+  promptKey: "prefill_stage1_system" | "prefill_stage2_system" | "prefill_swarm_system";
   onClose: () => void;
 }
 
@@ -98,7 +98,9 @@ export function PrefillPromptEditor({ promptKey, onClose }: Props) {
               <p className="text-xs text-muted-foreground mt-1">
                 Placeholders: {promptKey === "prefill_stage1_system"
                   ? "{{category}}, {{doc_label}}, {{filename}}, {{document_block}}"
-                  : "{{documents_json}}, {{questions_json}}"}
+                  : promptKey === "prefill_swarm_system"
+                    ? "{{question_text}}, {{question_explanation}}, {{documents_block}}"
+                    : "{{documents_json}}, {{questions_json}}"}
               </p>
             </div>
             <div className="grid grid-cols-3 gap-3">

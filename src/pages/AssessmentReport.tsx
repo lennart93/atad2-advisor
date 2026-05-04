@@ -431,9 +431,15 @@ const AssessmentReport = () => {
       // Refresh reports query to show the newly created report
       queryClient.invalidateQueries({ queryKey: ["reports", sessionId] });
 
-      toast.success("Success", {
-        description: "Memorandum generated and saved successfully",
-      });
+      {
+        const subjectName =
+          (sessionData as unknown as { entity_name?: string | null })?.entity_name ||
+          sessionData?.taxpayer_name ||
+          "this session";
+        toast.success("Memorandum generated", {
+          description: `Memo for ${subjectName} is ready to download.`,
+        });
+      }
 
     } catch (error: any) {
       console.error('Error generating report:', error);
