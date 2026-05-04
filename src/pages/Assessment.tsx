@@ -1112,8 +1112,13 @@ const Assessment = () => {
   };
 
   const handleContinueWithReminder = async () => {
-    // Check if explanation field is empty and we haven't shown reminder yet
-    if (shouldShowContextPanel && (!contextValue || contextValue.trim() === '') && !explanationReminderShown) {
+    // Reminder fires only when the answer ACTUALLY requires explanation, not on
+    // prefill-only panels where no textarea is rendered (iter 4 wired hasPrefill
+    // into shouldShowContextPanel for the Continue-button visibility, but the
+    // textarea outer gate still keys on requires_explanation).
+    if (selectedQuestionOption?.requires_explanation === true
+        && (!contextValue || contextValue.trim() === '')
+        && !explanationReminderShown) {
       // First time clicking Continue with empty explanation - show friendly reminder
       const randomReminder = friendlyReminders[Math.floor(Math.random() * friendlyReminders.length)];
       setReminderMessage(randomReminder);
@@ -2003,16 +2008,17 @@ const Assessment = () => {
                        })}
                     </div>
 
-                    {/* Inline rationale strip — only when AI suggested this exact answer
-                        AND the answer doesn't require explanation. Otherwise the
-                        zone-3 SuggestionCard inside the grey panel handles rationale. */}
+                    {/* Plain rationale — single render-site that fires whenever a
+                        confident suggestion matches the picked answer, regardless of
+                        requires_explanation. Replaces the iter-6 italic strip and the
+                        SuggestionCard inline rationale block. */}
                     {currentPrefill?.suggested_answer
                       && (currentPrefill.confidence_pct ?? 0) >= 40
                       && selectedAnswer
                       && selectedAnswer.toLowerCase() === currentPrefill.suggested_answer
-                      && !selectedQuestionOption?.requires_explanation && (
-                      <div className="text-xs italic text-muted-foreground mt-3 ml-1 mb-6">
-                        AI rationale: {currentPrefill.answer_rationale ?? "no rationale provided"}
+                      && currentPrefill.answer_rationale && (
+                      <div className="text-sm text-muted-foreground mt-3 mb-3">
+                        {currentPrefill.answer_rationale}
                       </div>
                     )}
 
