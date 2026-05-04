@@ -119,7 +119,7 @@ export function AssessmentSidebar({ sessionId, answers, questionHistory, current
                   </div>
                   
                   <h4 className={cn(
-                    "text-sm font-medium leading-tight mt-1",
+                    "text-sm font-medium leading-tight mt-1 break-words",
                     isCurrentlyViewing ? "text-primary" : "text-foreground"
                   )}>
                     {entry.question.question_title || `Question ${entry.question.question_id}`}
@@ -184,7 +184,7 @@ export function AssessmentSidebar({ sessionId, answers, questionHistory, current
                   </span>
                 </div>
                 
-                <h4 className="text-sm font-medium leading-tight mt-1 text-muted-foreground">
+                <h4 className="text-sm font-medium leading-tight mt-1 text-muted-foreground break-words">
                   {pendingQuestion.question_title || `Question ${pendingQuestion.question_id}`}
                 </h4>
                 

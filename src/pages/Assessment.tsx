@@ -1477,6 +1477,18 @@ const Assessment = () => {
 
   // User auth is handled by useEffect redirect on lines 263-267
 
+  // When ?session=<id> is in the URL, the resume effect needs a tick to load
+  // the session before sessionStarted flips to true. Suppress the start form
+  // during that window so the user doesn't see the taxpayer-name page flash
+  // between the upload page and the question flow.
+  if (!sessionStarted && resumeSessionId) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-sm text-muted-foreground">Loading session…</p>
+      </div>
+    );
+  }
+
   if (!sessionStarted) {
     return (
       <>
@@ -1487,7 +1499,7 @@ const Assessment = () => {
                 ← Back to dashboard
               </Button>
             </div>
-            
+
             <Card>
               <CardHeader>
                 <CardTitle>Start risk assessment</CardTitle>
