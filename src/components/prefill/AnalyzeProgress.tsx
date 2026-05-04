@@ -16,25 +16,28 @@ export function AnalyzeProgress({ sessionId, onComplete, onSkip }: Props) {
   const { data: prefills } = useAllPrefills(sessionId);
   const { data: questionCount } = useQuestionCount();
 
-  const [pct, setPct] = useState(0);
+  const ready = (prefills ?? []).length;
+  const total = questionCount ?? 0;
+
+  const [floorPct, setFloorPct] = useState(0);
+  const [completed, setCompleted] = useState(false);
   const startedAtRef = useRef<number>(Date.now());
 
   useEffect(() => {
     if (job?.status === "completed") {
-      setPct(100);
+      setCompleted(true);
       const t = setTimeout(onComplete, 250);
       return () => clearTimeout(t);
     }
   }, [job?.status, onComplete]);
 
+  // Slow time-based floor so the bar shows life during warm-up before any
+  // prefill lands. Caps at 8% after ~16s. Real progress (data-driven) takes
+  // over as soon as the first prefill arrives.
   useEffect(() => {
     const tick = window.setInterval(() => {
       const elapsed = Date.now() - startedAtRef.current;
-      const fraction = Math.min(1, elapsed / WAIT_TIMEOUT_MS);
-      // Logistic-ish curve: faster early, slower near end. Caps at ~95% so the
-      // "snap to 100" on completion feels meaningful.
-      const eased = 1 - Math.pow(1 - fraction, 1.6);
-      setPct(Math.min(95, eased * 95));
+      setFloorPct(Math.min(8, (elapsed / 1000) * 0.5));
       if (elapsed >= WAIT_TIMEOUT_MS) {
         window.clearInterval(tick);
         onSkip();
@@ -43,8 +46,8 @@ export function AnalyzeProgress({ sessionId, onComplete, onSkip }: Props) {
     return () => window.clearInterval(tick);
   }, [onSkip]);
 
-  const ready = (prefills ?? []).length;
-  const total = questionCount ?? 0;
+  const dataPct = total > 0 ? Math.round((ready / total) * 100) : 0;
+  const pct = completed ? 100 : Math.min(95, Math.max(dataPct, floorPct));
 
   return (
     <div className="space-y-3">
