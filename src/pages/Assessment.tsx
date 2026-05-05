@@ -2065,8 +2065,13 @@ const Assessment = () => {
                       />
 
                       {/* Context section - NEW hardened state machine */}
-                      {/* RENDER GUARD: only show context panel when answer selected and requires explanation */}
-                      {sessionStarted && currentQuestion && qId && selectedAnswer && selectedQuestionOption?.requires_explanation && (
+                      {/* RENDER GUARD: panel renders when the answer requires explanation
+                          OR when the AI has prepared a suggested_toelichting we want
+                          to surface (so the user can Accept/Edit/Dismiss it). */}
+                      {sessionStarted && currentQuestion && qId && selectedAnswer && (
+                        selectedQuestionOption?.requires_explanation
+                        || !!currentPrefill?.suggested_toelichting
+                      ) && (
                         <div 
                           key={paneKey}
                           className="bg-gray-50 rounded-lg px-4 py-3 mb-8"
