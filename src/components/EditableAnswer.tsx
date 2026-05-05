@@ -278,7 +278,7 @@ export const EditableAnswer: React.FC<EditableAnswerProps> = ({
                   </div>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Memorandum already generated — responses can no longer be changed</p>
+                  <p>Memorandum already generated. Responses can no longer be changed.</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>

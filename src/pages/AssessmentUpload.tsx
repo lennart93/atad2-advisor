@@ -57,24 +57,30 @@ export default function AssessmentUpload() {
 
   if (waiting) {
     return (
-      <div className="max-w-2xl mx-auto p-6 space-y-6">
-        <header>
-          <h1 className="text-2xl font-semibold">One moment — preparing your assessment</h1>
-          <p className="text-sm text-muted-foreground mt-2">
-            Next you will work through a series of questions to determine whether ATAD2
-            applies to <span className="font-medium text-foreground">{taxpayerName}</span>.
-          </p>
-          <p className="text-sm text-muted-foreground mt-2">
-            We are now reading the documents you uploaded to see whether we can pre-fill
-            answers for some of those questions. You can wait for this to complete or
-            jump straight into the questionnaire — suggestions will appear inline as
-            they become available.
-          </p>
-        </header>
-        <AnalyzeProgress
-          sessionId={sessionId}
-          onContinue={() => navigate(`/assessment?session=${sessionId}`)}
+      <div className="relative min-h-[calc(100vh-4rem)] flex items-center justify-center px-4 py-10 overflow-hidden">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 bg-gradient-to-b from-primary/5 via-background to-background"
         />
+        <div className="relative w-full max-w-xl text-center space-y-8">
+          <div className="space-y-3">
+            <p className="text-sm uppercase tracking-[0.2em] text-muted-foreground">
+              Preparing your assessment for
+            </p>
+            <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-foreground">
+              {taxpayerName}
+            </h1>
+            <div className="mx-auto h-px w-16 bg-primary/40" />
+          </div>
+          <p className="text-base text-muted-foreground leading-relaxed">
+            Reading your documents to pre-fill answers where possible. The questions
+            will open as soon as suggestions start arriving.
+          </p>
+          <AnalyzeProgress
+            sessionId={sessionId}
+            onContinue={() => navigate(`/assessment?session=${sessionId}`)}
+          />
+        </div>
       </div>
     );
   }
@@ -100,7 +106,7 @@ export default function AssessmentUpload() {
 
       <div className="flex gap-3">
         <Button variant="outline" onClick={() => navigate(`/assessment?session=${sessionId}`)}>
-          {hasAtLeastOneUploaded ? "Skip suggestions" : "Skip — no documents"}
+          {hasAtLeastOneUploaded ? "Skip suggestions" : "Skip (no documents)"}
         </Button>
         <Button
           disabled={!hasAtLeastOneUploaded || !allPendingUploaded}

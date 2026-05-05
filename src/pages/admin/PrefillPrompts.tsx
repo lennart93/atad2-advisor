@@ -7,9 +7,9 @@ import { PrefillPromptEditor } from "@/components/admin/prefill/PrefillPromptEdi
 import { PrefillPromptHistory } from "@/components/admin/prefill/PrefillPromptHistory";
 
 const KEYS = [
-  { key: "prefill_swarm_system", label: "Swarm — per-question pre-fill (active)" },
-  { key: "prefill_stage1_system", label: "Stage 1 — per-document fact summary (legacy)" },
-  { key: "prefill_stage2_system", label: "Stage 2 — question pre-fills (legacy)" },
+  { key: "prefill_swarm_system", label: "Swarm: per-question pre-fill (active)" },
+  { key: "prefill_stage1_system", label: "Stage 1: per-document fact summary (legacy)" },
+  { key: "prefill_stage2_system", label: "Stage 2: question pre-fills (legacy)" },
 ] as const;
 
 type PromptKey = typeof KEYS[number]["key"];

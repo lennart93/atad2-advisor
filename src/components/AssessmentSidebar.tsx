@@ -36,7 +36,7 @@ export function AssessmentSidebar({ sessionId, answers, questionHistory, current
   let pillContent: string | null = null;
   const pillTone: "default" | "success" | "warn" = "warn";
   if (job?.status === "failed") {
-    pillContent = "Analysis failed — continuing without suggestions";
+    pillContent = "Analysis failed. Continuing without suggestions.";
   }
   const totalAnswered = questionHistory.length;
   const scrollContainerRef = useRef<HTMLDivElement>(null);

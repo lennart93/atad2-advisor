@@ -40,7 +40,7 @@ export function PrefillPromptHistory({ promptKey, onClose }: Props) {
   return (
     <Dialog open onOpenChange={onClose}>
       <DialogContent className="max-w-2xl">
-        <DialogHeader><DialogTitle>Version history — {promptKey}</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>Version history: {promptKey}</DialogTitle></DialogHeader>
         <div className="space-y-2 max-h-[70vh] overflow-auto">
           {(data ?? []).map((v) => (
             <div key={v.id} className="flex items-start justify-between gap-3 border rounded p-3">

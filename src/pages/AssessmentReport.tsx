@@ -463,7 +463,7 @@ const AssessmentReport = () => {
       } else if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
         // Network error - might still be processing
         toast.error("Connection issue", {
-          description: "Lost connection during generation. The memo may still be processing — refresh in a minute to check.",
+          description: "Lost connection during generation. The memo may still be processing. Refresh in a minute to check.",
         });
       } else {
         toast.error("Error", {
@@ -570,7 +570,7 @@ const AssessmentReport = () => {
                                   </Button>
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                  <p>{isGeneratingReport ? "Memorandum is being generated" : "Memorandum already generated — content can no longer be changed"}</p>
+                                  <p>{isGeneratingReport ? "Memorandum is being generated" : "Memorandum already generated. Content can no longer be changed."}</p>
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
@@ -641,7 +641,7 @@ const AssessmentReport = () => {
                                   </Button>
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                  <p>{isGeneratingReport ? "Memorandum is being generated" : "Memorandum already generated — content can no longer be changed"}</p>
+                                  <p>{isGeneratingReport ? "Memorandum is being generated" : "Memorandum already generated. Content can no longer be changed."}</p>
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>

@@ -80,7 +80,7 @@ export function ContextQuestionEditorPanel({
                     disabled={!canEdit}
                     className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    <option value="">— pick question —</option>
+                    <option value="">Pick question</option>
                     {parentQuestionIds.map((id) => (
                       <option key={id} value={id}>{id}</option>
                     ))}
@@ -102,7 +102,7 @@ export function ContextQuestionEditorPanel({
                   disabled={!canEdit}
                   className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  <option value="">— pick trigger —</option>
+                  <option value="">Pick trigger</option>
                   {TRIGGER_OPTIONS.map((t) => (
                     <option key={t} value={t}>{t}</option>
                   ))}
