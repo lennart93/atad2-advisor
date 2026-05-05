@@ -2078,8 +2078,8 @@ const Assessment = () => {
                           className="bg-gray-50 rounded-lg px-4 py-3 mb-8"
                         >
                           {contextStatus === 'loading' && <ContextSkeleton />}
-                          
-                          {contextStatus === 'ready' && (
+
+                          {(contextStatus === 'ready' || contextStatus === 'idle') && (
                             <>
                               <div className="flex items-center mb-3">
                                 <div className="flex items-center text-sm text-gray-700">

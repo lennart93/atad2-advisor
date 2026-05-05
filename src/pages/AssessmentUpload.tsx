@@ -91,7 +91,7 @@ export default function AssessmentUpload() {
         <h1 className="text-2xl font-semibold">Upload supporting documents (optional)</h1>
         <p className="text-sm text-muted-foreground mt-1">
           Documents are processed only for pre-fill extraction. They are not used for AI training.
-          You can delete them anytime, and they are automatically removed when you generate the report.
+          You can delete them anytime, and they are automatically removed after you generate the report.
         </p>
       </header>
 
