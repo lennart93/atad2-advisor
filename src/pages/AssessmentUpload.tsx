@@ -73,8 +73,7 @@ export default function AssessmentUpload() {
         </header>
         <AnalyzeProgress
           sessionId={sessionId}
-          onComplete={() => navigate(`/assessment?session=${sessionId}`)}
-          onSkip={() => navigate(`/assessment?session=${sessionId}`)}
+          onContinue={() => navigate(`/assessment?session=${sessionId}`)}
         />
       </div>
     );
