@@ -33,3 +33,4 @@ dist-ssr
 *.tar.gz
 .anthropic_key_tmp
 **/.env.local
+.scratch/
