@@ -377,12 +377,36 @@ const Assessment = () => {
   // given question — only if the user hasn't already picked something. The
   // ref tracks per-question to avoid re-triggering after a manual change.
   const autoSelectedRef = useRef<Set<string>>(new Set());
+
+  // Reset the per-session memo when the session changes so a remount (or a
+  // resume into a different session) starts with a clean slate.
+  useEffect(() => {
+    autoSelectedRef.current = new Set();
+  }, [sessionId]);
+
   useEffect(() => {
     if (!currentQuestion || !currentPrefill) return;
-    if (selectedAnswer) return;
+    // Defensive identity check: react-query list-style fetches (.find on
+    // useAllPrefills) can briefly hand back the previous question's prefill
+    // during navigation. Don't fire unless the prefill belongs to THIS question.
+    if (currentPrefill.question_id !== currentQuestion.question_id) return;
     if (autoSelectedRef.current.has(currentQuestion.question_id)) return;
     if (!currentPrefill.suggested_answer) return;
     if ((currentPrefill.confidence_pct ?? 0) < 40) return;
+    if (selectedAnswer) {
+      // The user (or a stale carry-over from prior question) already has an
+      // answer set. Don't override — but warn if it doesn't match the AI
+      // suggestion so we can capture the case in browser logs.
+      if (selectedAnswer.toLowerCase() !== currentPrefill.suggested_answer) {
+        console.warn('[autoSelect] selectedAnswer mismatch with prefill suggestion', {
+          questionId: currentQuestion.question_id,
+          selectedAnswer,
+          suggestedAnswer: currentPrefill.suggested_answer,
+          confidence: currentPrefill.confidence_pct,
+        });
+      }
+      return;
+    }
     autoSelectedRef.current.add(currentQuestion.question_id);
     const option = currentPrefill.suggested_answer.charAt(0).toUpperCase() + currentPrefill.suggested_answer.slice(1);
     void handleAnswerSelect(option);
