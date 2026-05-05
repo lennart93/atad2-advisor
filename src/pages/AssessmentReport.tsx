@@ -20,6 +20,7 @@ import DownloadMemoButton from "@/components/DownloadMemoButton";
 import MemoFeedbackEditor from "@/components/MemoFeedbackEditor";
 import MemoDiffViewer from "@/components/MemoDiffViewer";
 import MissingExplanationsPopover from "@/components/MissingExplanationsPopover";
+import { buildDocumentsBlock } from "@/lib/prefill/buildDocumentsBlock";
 interface SessionData {
   session_id: string;
   taxpayer_name: string;
@@ -379,14 +380,17 @@ const AssessmentReport = () => {
     
     try {
       console.log('Starting report generation for session:', sessionId);
-      
-      // Delete uploaded source documents now that the report is being generated.
-      // The report uses answers + additional_context only — not the raw docs.
-      // If the n8n call subsequently fails, the user can retry without the docs.
-      const cleanupResult = await cleanupDocs.mutateAsync().catch(() => null);
-      if (cleanupResult?.deleted_count && cleanupResult.deleted_count > 0) {
-        toast.success("Source documents deleted", { description: "Generating your report…" });
+
+      // Build the background documents block BEFORE the n8n call so we can pass
+      // it through. Cleanup is deferred to the success branch — if the n8n call
+      // fails the user can retry without re-uploading.
+      let documentsBlock = "";
+      try {
+        documentsBlock = await buildDocumentsBlock(sessionId);
+      } catch (e) {
+        console.warn('[generate-report] buildDocumentsBlock failed, continuing without docs', e);
       }
+      console.log('[generate-report] documents_block bytes:', documentsBlock.length);
 
       // Call n8n webhook - n8n will process and the Edge Function will save the complete report
       // Using AbortController with 10 minute timeout to allow for long-running AI processing
@@ -407,7 +411,8 @@ const AssessmentReport = () => {
           outcome_overridden: sessionData?.outcome_overridden || false,
           override_reason: sessionData?.override_reason || null,
           override_outcome: sessionData?.override_outcome || null,
-          preliminary_outcome: sessionData?.preliminary_outcome || null
+          preliminary_outcome: sessionData?.preliminary_outcome || null,
+          documents_block: documentsBlock,
         }),
         signal: controller.signal
       });
@@ -427,6 +432,12 @@ const AssessmentReport = () => {
 
       // No need to save to Supabase here - the Edge Function handles the complete insert
       console.log('Report processing completed successfully');
+
+      // Now that the memo has been saved, drop the source documents.
+      const cleanupResult = await cleanupDocs.mutateAsync().catch(() => null);
+      if (cleanupResult?.deleted_count && cleanupResult.deleted_count > 0) {
+        toast.success("Source documents deleted", { description: "The memorandum is saved." });
+      }
 
       // Refresh reports query to show the newly created report
       queryClient.invalidateQueries({ queryKey: ["reports", sessionId] });
