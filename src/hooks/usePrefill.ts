@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { PendingFile } from "@/stores/prefillStore";
 import type { PrefillJob, QuestionPrefill, SessionDocument, SourceRef } from "@/lib/prefill/types";
+import { buildDocumentsBlock } from "@/lib/prefill/buildDocumentsBlock";
 
 export function useSessionDocuments(sessionId: string | null) {
   return useQuery({
@@ -275,24 +276,9 @@ export function useStartAnalyze(sessionId: string | null) {
     mutationFn: async () => {
       if (!sessionId) throw new Error("No session id");
 
-      // 1. Build the documents block from Storage on the client.
-      const { data: docs } = await supabase
-        .from("atad2_session_documents")
-        .select("id, doc_label, category, storage_path, relevance_note")
-        .eq("session_id", sessionId);
-      if (!docs || docs.length === 0) throw new Error("No documents to analyze");
-
-      const docTexts = await Promise.all(docs.map(async (d) => {
-        const { data: file } = await supabase.storage.from("session-documents").download(d.storage_path);
-        if (!file) return null;
-        const text = await file.text();
-        const noteAttr = d.relevance_note
-          ? ` relevance_note="${String(d.relevance_note).replace(/"/g, "'")}"`
-          : "";
-        return `<document doc_label="${d.doc_label}" category="${d.category}"${noteAttr}>\n${text}\n</document>`;
-      }));
-      const documentsBlock = docTexts.filter(Boolean).join("\n\n");
-      if (!documentsBlock) throw new Error("Could not assemble documents block");
+      // 1. Build the documents block via the shared helper.
+      const documentsBlock = await buildDocumentsBlock(sessionId);
+      if (!documentsBlock) throw new Error("No documents to analyze");
 
       // 2. Atomic claim — insert prefill_jobs row.
       const { error: jobErr } = await supabase
