@@ -1,12 +1,26 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
+import { ArrowRight, Clock, FileText, Sparkles, Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/sonner";
-import { SessionRow } from "@/components/SessionRow";
+import { FadeIn, MotionPage, StaggerChildren, staggerItem } from "@/components/motion";
+import { formatDate } from "@/utils/formatDate";
 
 interface CompletedSession {
   id: string;
@@ -156,62 +170,149 @@ const Index = () => {
   if (!user) return null;
 
   return (
-    <div className="grid gap-6">
-      <Card>
-        <CardHeader>
-          <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/70 mb-1">
-            Get started
+    <MotionPage>
+      <div className="flex flex-col gap-10">
+        {/* Header */}
+        <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div className="flex flex-col gap-2">
+            <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+              Your sessions
+            </span>
+            <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">
+              ATAD2 risk assessment
+            </h1>
+            <p className="text-muted-foreground text-sm sm:text-base">
+              Pick up where you left off, or start a new assessment for a taxpayer.
+            </p>
           </div>
-          <CardTitle>Start new assessment</CardTitle>
-          <CardDescription>
-            Begin a new ATAD2 risk assessment for a taxpayer
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button onClick={() => navigate("/assessment")} size="lg">
-            Start assessment
+          <Button
+            onClick={() => navigate("/assessment")}
+            size="lg"
+            className="self-start sm:self-auto"
+          >
+            Start new assessment
+            <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
-        </CardContent>
-      </Card>
+        </header>
 
-      <Card>
-        <CardHeader>
-          <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/70 mb-1">
-            History
-          </div>
-          <CardTitle>Completed assessments</CardTitle>
-          <CardDescription className="text-sm">
-            View or delete your previously completed assessments
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+        {/* Sessions list */}
+        <section className="flex flex-col gap-4">
           {loading ? (
-            <div className="space-y-3">
-              <Skeleton className="h-20 w-full" />
-              <Skeleton className="h-20 w-full" />
-              <Skeleton className="h-20 w-full" />
+            <div className="flex flex-col gap-3">
+              <Skeleton className="h-[88px] w-full rounded-lg" />
+              <Skeleton className="h-[88px] w-full rounded-lg" />
+              <Skeleton className="h-[88px] w-full rounded-lg" />
             </div>
           ) : sessions.length === 0 ? (
-            <p className="text-muted-foreground text-sm">No completed assessments yet</p>
+            <FadeIn>
+              <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed border-border py-16 px-6 text-center">
+                <Sparkles className="h-12 w-12 text-muted-foreground/40 mx-auto" />
+                <div className="flex flex-col gap-1">
+                  <h2 className="text-lg font-semibold tracking-tight">
+                    No assessments yet
+                  </h2>
+                  <p className="text-sm text-muted-foreground">
+                    Start your first ATAD2 assessment to see it here.
+                  </p>
+                </div>
+                <Button onClick={() => navigate("/assessment")} size="lg" className="mt-2">
+                  Start new assessment
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
+            </FadeIn>
           ) : (
-            <div className="space-y-4">
-              {sessions.map((session) => (
-                <SessionRow
-                  key={session.id}
-                  sessionId={session.session_id}
-                  taxpayerName={session.taxpayer_name}
-                  fiscalYear={session.fiscal_year}
-                  completedAt={session.created_at}
-                  hasMemorandum={Boolean(session.has_memorandum)}
-                  memorandumDate={session.memorandum_date}
-                  onDelete={() => deleteSession(session.session_id, session.id)}
-                />
-              ))}
-            </div>
+            <StaggerChildren stagger={0.04} className="flex flex-col gap-3">
+              {sessions.map((session) => {
+                const ready = Boolean(session.has_memorandum);
+                const accentClass = ready
+                  ? "border-l-emerald-500/70"
+                  : "border-l-amber-500/60";
+                const shortId = session.session_id.slice(0, 8);
+
+                return (
+                  <motion.div key={session.id} variants={staggerItem}>
+                    <div
+                      className={`group relative flex items-center gap-4 rounded-lg border border-border border-l-4 ${accentClass} bg-background p-4 sm:p-5 transition-all duration-normal ease-emphasized hover:border-foreground/20 hover:shadow-sm`}
+                    >
+                      <Link
+                        to={`/assessment-report/${session.session_id}`}
+                        className="absolute inset-0 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        aria-label={`Open report for ${session.taxpayer_name}`}
+                      />
+                      <div className="relative flex-1 min-w-0 pointer-events-none">
+                        <div className="flex items-center gap-3 mb-1.5">
+                          <h3 className="text-base font-medium tracking-tight truncate">
+                            {session.taxpayer_name}
+                          </h3>
+                          {ready ? (
+                            <Badge variant="live">Ready</Badge>
+                          ) : (
+                            <Badge variant="secondary" className="gap-1">
+                              <Clock className="h-3 w-3" />
+                              In progress
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          <span className="font-mono">FY{session.fiscal_year}</span>
+                          <span className="mx-1.5 text-muted-foreground/50">·</span>
+                          <span className="font-mono">session {shortId}</span>
+                          <span className="mx-1.5 text-muted-foreground/50">·</span>
+                          <span>Completed {formatDate(session.created_at)}</span>
+                        </div>
+                      </div>
+                      <div className="relative flex items-center gap-2 z-10">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/assessment-report/${session.session_id}`);
+                          }}
+                        >
+                          <FileText className="h-4 w-4 mr-2" />
+                          View report
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <button
+                              onClick={(e) => e.stopPropagation()}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                              aria-label="Delete assessment"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete assessment</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to permanently delete this assessment for {session.taxpayer_name}?
+                                This will delete all answers and cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => deleteSession(session.session_id, session.id)}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
+                                Delete permanently
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </StaggerChildren>
           )}
-        </CardContent>
-      </Card>
-    </div>
+        </section>
+      </div>
+    </MotionPage>
   );
 };
 
