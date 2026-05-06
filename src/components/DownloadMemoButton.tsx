@@ -39,7 +39,7 @@ const dotParser = (tag: string) => ({
 });
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Download } from 'lucide-react';
+import { Download, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 
@@ -313,10 +313,19 @@ export default function DownloadMemoButton({
       onClick={handleDownload}
       disabled={loading}
       variant="outline"
-      className="flex items-center gap-2"
+      className="flex items-center gap-2 transition-all duration-fast"
     >
-      <Download className="h-4 w-4" />
-      {loading ? 'Generating...' : 'Download Word (.docx)'}
+      {loading ? (
+        <>
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Generating Word…
+        </>
+      ) : (
+        <>
+          <Download className="h-4 w-4" />
+          Download Word (.docx)
+        </>
+      )}
     </Button>
   );
 }

@@ -218,7 +218,7 @@ const MemoFeedbackEditor: React.FC<MemoFeedbackEditorProps> = ({
         {hasParagraphFeedback && (
           <div className="absolute -left-[5px] top-6 w-2 h-2 rounded-full bg-primary/50" />
         )}
-        <Card className="border-primary/20 bg-primary/5">
+        <Card className="border border-border rounded-lg shadow-sm bg-primary/5">
           <CardContent className="p-4 space-y-2">
             {/* Feedback Textarea */}
             <div className="space-y-1.5">
@@ -245,6 +245,7 @@ const MemoFeedbackEditor: React.FC<MemoFeedbackEditorProps> = ({
                   size="sm"
                   onClick={onCancel}
                   disabled={isSubmitting}
+                  className="transition-all duration-fast"
                 >
                   Cancel
                 </Button>
@@ -252,11 +253,12 @@ const MemoFeedbackEditor: React.FC<MemoFeedbackEditorProps> = ({
                   size="sm"
                   onClick={handleSubmit}
                   disabled={isSubmitting}
+                  className="transition-all duration-fast"
                 >
                   {isSubmitting ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Applying feedback...
+                      Applying feedback…
                     </>
                   ) : (
                     "Apply feedback"

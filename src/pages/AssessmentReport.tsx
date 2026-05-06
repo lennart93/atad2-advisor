@@ -21,6 +21,7 @@ import MemoFeedbackEditor from "@/components/MemoFeedbackEditor";
 import MemoDiffViewer from "@/components/MemoDiffViewer";
 import MissingExplanationsPopover from "@/components/MissingExplanationsPopover";
 import { buildDocumentsBlock } from "@/lib/prefill/buildDocumentsBlock";
+import { MotionPage } from "@/components/motion";
 interface SessionData {
   session_id: string;
   taxpayer_name: string;
@@ -497,13 +498,27 @@ const AssessmentReport = () => {
   }
 
   return (
+    <MotionPage>
     <div className="min-h-screen bg-background p-4">
       <div className="max-w-4xl mx-auto">
         <div className="mb-8">
-          <Button variant="outline" onClick={() => navigate("/")}>
+          <Button variant="outline" onClick={() => navigate("/")} className="transition-all duration-fast">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to dashboard
           </Button>
+        </div>
+
+        {/* Memorandum header strip */}
+        <div className="mb-6 rounded-lg border border-border bg-card px-6 py-5 shadow-sm">
+          <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">MEMORANDUM</p>
+          <h1 className="mt-1 text-2xl sm:text-3xl font-semibold tracking-tight">
+            {sessionData.taxpayer_name}
+          </h1>
+          <p className="mt-2 font-mono text-xs text-muted-foreground">
+            <span>{sessionData.session_id}</span>
+            <span className="mx-2">·</span>
+            <span>FY {sessionData.fiscal_year}</span>
+          </p>
         </div>
 
         <div className="space-y-6">
@@ -520,11 +535,11 @@ const AssessmentReport = () => {
                 <div>
                   <h3 className="font-semibold mb-2">Session details:</h3>
                   <div className="space-y-1 text-sm">
-                    <p><span className="font-medium">Taxpayer:</span> {sessionData.taxpayer_name}</p>
-                    <p><span className="font-medium">Tax year:</span> {sessionData.fiscal_year}</p>
-                    <p><span className="font-medium">Completed:</span> {format(new Date(sessionData.created_at), 'MMM d, yyyy HH:mm')}</p>
+                    <p><span className="font-medium">Taxpayer:</span> <span className="font-mono text-sm">{sessionData.taxpayer_name}</span></p>
+                    <p><span className="font-medium">Tax year:</span> <span className="font-mono text-sm">{sessionData.fiscal_year}</span></p>
+                    <p><span className="font-medium">Completed:</span> <span className="font-mono text-sm">{format(new Date(sessionData.created_at), 'MMM d, yyyy HH:mm')}</span></p>
                     {sessionData.is_custom_period && sessionData.period_start_date && sessionData.period_end_date && (
-                      <p><span className="font-medium">Period:</span> {format(new Date(sessionData.period_start_date), 'MMM d, yyyy')} - {format(new Date(sessionData.period_end_date), 'MMM d, yyyy')}</p>
+                      <p><span className="font-medium">Period:</span> <span className="font-mono text-sm">{format(new Date(sessionData.period_start_date), 'MMM d, yyyy')} - {format(new Date(sessionData.period_end_date), 'MMM d, yyyy')}</span></p>
                     )}
                   </div>
                 </div>
@@ -714,9 +729,10 @@ const AssessmentReport = () => {
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <div>
-                            <Button 
+                            <Button
+                              size="lg"
                               disabled
-                              className="bg-green-600 hover:bg-green-700 text-white disabled:opacity-50"
+                              className="bg-green-600 hover:bg-green-700 text-white disabled:opacity-50 transition-all duration-fast"
                             >
                               Memorandum generated
                             </Button>
@@ -736,15 +752,16 @@ const AssessmentReport = () => {
                       onReviewQuestions={handleReviewQuestions}
                       onTriggerClick={handleGenerateAnyway}
                     >
-                      <Button 
+                      <Button
+                        size="lg"
                         onClick={handleGenerateButtonClick}
                         disabled={isGeneratingReport}
-                        className="bg-green-600 hover:bg-green-700 text-white disabled:opacity-50"
+                        className="bg-green-600 hover:bg-green-700 text-white disabled:opacity-50 transition-all duration-fast"
                       >
                         {isGeneratingReport ? (
                           <>
                             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Generating memorandum...
+                            Generating memorandum…
                           </>
                         ) : (
                           "Generate memorandum"
@@ -752,10 +769,13 @@ const AssessmentReport = () => {
                       </Button>
                     </MissingExplanationsPopover>
                   )}
-                  
-                  <DownloadMemoButton 
-                    sessionId={sessionId!} 
-                    memoMarkdown={displayMemo} 
+
+                  {/* Hairline divider between primary action and secondary group */}
+                  <div className="h-6 w-px bg-border" aria-hidden="true" />
+
+                  <DownloadMemoButton
+                    sessionId={sessionId!}
+                    memoMarkdown={displayMemo}
                     enabled={!!latestReport}
                     disabled={isApplyingFeedback}
                   />
@@ -783,7 +803,7 @@ const AssessmentReport = () => {
                           size="sm"
                           onClick={() => setIsFeedbackMode(true)}
                           disabled={hasAcceptedChanges}
-                          className={hasAcceptedChanges ? 'opacity-50 cursor-not-allowed' : ''}
+                          className={`transition-all duration-fast ${hasAcceptedChanges ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
                           <Pencil className="h-4 w-4 mr-2" />
                           Improve memo
@@ -817,7 +837,7 @@ const AssessmentReport = () => {
                     onSubmittingChange={setIsApplyingFeedback}
                   />
                 ) : displayMemo ? (
-                  <div className="markdown-body text-justify">
+                  <div className="markdown-body prose prose-base dark:prose-invert max-w-2xl mx-auto text-justify prose-headings:tracking-tight prose-headings:font-semibold prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg">
                     <ReactMarkdown
                       rehypePlugins={[rehypeRaw]}
                       components={{
@@ -895,6 +915,7 @@ const AssessmentReport = () => {
         </div>
       </div>
     </div>
+    </MotionPage>
   );
 };
 
