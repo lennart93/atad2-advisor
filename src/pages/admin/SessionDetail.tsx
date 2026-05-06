@@ -134,8 +134,8 @@ const SessionDetail = () => {
       <AdminCard className="mb-6">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <div className="text-[11px] font-mono text-muted-foreground">{session.session_id}</div>
-            <h1 className="text-[20px] font-bold truncate">{session.taxpayer_name}</h1>
+            <div className="text-xs font-mono text-muted-foreground">{session.session_id}</div>
+            <h1 className="text-2xl font-semibold tracking-tight truncate mt-1">{session.taxpayer_name}</h1>
             {session.entity_name && (
               <div className="text-[12px] text-muted-foreground mt-0.5">{session.entity_name}</div>
             )}
@@ -143,13 +143,13 @@ const SessionDetail = () => {
           <div className="flex flex-col items-end gap-2 text-right">
             <StatusChip label={completed ? "Completed" : session.status} tone={completed ? "success" : "warning"} />
             {session.final_score != null && (
-              <div className="text-[13px] font-semibold">
-                Score {session.final_score.toFixed(1)}
+              <div className="text-2xl font-semibold tracking-tight tabular-nums">
+                {session.final_score.toFixed(1)}
               </div>
             )}
           </div>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-4 pt-4 border-t border-[#ececec] text-[11px]">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-4 pt-4 border-t border-border text-[11px]">
           <InfoCell label="Fiscal year" value={session.fiscal_year} />
           <InfoCell
             label="Period"
@@ -255,8 +255,8 @@ function PrefillSection({ sessionId }: { sessionId: string }) {
 function InfoCell({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div className="text-[9px] uppercase tracking-wide text-muted-foreground font-semibold">{label}</div>
-      <div className="text-foreground mt-0.5">{value}</div>
+      <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-medium">{label}</div>
+      <div className="text-foreground mt-1 font-mono text-xs">{value}</div>
     </div>
   );
 }

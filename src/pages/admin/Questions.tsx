@@ -84,8 +84,11 @@ const Questions = () => {
         description="Manage ATAD2 questions"
         canonical="/admin/questions"
       />
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-[22px] font-bold">Questions</h1>
+      <div className="flex items-end justify-between mb-4">
+        <div>
+          <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-1">Admin</div>
+          <h1 className="text-2xl font-semibold tracking-tight">Questions</h1>
+        </div>
       </div>
 
       <SearchFilterBar
@@ -176,18 +179,18 @@ function QuestionList({
             key={q.question_id}
             interactive
             onClick={() => onRowClick(q.question_id)}
-            className={`flex items-start gap-3 py-2.5 ${
+            className={`flex items-start gap-3 py-2.5 transition-all duration-normal ease-emphasized hover:shadow-sm hover:border-foreground/20 ${
               activeId === q.question_id
                 ? "ring-2 ring-[#c7d2fe] border-[#c7d2fe]"
                 : ""
             }`}
           >
-            <div className="flex items-center justify-center h-6 w-6 rounded-md bg-muted text-[10px] font-bold text-muted-foreground shrink-0 mt-0.5">
+            <div className="flex items-center justify-center h-6 w-6 rounded-md bg-muted text-[10px] font-mono font-semibold text-muted-foreground shrink-0 mt-0.5">
               {i + 1}
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[11px] font-semibold text-[#4f46e5]">
+                <span className="text-[11px] font-mono font-semibold text-[#4f46e5]">
                   {q.question_id}
                 </span>
                 {q.question_title && (

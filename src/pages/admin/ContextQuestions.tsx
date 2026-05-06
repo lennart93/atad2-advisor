@@ -104,8 +104,11 @@ const ContextQuestions = () => {
         description="Manage ATAD2 context questions"
         canonical="/admin/context-questions"
       />
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-[22px] font-bold">Context questions</h1>
+      <div className="flex items-end justify-between mb-4">
+        <div>
+          <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-1">Admin</div>
+          <h1 className="text-2xl font-semibold tracking-tight">Context questions</h1>
+        </div>
       </div>
 
       <SearchFilterBar
@@ -133,14 +136,14 @@ const ContextQuestions = () => {
           {groups.map((g) => (
             <div
               key={g.question_id}
-              className="rounded-[12px] border border-[#ececec] bg-white"
+              className="rounded-[12px] border border-border bg-card transition-colors duration-fast hover:border-foreground/20"
             >
-              <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-[#f1f1f1]">
+              <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-border">
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-[12px] font-bold text-[#0891b2]">
+                  <span className="font-mono text-xs font-semibold text-[#0891b2]">
                     Q{g.question_id}
                   </span>
-                  <span className="text-[10px] text-muted-foreground">
+                  <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
                     {g.totalVariants} variant{g.totalVariants === 1 ? "" : "s"}
                   </span>
                 </div>

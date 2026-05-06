@@ -54,8 +54,11 @@ const Sessions = () => {
   return (
     <main>
       <Seo title="Admin Sessions" description="Manage ATAD2 sessions" canonical="/admin/sessions" />
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-[22px] font-bold">Sessions</h1>
+      <div className="flex items-end justify-between mb-4">
+        <div>
+          <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-1">Admin</div>
+          <h1 className="text-2xl font-semibold tracking-tight">Sessions</h1>
+        </div>
       </div>
 
       <SearchFilterBar
@@ -99,7 +102,11 @@ const Sessions = () => {
 function SessionRow({ session, onClick }: { session: AdminSessionRow; onClick: () => void }) {
   const completed = Boolean(session.completed || session.status === "completed");
   return (
-    <AdminCard interactive onClick={onClick} className="flex items-center gap-4 py-3">
+    <AdminCard
+      interactive
+      onClick={onClick}
+      className="flex items-center gap-4 py-3 transition-all duration-normal ease-emphasized hover:shadow-sm hover:border-foreground/20"
+    >
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="text-[13px] font-semibold truncate">{session.taxpayer_name}</span>
@@ -108,7 +115,7 @@ function SessionRow({ session, onClick }: { session: AdminSessionRow; onClick: (
           )}
         </div>
         <div className="text-[11px] text-muted-foreground truncate mt-0.5">
-          <span className="font-mono">{session.session_id}</span> · FY {session.fiscal_year}
+          <span className="font-mono text-xs">{session.session_id}</span> · FY <span className="font-mono">{session.fiscal_year}</span>
           {session.owner && (
             <> · {session.owner.full_name ?? session.owner.email}</>
           )}
@@ -118,7 +125,7 @@ function SessionRow({ session, onClick }: { session: AdminSessionRow; onClick: (
       {session.final_score != null && (
         <StatusChip label={`Score ${session.final_score.toFixed(1)}`} tone={scoreTone(session.final_score)} />
       )}
-      <div className="text-[11px] text-muted-foreground whitespace-nowrap w-[120px] text-right">
+      <div className="font-mono text-xs text-muted-foreground whitespace-nowrap w-[120px] text-right">
         {new Date(session.created_at).toLocaleDateString()}
       </div>
     </AdminCard>

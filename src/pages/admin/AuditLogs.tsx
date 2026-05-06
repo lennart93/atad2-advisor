@@ -66,8 +66,11 @@ const AuditLogs = () => {
   return (
     <main>
       <Seo title="Audit Logs" description="Security audit logs" canonical="/admin/audit" />
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-[22px] font-bold">Audit Log</h1>
+      <div className="flex items-end justify-between mb-4">
+        <div>
+          <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-1">Admin</div>
+          <h1 className="text-2xl font-semibold tracking-tight">Audit Log</h1>
+        </div>
       </div>
 
       <SearchFilterBar
@@ -98,14 +101,17 @@ const AuditLogs = () => {
       ) : (
         <div className="space-y-1.5">
           {filtered.map((log) => (
-            <AdminCard key={log.id} className="py-3">
+            <AdminCard
+              key={log.id}
+              className="py-3 transition-colors duration-fast hover:bg-muted/30"
+            >
               <div className="flex items-center gap-3 flex-wrap">
                 <StatusChip label={log.action} tone={ACTION_TONE[log.action] ?? "neutral"} />
-                <span className="text-[11px] font-mono text-muted-foreground">{log.table_name}</span>
+                <span className="text-xs font-mono text-foreground/80">{log.table_name}</span>
                 <span className="text-[11px] text-muted-foreground truncate flex-1 min-w-0">
                   {log.profiles?.email || log.user_id || "System"}
                 </span>
-                <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+                <span className="text-xs font-mono text-muted-foreground whitespace-nowrap">
                   {format(new Date(log.created_at), "yyyy-MM-dd HH:mm:ss")}
                 </span>
               </div>

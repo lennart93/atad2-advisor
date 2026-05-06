@@ -111,8 +111,11 @@ const Users = () => {
   return (
     <main>
       <Seo title="Admin Users & Roles" description="Manage users and roles" canonical="/admin/users" />
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-[22px] font-bold">Users & Roles</h1>
+      <div className="flex items-end justify-between mb-4">
+        <div>
+          <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-1">Admin</div>
+          <h1 className="text-2xl font-semibold tracking-tight">Users &amp; Roles</h1>
+        </div>
       </div>
 
       <SearchFilterBar
@@ -135,7 +138,10 @@ const Users = () => {
             const isSelf = currentUser?.id === p.user_id;
             const dropdownLocked = !canEdit || isSelf;
             return (
-              <AdminCard key={p.user_id} className="flex items-center gap-4 py-3">
+              <AdminCard
+                key={p.user_id}
+                className="flex items-center gap-4 py-3 transition-all duration-normal ease-emphasized hover:shadow-sm hover:border-foreground/20"
+              >
                 <IconChip icon={Icon} size="md" />
                 <div className="min-w-0 flex-1">
                   <div className="text-[13px] font-semibold truncate">
@@ -143,7 +149,7 @@ const Users = () => {
                     {isSelf && <span className="ml-2 text-[10px] text-muted-foreground font-normal">(you)</span>}
                   </div>
                   <div className="text-[11px] text-muted-foreground truncate">
-                    {p.email} · Last seen: {formatLastSeen(p.last_seen_at)}
+                    <span className="font-mono">{p.email}</span> · Last seen: {formatLastSeen(p.last_seen_at)}
                   </div>
                 </div>
                 <StatusChip

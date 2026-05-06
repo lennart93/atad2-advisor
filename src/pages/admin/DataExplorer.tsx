@@ -59,8 +59,11 @@ const DataExplorer = () => {
   return (
     <main>
       <Seo title="Admin Data Explorer" description="Read-only browser for Supabase tables" canonical="/admin/explorer" />
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-[22px] font-bold">Data Explorer</h1>
+      <div className="flex items-end justify-between mb-4">
+        <div>
+          <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-1">Admin</div>
+          <h1 className="text-2xl font-semibold tracking-tight">Data Explorer</h1>
+        </div>
       </div>
 
       <div className="flex items-center gap-3 mb-4">
@@ -99,10 +102,13 @@ const DataExplorer = () => {
         <>
           <AdminCard className="overflow-x-auto p-0">
             <table className="w-full text-[12px]">
-              <thead className="bg-muted/40">
-                <tr>
+              <thead>
+                <tr className="border-b border-border">
                   {columns.slice(0, 8).map((col) => (
-                    <th key={col} className="text-left px-3 py-2 font-semibold text-muted-foreground">
+                    <th
+                      key={col}
+                      className="text-left px-3 py-2.5 text-xs uppercase tracking-[0.18em] text-muted-foreground font-medium"
+                    >
                       {col}
                     </th>
                   ))}
@@ -113,10 +119,13 @@ const DataExplorer = () => {
                   <tr
                     key={i}
                     onClick={() => setSelectedRow(row)}
-                    className="cursor-pointer border-t border-[#ececec] hover:bg-muted/30"
+                    className="cursor-pointer border-t border-border hover:bg-muted/30 transition-colors duration-fast"
                   >
                     {columns.slice(0, 8).map((col) => (
-                      <td key={col} className="px-3 py-2 truncate max-w-[220px]">
+                      <td
+                        key={col}
+                        className="px-3 py-2 truncate max-w-[220px] font-mono text-xs text-foreground/80"
+                      >
                         {formatCell(row[col])}
                       </td>
                     ))}

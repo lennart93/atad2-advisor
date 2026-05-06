@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { motion } from "framer-motion";
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from "recharts";
@@ -10,6 +11,7 @@ import {
 import { AdminCard } from "@/components/admin/AdminCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
+import { StaggerChildren, staggerItem } from "@/components/motion";
 
 type Period = "30d" | "90d" | "365d";
 
@@ -130,8 +132,11 @@ const Analytics = () => {
   return (
     <main>
       <Seo title="Admin Analytics" description="Trends and insights for ATAD2" canonical="/admin/analytics" />
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-[22px] font-bold">Analytics</h1>
+      <div className="flex items-end justify-between mb-6">
+        <div>
+          <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-1">Admin</div>
+          <h1 className="text-2xl font-semibold tracking-tight">Analytics</h1>
+        </div>
         <Select value={period} onValueChange={(v) => setPeriod(v as Period)}>
           <SelectTrigger className="w-[180px] h-9">
             <SelectValue />
@@ -144,26 +149,32 @@ const Analytics = () => {
         </Select>
       </div>
 
-      <div className="grid grid-cols-3 gap-3 mb-6">
-        <AdminCard>
-          <div className="text-[11px] text-muted-foreground font-medium mb-1">Total sessions</div>
-          <div className="text-[24px] font-bold">
-            {loadingSessions ? "—" : (sessions?.length ?? 0)}
-          </div>
-        </AdminCard>
-        <AdminCard>
-          <div className="text-[11px] text-muted-foreground font-medium mb-1">Completion rate</div>
-          <div className="text-[24px] font-bold">
-            {loadingSessions || completionRate == null ? "—" : `${completionRate.toFixed(0)}%`}
-          </div>
-        </AdminCard>
-        <AdminCard>
-          <div className="text-[11px] text-muted-foreground font-medium mb-1">Answers recorded</div>
-          <div className="text-[24px] font-bold">
-            {loadingAnswers ? "—" : (answers?.length ?? 0)}
-          </div>
-        </AdminCard>
-      </div>
+      <StaggerChildren className="grid grid-cols-3 gap-3 mb-6">
+        <motion.div variants={staggerItem}>
+          <AdminCard className="transition-all duration-normal ease-emphasized hover:shadow-sm hover:border-foreground/20">
+            <div className="text-3xl sm:text-4xl font-semibold tracking-tight tabular-nums leading-none">
+              {loadingSessions ? "—" : (sessions?.length ?? 0)}
+            </div>
+            <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mt-2">Total sessions</div>
+          </AdminCard>
+        </motion.div>
+        <motion.div variants={staggerItem}>
+          <AdminCard className="transition-all duration-normal ease-emphasized hover:shadow-sm hover:border-foreground/20">
+            <div className="text-3xl sm:text-4xl font-semibold tracking-tight tabular-nums leading-none">
+              {loadingSessions || completionRate == null ? "—" : `${completionRate.toFixed(0)}%`}
+            </div>
+            <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mt-2">Completion rate</div>
+          </AdminCard>
+        </motion.div>
+        <motion.div variants={staggerItem}>
+          <AdminCard className="transition-all duration-normal ease-emphasized hover:shadow-sm hover:border-foreground/20">
+            <div className="text-3xl sm:text-4xl font-semibold tracking-tight tabular-nums leading-none">
+              {loadingAnswers ? "—" : (answers?.length ?? 0)}
+            </div>
+            <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mt-2">Answers recorded</div>
+          </AdminCard>
+        </motion.div>
+      </StaggerChildren>
 
       <div className="grid grid-cols-2 gap-3">
         <AdminCard>

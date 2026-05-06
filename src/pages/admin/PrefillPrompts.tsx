@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { AdminCard } from "@/components/admin/AdminCard";
 import { PrefillPromptEditor } from "@/components/admin/prefill/PrefillPromptEditor";
 import { PrefillPromptHistory } from "@/components/admin/prefill/PrefillPromptHistory";
 
@@ -31,28 +31,58 @@ export default function PrefillPrompts() {
   });
 
   return (
-    <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-semibold">Pre-Fill Prompts</h1>
+    <main>
+      <div className="flex items-end justify-between mb-6">
+        <div>
+          <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-1">Admin</div>
+          <h1 className="text-2xl font-semibold tracking-tight">Pre-Fill Prompts</h1>
+        </div>
+      </div>
 
-      {KEYS.map(({ key, label }) => {
-        const row = active.data?.find((r) => r.key === key);
-        return (
-          <Card key={key}>
-            <CardHeader><CardTitle>{label}</CardTitle></CardHeader>
-            <CardContent className="space-y-2">
-              <div className="text-sm">Active version: <strong>v{row?.version ?? "—"}</strong></div>
-              <pre className="bg-muted p-3 rounded text-xs whitespace-pre-wrap max-h-40 overflow-auto">
+      <div className="space-y-3">
+        {KEYS.map(({ key, label }) => {
+          const row = active.data?.find((r) => r.key === key);
+          return (
+            <AdminCard
+              key={key}
+              className="transition-all duration-normal ease-emphasized hover:shadow-sm hover:border-foreground/20"
+            >
+              <div className="flex items-start justify-between gap-4 mb-3">
+                <div className="min-w-0">
+                  <div className="text-[13px] font-semibold text-foreground truncate">{label}</div>
+                  <div className="text-[11px] text-muted-foreground mt-1 flex items-center gap-2">
+                    <span>Active version</span>
+                    <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-muted text-foreground">
+                      v{row?.version ?? "—"}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <Button
+                    size="sm"
+                    onClick={() => setEditingKey(key)}
+                    className="transition-colors duration-fast"
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setHistoryKey(key)}
+                    className="transition-colors duration-fast"
+                  >
+                    Version history
+                  </Button>
+                </div>
+              </div>
+              <pre className="bg-muted/40 border border-border p-3 rounded-md text-xs font-mono whitespace-pre-wrap max-h-40 overflow-auto text-muted-foreground">
                 {row?.system_prompt?.slice(0, 400) ?? "—"}
                 {row && row.system_prompt.length > 400 ? "…" : ""}
               </pre>
-              <div className="flex gap-2">
-                <Button size="sm" onClick={() => setEditingKey(key)}>Edit</Button>
-                <Button size="sm" variant="outline" onClick={() => setHistoryKey(key)}>Version history</Button>
-              </div>
-            </CardContent>
-          </Card>
-        );
-      })}
+            </AdminCard>
+          );
+        })}
+      </div>
 
       {editingKey && (
         <PrefillPromptEditor
@@ -66,6 +96,6 @@ export default function PrefillPrompts() {
           onClose={() => { setHistoryKey(null); active.refetch(); }}
         />
       )}
-    </div>
+    </main>
   );
 }

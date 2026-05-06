@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { motion } from "framer-motion";
 import {
   FileText, Star, FileCheck, Users, CheckSquare, HelpCircle,
   MessageSquare, BarChart3, Database, AlertCircle, LucideIcon,
@@ -14,6 +15,7 @@ import { AdminCard } from "@/components/admin/AdminCard";
 import { IconChip } from "@/components/admin/IconChip";
 import { KpiCard } from "@/components/admin/KpiCard";
 import type { EntityKey } from "@/components/admin/entityColors";
+import { StaggerChildren, staggerItem } from "@/components/motion";
 
 type Period = "24h" | "7d" | "30d" | "90d";
 
@@ -131,8 +133,11 @@ const Dashboard = () => {
         canonical="/admin/dashboard"
       />
 
-      <header className="flex items-center justify-between mb-6">
-        <h1 className="text-[22px] font-bold text-foreground">Admin Hub</h1>
+      <header className="flex items-end justify-between mb-6">
+        <div>
+          <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-1">Admin</div>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Admin Hub</h1>
+        </div>
         <Select value={period} onValueChange={(v) => setPeriod(v as Period)}>
           <SelectTrigger className="w-[180px] h-9">
             <SelectValue />
@@ -146,11 +151,11 @@ const Dashboard = () => {
       </header>
 
       <section className="mb-6">
-        <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+        <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground font-medium mb-2">
           Key metrics
         </div>
-        <div className="grid grid-cols-4 gap-3">
-          <div className="col-span-2">
+        <StaggerChildren className="grid grid-cols-4 gap-3">
+          <motion.div variants={staggerItem} className="col-span-2">
             <KpiCard
               entity="sessions"
               icon={FileText}
@@ -159,45 +164,54 @@ const Dashboard = () => {
               sparkline={sparkline}
               size="lg"
             />
-          </div>
-          <KpiCard
-            entity="settings"
-            icon={Star}
-            label="Avg. score"
-            value={scoreStats?.avg != null ? scoreStats.avg.toFixed(1) : "—"}
-            subLabel="of 10"
-          />
-          <KpiCard
-            entity="questions"
-            icon={FileCheck}
-            label="Reports"
-            value={reportStats?.total ?? "—"}
-            subLabel={
-              reportStats && reportStats.today > 0
-                ? `+${reportStats.today} today`
-                : undefined
-            }
-          />
-        </div>
+          </motion.div>
+          <motion.div variants={staggerItem}>
+            <KpiCard
+              entity="settings"
+              icon={Star}
+              label="Avg. score"
+              value={scoreStats?.avg != null ? scoreStats.avg.toFixed(1) : "—"}
+              subLabel="of 10"
+            />
+          </motion.div>
+          <motion.div variants={staggerItem}>
+            <KpiCard
+              entity="questions"
+              icon={FileCheck}
+              label="Reports"
+              value={reportStats?.total ?? "—"}
+              subLabel={
+                reportStats && reportStats.today > 0
+                  ? `+${reportStats.today} today`
+                  : undefined
+              }
+            />
+          </motion.div>
+        </StaggerChildren>
       </section>
 
       <section>
-        <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+        <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground font-medium mb-2">
           Shortcuts
         </div>
-        <div className="grid grid-cols-4 gap-3">
+        <StaggerChildren className="grid grid-cols-4 gap-3">
           {SHORTCUTS.map((s) => (
-            <NavLink key={s.title} to={s.url} className="block">
-              <AdminCard interactive className="flex flex-col gap-3">
-                <IconChip entity={s.entity} icon={s.icon} size="md" />
-                <div>
-                  <div className="text-[13px] font-semibold text-foreground">{s.title}</div>
-                  <div className="text-[11px] text-muted-foreground mt-0.5">{s.sub}</div>
-                </div>
-              </AdminCard>
-            </NavLink>
+            <motion.div key={s.title} variants={staggerItem}>
+              <NavLink to={s.url} className="block">
+                <AdminCard
+                  interactive
+                  className="flex flex-col gap-3 transition-all duration-normal ease-emphasized hover:shadow-sm hover:border-foreground/20"
+                >
+                  <IconChip entity={s.entity} icon={s.icon} size="md" />
+                  <div>
+                    <div className="text-[13px] font-semibold text-foreground">{s.title}</div>
+                    <div className="text-[11px] text-muted-foreground mt-0.5">{s.sub}</div>
+                  </div>
+                </AdminCard>
+              </NavLink>
+            </motion.div>
           ))}
-        </div>
+        </StaggerChildren>
       </section>
     </main>
   );

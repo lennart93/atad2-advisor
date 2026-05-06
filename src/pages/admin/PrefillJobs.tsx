@@ -2,9 +2,9 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AdminCard } from "@/components/admin/AdminCard";
 
 // Rough Opus 4.7 pricing (USD per million tokens). Update if Anthropic revises.
 const OPUS_INPUT_PER_M = 15;
@@ -36,38 +36,68 @@ export default function PrefillJobs() {
   });
 
   return (
-    <div className="p-6 space-y-4">
-      <h1 className="text-2xl font-semibold">Pre-Fill Jobs</h1>
-      <div className="space-y-2">
-        {data?.map((j) => {
-          const durMs = j.stage2_finished_at && j.started_at
-            ? new Date(j.stage2_finished_at).getTime() - new Date(j.started_at).getTime()
-            : j.failed_at && j.started_at
-              ? new Date(j.failed_at).getTime() - new Date(j.started_at).getTime()
-              : null;
-          return (
-            <Card key={j.id}>
-              <CardContent className="pt-4 text-sm flex justify-between items-center">
-                <div>
-                  <Link to={`/admin/sessions/${j.session_id}`} className="font-mono underline">
-                    {j.session_id}
-                  </Link>
-                  <div className="text-xs text-muted-foreground">
-                    {j.started_at ? new Date(j.started_at).toLocaleString() : "—"}
-                    {durMs != null && ` · ${Math.round(durMs / 1000)}s`}
-                    {` · ${j.status}`}
-                    {` · ${estimateCostEUR(j.total_token_usage as { input_tokens?: number; output_tokens?: number } | null)}`}
-                  </div>
-                </div>
-                <Button size="sm" variant="outline" onClick={() => setDetailJobId(j.id)}>Details</Button>
-              </CardContent>
-            </Card>
-          );
-        })}
+    <main>
+      <div className="flex items-end justify-between mb-6">
+        <div>
+          <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-1">Admin</div>
+          <h1 className="text-2xl font-semibold tracking-tight">Pre-Fill Jobs</h1>
+        </div>
       </div>
 
+      <AdminCard className="overflow-x-auto p-0">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border">
+              <th className="text-left px-4 py-2.5 text-xs uppercase tracking-[0.18em] text-muted-foreground font-medium">Session</th>
+              <th className="text-left px-4 py-2.5 text-xs uppercase tracking-[0.18em] text-muted-foreground font-medium">Started</th>
+              <th className="text-left px-4 py-2.5 text-xs uppercase tracking-[0.18em] text-muted-foreground font-medium">Duration</th>
+              <th className="text-left px-4 py-2.5 text-xs uppercase tracking-[0.18em] text-muted-foreground font-medium">Status</th>
+              <th className="text-left px-4 py-2.5 text-xs uppercase tracking-[0.18em] text-muted-foreground font-medium">Cost</th>
+              <th className="text-right px-4 py-2.5 text-xs uppercase tracking-[0.18em] text-muted-foreground font-medium"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {data?.map((j) => {
+              const durMs = j.stage2_finished_at && j.started_at
+                ? new Date(j.stage2_finished_at).getTime() - new Date(j.started_at).getTime()
+                : j.failed_at && j.started_at
+                  ? new Date(j.failed_at).getTime() - new Date(j.started_at).getTime()
+                  : null;
+              return (
+                <tr
+                  key={j.id}
+                  className="border-t border-border hover:bg-muted/30 transition-colors duration-fast"
+                >
+                  <td className="px-4 py-2.5">
+                    <Link
+                      to={`/admin/sessions/${j.session_id}`}
+                      className="font-mono text-xs hover:underline"
+                    >
+                      {j.session_id}
+                    </Link>
+                  </td>
+                  <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
+                    {j.started_at ? new Date(j.started_at).toLocaleString() : "—"}
+                  </td>
+                  <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
+                    {durMs != null ? `${Math.round(durMs / 1000)}s` : "—"}
+                  </td>
+                  <td className="px-4 py-2.5 text-xs">{j.status}</td>
+                  <td className="px-4 py-2.5 font-mono text-xs">
+                    {estimateCostEUR(j.total_token_usage as { input_tokens?: number; output_tokens?: number } | null)}
+                  </td>
+                  <td className="px-4 py-2.5 text-right">
+                    <Button size="sm" variant="outline" onClick={() => setDetailJobId(j.id)}>Details</Button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </AdminCard>
+
       {detailJobId && <JobDetailDrawer jobId={detailJobId} onClose={() => setDetailJobId(null)} />}
-    </div>
+    </main>
   );
 }
 
@@ -108,22 +138,30 @@ function JobDetailDrawer({ jobId, onClose }: { jobId: string; onClose: () => voi
   return (
     <Dialog open onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[85vh] overflow-auto">
-        <DialogHeader><DialogTitle>Job {jobId.slice(0, 8)}</DialogTitle></DialogHeader>
-        <pre className="text-xs bg-muted p-3 rounded">{JSON.stringify(job, null, 2)}</pre>
-        <h3 className="font-semibold mt-4">Document summaries</h3>
+        <DialogHeader>
+          <DialogTitle className="font-mono text-base">Job {jobId.slice(0, 8)}</DialogTitle>
+        </DialogHeader>
+        <pre className="text-xs font-mono bg-muted/40 border border-border p-3 rounded-md">{JSON.stringify(job, null, 2)}</pre>
+        <h3 className="text-xs uppercase tracking-[0.18em] text-muted-foreground font-medium mt-4 mb-2">Document summaries</h3>
         {summaries?.map((s) => (
           <details key={s.document_id} className="text-xs">
-            <summary className="cursor-pointer">{s.doc_label}</summary>
-            <pre className="bg-muted p-2 mt-1">{JSON.stringify(s.summary_json, null, 2)}</pre>
+            <summary className="cursor-pointer hover:text-foreground transition-colors duration-fast">{s.doc_label}</summary>
+            <pre className="bg-muted/40 border border-border p-2 mt-1 font-mono rounded-md">{JSON.stringify(s.summary_json, null, 2)}</pre>
           </details>
         ))}
-        <h3 className="font-semibold mt-4">Question prefills</h3>
-        {prefills?.map((p) => (
-          <div key={p.id} className="border rounded p-2 text-xs">
-            <div><strong>Q{p.question_id}</strong> · {p.user_action}</div>
-            <div>{p.suggested_toelichting}</div>
-          </div>
-        ))}
+        <h3 className="text-xs uppercase tracking-[0.18em] text-muted-foreground font-medium mt-4 mb-2">Question prefills</h3>
+        <div className="space-y-1.5">
+          {prefills?.map((p) => (
+            <div key={p.id} className="border border-border rounded-md p-2 text-xs">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="font-mono font-semibold">Q{p.question_id}</span>
+                <span className="text-muted-foreground">·</span>
+                <span>{p.user_action}</span>
+              </div>
+              <div className="text-muted-foreground">{p.suggested_toelichting}</div>
+            </div>
+          ))}
+        </div>
       </DialogContent>
     </Dialog>
   );

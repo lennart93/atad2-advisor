@@ -24,10 +24,10 @@ const ITEMS: Item[] = [
 
 const linkClasses = ({ isActive }: { isActive: boolean }) =>
   cn(
-    "flex items-center gap-2.5 py-1.5 px-2 rounded-md text-[13px]",
+    "flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors duration-fast border-l-2",
     isActive
-      ? "bg-muted text-foreground font-medium"
-      : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+      ? "bg-accent border-l-primary text-foreground font-medium"
+      : "border-l-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground hover:border-l-border"
   );
 
 export function AppSidebar() {
@@ -35,16 +35,16 @@ export function AppSidebar() {
   const sectionLabel = isAdmin ? "Admin" : isModerator ? "Moderator" : "Admin";
   return (
     <aside className="w-52 shrink-0">
-      <nav className="flex flex-col gap-1">
+      <nav className="sticky top-20 flex flex-col gap-1">
         <NavLink
           to="/"
-          className="flex items-center gap-2.5 py-1.5 px-2 rounded-md text-[13px] text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+          className="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm border-l-2 border-l-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground hover:border-l-border transition-colors duration-fast"
         >
           <IconChip icon={ArrowLeft} size="sm" />
           <span>Back to dashboard</span>
         </NavLink>
 
-        <div className="mt-4 mb-1 px-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+        <div className="mt-4 mb-1 px-3 text-xs uppercase tracking-[0.18em] text-muted-foreground font-medium">
           {sectionLabel}
         </div>
         {ITEMS.map((item) => (

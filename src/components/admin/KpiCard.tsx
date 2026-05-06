@@ -22,23 +22,28 @@ export function KpiCard({
 }: KpiCardProps) {
   void entity;
   return (
-    <AdminCard className={cn("flex flex-col justify-between", className)}>
+    <AdminCard
+      className={cn(
+        "flex flex-col justify-between transition-all duration-normal ease-emphasized hover:shadow-sm hover:border-foreground/20",
+        className
+      )}
+    >
       <div className="flex items-start justify-between">
         <div>
           <div className="flex items-center gap-2 mb-2">
             <IconChip entity={entity} icon={icon} size="sm" />
-            <span className="text-xs font-medium text-muted-foreground">{label}</span>
+            <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground font-medium">{label}</span>
           </div>
           <div
             className={cn(
-              "font-bold leading-none text-foreground",
-              size === "lg" ? "text-[30px]" : "text-[24px]"
+              "font-semibold tracking-tight leading-none text-foreground tabular-nums",
+              size === "lg" ? "text-3xl sm:text-4xl" : "text-3xl"
             )}
           >
             {value}
           </div>
           {subLabel && (
-            <div className="text-[10px] text-muted-foreground mt-1">{subLabel}</div>
+            <div className="text-[10px] text-muted-foreground mt-1.5 font-mono">{subLabel}</div>
           )}
           {trend && (
             <div
