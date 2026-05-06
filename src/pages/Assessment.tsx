@@ -1616,45 +1616,59 @@ const Assessment = () => {
                             </Tooltip>
                           </TooltipProvider>
                         </div>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button
-                              id="period_start"
-                              type="button"
-                              variant="outline"
-                              className={cn(
-                                "w-full justify-start text-left font-normal",
-                                !sessionInfo.period_start_date && "text-muted-foreground"
-                              )}
-                            >
-                              <CalendarIcon className="mr-2 h-4 w-4" />
-                              {sessionInfo.period_start_date
+                        <div className="flex gap-2">
+                          <Input
+                            id="period_start"
+                            placeholder="dd/mm/yyyy"
+                            defaultValue={
+                              sessionInfo.period_start_date
                                 ? format(parse(sessionInfo.period_start_date, "yyyy-MM-dd", new Date()), "dd/MM/yyyy")
-                                : <span>dd/mm/yyyy</span>}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                              mode="single"
-                              weekStartsOn={1}
-                              selected={
-                                sessionInfo.period_start_date
-                                  ? (() => {
-                                      const d = parse(sessionInfo.period_start_date, "yyyy-MM-dd", new Date());
-                                      return isValid(d) ? d : undefined;
-                                    })()
-                                  : undefined
+                                : ""
+                            }
+                            key={`period_start-${sessionInfo.period_start_date ?? "empty"}`}
+                            onBlur={(e) => {
+                              const raw = e.target.value.trim();
+                              if (raw === "") {
+                                setSessionInfo((s) => ({ ...s, period_start_date: undefined }));
+                                return;
                               }
-                              onSelect={(date) =>
-                                setSessionInfo({
-                                  ...sessionInfo,
-                                  period_start_date: date ? format(date, "yyyy-MM-dd") : undefined,
-                                })
+                              const parsed = parse(raw, "dd/MM/yyyy", new Date());
+                              if (isValid(parsed)) {
+                                setSessionInfo((s) => ({ ...s, period_start_date: format(parsed, "yyyy-MM-dd") }));
+                                e.target.value = format(parsed, "dd/MM/yyyy");
                               }
-                              initialFocus
-                            />
-                          </PopoverContent>
-                        </Popover>
+                            }}
+                            className="flex-1"
+                          />
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button type="button" variant="outline" size="icon" aria-label="Pick a date">
+                                <CalendarIcon className="h-4 w-4" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                weekStartsOn={1}
+                                selected={
+                                  sessionInfo.period_start_date
+                                    ? (() => {
+                                        const d = parse(sessionInfo.period_start_date, "yyyy-MM-dd", new Date());
+                                        return isValid(d) ? d : undefined;
+                                      })()
+                                    : undefined
+                                }
+                                onSelect={(date) =>
+                                  setSessionInfo({
+                                    ...sessionInfo,
+                                    period_start_date: date ? format(date, "yyyy-MM-dd") : undefined,
+                                  })
+                                }
+                                initialFocus
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
                       </div>
 
                       <div className="space-y-2">
@@ -1671,45 +1685,59 @@ const Assessment = () => {
                             </Tooltip>
                           </TooltipProvider>
                         </div>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button
-                              id="period_end"
-                              type="button"
-                              variant="outline"
-                              className={cn(
-                                "w-full justify-start text-left font-normal",
-                                !sessionInfo.period_end_date && "text-muted-foreground"
-                              )}
-                            >
-                              <CalendarIcon className="mr-2 h-4 w-4" />
-                              {sessionInfo.period_end_date
+                        <div className="flex gap-2">
+                          <Input
+                            id="period_end"
+                            placeholder="dd/mm/yyyy"
+                            defaultValue={
+                              sessionInfo.period_end_date
                                 ? format(parse(sessionInfo.period_end_date, "yyyy-MM-dd", new Date()), "dd/MM/yyyy")
-                                : <span>dd/mm/yyyy</span>}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                              mode="single"
-                              weekStartsOn={1}
-                              selected={
-                                sessionInfo.period_end_date
-                                  ? (() => {
-                                      const d = parse(sessionInfo.period_end_date, "yyyy-MM-dd", new Date());
-                                      return isValid(d) ? d : undefined;
-                                    })()
-                                  : undefined
+                                : ""
+                            }
+                            key={`period_end-${sessionInfo.period_end_date ?? "empty"}`}
+                            onBlur={(e) => {
+                              const raw = e.target.value.trim();
+                              if (raw === "") {
+                                setSessionInfo((s) => ({ ...s, period_end_date: undefined }));
+                                return;
                               }
-                              onSelect={(date) =>
-                                setSessionInfo({
-                                  ...sessionInfo,
-                                  period_end_date: date ? format(date, "yyyy-MM-dd") : undefined,
-                                })
+                              const parsed = parse(raw, "dd/MM/yyyy", new Date());
+                              if (isValid(parsed)) {
+                                setSessionInfo((s) => ({ ...s, period_end_date: format(parsed, "yyyy-MM-dd") }));
+                                e.target.value = format(parsed, "dd/MM/yyyy");
                               }
-                              initialFocus
-                            />
-                          </PopoverContent>
-                        </Popover>
+                            }}
+                            className="flex-1"
+                          />
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button type="button" variant="outline" size="icon" aria-label="Pick a date">
+                                <CalendarIcon className="h-4 w-4" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                weekStartsOn={1}
+                                selected={
+                                  sessionInfo.period_end_date
+                                    ? (() => {
+                                        const d = parse(sessionInfo.period_end_date, "yyyy-MM-dd", new Date());
+                                        return isValid(d) ? d : undefined;
+                                      })()
+                                    : undefined
+                                }
+                                onSelect={(date) =>
+                                  setSessionInfo({
+                                    ...sessionInfo,
+                                    period_end_date: date ? format(date, "yyyy-MM-dd") : undefined,
+                                  })
+                                }
+                                initialFocus
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
                       </div>
                     </div>
                 </OptionToggle>
