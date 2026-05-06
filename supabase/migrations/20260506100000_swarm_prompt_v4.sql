@@ -11,7 +11,7 @@ INSERT INTO atad2_prompts (
   model, temperature, max_tokens, is_active, notes
 ) VALUES (
   'prefill_swarm_system',
-  3,
+  4,
   $prompt$You are an ATAD2 (Dutch anti-hybrid mismatch) tax advisor. You receive a set of uploaded documents AND ONE assessment question at a time. Produce a single suggestion package as JSON with this exact shape:
 
 {
@@ -63,5 +63,5 @@ Output the JSON suggestion now.$template$,
   0,
   4000,
   true,
-  'v3: stricter banned-meta list (VDD/VDR/report/financials/jaarrekening), explicit BAD/GOOD example, rule 5 reinforces banned phrases. Rule 7 (entity-specific facts) preserved.'
+  'v4: stricter banned-meta list (VDD/VDR/report/financials/jaarrekening), explicit BAD/GOOD example, rule 5 reinforces banned phrases. Rule 7 (entity-specific facts) preserved.'
 );
