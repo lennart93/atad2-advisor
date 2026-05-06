@@ -2058,6 +2058,18 @@ const Assessment = () => {
                       </div>
                     )}
 
+                    {/* Playful no-suggestion note. Fires when the session has docs,
+                        analysis is done, this question has no prefill, and the user
+                        already picked an answer. */}
+                    {docsCount > 0
+                      && prefillJob?.status === "completed"
+                      && !currentPrefill
+                      && selectedAnswer && (
+                      <div className="text-xs italic text-muted-foreground mt-3 ml-1 mb-3">
+                        No suggestion for this one. You're on your own here.
+                      </div>
+                    )}
+
                       {/* Question explanation - inline expandable */}
                       <QuestionExplanationInline
                         key={currentQuestion.question_id} 
@@ -2065,13 +2077,12 @@ const Assessment = () => {
                       />
 
                       {/* Context section - NEW hardened state machine */}
-                      {/* RENDER GUARD: panel renders when the answer requires explanation
-                          OR when the user uploaded any source documents this session
-                          (in which case we always offer the explanation panel so the
-                          AI rationale + textarea remain accessible). */}
+                      {/* RENDER GUARD: panel renders when the answer requires
+                          explanation OR an AI prefill exists for this question
+                          (so user can Accept/Edit/Dismiss the suggestion). */}
                       {sessionStarted && currentQuestion && qId && selectedAnswer && (
                         selectedQuestionOption?.requires_explanation
-                        || docsCount > 0
+                        || !!currentPrefill
                       ) && (
                         <div 
                           key={paneKey}
@@ -2098,11 +2109,6 @@ const Assessment = () => {
                               {prefillJob?.status === "failed" && !currentPrefill && (
                                 <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm mb-3">
                                   Couldn't generate suggestions. Continue without them.
-                                </div>
-                              )}
-                              {prefillJob?.status === "completed" && !currentPrefill && docsCount > 0 && (
-                                <div className="text-xs italic text-muted-foreground mt-3 ml-1">
-                                  No relevant context found in the uploaded documents for this question.
                                 </div>
                               )}
 
