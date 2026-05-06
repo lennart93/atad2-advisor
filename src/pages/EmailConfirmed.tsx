@@ -1,61 +1,66 @@
-import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { MotionPage } from "@/components/motion/MotionPage";
+import { AnimatedLogo } from "@/components/AnimatedLogo";
 
 const EmailConfirmed = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="w-full max-w-md space-y-8">
-        {/* Logo */}
-        <div className="text-center">
-          <img 
-            src="/lovable-uploads/efcd43b8-7f08-4aea-87f2-be5e2978f8c1.png" 
-            alt="Svalner Atlas"
-            className="h-12 mx-auto mb-8"
-          />
-        </div>
-
-        {/* Success Card */}
-        <div className="bg-card rounded-lg border p-8 text-center space-y-6">
+    <div className="relative min-h-[calc(100vh-4rem)] flex items-center justify-center px-4 py-10 overflow-hidden">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-gradient-to-b from-primary/5 via-background to-background"
+      />
+      <MotionPage className="relative w-full max-w-md space-y-8">
+        <div className="text-center space-y-5">
           <div className="flex justify-center">
-            <CheckCircle2 className="h-16 w-16 text-green-500" />
+            <AnimatedLogo size={56} />
           </div>
-          
-          <div className="space-y-2">
-            <h1 className="text-2xl font-semibold text-foreground">
-              Email bevestigd!
-            </h1>
-            <p className="text-muted-foreground">
-              Je account is succesvol geactiveerd. Je kunt nu beginnen met de ATAD2 assessment.
-            </p>
-          </div>
-
-          <div className="space-y-3">
-            <Button 
-              onClick={() => navigate("/")}
-              className="w-full"
-            >
-              Ga naar dashboard
-            </Button>
-            
-            <Button 
-              variant="outline"
-              onClick={() => navigate("/assessment")}
-              className="w-full"
-            >
-              Start assessment
-            </Button>
-          </div>
+          <p className="text-sm uppercase tracking-[0.2em] text-muted-foreground">
+            Account activated
+          </p>
+          <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-foreground">
+            Email confirmed
+          </h1>
+          <div className="mx-auto h-px w-16 bg-primary/40" />
+          <p className="text-base text-muted-foreground leading-relaxed">
+            Your account is ready. You can now begin your ATAD2 assessment.
+          </p>
         </div>
 
-        {/* Footer */}
+        <Card className="w-full">
+          <CardContent className="pt-6">
+            <div className="text-center space-y-6">
+              <div className="flex justify-center">
+                <div className="p-4 bg-primary/10 rounded-full">
+                  <CheckCircle2 className="h-10 w-10 text-primary" />
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <Button onClick={() => navigate("/")} className="w-full">
+                  Go to dashboard
+                </Button>
+
+                <Button
+                  variant="outline"
+                  onClick={() => navigate("/assessment")}
+                  className="w-full"
+                >
+                  Start assessment
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         <p className="text-center text-sm text-muted-foreground">
-          © Svalner Atlas • ATAD2 Assessment Tool
+          Svalner Atlas - ATAD2 Assessment Tool
         </p>
-      </div>
+      </MotionPage>
     </div>
   );
 };

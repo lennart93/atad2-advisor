@@ -10,6 +10,8 @@ import {
   InputOTPGroup,
   InputOTPSlot,
 } from "@/components/ui/input-otp";
+import { MotionPage } from "@/components/motion/MotionPage";
+import { AnimatedLogo } from "@/components/AnimatedLogo";
 
 const RESEND_COOLDOWN = 60; // seconds
 
@@ -153,14 +155,27 @@ const VerifyEmail = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md space-y-8">
-        <div className="flex justify-center">
-          <img
-            src="/lovable-uploads/new-logo.png"
-            alt="Company Logo"
-            className="h-16 w-16 object-contain"
-          />
+    <div className="relative min-h-[calc(100vh-4rem)] flex items-center justify-center px-4 py-10 overflow-hidden">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-gradient-to-b from-primary/5 via-background to-background"
+      />
+      <MotionPage className="relative w-full max-w-md space-y-8">
+        <div className="text-center space-y-5">
+          <div className="flex justify-center">
+            <AnimatedLogo size={56} />
+          </div>
+          <p className="text-sm uppercase tracking-[0.2em] text-muted-foreground">
+            Verify your email
+          </p>
+          <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-foreground">
+            Check your inbox
+          </h1>
+          <div className="mx-auto h-px w-16 bg-primary/40" />
+          <p className="text-base text-muted-foreground leading-relaxed">
+            We've sent a 6-digit verification code to{" "}
+            <span className="font-medium text-foreground font-mono">{email}</span>.
+          </p>
         </div>
 
         <Card className="w-full">
@@ -169,21 +184,8 @@ const VerifyEmail = () => {
               {/* Icon */}
               <div className="flex justify-center">
                 <div className="p-4 bg-primary/10 rounded-full">
-                  <Mail className="h-12 w-12 text-primary" />
+                  <Mail className="h-10 w-10 text-primary" />
                 </div>
-              </div>
-
-              {/* Heading */}
-              <div className="space-y-2">
-                <h2 className="text-2xl font-semibold text-foreground">
-                  Check your email
-                </h2>
-                <p className="text-muted-foreground">
-                  We've sent a 6-digit verification code to
-                </p>
-                <p className="font-semibold text-foreground bg-muted px-3 py-2 rounded-lg">
-                  {email}
-                </p>
               </div>
 
               {/* OTP Input */}
@@ -264,7 +266,7 @@ const VerifyEmail = () => {
             </div>
           </CardContent>
         </Card>
-      </div>
+      </MotionPage>
     </div>
   );
 };

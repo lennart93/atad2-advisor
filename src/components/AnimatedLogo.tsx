@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { motion } from "framer-motion";
 
 export type AnimatedLogoState = "idle" | "working";
 
@@ -27,9 +28,12 @@ export function AnimatedLogo({
   const role = state === "working" ? "status" : "img";
   const ariaLabel = state === "working" ? "Loading" : alt;
   return (
-    <span
+    <motion.span
       role={role}
       aria-label={ariaLabel}
+      initial={{ opacity: 0, y: -4 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: [0.2, 0, 0, 1] }}
       className={cn(
         "animated-logo",
         state === "idle" ? "is-idle" : "is-working",
@@ -44,6 +48,6 @@ export function AnimatedLogo({
         aria-hidden="true"
         draggable={false}
       />
-    </span>
+    </motion.span>
   );
 }

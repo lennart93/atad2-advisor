@@ -3,10 +3,12 @@ import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
 import { Eye, EyeOff, ArrowLeft, AlertTriangle, Loader2 } from "lucide-react";
+import { MotionPage } from "@/components/motion/MotionPage";
+import { AnimatedLogo } from "@/components/AnimatedLogo";
 
 type SessionState = "checking" | "valid" | "invalid";
 
@@ -80,8 +82,12 @@ const ResetPassword = () => {
 
   if (sessionState === "checking") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <div className="flex items-center gap-2 text-muted-foreground">
+      <div className="relative min-h-[calc(100vh-4rem)] flex items-center justify-center px-4 py-10 overflow-hidden">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 bg-gradient-to-b from-primary/5 via-background to-background"
+        />
+        <div className="relative flex items-center gap-2 text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
           <span>Verifying reset link...</span>
         </div>
@@ -89,15 +95,30 @@ const ResetPassword = () => {
     );
   }
 
+  const eyebrow = sessionState === "invalid" ? "Reset link" : "Set a new password";
+  const headline = sessionState === "invalid" ? "Invalid or expired link" : "Set new password";
+  const subcopy =
+    sessionState === "invalid"
+      ? "This reset link is no longer valid. Please request a new one."
+      : "Choose a new password for your account.";
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md space-y-6">
-        <div className="flex justify-center">
-          <img
-            src="/lovable-uploads/new-logo.png"
-            alt="Company Logo"
-            className="h-16 w-16 object-contain"
-          />
+    <div className="relative min-h-[calc(100vh-4rem)] flex items-center justify-center px-4 py-10 overflow-hidden">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-gradient-to-b from-primary/5 via-background to-background"
+      />
+      <MotionPage className="relative w-full max-w-md space-y-8">
+        <div className="text-center space-y-5">
+          <div className="flex justify-center">
+            <AnimatedLogo size={56} />
+          </div>
+          <p className="text-sm uppercase tracking-[0.2em] text-muted-foreground">{eyebrow}</p>
+          <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-foreground">
+            {headline}
+          </h1>
+          <div className="mx-auto h-px w-16 bg-primary/40" />
+          <p className="text-base text-muted-foreground leading-relaxed">{subcopy}</p>
         </div>
 
         <Card className="w-full">
@@ -106,16 +127,8 @@ const ResetPassword = () => {
               <div className="text-center space-y-6">
                 <div className="flex justify-center">
                   <div className="p-4 bg-destructive/10 rounded-full">
-                    <AlertTriangle className="h-12 w-12 text-destructive" />
+                    <AlertTriangle className="h-10 w-10 text-destructive" />
                   </div>
-                </div>
-                <div className="space-y-2">
-                  <h2 className="text-2xl font-semibold text-foreground">
-                    Invalid or expired link
-                  </h2>
-                  <p className="text-muted-foreground">
-                    This reset link is no longer valid. Please request a new one.
-                  </p>
                 </div>
                 <Link
                   to="/forgot-password"
@@ -136,13 +149,7 @@ const ResetPassword = () => {
             </CardContent>
           ) : (
             <>
-              <CardHeader className="text-center pb-4">
-                <CardTitle className="text-2xl">Set new password</CardTitle>
-                <CardDescription>
-                  Choose a new password for your account
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 pt-6">
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="newPassword">New password</Label>
@@ -220,7 +227,7 @@ const ResetPassword = () => {
             </>
           )}
         </Card>
-      </div>
+      </MotionPage>
     </div>
   );
 };

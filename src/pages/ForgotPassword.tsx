@@ -3,12 +3,14 @@ import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
 import { Lock, ArrowLeft, Mail } from "lucide-react";
 import { validateLocalPart } from "@/utils/emailNormalization";
 import { cn } from "@/lib/utils";
+import { MotionPage } from "@/components/motion/MotionPage";
+import { AnimatedLogo } from "@/components/AnimatedLogo";
 
 const DOMAIN = "svalneratlas.com";
 
@@ -58,14 +60,28 @@ const ForgotPassword = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md space-y-6">
-        <div className="flex justify-center">
-          <img
-            src="/lovable-uploads/new-logo.png"
-            alt="Company Logo"
-            className="h-16 w-16 object-contain"
-          />
+    <div className="relative min-h-[calc(100vh-4rem)] flex items-center justify-center px-4 py-10 overflow-hidden">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-gradient-to-b from-primary/5 via-background to-background"
+      />
+      <MotionPage className="relative w-full max-w-md space-y-8">
+        <div className="text-center space-y-5">
+          <div className="flex justify-center">
+            <AnimatedLogo size={56} />
+          </div>
+          <p className="text-sm uppercase tracking-[0.2em] text-muted-foreground">
+            {submitted ? "Reset email sent" : "Account recovery"}
+          </p>
+          <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-foreground">
+            {submitted ? "Check your inbox" : "Forgot password"}
+          </h1>
+          <div className="mx-auto h-px w-16 bg-primary/40" />
+          <p className="text-base text-muted-foreground leading-relaxed">
+            {submitted
+              ? "If an account exists for this email, we've sent a reset link."
+              : "Enter your email and we'll send you a reset link."}
+          </p>
         </div>
 
         <Card className="w-full">
@@ -74,16 +90,8 @@ const ForgotPassword = () => {
               <div className="text-center space-y-6">
                 <div className="flex justify-center">
                   <div className="p-4 bg-primary/10 rounded-full">
-                    <Mail className="h-12 w-12 text-primary" />
+                    <Mail className="h-10 w-10 text-primary" />
                   </div>
-                </div>
-                <div className="space-y-2">
-                  <h2 className="text-2xl font-semibold text-foreground">
-                    Check your inbox
-                  </h2>
-                  <p className="text-muted-foreground">
-                    If an account exists for this email, we've sent a reset link.
-                  </p>
                 </div>
                 <Link
                   to="/auth"
@@ -96,13 +104,7 @@ const ForgotPassword = () => {
             </CardContent>
           ) : (
             <>
-              <CardHeader className="text-center pb-4">
-                <CardTitle className="text-2xl">Forgot password</CardTitle>
-                <CardDescription>
-                  Enter your email and we'll send you a reset link
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 pt-6">
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="forgotEmail">Email address</Label>
@@ -153,7 +155,7 @@ const ForgotPassword = () => {
             </>
           )}
         </Card>
-      </div>
+      </MotionPage>
     </div>
   );
 };

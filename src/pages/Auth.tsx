@@ -3,7 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -11,6 +11,7 @@ import { Lock, Eye, EyeOff, Edit2, Info } from "lucide-react";
 import { makeLocalPart, validateName, validateLocalPart } from "@/utils/emailNormalization";
 import { cn } from "@/lib/utils";
 import { AnimatedLogo } from "@/components/AnimatedLogo";
+import { MotionPage } from "@/components/motion/MotionPage";
 
 const DOMAIN = "svalneratlas.com";
 
@@ -331,20 +332,30 @@ const Auth = () => {
 
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md space-y-6">
-        <div className="flex justify-center">
-          <AnimatedLogo size={64} />
+    <div className="relative min-h-[calc(100vh-4rem)] flex items-center justify-center px-4 py-10 overflow-hidden">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-gradient-to-b from-primary/5 via-background to-background"
+      />
+      <MotionPage className="relative w-full max-w-md space-y-8">
+        <div className="text-center space-y-5">
+          <div className="flex justify-center">
+            <AnimatedLogo size={56} />
+          </div>
+          <p className="text-sm uppercase tracking-[0.2em] text-muted-foreground">
+            Svalner Atlas
+          </p>
+          <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-foreground">
+            ATAD2 risk assessment
+          </h1>
+          <div className="mx-auto h-px w-16 bg-primary/40" />
+          <p className="text-base text-muted-foreground">
+            Sign in or create an account to get started.
+          </p>
         </div>
-        
+
         <Card className="w-full max-w-[480px] mx-auto">
-          <CardHeader className="text-center pb-4">
-            <CardTitle className="text-2xl">ATAD2 risk assessment</CardTitle>
-            <CardDescription>
-              Sign in or create an account to get started
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 pt-6">
             <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="signin">Sign in</TabsTrigger>
@@ -649,7 +660,7 @@ const Auth = () => {
             </Tabs>
           </CardContent>
         </Card>
-      </div>
+      </MotionPage>
     </div>
   );
 };

@@ -8,6 +8,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { CommandPalette, CommandPaletteTrigger } from "@/components/CommandPalette";
+import { cn } from "@/lib/utils";
 
 const AppLayout = () => {
   const { user, signOut } = useAuth();
@@ -72,7 +73,17 @@ const AppLayout = () => {
             <CommandPaletteTrigger />
             <ThemeToggle />
             {hasAccess ? (
-              <Button variant="secondary" size="sm" className="h-9" asChild>
+              <Button
+                variant="secondary"
+                size="sm"
+                className={cn(
+                  "h-9 transition-all",
+                  isAdminRoute && "ring-1 ring-primary/30"
+                )}
+                aria-current={isAdminRoute ? "page" : undefined}
+                data-active={isAdminRoute}
+                asChild
+              >
                 <Link to="/admin" state={{ from: location }}>
                   {isAdmin ? "Admin" : isModerator ? "Moderator" : "Admin"}
                 </Link>
