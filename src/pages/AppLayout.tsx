@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { AnimatedLogo } from "@/components/AnimatedLogo";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { CommandPalette, CommandPaletteTrigger } from "@/components/CommandPalette";
 
 const AppLayout = () => {
   const { user, signOut } = useAuth();
@@ -40,7 +42,7 @@ const AppLayout = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="relative border-b border-[hsl(var(--border-subtle))] bg-surface-header after:pointer-events-none after:absolute after:inset-x-0 after:-bottom-px after:h-px after:bg-gradient-to-r after:from-transparent after:via-[hsl(var(--border-default))] after:to-transparent">
+      <header className="sticky top-0 z-40 border-b border-[hsl(var(--border-subtle))] bg-background/70 backdrop-blur-md supports-[backdrop-filter]:bg-background/60">
         <div className="mx-auto max-w-6xl px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <TooltipProvider delayDuration={300}>
@@ -66,20 +68,25 @@ const AppLayout = () => {
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
+            <CommandPaletteTrigger />
+            <ThemeToggle />
             {hasAccess ? (
-              <Button variant="secondary" asChild>
+              <Button variant="secondary" size="sm" className="h-9" asChild>
                 <Link to="/admin" state={{ from: location }}>
                   {isAdmin ? "Admin" : isModerator ? "Moderator" : "Admin"}
                 </Link>
               </Button>
             ) : null}
             {user && (
-              <Button variant="outline" onClick={handleSignOut}>Sign out</Button>
+              <Button variant="ghost" size="sm" className="h-9 text-muted-foreground hover:text-foreground" onClick={handleSignOut}>
+                Sign out
+              </Button>
             )}
           </div>
         </div>
       </header>
+      <CommandPalette />
 
       {/* Content */}
       {isAdminRoute ? (

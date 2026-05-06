@@ -54,6 +54,8 @@
     "docxtemplater": "^3.66.2",
     "dompurify": "^3.3.3",
     "embla-carousel-react": "^8.3.0",
+    "framer-motion": "^12.38.0",
+    "geist": "^1.7.0",
     "input-otp": "^1.2.4",
     "lucide-react": "^0.462.0",
     "mammoth": "^1.12.0",

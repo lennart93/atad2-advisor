@@ -111,9 +111,11 @@ export default {
 				'pulse-glow': 'pulse-glow 2s ease-in-out infinite'
 			},
 			fontFamily: {
-				sans: ['Inter Variable', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
+				sans: ['Geist', 'Inter Variable', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
+				mono: ['Geist Mono', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
 			},
 			letterSpacing: {
+				tighter: 'var(--tracking-tighter)',
 				tight: 'var(--tracking-tight)',
 				snug: 'var(--tracking-snug)',
 			},
@@ -121,7 +123,17 @@ export default {
 				'xs': 'var(--shadow-xs)',
 				'sm': 'var(--shadow-sm)',
 				'md': 'var(--shadow-md)',
+				'lg': 'var(--shadow-lg)',
 				'btn-primary': 'var(--shadow-btn-primary)',
+			},
+			transitionTimingFunction: {
+				'spring': 'var(--ease-spring)',
+				'emphasized': 'var(--ease-emphasized)',
+			},
+			transitionDuration: {
+				'fast': 'var(--duration-fast)',
+				'normal': 'var(--duration-normal)',
+				'slow': 'var(--duration-slow)',
 			},
 			backgroundImage: {
 				'surface-card': 'var(--surface-card)',
