@@ -1,4 +1,4 @@
-import { CheckCircle, Circle, Check, X, HelpCircle } from "lucide-react";
+import { Circle, Check, X, HelpCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEffect, useRef } from "react";
 import { useAllPrefills, usePrefillJob } from "@/hooks/usePrefill";
@@ -59,7 +59,7 @@ export function AssessmentSidebar({ sessionId, answers, questionHistory, current
         {pillContent && (
           <div
             className={cn(
-              "text-xs px-3 py-2 rounded mt-2",
+              "text-xs px-3 py-2 rounded mb-3 mt-2",
               pillTone === "success" && "bg-green-50 text-green-800",
               pillTone === "warn" && "bg-amber-50 text-amber-800",
               pillTone === "default" && "bg-muted text-muted-foreground",
@@ -70,21 +70,21 @@ export function AssessmentSidebar({ sessionId, answers, questionHistory, current
         )}
         {(prefills?.length ?? 0) > 0 && (
           <p className="text-xs text-muted-foreground mt-1">
-            {activeSuggestions} pre-fill suggestion{activeSuggestions === 1 ? "" : "s"} available
+            <span className="font-mono text-[11px]">{activeSuggestions}</span> pre-fill suggestion{activeSuggestions === 1 ? "" : "s"} available
           </p>
         )}
       </div>
       
       {/* Scrollable content */}
-      <div 
+      <div
         ref={scrollContainerRef}
         className="overflow-y-auto flex-1 p-6 pt-4 scroll-smooth"
       >
-        <div className="space-y-3">
+        <div className="space-y-1">
           {/* Show answered questions in order */}
           {questionHistory.map((entry, index) => {
           const isCurrentlyViewing = currentQuestion?.question_id === entry.question.question_id;
-          
+
           return (
             <button
               key={`${entry.question.question_id}-${index}`}
@@ -96,16 +96,16 @@ export function AssessmentSidebar({ sessionId, answers, questionHistory, current
                 }
               }}
               className={cn(
-                "w-full p-3 rounded-md border transition-all duration-300 cursor-pointer text-left focus:outline-none focus:ring-2 focus:ring-primary/50 animate-fade-in",
-                isCurrentlyViewing 
-                  ? "border-primary bg-primary/5 font-semibold" 
-                  : "border-muted-foreground/20 bg-card hover:bg-muted/50"
+                "w-full px-3 py-2 rounded-md border-l-2 cursor-pointer text-left focus:outline-none focus:ring-2 focus:ring-primary/50 animate-fade-in transition-colors duration-fast",
+                isCurrentlyViewing
+                  ? "border-l-primary bg-accent font-semibold"
+                  : "border-l-transparent hover:bg-muted/50"
               )}
               aria-label={`Review question ${entry.question.question_id}: ${entry.question.question_title || `Question ${entry.question.question_id}`}. Current answer: ${entry.answer}`}
             >
               <div className="flex items-start gap-3">
                 <div className="flex-shrink-0 mt-0.5">
-                  <CheckCircle className={cn(
+                  <Check className={cn(
                     "h-4 w-4",
                     isCurrentlyViewing ? "text-primary" : "text-muted-foreground"
                   )} />
@@ -166,7 +166,7 @@ export function AssessmentSidebar({ sessionId, answers, questionHistory, current
                 onPendingQuestionClick?.();
               }
             }}
-            className="w-full p-3 rounded-md border border-muted-foreground/30 bg-muted/20 transition-all duration-300 animate-fade-in cursor-pointer text-left hover:bg-muted/30 focus:outline-none focus:ring-2 focus:ring-primary/50"
+            className="w-full px-3 py-2 rounded-md border-l-2 border-l-muted-foreground/30 transition-colors duration-fast animate-fade-in cursor-pointer text-left hover:bg-muted/50 focus:outline-none focus:ring-2 focus:ring-primary/50"
             aria-label={`Navigate to pending question ${pendingQuestion.question_id}: ${pendingQuestion.question_title || `Question ${pendingQuestion.question_id}`}`}
           >
             <div className="flex items-start gap-3">

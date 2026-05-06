@@ -59,7 +59,7 @@ export function SuggestionCard({
   };
 
   return (
-    <div className="border-l-2 border-primary/40 bg-primary/5 pl-3 py-2 my-2 text-sm space-y-2">
+    <div className="border-l-2 border-primary/40 bg-primary/5 pl-4 py-3 my-2 text-sm leading-relaxed space-y-2">
       {!editMode ? (
         <p className="whitespace-pre-wrap">{prefill.suggested_toelichting}</p>
       ) : (
@@ -71,13 +71,14 @@ export function SuggestionCard({
         />
       )}
 
-      <div className="flex gap-2 pt-1">
+      <div className="flex gap-2.5 pt-1">
         {!editMode ? (
           <>
-            <Button size="sm" onClick={accept}>Accept</Button>
+            <Button size="sm" onClick={accept} className="transition-all duration-fast">Accept</Button>
             <Button
               size="sm"
               variant="outline"
+              className="transition-all duration-fast"
               onClick={() => {
                 setDraft(prefill.suggested_toelichting);
                 setEditMode(true);
@@ -85,12 +86,12 @@ export function SuggestionCard({
             >
               Edit
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => dismiss(false)}>Dismiss</Button>
+            <Button size="sm" variant="ghost" className="transition-all duration-fast" onClick={() => dismiss(false)}>Dismiss</Button>
           </>
         ) : (
           <>
-            <Button size="sm" onClick={commitEdit}>Save</Button>
-            <Button size="sm" variant="ghost" onClick={() => setEditMode(false)}>Cancel</Button>
+            <Button size="sm" onClick={commitEdit} className="transition-all duration-fast">Save</Button>
+            <Button size="sm" variant="ghost" className="transition-all duration-fast" onClick={() => setEditMode(false)}>Cancel</Button>
           </>
         )}
       </div>

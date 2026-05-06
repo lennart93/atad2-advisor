@@ -32,6 +32,8 @@ import { ContextPanelFallback } from "@/components/ContextPanelFallback";
 import { SuggestionCard } from "@/components/prefill/SuggestionCard";
 import { useQuestionPrefill, usePrefillJob, useSessionDocuments } from "@/hooks/usePrefill";
 import { seededIndex } from "@/utils/random";
+import { MotionPage } from "@/components/motion";
+import { motion } from "framer-motion";
 
 interface Question {
   id: string;
@@ -1921,14 +1923,14 @@ const Assessment = () => {
   const isViewingAnsweredQuestion = navigationIndex !== -1;
 
   return (
-    <div className="min-h-screen bg-background p-4">
+    <MotionPage className="min-h-screen bg-background p-4">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
-          <Button variant="outline" onClick={() => navigate("/")}>
+          <Button variant="outline" onClick={() => navigate("/")} className="transition-all duration-fast">
             ← Back to dashboard
           </Button>
         </div>
-        
+
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           <div className="lg:col-span-1">
             <AssessmentSidebar
@@ -1960,20 +1962,26 @@ const Assessment = () => {
           <div className="lg:col-span-3">
             <Card className="border-0 shadow-lg">
               <CardContent className="p-6">
-                <div className="max-w-[640px] mx-auto">
-                  <div className="text-sm text-muted-foreground uppercase tracking-wide mb-1">
+                <motion.div
+                  key={currentQuestion.question_id}
+                  initial={{ opacity: 0, x: 8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.32, ease: [0.2, 0, 0, 1] }}
+                  className="max-w-[640px] mx-auto"
+                >
+                  <div className="font-mono text-[11px] text-muted-foreground uppercase tracking-wide mb-1">
                     Question {currentQuestion.question_id}
                   </div>
                   {currentQuestion.question_title && (
                     <div className="mb-4">
-                      <h2 className="text-lg md:text-xl font-semibold text-foreground">
+                      <h2 className="text-xl sm:text-2xl font-medium tracking-tight leading-snug text-foreground">
                         {currentQuestion.question_title}
                       </h2>
                     </div>
                   )}
                   <div className="mb-6">
-                    <p className="text-lg leading-relaxed text-left">
-                      <QuestionText 
+                    <p className="text-xl sm:text-2xl font-medium tracking-tight leading-snug text-left text-foreground">
+                      <QuestionText
                         question={currentQuestion.question}
                         difficultTerm={questionWithTerms.difficult_term}
                         termExplanation={questionWithTerms.term_explanation}
@@ -2027,8 +2035,8 @@ const Assessment = () => {
                            onClick={() => handleAnswerSelect(option.answer_option)}
                            disabled={loading || isTransitioning}
                            className={`
-                             w-full p-4 rounded-lg border-2 transition-all duration-200 text-left
-                             ${isSelected 
+                             w-full p-4 rounded-lg border-2 transition-all duration-normal ease-emphasized text-left
+                             ${isSelected
                                ? selectedBg
                                : `border-border ${hoverBg}`
                              }
@@ -2051,7 +2059,7 @@ const Assessment = () => {
                                  && option.answer_option.toLowerCase() === currentPrefill.suggested_answer
                                  && (currentPrefill.confidence_pct ?? 0) >= 40 && (
                                  <span className="ml-2 text-[10px] uppercase tracking-wide bg-primary/10 text-primary px-1.5 py-0.5 rounded">
-                                   Suggested ({currentPrefill.confidence_pct}%)
+                                   Suggested (<span className="font-mono text-[10px]">{currentPrefill.confidence_pct}%</span>)
                                  </span>
                                )}
                                {/* Show "Previously answered" only for original submitted answers, not modified ones */}
@@ -2197,7 +2205,7 @@ const Assessment = () => {
                       onClick={goToPreviousQuestion}
                       disabled={questionFlow.length === 0 || (navigationIndex !== -1 && navigationIndex === 0) || loading || isTransitioning}
                       variant="outline"
-                      className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="px-6 py-3 rounded-xl transition-all duration-fast disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       ← Previous
                     </Button>
@@ -2208,7 +2216,7 @@ const Assessment = () => {
                         onClick={goToNextQuestion}
                         disabled={loading || isTransitioning || isWaitingForPrefill}
                         variant="outline"
-                        className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-6 py-3 rounded-xl transition-all duration-fast disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         Next →
                       </Button>
@@ -2220,7 +2228,7 @@ const Assessment = () => {
                         onClick={continueToNextUnanswered}
                         disabled={loading || isTransitioning || isWaitingForPrefill}
                         variant="outline"
-                        className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-6 py-3 rounded-xl transition-all duration-fast disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         Next →
                       </Button>
@@ -2231,7 +2239,7 @@ const Assessment = () => {
                        <Button 
                          onClick={finishAssessment}
                          disabled={loading || isTransitioning}
-                         className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                         className="px-6 py-3 rounded-xl transition-all duration-fast disabled:opacity-50 disabled:cursor-not-allowed"
                        >
                          {loading ? "Finishing..." : "Finish assessment"}
                        </Button>
@@ -2254,7 +2262,7 @@ const Assessment = () => {
                            <Button
                               onClick={handleContinueWithReminder}
                               disabled={loading || isTransitioning}
-                              className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                              className="px-6 py-3 rounded-xl transition-all duration-fast disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               Continue
                            </Button>
@@ -2309,14 +2317,14 @@ const Assessment = () => {
                                 await submitAnswerDirectly(selectedAnswer);
                               }}
                               disabled={loading || isTransitioning}
-                              className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                              className="px-6 py-3 rounded-xl transition-all duration-fast disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               {navigationIndex === -1 ? 'Next →' : 'Update answer'}
                             </Button>
                           );
                         })()}
                   </div>
-                </div>
+                </motion.div>
               </CardContent>
             </Card>
           </div>
@@ -2337,7 +2345,7 @@ const Assessment = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </MotionPage>
   );
 };
 
