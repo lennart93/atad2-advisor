@@ -130,8 +130,19 @@ const AssessmentReport = () => {
     }
   }, [latestReport?.report_md]);
 
-  // Get the memo to display (either updated via feedback or from latestReport)
-  const displayMemo = currentMemoMarkdown || latestReport?.report_md;
+  // Get the memo to display (either updated via feedback or from latestReport).
+  // Strip the leading 3 boilerplate lines (header + Taxpayer + Financial year)
+  // so we don't render them twice — the page-level card already shows that info.
+  const rawMemo = currentMemoMarkdown || latestReport?.report_md;
+  const displayMemo = (() => {
+    if (!rawMemo) return rawMemo;
+    return rawMemo
+      .replace(/^\s*\*\*ATAD2 assessment memorandum\*\*\s*/m, '')
+      .replace(/^\s*Taxpayer:\s.*$/m, '')
+      .replace(/^\s*Financial year:\s.*$/m, '')
+      .replace(/^\s*\n+/, '')
+      .trimStart();
+  })();
 
   useEffect(() => {
     if (!user) {
@@ -837,7 +848,7 @@ const AssessmentReport = () => {
                     onSubmittingChange={setIsApplyingFeedback}
                   />
                 ) : displayMemo ? (
-                  <div className="markdown-body prose prose-base dark:prose-invert max-w-2xl mx-auto text-justify prose-headings:tracking-tight prose-headings:font-semibold prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg">
+                  <div className="markdown-body prose prose-base dark:prose-invert max-w-3xl text-left prose-headings:tracking-tight prose-headings:font-semibold prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg">
                     <ReactMarkdown
                       rehypePlugins={[rehypeRaw]}
                       components={{
