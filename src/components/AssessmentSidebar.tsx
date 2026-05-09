@@ -60,8 +60,8 @@ export function AssessmentSidebar({ sessionId, answers, questionHistory, current
           <div
             className={cn(
               "text-xs px-3 py-2 rounded mb-3 mt-2",
-              pillTone === "success" && "bg-green-50 text-green-800",
-              pillTone === "warn" && "bg-amber-50 text-amber-800",
+              pillTone === "success" && "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+              pillTone === "warn" && "bg-amber-500/10 text-amber-700 dark:text-amber-400",
               pillTone === "default" && "bg-muted text-muted-foreground",
             )}
           >
@@ -129,10 +129,10 @@ export function AssessmentSidebar({ sessionId, answers, questionHistory, current
                     <div className={cn(
                       "flex items-center gap-1 text-xs px-2 py-0.5 rounded font-medium",
                       entry.answer === "Yes"
-                        ? "bg-green-50 text-green-700 border border-green-200"
+                        ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20"
                         : entry.answer === "No"
-                        ? "bg-red-50 text-red-700 border border-red-200"
-                        : "bg-blue-50 text-blue-700 border border-blue-200"
+                        ? "bg-red-500/10 text-red-700 dark:text-red-400 border border-red-500/20"
+                        : "bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20"
                     )}>
                       {entry.answer === "Yes" ? (
                         <Check className="h-3 w-3 text-green-600" />
@@ -142,9 +142,9 @@ export function AssessmentSidebar({ sessionId, answers, questionHistory, current
                         <HelpCircle className="h-3 w-3 text-blue-600" />
                       )}
                       <span className={
-                        entry.answer === "Yes" ? "text-green-600" : 
-                        entry.answer === "No" ? "text-red-600" : 
-                        "text-gray-700"
+                        entry.answer === "Yes" ? "text-emerald-700 dark:text-emerald-400" :
+                        entry.answer === "No" ? "text-red-700 dark:text-red-400" :
+                        "text-foreground"
                       }>
                         {entry.answer}
                       </span>

@@ -7,7 +7,7 @@ import { AnimatedLogo } from "@/components/AnimatedLogo";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { CommandPalette, CommandPaletteTrigger } from "@/components/CommandPalette";
+import { CommandPalette } from "@/components/CommandPalette";
 import { cn } from "@/lib/utils";
 
 const AppLayout = () => {
@@ -70,7 +70,6 @@ const AppLayout = () => {
             </div>
           </div>
           <div className="flex items-center gap-1.5">
-            <CommandPaletteTrigger />
             <ThemeToggle />
             {hasAccess ? (
               <Button

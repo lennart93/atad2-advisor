@@ -493,6 +493,220 @@ export type Database = {
         }
         Relationships: []
       }
+      atad2_structure_charts: {
+        Row: {
+          canvas_height: number
+          canvas_width: number
+          created_at: string
+          draft_extracted_at: string | null
+          finalized_at: string | null
+          id: string
+          session_id: string
+          status: string
+          updated_at: string
+          warnings: Json
+        }
+        Insert: {
+          canvas_height?: number
+          canvas_width?: number
+          created_at?: string
+          draft_extracted_at?: string | null
+          finalized_at?: string | null
+          id?: string
+          session_id: string
+          status?: string
+          updated_at?: string
+          warnings?: Json
+        }
+        Update: {
+          canvas_height?: number
+          canvas_width?: number
+          created_at?: string
+          draft_extracted_at?: string | null
+          finalized_at?: string | null
+          id?: string
+          session_id?: string
+          status?: string
+          updated_at?: string
+          warnings?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "atad2_structure_charts_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "atad2_sessions"
+            referencedColumns: ["session_id"]
+          },
+        ]
+      }
+      atad2_structure_edges: {
+        Row: {
+          amount_eur: number | null
+          chart_id: string
+          created_at: string
+          from_entity_id: string
+          id: string
+          is_mismatch: boolean
+          kind: string
+          label: string | null
+          mismatch_atad2_article: string | null
+          mismatch_classification: string | null
+          ownership_pct: number | null
+          ownership_voting_only: boolean | null
+          source: string
+          to_entity_id: string
+          transaction_type: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount_eur?: number | null
+          chart_id: string
+          created_at?: string
+          from_entity_id: string
+          id?: string
+          is_mismatch?: boolean
+          kind: string
+          label?: string | null
+          mismatch_atad2_article?: string | null
+          mismatch_classification?: string | null
+          ownership_pct?: number | null
+          ownership_voting_only?: boolean | null
+          source?: string
+          to_entity_id: string
+          transaction_type?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount_eur?: number | null
+          chart_id?: string
+          created_at?: string
+          from_entity_id?: string
+          id?: string
+          is_mismatch?: boolean
+          kind?: string
+          label?: string | null
+          mismatch_atad2_article?: string | null
+          mismatch_classification?: string | null
+          ownership_pct?: number | null
+          ownership_voting_only?: boolean | null
+          source?: string
+          to_entity_id?: string
+          transaction_type?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "atad2_structure_edges_chart_id_fkey"
+            columns: ["chart_id"]
+            isOneToOne: false
+            referencedRelation: "atad2_structure_charts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "atad2_structure_edges_from_entity_id_fkey"
+            columns: ["from_entity_id"]
+            isOneToOne: false
+            referencedRelation: "atad2_structure_entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "atad2_structure_edges_to_entity_id_fkey"
+            columns: ["to_entity_id"]
+            isOneToOne: false
+            referencedRelation: "atad2_structure_entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      atad2_structure_entities: {
+        Row: {
+          chart_id: string
+          created_at: string
+          entity_type: Database["public"]["Enums"]["entity_type_enum"]
+          id: string
+          is_taxpayer: boolean
+          jurisdiction_iso: string
+          legal_form: string | null
+          name: string
+          position_x: number
+          position_y: number
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          chart_id: string
+          created_at?: string
+          entity_type: Database["public"]["Enums"]["entity_type_enum"]
+          id?: string
+          is_taxpayer?: boolean
+          jurisdiction_iso: string
+          legal_form?: string | null
+          name: string
+          position_x?: number
+          position_y?: number
+          source?: string
+          updated_at?: string
+        }
+        Update: {
+          chart_id?: string
+          created_at?: string
+          entity_type?: Database["public"]["Enums"]["entity_type_enum"]
+          id?: string
+          is_taxpayer?: boolean
+          jurisdiction_iso?: string
+          legal_form?: string | null
+          name?: string
+          position_x?: number
+          position_y?: number
+          source?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "atad2_structure_entities_chart_id_fkey"
+            columns: ["chart_id"]
+            isOneToOne: false
+            referencedRelation: "atad2_structure_charts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      atad2_structure_groupings: {
+        Row: {
+          chart_id: string
+          created_at: string
+          id: string
+          kind: string
+          label: string
+          member_ids: string[]
+        }
+        Insert: {
+          chart_id: string
+          created_at?: string
+          id?: string
+          kind: string
+          label: string
+          member_ids: string[]
+        }
+        Update: {
+          chart_id?: string
+          created_at?: string
+          id?: string
+          kind?: string
+          label?: string
+          member_ids?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "atad2_structure_groupings_chart_id_fkey"
+            columns: ["chart_id"]
+            isOneToOne: false
+            referencedRelation: "atad2_structure_charts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_logs: {
         Row: {
           action: string
@@ -609,6 +823,14 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
+      entity_type_enum:
+        | "corporation"
+        | "partnership"
+        | "dh_entity"
+        | "hybrid_partnership"
+        | "reverse_hybrid"
+        | "individual"
+        | "trust_or_non_entity"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -737,6 +959,15 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "moderator", "user"],
+      entity_type_enum: [
+        "corporation",
+        "partnership",
+        "dh_entity",
+        "hybrid_partnership",
+        "reverse_hybrid",
+        "individual",
+        "trust_or_non_entity",
+      ],
     },
   },
 } as const

@@ -47,6 +47,7 @@ export function AnimatedLogo({
         alt=""
         aria-hidden="true"
         draggable={false}
+        className="dark:invert"
       />
     </motion.span>
   );

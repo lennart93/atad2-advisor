@@ -3,6 +3,9 @@
 import React, { useState } from 'react';
 import PizZip from 'pizzip';
 import Docxtemplater from 'docxtemplater';
+// @ts-ignore - no TS types ship with docxtemplater-image-module-free
+import ImageModule from 'docxtemplater-image-module-free';
+import { captureChartPng } from '@/components/structure/exports/exportToPng';
 
 // HTML to Docxtemplater inline formatting converter
 function htmlToDocxFormatting(input: string): string {
@@ -172,12 +175,23 @@ export default function DownloadMemoButton({
 
       // E) Render DOCX using v4 API
       const zip = new PizZip(templateArrayBuffer);
+
+      // Image module: renders {%structureChart} placeholder in template.
+      // If template has no such placeholder, getImage is simply not called.
+      const imageModule = new ImageModule({
+        centered: true,
+        fileType: 'docx',
+        getImage: (tagValue: ArrayBuffer | null) => tagValue ?? new ArrayBuffer(0),
+        getSize: () => [600, 360],
+      });
+
       const doc = new Docxtemplater(zip, {
         paragraphLoop: true,
         linebreaks: true,
         delimiters: { start: '{{', end: '}}' }, // onze .docx gebruikt {{ }}
         nullGetter: () => '', // voorkom letterlijk "undefined" in output
         parser: dotParser, // ← BELANGRIJK voor nested paths
+        modules: [imageModule],
       });
 
       // ---- TAG AUDIT (laten staan voor nu) ----
@@ -227,9 +241,19 @@ export default function DownloadMemoButton({
         console.warn('Using __forceTestData for render()');
       }
 
+      // Capture the structure chart PNG (if a react-flow root is currently mounted).
+      // Failure is non-fatal: memo is generated without chart.
+      let structureChartBytes: ArrayBuffer | null = null;
+      try {
+        const chartBlob = await captureChartPng();
+        structureChartBytes = await chartBlob.arrayBuffer();
+      } catch (e) {
+        console.warn('Structure chart capture failed; memo will be generated without chart', e);
+      }
+
       try {
         // ✅ v4 API: data direct meegeven
-        doc.render(docxData);
+        doc.render({ ...docxData, structureChart: structureChartBytes });
         console.log('Render OK');
       } catch (err: any) {
         console.error('Render ERR properties:', err?.properties);

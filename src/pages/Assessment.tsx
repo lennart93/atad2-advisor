@@ -34,6 +34,7 @@ import { useQuestionPrefill, usePrefillJob, useSessionDocuments } from "@/hooks/
 import { seededIndex } from "@/utils/random";
 import { MotionPage } from "@/components/motion";
 import { motion } from "framer-motion";
+import { startExtraction } from "@/lib/structure/extraction";
 
 interface Question {
   id: string;
@@ -95,7 +96,7 @@ const QuestionText = ({ question, difficultTerm, termExplanation, exampleText }:
                       {matches[index]}
                     </span>
                   </TooltipTrigger>
-                  <TooltipContent className="max-w-sm p-3 bg-white border shadow-md rounded">
+                  <TooltipContent className="max-w-sm p-3 bg-popover text-popover-foreground border shadow-md rounded">
                     <div className="flex items-start gap-2">
                       <span className="text-lg">💡</span>
                       <div>
@@ -712,11 +713,17 @@ const Assessment = () => {
       toast.success("Assessment complete", {
         description: "Please confirm your preliminary assessment outcome.",
       });
-      
+
+      // Pre-fetch the structure-chart extraction so the user doesn't wait on Step 5.
+      // Fire-and-forget; if this fails, Step 5 will start its own extraction as fallback.
+      startExtraction(sessionId).catch((err) => {
+        console.warn('[Assessment] Pre-fetch extraction failed; Step 5 will retry', err);
+      });
+
       // Per-question suggestions are reviewed on the assessment report page,
       // where each answer can be edited inline. Skip the standalone review
       // step entirely.
-      navigate(`/assessment-confirmation/${sessionId}`);
+      navigate(`/assessment/structure/${sessionId}`);
     } catch (error) {
       console.error('Error completing assessment:', error);
       toast.error("Error", {
@@ -1973,8 +1980,8 @@ const Assessment = () => {
                     Question {currentQuestion.question_id}
                   </div>
                   {currentQuestion.question_title && (
-                    <div className="mb-4">
-                      <h2 className="text-xl sm:text-2xl font-medium tracking-tight leading-snug text-foreground">
+                    <div className="mb-3">
+                      <h2 className="text-sm uppercase tracking-[0.14em] font-medium text-muted-foreground">
                         {currentQuestion.question_title}
                       </h2>
                     </div>
@@ -2000,28 +2007,28 @@ const Assessment = () => {
                        const getAnswerStyle = () => {
                          switch (answerType) {
                            case 'yes':
-                             return { 
-                               emoji: '✅', 
-                               selectedBg: 'border-green-500 bg-green-50 shadow-md ring-2 ring-green-500/20',
-                               hoverBg: 'hover:border-green-400 hover:bg-green-50/50'
+                             return {
+                               emoji: '✅',
+                               selectedBg: 'border-green-500 bg-green-500/10 shadow-md ring-2 ring-green-500/20',
+                               hoverBg: 'hover:border-green-400 hover:bg-green-500/5'
                              };
                            case 'no':
-                             return { 
-                               emoji: '❌', 
-                               selectedBg: 'border-red-500 bg-red-50 shadow-md ring-2 ring-red-500/20',
-                               hoverBg: 'hover:border-red-400 hover:bg-red-50/50'
+                             return {
+                               emoji: '❌',
+                               selectedBg: 'border-red-500 bg-red-500/10 shadow-md ring-2 ring-red-500/20',
+                               hoverBg: 'hover:border-red-400 hover:bg-red-500/5'
                              };
                             case 'unknown':
-                              return { 
-                                emoji: 'icon', 
-                                selectedBg: 'border-blue-600 bg-blue-50 shadow-md ring-2 ring-blue-600/20',
-                                hoverBg: 'hover:border-blue-500 hover:bg-blue-50/50'
+                              return {
+                                emoji: 'icon',
+                                selectedBg: 'border-blue-600 bg-blue-500/10 shadow-md ring-2 ring-blue-600/20',
+                                hoverBg: 'hover:border-blue-500 hover:bg-blue-500/5'
                               };
                             default:
-                              return { 
-                                emoji: 'icon', 
-                                selectedBg: 'border-blue-600 bg-blue-50 shadow-md ring-2 ring-blue-600/20',
-                                hoverBg: 'hover:border-blue-500 hover:bg-blue-50/50'
+                              return {
+                                emoji: 'icon',
+                                selectedBg: 'border-blue-600 bg-blue-500/10 shadow-md ring-2 ring-blue-600/20',
+                                hoverBg: 'hover:border-blue-500 hover:bg-blue-500/5'
                               };
                          }
                        };
@@ -2051,7 +2058,7 @@ const Assessment = () => {
                                 <span className="text-xl">{emoji}</span>
                               )}
                                <span className={`text-base font-medium ${
-                                 answerType === 'unknown' ? 'text-gray-700' : ''
+                                 answerType === 'unknown' ? 'text-foreground' : ''
                                }`}>
                                  {option.answer_option}
                                </span>
@@ -2122,14 +2129,14 @@ const Assessment = () => {
                       ) && (
                         <div 
                           key={paneKey}
-                          className="bg-gray-50 rounded-lg px-4 py-3 mb-8"
+                          className="bg-muted/40 rounded-lg px-4 py-3 mb-8 border border-border"
                         >
                           {contextStatus === 'loading' && <ContextSkeleton />}
 
                           {(contextStatus === 'ready' || contextStatus === 'idle') && (
                             <>
                               <div className="flex items-center mb-3">
-                                <div className="flex items-center text-sm text-gray-700">
+                                <div className="flex items-center text-sm text-foreground">
                                   <span className="text-lg mr-2">💡</span>
                                   <span>Explanation</span>
                                 </div>
@@ -2167,7 +2174,7 @@ const Assessment = () => {
                                       )
                                     : "Provide context for your answer..."
                                 }
-                                className={`min-h-[120px] resize-none border-gray-200 bg-white mt-3 ${showExplanationShake ? 'explanation-shake' : ''}`}
+                                className={`min-h-[120px] resize-none border-border bg-background mt-3 ${showExplanationShake ? 'explanation-shake' : ''}`}
                               />
                               {/* Friendly reminder message */}
                               {reminderMessage && (

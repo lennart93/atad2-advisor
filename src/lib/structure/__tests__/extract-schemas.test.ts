@@ -1,0 +1,92 @@
+import { describe, it, expect } from 'vitest';
+import { Stage1Output, Stage2Output, Stage3Output } from '../../../../supabase/functions/extract-structure/schemas';
+
+describe('Stage1Output', () => {
+  it('accepts a minimal valid payload', () => {
+    const ok = Stage1Output.parse({
+      entities: [
+        { temp_id: 'ent_1', name: 'Holding NL', jurisdiction_iso: 'NL', entity_type: 'corporation', is_taxpayer: true },
+      ],
+    });
+    expect(ok.entities.length).toBe(1);
+  });
+
+  it('rejects unknown entity_type', () => {
+    expect(() => Stage1Output.parse({
+      entities: [
+        { temp_id: 'ent_1', name: 'X', jurisdiction_iso: 'NL', entity_type: 'corp', is_taxpayer: false },
+      ],
+    })).toThrow();
+  });
+
+  it('rejects malformed temp_id', () => {
+    expect(() => Stage1Output.parse({
+      entities: [
+        { temp_id: 'foo_1', name: 'X', jurisdiction_iso: 'NL', entity_type: 'corporation', is_taxpayer: false },
+      ],
+    })).toThrow();
+  });
+});
+
+describe('Stage2Output', () => {
+  it('accepts valid ownership edges', () => {
+    const ok = Stage2Output.parse({
+      ownership_edges: [
+        { from_temp_id: 'ent_1', to_temp_id: 'ent_2', ownership_pct: 100 },
+      ],
+    });
+    expect(ok.ownership_edges[0].ownership_pct).toBe(100);
+  });
+
+  it('rejects ownership_pct outside [0, 100]', () => {
+    expect(() => Stage2Output.parse({
+      ownership_edges: [
+        { from_temp_id: 'ent_1', to_temp_id: 'ent_2', ownership_pct: 150 },
+      ],
+    })).toThrow();
+  });
+});
+
+describe('Stage3Output', () => {
+  it('accepts mismatch transactions', () => {
+    const ok = Stage3Output.parse({
+      transactions: [
+        {
+          from_temp_id: 'ent_1', to_temp_id: 'ent_2',
+          transaction_type: 'loan',
+          amount_eur: 5_000_000,
+          is_mismatch: true,
+          mismatch_classification: 'D/NI',
+          mismatch_atad2_article: '12aa',
+        },
+      ],
+    });
+    expect(ok.transactions[0].is_mismatch).toBe(true);
+  });
+
+  it('accepts non-mismatch transactions without classification fields', () => {
+    const ok = Stage3Output.parse({
+      transactions: [
+        { from_temp_id: 'ent_1', to_temp_id: 'ent_2', transaction_type: 'dividend', is_mismatch: false },
+      ],
+    });
+    expect(ok.transactions[0].is_mismatch).toBe(false);
+  });
+
+  it('accepts arbitrary transaction_type strings (normalized to enum at insert time in the Edge Function)', () => {
+    const ok = Stage3Output.parse({
+      transactions: [
+        { from_temp_id: 'ent_1', to_temp_id: 'ent_2', transaction_type: 'interest', is_mismatch: false },
+      ],
+    });
+    expect(ok.transactions[0].transaction_type).toBe('interest');
+  });
+
+  it('rejects empty transaction_type', () => {
+    expect(() => Stage3Output.parse({
+      transactions: [
+        { from_temp_id: 'ent_1', to_temp_id: 'ent_2', transaction_type: '', is_mismatch: false },
+      ],
+    })).toThrow();
+  });
+});

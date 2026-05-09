@@ -172,31 +172,34 @@ const Index = () => {
   return (
     <MotionPage>
       <div className="flex flex-col gap-10">
-        {/* Header */}
-        <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div className="flex flex-col gap-2">
-            <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-              Your sessions
-            </span>
-            <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">
-              ATAD2 risk assessment
-            </h1>
-            <p className="text-muted-foreground text-sm sm:text-base">
-              Pick up where you left off, or start a new assessment for a taxpayer.
-            </p>
+        {/* Get started */}
+        <section className="flex flex-col gap-3">
+          <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+            Get started
+          </span>
+          <div className="rounded-lg border border-border bg-background p-5 sm:p-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between transition-all duration-normal ease-emphasized hover:shadow-sm hover:border-foreground/20">
+            <div className="flex flex-col gap-1">
+              <h2 className="text-lg sm:text-xl font-semibold tracking-tight">Start new assessment</h2>
+              <p className="text-sm text-muted-foreground">Begin a new ATAD2 risk assessment for a taxpayer.</p>
+            </div>
+            <Button
+              onClick={() => navigate("/assessment")}
+              size="lg"
+              className="self-start sm:self-auto"
+            >
+              Start new assessment
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
           </div>
-          <Button
-            onClick={() => navigate("/assessment")}
-            size="lg"
-            className="self-start sm:self-auto"
-          >
-            Start new assessment
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </Button>
-        </header>
+        </section>
 
-        {/* Sessions list */}
+        {/* History */}
         <section className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1">
+            <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">History</span>
+            <h2 className="text-lg sm:text-xl font-semibold tracking-tight">Completed assessments</h2>
+            <p className="text-sm text-muted-foreground">View or delete your previously completed assessments.</p>
+          </div>
           {loading ? (
             <div className="flex flex-col gap-3">
               <Skeleton className="h-[88px] w-full rounded-lg" />
@@ -208,17 +211,13 @@ const Index = () => {
               <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed border-border py-16 px-6 text-center">
                 <Sparkles className="h-12 w-12 text-muted-foreground/40 mx-auto" />
                 <div className="flex flex-col gap-1">
-                  <h2 className="text-lg font-semibold tracking-tight">
+                  <h3 className="text-lg font-semibold tracking-tight">
                     No assessments yet
-                  </h2>
+                  </h3>
                   <p className="text-sm text-muted-foreground">
                     Start your first ATAD2 assessment to see it here.
                   </p>
                 </div>
-                <Button onClick={() => navigate("/assessment")} size="lg" className="mt-2">
-                  Start new assessment
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
               </div>
             </FadeIn>
           ) : (
