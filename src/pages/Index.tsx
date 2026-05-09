@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowRight, Clock, FileText, Sparkles, Trash2 } from "lucide-react";
+import { Clock, FileText, Sparkles, Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -173,31 +173,26 @@ const Index = () => {
     <MotionPage>
       <div className="flex flex-col gap-10">
         {/* Get started */}
-        <section className="flex flex-col gap-3">
-          <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-            Get started
-          </span>
-          <div className="rounded-lg border border-border bg-background p-5 sm:p-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between transition-all duration-normal ease-emphasized hover:shadow-sm hover:border-foreground/20">
-            <div className="flex flex-col gap-1">
-              <h2 className="text-lg sm:text-xl font-semibold tracking-tight">Start new assessment</h2>
-              <p className="text-sm text-muted-foreground">Begin a new ATAD2 risk assessment for a taxpayer.</p>
-            </div>
-            <Button
-              onClick={() => navigate("/assessment")}
-              size="lg"
-              className="self-start sm:self-auto"
-            >
-              Start new assessment
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
+        <section className="rounded-lg border border-border bg-background p-5 sm:p-6 flex flex-col gap-4">
+          <div className="flex flex-col gap-1">
+            <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Get started</span>
+            <h2 className="text-xl sm:text-2xl font-semibold tracking-tight">Start new assessment</h2>
+            <p className="text-sm text-muted-foreground">Begin a new ATAD2 risk assessment for a taxpayer.</p>
           </div>
+          <Button
+            onClick={() => navigate("/assessment")}
+            size="lg"
+            className="self-start"
+          >
+            Start assessment
+          </Button>
         </section>
 
         {/* History */}
-        <section className="flex flex-col gap-4">
+        <section className="rounded-lg border border-border bg-background p-5 sm:p-6 flex flex-col gap-4">
           <div className="flex flex-col gap-1">
             <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">History</span>
-            <h2 className="text-lg sm:text-xl font-semibold tracking-tight">Completed assessments</h2>
+            <h2 className="text-xl sm:text-2xl font-semibold tracking-tight">Completed assessments</h2>
             <p className="text-sm text-muted-foreground">View or delete your previously completed assessments.</p>
           </div>
           {loading ? (
