@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { Stage1Output, Stage2Output, Stage3Output } from '../../../../supabase/functions/extract-structure/schemas';
+import { formatQaBlock, QA_PRIMACY_HEADER, type QaAnswerRow } from '../../../../supabase/functions/extract-structure/formatters';
+import stage3Prompt from '../../../../supabase/functions/extract-structure/prompts/stage3-transactions';
 
 describe('Stage1Output', () => {
   it('accepts a minimal valid payload', () => {
@@ -88,5 +90,38 @@ describe('Stage3Output', () => {
         { from_temp_id: 'ent_1', to_temp_id: 'ent_2', transaction_type: '', is_mismatch: false },
       ],
     })).toThrow();
+  });
+});
+
+describe('formatQaBlock', () => {
+  it('includes explanation on its own line when present', () => {
+    const rows: QaAnswerRow[] = [
+      { question_id: '1', question_text: 'Resident?', answer: 'Yes', explanation: 'Incorporated in Amsterdam.' },
+    ];
+    const out = formatQaBlock(rows);
+    expect(out).toContain('Q 1 (Resident?)');
+    expect(out).toContain('Answer: Yes');
+    expect(out).toContain('Explanation: Incorporated in Amsterdam.');
+  });
+
+  it('omits explanation line when explanation is blank or null', () => {
+    const rows: QaAnswerRow[] = [
+      { question_id: '2', question_text: 'PE?',       answer: 'No',  explanation: '' },
+      { question_id: '3', question_text: 'Loans?',    answer: 'Yes', explanation: null },
+      { question_id: '4', question_text: 'Royalties?', answer: 'Unknown', explanation: '   ' },
+    ];
+    const out = formatQaBlock(rows);
+    expect(out).not.toContain('Explanation:');
+    expect(out.split('\n\n').length).toBe(3);
+  });
+
+  it('returns empty string for zero rows', () => {
+    expect(formatQaBlock([])).toBe('');
+  });
+});
+
+describe('stage3 prompt', () => {
+  it('begins with the Q&A primacy header', () => {
+    expect(stage3Prompt.startsWith(QA_PRIMACY_HEADER)).toBe(true);
   });
 });
