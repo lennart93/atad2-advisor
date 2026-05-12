@@ -294,6 +294,18 @@ export function useStartAnalyze(sessionId: string | null) {
         throw jobErr;
       }
 
+      // 2b. Kick off Phase A of the structure-chart extraction in parallel
+      // with the prefill swarm. Fire-and-forget — Phase A runs in the Edge
+      // Function's EdgeRuntime.waitUntil background, and the browser closing
+      // the tab does not stop it. If this dispatch fails we silently log;
+      // Phase B at step 5 will fall back to initial extraction.
+      try {
+        const { startExtraction } = await import('@/lib/structure/extraction');
+        await startExtraction(sessionId, 'docs_only');
+      } catch (e) {
+        console.warn('[useStartAnalyze] Phase A dispatch failed; Phase B will use initial fallback', e);
+      }
+
       // 3. Load distinct questions.
       const { data: rawQuestions } = await supabase
         .from("atad2_questions")
