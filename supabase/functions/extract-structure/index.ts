@@ -11,8 +11,10 @@ import {
 } from "./schemas.ts";
 import { loadDocumentsBlock } from "./documentsLoader.ts";
 import { formatQaBlock } from "./formatters.ts";
-import stage1Prompt from "./prompts/stage1-entities.ts";
-import stage2Prompt from "./prompts/stage2-ownership.ts";
+import stage1InitialPrompt from "./prompts/stage1-initial.ts";
+import stage1RefinePrompt from "./prompts/stage1-refine.ts";
+import stage2InitialPrompt from "./prompts/stage2-initial.ts";
+import stage2RefinePrompt from "./prompts/stage2-refine.ts";
 import stage3Prompt from "./prompts/stage3-transactions.ts";
 
 const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") || "*";
@@ -23,8 +25,11 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+type Phase = "docs_only" | "refine_and_transactions";
+
 interface ExtractStructureRequest {
   session_id: string;
+  phase?: Phase;
 }
 
 serve(async (req) => {
@@ -52,35 +57,20 @@ serve(async (req) => {
       return json({ error: "Missing session_id" }, 400);
     }
 
+    const phase: Phase = body.phase === "docs_only" ? "docs_only" : "refine_and_transactions";
+
     const serviceClient = createServiceClient();
     const userId = await verifyJwtAndSessionOwnership(authHeader, body.session_id, serviceClient);
     if (!userId) return json({ error: "Forbidden" }, 403);
 
     const chart = await ensureChart(serviceClient, body.session_id);
 
-    // Idempotency: clear ai_extracted rows (preserves user_added/user_edited).
-    // Edges first to satisfy FK from edges -> entities.
-    {
-      const { error: edgesDelErr } = await serviceClient
-        .from("atad2_structure_edges")
-        .delete()
-        .eq("chart_id", chart.id)
-        .eq("source", "ai_extracted");
-      if (edgesDelErr) throw edgesDelErr;
-      const { error: entsDelErr } = await serviceClient
-        .from("atad2_structure_entities")
-        .delete()
-        .eq("chart_id", chart.id)
-        .eq("source", "ai_extracted");
-      if (entsDelErr) throw entsDelErr;
-    }
-
     await setStatus(serviceClient, chart.id, "extracting:stage1", { warnings: [] });
 
-    // Kick off the 3-stage extraction in the background and return immediately.
+    // Kick off the extraction in the background and return immediately.
     // The frontend polls atad2_structure_charts.status to track progress.
     // EdgeRuntime.waitUntil keeps the worker alive past the response.
-    const work = runExtractionPipeline(serviceClient, chart.id, body.session_id);
+    const work = runExtractionPipeline(serviceClient, chart.id, body.session_id, phase);
     // deno-lint-ignore no-explicit-any
     const er = (globalThis as any).EdgeRuntime;
     if (er && typeof er.waitUntil === "function") {
@@ -97,7 +87,7 @@ serve(async (req) => {
       });
     }
 
-    return json({ ok: true, chart_id: chart.id, status: "extracting:stage1" }, 200);
+    return json({ ok: true, chart_id: chart.id, status: "extracting:stage1", phase }, 200);
   } catch (err) {
     console.error(JSON.stringify({ level: "error", event: "unhandled_error", message: String(err) }));
     return json({ error: "Internal error" }, 500);
@@ -114,146 +104,28 @@ function json(body: unknown, status = 200): Response {
 // ----- Background pipeline -----
 
 /**
- * Runs the 3 stages, persisting to the DB at each step. Always resolves;
+ * Dispatches to the appropriate phase runner. Always resolves;
  * failures are logged and reflected in atad2_structure_charts.status / .warnings.
  */
 async function runExtractionPipeline(
   serviceClient: SupabaseClient,
   chartId: string,
   sessionId: string,
+  phase: Phase,
 ): Promise<void> {
   try {
-    // Build the cached system block once (shared across all 3 stages).
-    const docsBlock = await loadDocumentsBlock(serviceClient, sessionId);
-    const qaText = await loadQaAnswersText(serviceClient, sessionId);
-    const taxpayerName = await loadTaxpayerName(serviceClient, sessionId);
-    const cachedSystem =
-      `<documents>\n${docsBlock}\n</documents>\n` +
-      `<qa_answers>\n${qaText}\n</qa_answers>`;
-
-    // ----- Stage 1: entities -----
-    let stage1: Stage1OutputT;
-    try {
-      stage1 = await runStage1(cachedSystem, taxpayerName);
-    } catch (err) {
-      console.error(JSON.stringify({
-        level: "error",
-        event: "stage1_failed",
-        message: String(err),
-        chart_id: chartId,
-      }));
-      await setStatus(serviceClient, chartId, "extraction_failed", {
-        warnings: [{ stage: 1, message: String(err).slice(0, 500) }],
-      });
-      return;
+    if (phase === "docs_only") {
+      await runPhaseA(serviceClient, chartId, sessionId);
+    } else {
+      await runPhaseB(serviceClient, chartId, sessionId);
     }
-
-    const tempIdToUuid = new Map<string, string>();
-    for (const e of stage1.entities) {
-      const { data, error } = await serviceClient
-        .from("atad2_structure_entities")
-        .insert({
-          chart_id: chartId,
-          name: e.name,
-          legal_form: e.legal_form ?? null,
-          jurisdiction_iso: e.jurisdiction_iso.toUpperCase(),
-          entity_type: e.entity_type,
-          is_taxpayer: e.is_taxpayer,
-          source: "ai_extracted",
-        })
-        .select("id")
-        .single();
-      if (error) throw error;
-      tempIdToUuid.set(e.temp_id, data.id);
-    }
-
-    // ----- Stage 2: ownership (graceful on failure) -----
-    await setStatus(serviceClient, chartId, "extracting:stage2");
-    let stage2: Stage2OutputT = { ownership_edges: [] };
-    try {
-      stage2 = await runStage2(cachedSystem, stage1.entities);
-      for (const oe of stage2.ownership_edges) {
-        const fromId = tempIdToUuid.get(oe.from_temp_id);
-        const toId = tempIdToUuid.get(oe.to_temp_id);
-        if (!fromId || !toId) continue;
-        const { error: insErr } = await serviceClient
-          .from("atad2_structure_edges")
-          .insert({
-            chart_id: chartId,
-            from_entity_id: fromId,
-            to_entity_id: toId,
-            kind: "ownership",
-            ownership_pct: oe.ownership_pct,
-            ownership_voting_only: oe.voting_only ?? null,
-            source: "ai_extracted",
-          });
-        if (insErr) throw insErr;
-      }
-    } catch (err) {
-      console.warn(JSON.stringify({
-        level: "warn",
-        event: "stage2_failed",
-        message: String(err),
-        chart_id: chartId,
-      }));
-      await appendWarning(serviceClient, chartId, {
-        stage: 2,
-        message: String(err).slice(0, 500),
-      });
-    }
-
-    // ----- Stage 3: transactions (graceful on failure) -----
-    await setStatus(serviceClient, chartId, "extracting:stage3");
-    try {
-      const stage3 = await runStage3(cachedSystem, stage1.entities, stage2.ownership_edges);
-      for (const t of stage3.transactions) {
-        const fromId = tempIdToUuid.get(t.from_temp_id);
-        const toId = tempIdToUuid.get(t.to_temp_id);
-        if (!fromId || !toId) continue;
-        const { error: insErr } = await serviceClient
-          .from("atad2_structure_edges")
-          .insert({
-            chart_id: chartId,
-            from_entity_id: fromId,
-            to_entity_id: toId,
-            kind: "transaction",
-            transaction_type: normalizeTransactionType(t.transaction_type),
-            amount_eur: t.amount_eur ?? null,
-            label: t.label ?? null,
-            is_mismatch: t.is_mismatch,
-            mismatch_classification: t.mismatch_classification ?? null,
-            mismatch_atad2_article: t.mismatch_atad2_article ?? null,
-            source: "ai_extracted",
-          });
-        if (insErr) throw insErr;
-      }
-    } catch (err) {
-      console.warn(JSON.stringify({
-        level: "warn",
-        event: "stage3_failed",
-        message: String(err),
-        chart_id: chartId,
-      }));
-      await appendWarning(serviceClient, chartId, {
-        stage: 3,
-        message: String(err).slice(0, 500),
-      });
-    }
-
-    const { error: finalUpdateErr } = await serviceClient
-      .from("atad2_structure_charts")
-      .update({
-        status: "draft_ready",
-        draft_extracted_at: new Date().toISOString(),
-      })
-      .eq("id", chartId);
-    if (finalUpdateErr) throw finalUpdateErr;
   } catch (err) {
     console.error(JSON.stringify({
       level: "error",
       event: "pipeline_unhandled",
       message: String(err),
       chart_id: chartId,
+      phase,
     }));
     await setStatus(serviceClient, chartId, "extraction_failed", {
       warnings: [{ stage: 0, message: String(err).slice(0, 500) }],
@@ -275,25 +147,6 @@ function normalizeTransactionType(raw: string): string {
   if (s === "management_fee" || s === "management" || s === "management fee") return "management_fee";
   if (["loan", "royalty", "dividend", "service_fee", "management_fee", "other"].includes(s)) return s;
   return "other";
-}
-
-// ----- Stage runners -----
-
-async function runStage1(cachedSystem: string, taxpayerName: string): Promise<Stage1OutputT> {
-  const user = stage1Prompt.replace("{{TAXPAYER_NAME}}", taxpayerName);
-  return await callWithRetry(() => callClaude({ cachedSystem, user }), Stage1Output);
-}
-
-async function runStage2(cachedSystem: string, entities: unknown): Promise<Stage2OutputT> {
-  const user = stage2Prompt.replace("{{ENTITIES_JSON}}", JSON.stringify(entities, null, 2));
-  return await callWithRetry(() => callClaude({ cachedSystem, user }), Stage2Output);
-}
-
-async function runStage3(cachedSystem: string, entities: unknown, ownership: unknown) {
-  const user = stage3Prompt
-    .replace("{{ENTITIES_JSON}}", JSON.stringify(entities, null, 2))
-    .replace("{{OWNERSHIP_JSON}}", JSON.stringify(ownership, null, 2));
-  return await callWithRetry(() => callClaude({ cachedSystem, user }), Stage3Output);
 }
 
 // One retry per stage. If the second call also fails, throw the original error.
@@ -395,4 +248,14 @@ async function loadTaxpayerName(client: SupabaseClient, sessionId: string): Prom
     .eq("session_id", sessionId)
     .single();
   return data?.taxpayer_name ?? "";
+}
+
+// ----- Phase runners (implemented in Tasks 6 and 7) -----
+
+async function runPhaseA(_client: SupabaseClient, _chartId: string, _sessionId: string): Promise<void> {
+  throw new Error("runPhaseA not yet implemented");
+}
+
+async function runPhaseB(_client: SupabaseClient, _chartId: string, _sessionId: string): Promise<void> {
+  throw new Error("runPhaseB not yet implemented");
 }
