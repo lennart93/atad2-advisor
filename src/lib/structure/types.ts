@@ -25,9 +25,15 @@ export const ENTITY_TYPES: ReadonlyArray<{ key: EntityType; label: string }> = [
 ];
 
 export type ChartStatus =
-  | 'extracting:stage1' | 'extracting:stage2' | 'extracting:stage3'
-  | 'draft_ready' | 'extraction_failed'
-  | 'user_edited' | 'finalized';
+  | 'extracting:stage1'
+  | 'extracting:stage2'
+  | 'extracting:refining'
+  | 'extracting:stage3'
+  | 'phase_a_ready'
+  | 'draft_ready'
+  | 'extraction_failed'
+  | 'user_edited'
+  | 'finalized';
 
 export type EdgeKind = 'ownership' | 'transaction';
 export type TransactionType =
