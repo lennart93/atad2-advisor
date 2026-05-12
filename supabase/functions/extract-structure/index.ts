@@ -10,6 +10,7 @@ import {
   type Stage2OutputT,
 } from "./schemas.ts";
 import { loadDocumentsBlock } from "./documentsLoader.ts";
+import { formatQaBlock } from "./formatters.ts";
 import stage1Prompt from "./prompts/stage1-entities.ts";
 import stage2Prompt from "./prompts/stage2-ownership.ts";
 import stage3Prompt from "./prompts/stage3-transactions.ts";
@@ -369,16 +370,22 @@ async function appendWarning(
 }
 
 async function loadQaAnswersText(client: SupabaseClient, sessionId: string): Promise<string> {
-  // Column names confirmed against src/integrations/supabase/types.ts:
-  //   atad2_answers has `question_id`, `question_text`, `answer` (NOT `answer_text`).
+  // Loads question_id, question_text, answer AND explanation. The explanation
+  // free-text is where users typically write entity names, transaction
+  // details, and classification rationale — without this column we lose
+  // most of the user's actual testimony.
   const { data, error } = await client
     .from("atad2_answers")
-    .select("question_id, question_text, answer")
+    .select("question_id, question_text, answer, explanation")
     .eq("session_id", sessionId);
   if (error) throw error;
-  return (data ?? [])
-    .map((r) => `Q ${r.question_id} (${r.question_text}): ${r.answer}`)
-    .join("\n");
+  const rows = (data ?? []).map((r) => ({
+    question_id: r.question_id as string,
+    question_text: r.question_text as string,
+    answer: r.answer as string,
+    explanation: (r.explanation ?? null) as string | null,
+  }));
+  return formatQaBlock(rows);
 }
 
 async function loadTaxpayerName(client: SupabaseClient, sessionId: string): Promise<string> {
