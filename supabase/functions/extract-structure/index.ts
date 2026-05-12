@@ -494,12 +494,13 @@ async function runPhaseB(
   }
 
   // Persist ownership: delete existing ai_extracted ownership edges, insert fresh.
-  await serviceClient
+  const { error: ownershipDelErr } = await serviceClient
     .from("atad2_structure_edges")
     .delete()
     .eq("chart_id", chartId)
     .eq("kind", "ownership")
     .eq("source", "ai_extracted");
+  if (ownershipDelErr) throw ownershipDelErr;
   for (const oe of stage2.ownership_edges) {
     const fromId = tempIdToUuid.get(oe.from_temp_id);
     const toId = tempIdToUuid.get(oe.to_temp_id);
@@ -632,8 +633,8 @@ async function applyEntityDiff(
   const newTempIds = new Set(newEntities.map((e) => e.temp_id));
   const outMap = new Map<string, string>();
 
-  // Deletes first (FK from edges → entities is satisfied because we delete
-  // ai_extracted ownership edges before re-inserting in the caller).
+  // Deletes first. Any edge whose endpoint we're about to delete must go
+  // first or the FK from edges -> entities would prevent the entity delete.
   const toDelete: string[] = [];
   for (const [tempId, uuid] of existingTempIdToUuid) {
     if (!newTempIds.has(tempId)) toDelete.push(uuid);
@@ -650,6 +651,7 @@ async function applyEntityDiff(
     const { error: delEntsErr } = await client
       .from("atad2_structure_entities")
       .delete()
+      .eq("chart_id", chartId)
       .in("id", toDelete);
     if (delEntsErr) throw delEntsErr;
   }
