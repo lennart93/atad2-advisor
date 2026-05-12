@@ -1,11 +1,12 @@
 // src/components/structure/StructureChartStep.tsx
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { StructureChart } from './StructureChart';
 import { FloatingPalette } from './FloatingPalette';
 import { FloatingInspector } from './FloatingInspector';
 import { FloatingToolbar } from './FloatingToolbar';
+import { exportToPptx } from './exports/exportToPptx';
 import { tierLayout, clusterId, type PositionedEntity } from '@/lib/structure/tierLayout';
 import { groupNonRelevantSiblings, type Cluster } from '@/lib/structure/relevance';
 import {
@@ -16,6 +17,7 @@ import {
   deleteEdge,
   updateEntityPosition,
   finalizeChart,
+  forceDraftReady,
 } from '@/lib/structure/client';
 import { startExtraction, pollUntilTerminal } from '@/lib/structure/extraction';
 import type {
@@ -85,6 +87,8 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
   const [busy, setBusy] = useState(false);
   const [expandedClusters, setExpandedClusters] = useState<Set<string>>(new Set());
   const [clusterLayout, setClusterLayout] = useState<ClusterLayout>([]);
+  const activeClustersRef = useRef<Cluster[]>([]);
+  const [showTransactions, setShowTransactions] = useState(true);
 
   // Hide orphans: an entity is "visible" only if it has an ownership-edge path
   // to the chart anchor (taxpayer, or first entity as fallback). Entities that
@@ -111,7 +115,9 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
         }
       }
     }
-    return entities.filter((e) => connected.has(e.id));
+    return entities.filter(
+      (e) => connected.has(e.id) || e.source === 'user_added' || e.source === 'user_edited',
+    );
   }, [entities, edges]);
 
   const visibleEdges = useMemo(() => {
@@ -120,6 +126,47 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
       (e) => ids.has(e.from_entity_id) && ids.has(e.to_entity_id),
     );
   }, [edges, visibleEntities]);
+
+  // Synthesize parent → cluster_placeholder ownership edges so the cluster
+  // placeholder is visibly connected to its parent in the chart.
+  const clusterEdges = useMemo<StructureEdge[]>(() => {
+    if (!chart) return [];
+    const out: StructureEdge[] = [];
+    for (const c of activeClustersRef.current) {
+      const idStr = clusterId(c);
+      out.push({
+        id: `cluster-edge-${idStr}`,
+        chart_id: chart.id,
+        from_entity_id: c.parent_id,
+        to_entity_id: idStr,
+        kind: 'ownership',
+        ownership_pct: null,
+        ownership_voting_only: null,
+        transaction_type: null,
+        amount_eur: null,
+        is_mismatch: false,
+        mismatch_classification: null,
+        mismatch_atad2_article: null,
+        label: null,
+        source: 'ai_extracted',
+        created_at: '',
+        updated_at: '',
+      });
+    }
+    return out;
+    // Recompute when clusterLayout changes (which happens when handleAutoLayout fires).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chart, clusterLayout]);
+
+  const edgesWithCluster = useMemo<StructureEdge[]>(
+    () => [...visibleEdges, ...clusterEdges],
+    [visibleEdges, clusterEdges],
+  );
+
+  const renderableEdges = useMemo<StructureEdge[]>(
+    () => (showTransactions ? edgesWithCluster : edgesWithCluster.filter((e) => e.kind === 'ownership')),
+    [edgesWithCluster, showTransactions],
+  );
 
   // Defensive: if visible entities all share the same position (e.g., stale
   // (0,0) values from a pre-tierLayout broken run), force a layout pass right
@@ -146,30 +193,76 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
         setEntities(loaded.entities);
         setEdgesState(loaded.edges);
         setStatus(loaded.chart.status as ChartStatus);
+        // Poll if extraction is mid-flight (any non-terminal status that isn't
+        // phase_a_ready — phase_a_ready means Phase A finished and we're now
+        // waiting for the user-driven Phase B trigger from Q&A).
         if (loaded.chart.status.startsWith('extracting:')) {
           await pollUntilTerminal(loaded.chart.id, async (s) => {
             if (aborted) return;
             setStatus(s);
             const refreshed = await loadChart(sessionId);
             if (refreshed && !aborted) {
+              setChart(refreshed.chart);
               setEntities(refreshed.entities);
               setEdgesState(refreshed.edges);
             }
           });
         }
       } else {
-        const { chart_id } = await startExtraction(sessionId);
-        if (aborted) return;
-        await pollUntilTerminal(chart_id, async (s) => {
-          if (aborted) return;
-          setStatus(s);
+        // No chart row yet. Phase A may still be priming. Show the loader and
+        // wait — Phase B (triggered by the user's "Continue" from Q&A) will
+        // create the chart row if Phase A never did.
+        setStatus('extracting:stage1' as ChartStatus);
+        let attempts = 0;
+        while (!aborted && attempts < 30) {
+          await new Promise((r) => setTimeout(r, 2000));
+          attempts += 1;
+          const polled = await loadChart(sessionId);
+          if (polled?.chart) {
+            setChart(polled.chart);
+            setEntities(polled.entities);
+            setEdgesState(polled.edges);
+            setStatus(polled.chart.status as ChartStatus);
+            if (polled.chart.status.startsWith('extracting:')) {
+              await pollUntilTerminal(polled.chart.id, async (s) => {
+                if (aborted) return;
+                setStatus(s);
+                const refreshed = await loadChart(sessionId);
+                if (refreshed && !aborted) {
+                  setChart(refreshed.chart);
+                  setEntities(refreshed.entities);
+                  setEdgesState(refreshed.edges);
+                }
+              });
+            }
+            return;
+          }
+        }
+        // 60s passed and still no chart row — Phase A and Phase B both failed
+        // to fire. Fall back: trigger Phase B ourselves so the user isn't stuck.
+        try {
+          await startExtraction(sessionId, 'refine_and_transactions');
           const refreshed = await loadChart(sessionId);
-          if (refreshed && !aborted) {
+          if (refreshed) {
             setChart(refreshed.chart);
             setEntities(refreshed.entities);
             setEdgesState(refreshed.edges);
+            setStatus(refreshed.chart.status as ChartStatus);
+            await pollUntilTerminal(refreshed.chart.id, async (s) => {
+              if (aborted) return;
+              setStatus(s);
+              const ref2 = await loadChart(sessionId);
+              if (ref2 && !aborted) {
+                setChart(ref2.chart);
+                setEntities(ref2.entities);
+                setEdgesState(ref2.edges);
+              }
+            });
           }
-        });
+        } catch (err) {
+          console.error('[StructureChartStep] Fallback Phase B start failed', err);
+          setStatus('extraction_failed' as ChartStatus);
+        }
       }
     })().catch((err) => {
       console.error(err);
@@ -199,6 +292,7 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
     const activeClusters = allClusters.clusters.filter(
       (c) => !expandedClusters.has(clusterId(c)),
     );
+    activeClustersRef.current = activeClusters;
 
     const { positions, clusterPositions } = tierLayout({
       entities: visibleEntities,
@@ -216,6 +310,10 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
 
     setClusterLayout(buildClusterLayout(activeClusters, clusterPositions, visibleEntities));
   }, [chart, visibleEntities, visibleEdges, expandedClusters]);
+
+  const handleCollapseAll = useCallback(() => {
+    setExpandedClusters(new Set());
+  }, []);
 
   // Re-bind onExpand handlers each render so they capture the current setExpandedClusters.
   const clusterNodes = useMemo<ClusterLayout>(
@@ -343,7 +441,10 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
 
   const isExtracting = typeof status === 'string' && status.startsWith('extracting:');
   const isFailed = status === 'extraction_failed';
-  const showLoader = status === 'loading' || isExtracting;
+  const showLoader =
+    status === 'loading' ||
+    isExtracting ||
+    status === 'phase_a_ready';
 
   return (
     <div className="min-h-screen bg-neutral-50 p-6">
@@ -374,6 +475,32 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
                   (chart?.warnings as Array<{ stage: number; message: string }>) ?? []
                 }
                 detail={{ entitiesFound: visibleEntities.length || undefined }}
+                onSkipRemaining={chart ? async () => {
+                  await forceDraftReady(
+                    chart.id,
+                    'Stage 3 (transactions) skipped by user — extraction was taking too long.',
+                  );
+                  // Refresh chart state so the UI flips to draft_ready immediately.
+                  const refreshed = await loadChart(sessionId);
+                  if (refreshed) {
+                    setChart(refreshed.chart);
+                    setEntities(refreshed.entities);
+                    setEdgesState(refreshed.edges);
+                    setStatus(refreshed.chart.status as ChartStatus);
+                  }
+                } : undefined}
+                onResumeFromPhaseA={status === 'phase_a_ready' && chart ? async () => {
+                  await startExtraction(sessionId, 'refine_and_transactions');
+                  await pollUntilTerminal(chart.id, async (s) => {
+                    setStatus(s);
+                    const refreshed = await loadChart(sessionId);
+                    if (refreshed) {
+                      setChart(refreshed.chart);
+                      setEntities(refreshed.entities);
+                      setEdgesState(refreshed.edges);
+                    }
+                  });
+                } : undefined}
               />
             </div>
           ) : isFailed ? (
@@ -391,7 +518,7 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
             <>
               <StructureChart
                 entities={visibleEntities}
-                edges={visibleEdges}
+                edges={renderableEdges}
                 clusterNodes={clusterNodes}
                 onSelectionChange={setSelection}
                 onNodePositionEnd={(id, x, y) => {
@@ -425,25 +552,17 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
                 onAutoLayout={handleAutoLayout}
                 onReExtract={handleReExtract}
                 onExportPptx={() => {
-                  const modulePath = /* @vite-ignore */ './exports/exportToPptx';
-                  import(/* @vite-ignore */ modulePath)
-                    .then(
-                      (m: {
-                        exportToPptx: (opts: {
-                          entities: StructureEntity[];
-                          edges: StructureEdge[];
-                          taxpayerName: string;
-                        }) => void;
-                      }) =>
-                        m.exportToPptx({
-                          entities: visibleEntities,
-                          edges: visibleEdges,
-                          taxpayerName: '',
-                        }),
-                    )
-                    .catch((err) => console.error(err));
+                  exportToPptx({
+                    entities: visibleEntities,
+                    edges: visibleEdges,
+                    taxpayerName: '',
+                  });
                 }}
                 busy={busy}
+                transactionsVisible={showTransactions}
+                onToggleTransactions={() => setShowTransactions((v) => !v)}
+                expandedClusterCount={expandedClusters.size}
+                onCollapseAll={handleCollapseAll}
               />
             </>
           )}

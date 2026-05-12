@@ -12,6 +12,8 @@ interface Props {
   detail?: { entitiesFound?: number; etaSeconds?: number };
   /** Callback to skip ahead and mark the chart draft_ready with what we have. */
   onSkipRemaining?: () => void;
+  /** Optional callback for resuming Phase B from a phase_a_ready chart. */
+  onResumeFromPhaseA?: () => void;
 }
 
 type Stage = 0 | 1 | 2 | 3 | 4;
@@ -66,7 +68,7 @@ function StageRow({ done, active, failed, label, detail }: RowProps) {
  *  and least essential — entities + ownership are usually sufficient. */
 const STAGE3_ESCAPE_HATCH_MS = 30_000;
 
-export function AtlasLoader({ status, warnings = [], detail, onSkipRemaining }: Props) {
+export function AtlasLoader({ status, warnings = [], detail, onSkipRemaining, onResumeFromPhaseA }: Props) {
   const stage = stageOf(status);
   const hasFailedStage = (n: number) => warnings.some((w) => w.stage === n);
 
@@ -130,6 +132,16 @@ export function AtlasLoader({ status, warnings = [], detail, onSkipRemaining }: 
           </p>
           <Button size="sm" variant="outline" onClick={onSkipRemaining}>
             Continue without transactions
+          </Button>
+        </div>
+      )}
+      {status === 'phase_a_ready' && onResumeFromPhaseA && (
+        <div className="mt-2 flex flex-col items-center gap-2">
+          <p className="text-xs text-neutral-500 max-w-sm text-center">
+            Entities and ownership are ready. Generate transactions and ATAD2 mismatch analysis now.
+          </p>
+          <Button size="sm" onClick={onResumeFromPhaseA}>
+            Generate transactions
           </Button>
         </div>
       )}
