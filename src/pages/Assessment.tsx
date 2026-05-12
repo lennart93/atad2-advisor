@@ -714,10 +714,11 @@ const Assessment = () => {
         description: "Please confirm your preliminary assessment outcome.",
       });
 
-      // Pre-fetch the structure-chart extraction so the user doesn't wait on Step 5.
-      // Fire-and-forget; if this fails, Step 5 will start its own extraction as fallback.
-      startExtraction(sessionId).catch((err) => {
-        console.warn('[Assessment] Pre-fetch extraction failed; Step 5 will retry', err);
+      // Pre-fetch Phase B of the structure-chart extraction (refine + transactions)
+      // so the user doesn't wait on Step 5. Phase A (entities + ownership from docs
+      // alone) already ran at upload time via useStartAnalyze. Fire-and-forget.
+      startExtraction(sessionId, 'refine_and_transactions').catch((err) => {
+        console.warn('[Assessment] Phase B pre-fetch failed; Step 5 will retry', err);
       });
 
       // Per-question suggestions are reviewed on the assessment report page,
