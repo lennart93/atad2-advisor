@@ -250,10 +250,145 @@ async function loadTaxpayerName(client: SupabaseClient, sessionId: string): Prom
   return data?.taxpayer_name ?? "";
 }
 
+// ----- Stage runners (shared by Phase A and Phase B) -----
+
+async function runStage1Initial(cachedSystem: string, taxpayerName: string): Promise<Stage1OutputT> {
+  const user = stage1InitialPrompt.replace("{{TAXPAYER_NAME}}", taxpayerName);
+  return await callWithRetry(() => callClaude({ cachedSystem, user }), Stage1Output);
+}
+
+async function runStage1Refine(
+  cachedSystem: string,
+  taxpayerName: string,
+  existingEntities: Stage1OutputT["entities"],
+): Promise<Stage1OutputT> {
+  const user = stage1RefinePrompt
+    .replace("{{TAXPAYER_NAME}}", taxpayerName)
+    .replace("{{EXISTING_ENTITIES_JSON}}", JSON.stringify(existingEntities, null, 2));
+  return await callWithRetry(() => callClaude({ cachedSystem, user }), Stage1Output);
+}
+
+async function runStage2Initial(cachedSystem: string, entities: unknown): Promise<Stage2OutputT> {
+  const user = stage2InitialPrompt.replace("{{ENTITIES_JSON}}", JSON.stringify(entities, null, 2));
+  return await callWithRetry(() => callClaude({ cachedSystem, user }), Stage2Output);
+}
+
+async function runStage2Refine(
+  cachedSystem: string,
+  entities: unknown,
+  existingOwnership: Stage2OutputT["ownership_edges"],
+): Promise<Stage2OutputT> {
+  const user = stage2RefinePrompt
+    .replace("{{ENTITIES_JSON}}", JSON.stringify(entities, null, 2))
+    .replace("{{EXISTING_OWNERSHIP_JSON}}", JSON.stringify(existingOwnership, null, 2));
+  return await callWithRetry(() => callClaude({ cachedSystem, user }), Stage2Output);
+}
+
+async function runStage3(cachedSystem: string, entities: unknown, ownership: unknown) {
+  const user = stage3Prompt
+    .replace("{{ENTITIES_JSON}}", JSON.stringify(entities, null, 2))
+    .replace("{{OWNERSHIP_JSON}}", JSON.stringify(ownership, null, 2));
+  return await callWithRetry(() => callClaude({ cachedSystem, user }), Stage3Output);
+}
+
 // ----- Phase runners (implemented in Tasks 6 and 7) -----
 
-async function runPhaseA(_client: SupabaseClient, _chartId: string, _sessionId: string): Promise<void> {
-  throw new Error("runPhaseA not yet implemented");
+async function clearAiExtracted(client: SupabaseClient, chartId: string): Promise<void> {
+  // Edges first to satisfy FK from edges -> entities.
+  const { error: edgesDelErr } = await client
+    .from("atad2_structure_edges")
+    .delete()
+    .eq("chart_id", chartId)
+    .eq("source", "ai_extracted");
+  if (edgesDelErr) throw edgesDelErr;
+  const { error: entsDelErr } = await client
+    .from("atad2_structure_entities")
+    .delete()
+    .eq("chart_id", chartId)
+    .eq("source", "ai_extracted");
+  if (entsDelErr) throw entsDelErr;
+}
+
+async function runPhaseA(
+  serviceClient: SupabaseClient,
+  chartId: string,
+  sessionId: string,
+): Promise<void> {
+  // Phase A uses documents only — Q&A may not yet exist.
+  const docsBlock = await loadDocumentsBlock(serviceClient, sessionId);
+  const taxpayerName = await loadTaxpayerName(serviceClient, sessionId);
+  const cachedSystem = `<documents>\n${docsBlock}\n</documents>`;
+
+  // Idempotency: clear any prior ai_extracted rows for this chart so a
+  // re-trigger (e.g. user re-uploaded docs) doesn't accumulate stale entities.
+  await clearAiExtracted(serviceClient, chartId);
+
+  // ----- Stage 1: entities -----
+  let stage1: Stage1OutputT;
+  try {
+    stage1 = await runStage1Initial(cachedSystem, taxpayerName);
+  } catch (err) {
+    console.error(JSON.stringify({
+      level: "error", event: "phaseA_stage1_failed",
+      message: String(err), chart_id: chartId,
+    }));
+    await setStatus(serviceClient, chartId, "extraction_failed", {
+      warnings: [{ stage: 1, message: String(err).slice(0, 500) }],
+    });
+    return;
+  }
+
+  const tempIdToUuid = new Map<string, string>();
+  for (const e of stage1.entities) {
+    const { data, error } = await serviceClient
+      .from("atad2_structure_entities")
+      .insert({
+        chart_id: chartId,
+        name: e.name,
+        legal_form: e.legal_form ?? null,
+        jurisdiction_iso: e.jurisdiction_iso.toUpperCase(),
+        entity_type: e.entity_type,
+        is_taxpayer: e.is_taxpayer,
+        source: "ai_extracted",
+      })
+      .select("id")
+      .single();
+    if (error) throw error;
+    tempIdToUuid.set(e.temp_id, data.id);
+  }
+
+  // ----- Stage 2: ownership (graceful) -----
+  await setStatus(serviceClient, chartId, "extracting:stage2");
+  try {
+    const stage2 = await runStage2Initial(cachedSystem, stage1.entities);
+    for (const oe of stage2.ownership_edges) {
+      const fromId = tempIdToUuid.get(oe.from_temp_id);
+      const toId = tempIdToUuid.get(oe.to_temp_id);
+      if (!fromId || !toId) continue;
+      const { error: insErr } = await serviceClient
+        .from("atad2_structure_edges")
+        .insert({
+          chart_id: chartId,
+          from_entity_id: fromId,
+          to_entity_id: toId,
+          kind: "ownership",
+          ownership_pct: oe.ownership_pct,
+          ownership_voting_only: oe.voting_only ?? null,
+          source: "ai_extracted",
+        });
+      if (insErr) throw insErr;
+    }
+  } catch (err) {
+    console.warn(JSON.stringify({
+      level: "warn", event: "phaseA_stage2_failed",
+      message: String(err), chart_id: chartId,
+    }));
+    await appendWarning(serviceClient, chartId, {
+      stage: 2, message: String(err).slice(0, 500),
+    });
+  }
+
+  await setStatus(serviceClient, chartId, "phase_a_ready");
 }
 
 async function runPhaseB(_client: SupabaseClient, _chartId: string, _sessionId: string): Promise<void> {
