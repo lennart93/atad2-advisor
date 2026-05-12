@@ -391,6 +391,303 @@ async function runPhaseA(
   await setStatus(serviceClient, chartId, "phase_a_ready");
 }
 
-async function runPhaseB(_client: SupabaseClient, _chartId: string, _sessionId: string): Promise<void> {
-  throw new Error("runPhaseB not yet implemented");
+async function runPhaseB(
+  serviceClient: SupabaseClient,
+  chartId: string,
+  sessionId: string,
+): Promise<void> {
+  const docsBlock = await loadDocumentsBlock(serviceClient, sessionId);
+  const qaText = await loadQaAnswersText(serviceClient, sessionId);
+  const taxpayerName = await loadTaxpayerName(serviceClient, sessionId);
+  const cachedSystem =
+    `<documents>\n${docsBlock}\n</documents>\n` +
+    `<qa_answers>\n${qaText}\n</qa_answers>`;
+
+  // Decide: refine path (Phase A wrote AI rows we can build on) or
+  // initial-fallback (no AI rows, run from scratch).
+  const existingAi = await loadExistingAiRows(serviceClient, chartId);
+  const hasExisting = existingAi.entities.length > 0;
+
+  // ----- Stage 1 -----
+  let stage1: Stage1OutputT;
+  let tempIdToUuid: Map<string, string>;
+  if (hasExisting) {
+    // Refine path. The `existingAi.entities` already carries assigned temp_ids
+    // (ent_1..ent_N) that map back to DB UUIDs via existingAi.tempIdToUuid.
+    await setStatus(serviceClient, chartId, "extracting:refining");
+    try {
+      stage1 = await runStage1Refine(cachedSystem, taxpayerName, existingAi.entities);
+    } catch (err) {
+      console.error(JSON.stringify({
+        level: "error", event: "phaseB_stage1_refine_failed",
+        message: String(err), chart_id: chartId,
+      }));
+      await setStatus(serviceClient, chartId, "extraction_failed", {
+        warnings: [{ stage: 1, message: String(err).slice(0, 500) }],
+      });
+      return;
+    }
+    tempIdToUuid = await applyEntityDiff(serviceClient, chartId, existingAi.tempIdToUuid, stage1.entities);
+  } else {
+    // Initial-fallback path.
+    await setStatus(serviceClient, chartId, "extracting:stage1");
+    await clearAiExtracted(serviceClient, chartId);
+    try {
+      stage1 = await runStage1Initial(cachedSystem, taxpayerName);
+    } catch (err) {
+      console.error(JSON.stringify({
+        level: "error", event: "phaseB_stage1_initial_failed",
+        message: String(err), chart_id: chartId,
+      }));
+      await setStatus(serviceClient, chartId, "extraction_failed", {
+        warnings: [{ stage: 1, message: String(err).slice(0, 500) }],
+      });
+      return;
+    }
+    tempIdToUuid = new Map<string, string>();
+    for (const e of stage1.entities) {
+      const { data, error } = await serviceClient
+        .from("atad2_structure_entities")
+        .insert({
+          chart_id: chartId,
+          name: e.name,
+          legal_form: e.legal_form ?? null,
+          jurisdiction_iso: e.jurisdiction_iso.toUpperCase(),
+          entity_type: e.entity_type,
+          is_taxpayer: e.is_taxpayer,
+          source: "ai_extracted",
+        })
+        .select("id")
+        .single();
+      if (error) throw error;
+      tempIdToUuid.set(e.temp_id, data.id);
+    }
+  }
+
+  // ----- Stage 2 -----
+  let stage2: Stage2OutputT = { ownership_edges: [] };
+  if (hasExisting) {
+    try {
+      stage2 = await runStage2Refine(cachedSystem, stage1.entities, existingAi.ownershipEdges);
+    } catch (err) {
+      console.warn(JSON.stringify({
+        level: "warn", event: "phaseB_stage2_refine_failed",
+        message: String(err), chart_id: chartId,
+      }));
+      await appendWarning(serviceClient, chartId, {
+        stage: 2, message: String(err).slice(0, 500),
+      });
+    }
+  } else {
+    await setStatus(serviceClient, chartId, "extracting:stage2");
+    try {
+      stage2 = await runStage2Initial(cachedSystem, stage1.entities);
+    } catch (err) {
+      console.warn(JSON.stringify({
+        level: "warn", event: "phaseB_stage2_initial_failed",
+        message: String(err), chart_id: chartId,
+      }));
+      await appendWarning(serviceClient, chartId, {
+        stage: 2, message: String(err).slice(0, 500),
+      });
+    }
+  }
+
+  // Persist ownership: delete existing ai_extracted ownership edges, insert fresh.
+  await serviceClient
+    .from("atad2_structure_edges")
+    .delete()
+    .eq("chart_id", chartId)
+    .eq("kind", "ownership")
+    .eq("source", "ai_extracted");
+  for (const oe of stage2.ownership_edges) {
+    const fromId = tempIdToUuid.get(oe.from_temp_id);
+    const toId = tempIdToUuid.get(oe.to_temp_id);
+    if (!fromId || !toId) continue;
+    const { error: insErr } = await serviceClient
+      .from("atad2_structure_edges")
+      .insert({
+        chart_id: chartId,
+        from_entity_id: fromId,
+        to_entity_id: toId,
+        kind: "ownership",
+        ownership_pct: oe.ownership_pct,
+        ownership_voting_only: oe.voting_only ?? null,
+        source: "ai_extracted",
+      });
+    if (insErr) throw insErr;
+  }
+
+  // ----- Stage 3: transactions (graceful) -----
+  await setStatus(serviceClient, chartId, "extracting:stage3");
+  try {
+    const stage3 = await runStage3(cachedSystem, stage1.entities, stage2.ownership_edges);
+    for (const t of stage3.transactions) {
+      const fromId = tempIdToUuid.get(t.from_temp_id);
+      const toId = tempIdToUuid.get(t.to_temp_id);
+      if (!fromId || !toId) continue;
+      const { error: insErr } = await serviceClient
+        .from("atad2_structure_edges")
+        .insert({
+          chart_id: chartId,
+          from_entity_id: fromId,
+          to_entity_id: toId,
+          kind: "transaction",
+          transaction_type: normalizeTransactionType(t.transaction_type),
+          amount_eur: t.amount_eur ?? null,
+          label: t.label ?? null,
+          is_mismatch: t.is_mismatch,
+          mismatch_classification: t.mismatch_classification ?? null,
+          mismatch_atad2_article: t.mismatch_atad2_article ?? null,
+          source: "ai_extracted",
+        });
+      if (insErr) throw insErr;
+    }
+  } catch (err) {
+    console.warn(JSON.stringify({
+      level: "warn", event: "phaseB_stage3_failed",
+      message: String(err), chart_id: chartId,
+    }));
+    await appendWarning(serviceClient, chartId, {
+      stage: 3, message: String(err).slice(0, 500),
+    });
+  }
+
+  const { error: finalUpdateErr } = await serviceClient
+    .from("atad2_structure_charts")
+    .update({
+      status: "draft_ready",
+      draft_extracted_at: new Date().toISOString(),
+    })
+    .eq("id", chartId);
+  if (finalUpdateErr) throw finalUpdateErr;
+}
+
+interface ExistingAi {
+  entities: Stage1OutputT["entities"];
+  ownershipEdges: Stage2OutputT["ownership_edges"];
+  tempIdToUuid: Map<string, string>;
+}
+
+async function loadExistingAiRows(client: SupabaseClient, chartId: string): Promise<ExistingAi> {
+  const { data: entityRows, error: entErr } = await client
+    .from("atad2_structure_entities")
+    .select("id, name, legal_form, jurisdiction_iso, entity_type, is_taxpayer")
+    .eq("chart_id", chartId)
+    .eq("source", "ai_extracted")
+    .order("name", { ascending: true });
+  if (entErr) throw entErr;
+
+  const entities: Stage1OutputT["entities"] = [];
+  const tempIdToUuid = new Map<string, string>();
+  const uuidToTempId = new Map<string, string>();
+  let n = 1;
+  for (const r of entityRows ?? []) {
+    const temp_id = `ent_${n++}`;
+    tempIdToUuid.set(temp_id, r.id as string);
+    uuidToTempId.set(r.id as string, temp_id);
+    entities.push({
+      temp_id,
+      name: r.name as string,
+      legal_form: (r.legal_form ?? null) as string | null,
+      jurisdiction_iso: r.jurisdiction_iso as string,
+      entity_type: r.entity_type as Stage1OutputT["entities"][number]["entity_type"],
+      is_taxpayer: !!r.is_taxpayer,
+    });
+  }
+
+  const { data: edgeRows, error: edgeErr } = await client
+    .from("atad2_structure_edges")
+    .select("from_entity_id, to_entity_id, ownership_pct, ownership_voting_only")
+    .eq("chart_id", chartId)
+    .eq("kind", "ownership")
+    .eq("source", "ai_extracted");
+  if (edgeErr) throw edgeErr;
+
+  const ownershipEdges: Stage2OutputT["ownership_edges"] = [];
+  for (const e of edgeRows ?? []) {
+    const ft = uuidToTempId.get(e.from_entity_id as string);
+    const tt = uuidToTempId.get(e.to_entity_id as string);
+    if (!ft || !tt) continue;
+    ownershipEdges.push({
+      from_temp_id: ft,
+      to_temp_id: tt,
+      ownership_pct: (e.ownership_pct ?? 0) as number,
+      voting_only: (e.ownership_voting_only ?? undefined) as boolean | undefined,
+    });
+  }
+
+  return { entities, ownershipEdges, tempIdToUuid };
+}
+
+async function applyEntityDiff(
+  client: SupabaseClient,
+  chartId: string,
+  existingTempIdToUuid: Map<string, string>,
+  newEntities: Stage1OutputT["entities"],
+): Promise<Map<string, string>> {
+  // Strategy: any temp_id in the new list that also exists in existingTempIdToUuid
+  // is an UPDATE on that UUID. New temp_ids are INSERTs. Existing temp_ids
+  // not present in the new list are DELETEs.
+  const newTempIds = new Set(newEntities.map((e) => e.temp_id));
+  const outMap = new Map<string, string>();
+
+  // Deletes first (FK from edges → entities is satisfied because we delete
+  // ai_extracted ownership edges before re-inserting in the caller).
+  const toDelete: string[] = [];
+  for (const [tempId, uuid] of existingTempIdToUuid) {
+    if (!newTempIds.has(tempId)) toDelete.push(uuid);
+  }
+  if (toDelete.length > 0) {
+    // Delete edges first to avoid FK violation when an entity disappears.
+    const { error: delEdgesErr } = await client
+      .from("atad2_structure_edges")
+      .delete()
+      .eq("chart_id", chartId)
+      .eq("source", "ai_extracted")
+      .or(toDelete.map((id) => `from_entity_id.eq.${id},to_entity_id.eq.${id}`).join(","));
+    if (delEdgesErr) throw delEdgesErr;
+    const { error: delEntsErr } = await client
+      .from("atad2_structure_entities")
+      .delete()
+      .in("id", toDelete);
+    if (delEntsErr) throw delEntsErr;
+  }
+
+  // Updates + inserts.
+  for (const e of newEntities) {
+    const existingUuid = existingTempIdToUuid.get(e.temp_id);
+    if (existingUuid) {
+      const { error } = await client
+        .from("atad2_structure_entities")
+        .update({
+          name: e.name,
+          legal_form: e.legal_form ?? null,
+          jurisdiction_iso: e.jurisdiction_iso.toUpperCase(),
+          entity_type: e.entity_type,
+          is_taxpayer: e.is_taxpayer,
+        })
+        .eq("id", existingUuid);
+      if (error) throw error;
+      outMap.set(e.temp_id, existingUuid);
+    } else {
+      const { data, error } = await client
+        .from("atad2_structure_entities")
+        .insert({
+          chart_id: chartId,
+          name: e.name,
+          legal_form: e.legal_form ?? null,
+          jurisdiction_iso: e.jurisdiction_iso.toUpperCase(),
+          entity_type: e.entity_type,
+          is_taxpayer: e.is_taxpayer,
+          source: "ai_extracted",
+        })
+        .select("id")
+        .single();
+      if (error) throw error;
+      outMap.set(e.temp_id, data.id as string);
+    }
+  }
+
+  return outMap;
 }
