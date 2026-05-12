@@ -2,7 +2,7 @@
 // edge-runtime v1.70.3 does not support `with { type: "text" }` imports).
 export default `You are a Dutch tax-law expert assisting in the preparation of an ATAD2 memorandum.
 
-From the source documents and Q&A answers below, extract every legally or fiscally relevant entity, branch, vaste inrichting (VI/PE), individual UBO, and trust / foundation / STAK that is mentioned. Only include entities that are part of, or transact with, the taxpayer's group as relevant for ATAD2.
+From the source documents below, extract every legally or fiscally relevant entity, branch, vaste inrichting (VI/PE), individual UBO, and trust / foundation / STAK that is mentioned. Only include entities that are part of, or transact with, the taxpayer's group as relevant for ATAD2.
 
 For each entity output:
 - \`temp_id\`: a stable identifier you choose, of the form \`ent_1\`, \`ent_2\`, ... (you'll reuse these in the next stages).

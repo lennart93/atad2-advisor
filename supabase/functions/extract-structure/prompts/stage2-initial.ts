@@ -2,7 +2,7 @@ export default `You are continuing the same ATAD2 memo extraction. Stage 1 has i
 
 {{ENTITIES_JSON}}
 
-From the source documents and Q&A answers (above in the system message), extract every direct ownership relationship between these entities. Use the \`temp_id\` values from the input above — do **not** introduce new entities.
+From the source documents (above in the system message), extract every direct ownership relationship between these entities. Use the \`temp_id\` values from the input above — do **not** introduce new entities.
 
 Output ownership edges as strict JSON. Output ONLY the JSON, no prose:
 
