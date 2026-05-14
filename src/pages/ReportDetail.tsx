@@ -47,13 +47,13 @@ const ReportDetail = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast({ title: "Rapport verwijderd" });
+      toast({ title: "Report deleted" });
       queryClient.invalidateQueries({ queryKey: ["reports"] });
       navigate("/");
     },
     onError: (error) => {
       toast({
-        title: "Fout bij verwijderen",
+        title: "Error deleting report",
         description: error.message,
         variant: "destructive",
       });
@@ -67,7 +67,7 @@ const ReportDetail = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${report.report_title || 'ATAD2-rapport'}.md`;
+    a.download = `${report.report_title || 'ATAD2-report'}.md`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -109,19 +109,19 @@ const ReportDetail = () => {
   if (error || !report) {
     return (
       <main className="container mx-auto px-4 py-8">
-        <Seo 
-          title="Rapport niet gevonden" 
-          description="Het opgevraagde rapport kon niet worden gevonden"
+        <Seo
+          title="Report not found"
+          description="The requested report could not be found"
           canonical={`/report/${reportId}`}
         />
         <div className="text-center py-12">
-          <h1 className="text-xl font-semibold mb-4">Rapport niet gevonden</h1>
+          <h1 className="text-xl font-semibold mb-4">Report not found</h1>
           <p className="text-muted-foreground mb-6">
-            Het rapport bestaat niet of u heeft geen toegang.
+            This report does not exist or you do not have access.
           </p>
           <Button onClick={() => navigate("/")} variant="outline">
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Terug naar dashboard
+            Back to dashboard
           </Button>
         </div>
       </main>
@@ -130,9 +130,9 @@ const ReportDetail = () => {
 
   return (
     <main className="container mx-auto px-4 py-8">
-      <Seo 
-        title={report.report_title || "ATAD2 Rapport"} 
-        description="Gedetailleerd ATAD2 risico-analyse rapport"
+      <Seo
+        title={report.report_title || "ATAD2 Report"}
+        description="Detailed ATAD2 risk analysis report"
         canonical={`/report/${reportId}`}
       />
       
@@ -143,16 +143,16 @@ const ReportDetail = () => {
           className="mb-4"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Terug naar dashboard
+          Back to dashboard
         </Button>
         
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold">
-              {report.report_title || "ATAD2 Rapport"}
+            <h1 className="text-2xl font-semibold">
+              {report.report_title || "ATAD2 Report"}
             </h1>
             <p className="text-muted-foreground">
-              Gegenereerd op {formatDate(report.generated_at)}
+              Generated on {formatDate(report.generated_at)}
             </p>
           </div>
           
@@ -171,23 +171,23 @@ const ReportDetail = () => {
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" size="sm">
                   <Trash2 className="mr-2 h-4 w-4" />
-                  Verwijderen
+                  Delete
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Rapport verwijderen</AlertDialogTitle>
+                  <AlertDialogTitle>Delete report</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Weet u zeker dat u dit rapport wilt verwijderen? Deze actie kan niet ongedaan worden gemaakt.
+                    Are you sure you want to delete this report? This action cannot be undone.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>Annuleren</AlertDialogCancel>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
                   <AlertDialogAction
                     onClick={() => deleteMutation.mutate()}
                     disabled={deleteMutation.isPending}
                   >
-                    {deleteMutation.isPending ? "Verwijderen..." : "Verwijderen"}
+                    {deleteMutation.isPending ? "Deleting…" : "Delete"}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -199,7 +199,7 @@ const ReportDetail = () => {
       <div className="grid gap-6 mb-6">
         {/* Metadata Card */}
         <Card className="p-6">
-          <h2 className="text-lg font-semibold mb-4">Rapportgegevens</h2>
+          <h2 className="text-lg font-semibold mb-4">Report details</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {report.model && (
               <div>
@@ -209,13 +209,13 @@ const ReportDetail = () => {
             )}
             {report.total_risk !== null && (
               <div>
-                <p className="text-sm text-muted-foreground">Totaal risico</p>
-                <p className="font-medium">{report.total_risk} punten</p>
+                <p className="text-sm text-muted-foreground">Total risk</p>
+                <p className="font-medium">{report.total_risk} points</p>
               </div>
             )}
             {report.answers_count !== null && (
               <div>
-                <p className="text-sm text-muted-foreground">Beantwoorde vragen</p>
+                <p className="text-sm text-muted-foreground">Questions answered</p>
                 <p className="font-medium">{report.answers_count}</p>
               </div>
             )}
@@ -224,7 +224,7 @@ const ReportDetail = () => {
 
         {/* Report Content */}
         <Card className="p-6">
-          <h2 className="text-lg font-semibold mb-4">Rapport inhoud</h2>
+          <h2 className="text-lg font-semibold mb-4">Report content</h2>
           <div className="prose prose-sm max-w-none">
             <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">
               {report.report_md}
