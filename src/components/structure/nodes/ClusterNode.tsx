@@ -1,84 +1,65 @@
-// src/components/structure/nodes/ClusterNode.tsx
 import { memo } from 'react';
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import { PALETTE } from '@/lib/structure/palette';
-import { BOX } from '@/lib/structure/shapeGeometry';
+import { NODE_WIDTH, NODE_HEIGHT } from '@/lib/structure/labelMeasure';
 
 export interface ClusterNodeData extends Record<string, unknown> {
   count: number;
-  /** ISO codes mapped to count, e.g. {NL:8, DE:4} */
   jurisdictions: Record<string, number>;
-  /** "all-NL" | "all-foreign" | "mixed" — drives the fill */
   jurisdictionMix: 'all-NL' | 'all-foreign' | 'mixed';
+  name: string;
   onExpand: () => void;
 }
 
 export type ClusterNodeType = Node<ClusterNodeData, 'cluster'>;
 
-const W = BOX.width + 16;
-const H = BOX.height + 12;
-const STACK_OFFSET = 4;
+const W = NODE_WIDTH;
+const H = NODE_HEIGHT;
+const OFFSET = 4;
 
 function ClusterNodeComp({ data, selected }: NodeProps<ClusterNodeType>) {
-  const fill = data.jurisdictionMix === 'all-foreign' ? PALETTE.foreign : PALETTE.nl;
-  const fillRight = data.jurisdictionMix === 'mixed' ? PALETTE.foreign : fill;
-  const jurisdictionsLine = Object.entries(data.jurisdictions)
-    .sort(([, a], [, b]) => b - a)
-    .map(([iso, n]) => `${iso} · ${n}`)
-    .join('   ');
+  const frontFill =
+    data.jurisdictionMix === 'all-NL'
+      ? PALETTE.nl
+      : data.jurisdictionMix === 'all-foreign'
+      ? PALETTE.foreign
+      : '#7a766f';
 
   return (
     <div
-      style={{ width: W + STACK_OFFSET * 2, height: H + STACK_OFFSET * 2, position: 'relative', cursor: 'pointer' }}
-      onClick={data.onExpand}
-      title="Click to expand"
+      style={{ width: W + OFFSET * 2, height: H + OFFSET * 2, position: 'relative', cursor: 'pointer' }}
+      onClick={() => data.onExpand()}
     >
-      <Handle type="target" position={Position.Top} style={{ opacity: 0 }} />
-      <Handle type="source" position={Position.Bottom} style={{ opacity: 0 }} />
-
+      <Handle type="target" position={Position.Top} id="top" style={{ opacity: 0 }} />
       <svg
-        width={W + STACK_OFFSET * 2}
-        height={H + STACK_OFFSET * 2}
+        width={W + OFFSET * 2}
+        height={H + OFFSET * 2}
         style={{
           overflow: 'visible',
           filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.28))',
-          outline: selected ? `2px solid #1f5489` : 'none',
-          outlineOffset: 6,
+          outline: selected ? '2px solid #1f5489' : 'none',
+          outlineOffset: 4,
           borderRadius: 2,
         }}
       >
-        {/* Two background rects for "stacked" depth */}
-        <rect x={STACK_OFFSET * 2} y={STACK_OFFSET * 2} width={W} height={H} rx={2}
-          fill={fill} stroke={PALETTE.outerStroke} strokeWidth={0.75} opacity={0.55}/>
-        <rect x={STACK_OFFSET} y={STACK_OFFSET} width={W} height={H} rx={2}
-          fill={fill} stroke={PALETTE.outerStroke} strokeWidth={0.75} opacity={0.78}/>
-        {/* Front rect — split fill if mixed */}
-        {data.jurisdictionMix === 'mixed' ? (
-          <>
-            <rect x={0} y={0} width={W / 2} height={H} rx={2}
-              fill={fill} stroke={PALETTE.outerStroke} strokeWidth={0.75}/>
-            <rect x={W / 2} y={0} width={W / 2} height={H} rx={2}
-              fill={fillRight} stroke={PALETTE.outerStroke} strokeWidth={0.75}/>
-          </>
-        ) : (
-          <rect x={0} y={0} width={W} height={H} rx={2}
-            fill={fill} stroke={PALETTE.outerStroke} strokeWidth={0.75}/>
-        )}
-        {/* Label */}
+        {/* back paper */}
+        <rect x={OFFSET * 2} y={OFFSET * 2} width={W} height={H} rx={2}
+          fill="#d8d2c8" stroke="#8a857d" strokeWidth={1} />
+        {/* mid paper */}
+        <rect x={OFFSET} y={OFFSET} width={W} height={H} rx={2}
+          fill="#e3ddd0" stroke="#8a857d" strokeWidth={1} />
+        {/* front rect */}
+        <rect x={0} y={0} width={W} height={H} rx={2}
+          fill={frontFill} stroke="#3a3530" strokeWidth={1} />
         <text x={W / 2} y={H / 2 - 4}
-          fontFamily="Inter, system-ui, sans-serif" fontSize={13} fontWeight={700}
+          fontFamily="Inter, system-ui, sans-serif" fontSize={12} fontWeight={700}
           fill={PALETTE.text} textAnchor="middle">
-          {data.count} other {data.count === 1 ? 'subsidiary' : 'subsidiaries'}
+          {data.name}
         </text>
         <text x={W / 2} y={H / 2 + 14}
-          fontFamily="Inter, system-ui, sans-serif" fontSize={10} fontWeight={500}
+          fontFamily="Inter, system-ui, sans-serif" fontSize={11} fontWeight={500}
           fill={PALETTE.textMuted} textAnchor="middle">
-          {jurisdictionsLine}
-        </text>
-        <text x={W / 2} y={H - 6}
-          fontFamily="Inter, system-ui, sans-serif" fontSize={9.5} fontWeight={500}
-          fill={PALETTE.textMuted} textAnchor="middle">
-          click to expand
+          ({data.count} entities)
         </text>
       </svg>
     </div>

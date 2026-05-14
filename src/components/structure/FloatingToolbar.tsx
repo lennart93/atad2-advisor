@@ -16,10 +16,22 @@ interface Props {
   entityCount: number;
   ownershipCount: number;
   transactionCount: number;
-  onAutoLayout: () => void;
   onReExtract: () => void;
   onExportPptx: () => void;
   busy?: boolean;
+  focusedCount: number;
+  onClearFocus: () => void;
+  expandedClusterCount: number;
+  onCollapseAll: () => void;
+  orphanCount: number;
+  orphansVisible: boolean;
+  onToggleOrphans: () => void;
+  onAutoArrange: () => void;
+  onResetAllRouting: () => void;
+  gridVisible: boolean;
+  onToggleGrid: () => void;
+  snapEnabled: boolean;
+  onToggleSnap: () => void;
 }
 
 const EXTRACTING_PREFIX = 'extracting:';
@@ -29,10 +41,22 @@ export function FloatingToolbar({
   entityCount,
   ownershipCount,
   transactionCount,
-  onAutoLayout,
   onReExtract,
   onExportPptx,
   busy,
+  focusedCount,
+  onClearFocus,
+  expandedClusterCount,
+  onCollapseAll,
+  orphanCount,
+  orphansVisible,
+  onToggleOrphans,
+  onAutoArrange,
+  onResetAllRouting,
+  gridVisible,
+  onToggleGrid,
+  snapEnabled,
+  onToggleSnap,
 }: Props) {
   const isExtracting = status.startsWith(EXTRACTING_PREFIX);
   return (
@@ -52,9 +76,29 @@ export function FloatingToolbar({
         {entityCount} entities · {ownershipCount} ownership · {transactionCount} transactions
       </span>
       <div className="w-px h-5 bg-neutral-200" />
-      <Button size="sm" variant="outline" onClick={onAutoLayout} disabled={busy || isExtracting}>
-        Auto-layout
-      </Button>
+      {expandedClusterCount > 0 && (
+        <button
+          type="button"
+          onClick={onCollapseAll}
+          className="text-xs text-neutral-500 hover:text-neutral-900 px-2 py-1 rounded hover:bg-neutral-100 whitespace-nowrap"
+        >
+          {expandedClusterCount} expanded · Collapse
+        </button>
+      )}
+      {orphanCount > 0 && (
+        <button
+          type="button"
+          onClick={onToggleOrphans}
+          className="text-xs text-red-700 hover:text-red-900 px-2 py-1 rounded hover:bg-red-50 whitespace-nowrap"
+        >
+          {orphanCount} disconnected · {orphansVisible ? 'Hide' : 'Show'}
+        </button>
+      )}
+      {focusedCount > 0 && (
+        <Button size="sm" variant="outline" onClick={onClearFocus}>
+          Clear focus ({focusedCount})
+        </Button>
+      )}
       <AlertDialog>
         <AlertDialogTrigger asChild>
           <Button size="sm" variant="outline" disabled={busy || isExtracting}>
@@ -76,6 +120,28 @@ export function FloatingToolbar({
       </AlertDialog>
       <Button size="sm" variant="outline" onClick={onExportPptx} disabled={busy || isExtracting}>
         Export PPTX
+      </Button>
+      <Button size="sm" variant="outline" onClick={onAutoArrange} disabled={busy || isExtracting}>
+        Auto-arrange
+      </Button>
+      <Button size="sm" variant="outline" onClick={onResetAllRouting} disabled={busy || isExtracting}>
+        Reset all routing
+      </Button>
+      <Button
+        size="sm"
+        variant={gridVisible ? 'default' : 'outline'}
+        onClick={onToggleGrid}
+        disabled={busy || isExtracting}
+      >
+        Grid
+      </Button>
+      <Button
+        size="sm"
+        variant={snapEnabled ? 'default' : 'outline'}
+        onClick={onToggleSnap}
+        disabled={busy || isExtracting}
+      >
+        Snap
       </Button>
     </div>
   );

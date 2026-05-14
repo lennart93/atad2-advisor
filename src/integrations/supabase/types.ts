@@ -672,6 +672,64 @@ export type Database = {
           },
         ]
       }
+      atad2_structure_flow_routing: {
+        Row: {
+          chart_id: string
+          created_at: string
+          from_entity_id: string
+          id: string
+          label_position: Json | null
+          routing_mode: string
+          to_entity_id: string
+          updated_at: string
+          waypoints: Json
+        }
+        Insert: {
+          chart_id: string
+          created_at?: string
+          from_entity_id: string
+          id?: string
+          label_position?: Json | null
+          routing_mode?: string
+          to_entity_id: string
+          updated_at?: string
+          waypoints?: Json
+        }
+        Update: {
+          chart_id?: string
+          created_at?: string
+          from_entity_id?: string
+          id?: string
+          label_position?: Json | null
+          routing_mode?: string
+          to_entity_id?: string
+          updated_at?: string
+          waypoints?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "atad2_structure_flow_routing_chart_id_fkey"
+            columns: ["chart_id"]
+            isOneToOne: false
+            referencedRelation: "atad2_structure_charts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "atad2_structure_flow_routing_from_entity_id_fkey"
+            columns: ["from_entity_id"]
+            isOneToOne: false
+            referencedRelation: "atad2_structure_entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "atad2_structure_flow_routing_to_entity_id_fkey"
+            columns: ["to_entity_id"]
+            isOneToOne: false
+            referencedRelation: "atad2_structure_entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       atad2_structure_groupings: {
         Row: {
           chart_id: string

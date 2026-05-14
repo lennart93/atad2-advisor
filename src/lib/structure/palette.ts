@@ -18,6 +18,12 @@ export function isForeign(jurisdictionIso: string | null | undefined): boolean {
   return (jurisdictionIso ?? '').toUpperCase() !== 'NL';
 }
 
+/** Strip all dots from a legal form for display ("B.V." → "BV", "S.à r.l." → "Sàrl"). */
+export function formatLegalForm(legalForm: string | null | undefined): string {
+  if (!legalForm) return '';
+  return legalForm.replace(/\./g, '');
+}
+
 export function fillFor(input: {
   entity_type: EntityType;
   jurisdiction_iso: string | null | undefined;

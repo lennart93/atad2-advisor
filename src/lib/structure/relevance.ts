@@ -117,3 +117,26 @@ export function groupNonRelevantSiblings(
 
   return { clusters, clusteredIds };
 }
+
+/**
+ * Pick a label for a cluster of entities. If they share a common prefix
+ * (e.g., "3WO OpCo 1" / "3WO OpCo 2" / ...) of ≥3 chars, use it; otherwise
+ * fall back to "Operating entities".
+ */
+export function deriveClusterName(members: StructureEntity[]): string {
+  if (members.length === 0) return 'Operating entities';
+  const names = members.map((m) => m.name);
+  const trimmed = commonPrefix(names).trim();
+  if (trimmed.length >= 3) return trimmed;
+  return 'Operating entities';
+}
+
+function commonPrefix(strings: string[]): string {
+  if (strings.length === 0) return '';
+  let p = strings[0];
+  for (const s of strings.slice(1)) {
+    while (!s.startsWith(p) && p.length > 0) p = p.slice(0, -1);
+    if (p.length === 0) break;
+  }
+  return p;
+}

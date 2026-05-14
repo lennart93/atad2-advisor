@@ -1,6 +1,6 @@
 import type { EntityType } from './types';
 
-export const BOX = { width: 130, height: 80 } as const;
+export const BOX = { width: 130, height: 80 } as const; // kept as fallback only
 
 export type OuterShape =
   | { kind: 'rect'; rx: number }
@@ -18,11 +18,9 @@ export interface Geometry {
   inner: InnerShape | null;
 }
 
-const W = BOX.width;
-const H = BOX.height;
 const RECT: OuterShape = { kind: 'rect', rx: 2 };
 
-export function geometryFor(type: EntityType): Geometry {
+export function geometryFor(type: EntityType, W: number = BOX.width, H: number = BOX.height): Geometry {
   switch (type) {
     case 'corporation':
       return { outer: RECT, inner: null };

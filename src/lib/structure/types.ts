@@ -39,3 +39,22 @@ export type EdgeKind = 'ownership' | 'transaction';
 export type TransactionType =
   | 'loan' | 'royalty' | 'dividend' | 'service_fee' | 'management_fee' | 'other';
 export type MismatchClassification = 'D/NI' | 'DD';
+
+export interface FlowWaypoint {
+  x: number;
+  y: number;
+}
+
+export type FlowRoutingMode = 'auto' | 'manual';
+
+export interface StructureFlowRouting {
+  id: string;
+  chart_id: string;
+  from_entity_id: string;
+  to_entity_id: string;
+  waypoints: FlowWaypoint[];
+  label_position: FlowWaypoint | null;
+  routing_mode: FlowRoutingMode;
+  created_at: string;
+  updated_at: string;
+}

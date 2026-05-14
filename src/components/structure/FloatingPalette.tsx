@@ -1,37 +1,58 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { ENTITY_TYPES, type EntityType } from '@/lib/structure/types';
+import { Plus, ArrowRight } from 'lucide-react';
+import { AddEntityDialog } from './AddEntityDialog';
+import { AddTransactionDialog } from './AddTransactionDialog';
+import type { EntityType, StructureEntity, TransactionType, MismatchClassification } from '@/lib/structure/types';
 
-export function FloatingPalette({ onAdd }: { onAdd: (t: EntityType) => void }) {
-  const [open, setOpen] = useState(false);
+interface Props {
+  entities: StructureEntity[];
+  taxpayerId: string | null;
+  onCreateEntity: (payload: {
+    entityType: EntityType;
+    name: string;
+    jurisdiction_iso: string;
+    parentId: string;
+    ownershipPct: number;
+  }) => Promise<void>;
+  onCreateTransaction: (payload: {
+    from_entity_id: string;
+    to_entity_id: string;
+    transaction_type: TransactionType;
+    amount_eur: number | null;
+    is_mismatch: boolean;
+    mismatch_classification: MismatchClassification | null;
+    mismatch_atad2_article: string | null;
+  }) => Promise<void>;
+}
 
-  const handlePick = (t: EntityType) => {
-    onAdd(t);
-    setOpen(false);
-  };
-
+export function FloatingPalette({ entities, taxpayerId, onCreateEntity, onCreateTransaction }: Props) {
+  const [entityOpen, setEntityOpen] = useState(false);
+  const [transactionOpen, setTransactionOpen] = useState(false);
   return (
-    <div className="absolute top-4 left-4 z-10">
-      <Button size="sm" variant="outline" onClick={() => setOpen((v) => !v)}>
-        + Entity {open ? '▴' : '▾'}
-      </Button>
-      {open && (
-        <div className="mt-2 w-56 bg-white border border-neutral-200 rounded-lg shadow-lg p-2 flex flex-col gap-1">
-          <div className="text-[10px] uppercase tracking-wide text-neutral-500 font-semibold px-2 py-1">
-            Add entity
-          </div>
-          {ENTITY_TYPES.map((t) => (
-            <button
-              key={t.key}
-              type="button"
-              onClick={() => handlePick(t.key)}
-              className="text-left text-sm px-3 py-2 rounded hover:bg-neutral-50"
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
+    <>
+      <div className="absolute top-6 left-6 z-10 flex gap-2">
+        <Button onClick={() => setEntityOpen(true)} size="sm" variant="outline">
+          <Plus className="w-4 h-4 mr-1" /> Entity
+        </Button>
+        <Button onClick={() => setTransactionOpen(true)} size="sm" variant="outline">
+          <ArrowRight className="w-4 h-4 mr-1" /> Transaction
+        </Button>
+      </div>
+      <AddEntityDialog
+        open={entityOpen}
+        onOpenChange={setEntityOpen}
+        entities={entities}
+        taxpayerId={taxpayerId}
+        onCreate={onCreateEntity}
+      />
+      <AddTransactionDialog
+        open={transactionOpen}
+        onOpenChange={setTransactionOpen}
+        entities={entities}
+        taxpayerId={taxpayerId}
+        onCreate={onCreateTransaction}
+      />
+    </>
   );
 }
