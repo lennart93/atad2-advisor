@@ -16,7 +16,7 @@ import { toast } from "@/components/ui/sonner";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { InfoIcon, ArrowLeft, HelpCircle, CalendarIcon } from "lucide-react";
+import { InfoIcon, HelpCircle, CalendarIcon } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -1526,14 +1526,7 @@ const Assessment = () => {
   if (!sessionStarted) {
     return (
       <>
-        <div className="min-h-screen bg-background p-4">
-          <div className="max-w-2xl mx-auto">
-            <div className="mb-8">
-              <Button variant="outline" onClick={() => navigate("/")}>
-                ← Back to dashboard
-              </Button>
-            </div>
-
+        <div className="max-w-2xl mx-auto">
             <Card>
               <CardHeader>
                 <CardTitle>Start risk assessment</CardTitle>
@@ -1761,9 +1754,8 @@ const Assessment = () => {
                 </Button>
               </CardContent>
             </Card>
-          </div>
         </div>
-        
+
         {/* Warning dialog that shows AFTER validation */}
         <Dialog open={showStartWarningDialog} onOpenChange={(open) => {
           setShowStartWarningDialog(open);
