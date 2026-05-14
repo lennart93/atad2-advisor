@@ -1,7 +1,9 @@
 // src/components/structure/StructureChartStep.tsx
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { AssessmentFooterSlot } from '@/components/assessment/AssessmentFooterSlot';
 import { StructureChart } from './StructureChart';
 import { FloatingPalette } from './FloatingPalette';
 import { FloatingInspector } from './FloatingInspector';
@@ -779,27 +781,32 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
     status === 'phase_a_ready';
 
   return (
-    <div className="min-h-screen bg-neutral-50 p-6">
-      <div className="bg-white border border-neutral-300 rounded-xl shadow-sm overflow-hidden">
-        <header className="px-5 py-3.5 border-b border-neutral-200 flex items-center justify-between">
-          <div>
-            <h1 className="text-base font-semibold">Step 5 · Review structure chart</h1>
-            <p className="text-xs text-neutral-500">
-              Review the AI-generated draft, edit as needed, then continue to the report.
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => navigate(-1)}>
-              Back
-            </Button>
-            <Button onClick={goNext} disabled={status === 'loading' || isExtracting}>
-              Next
-            </Button>
-          </div>
-        </header>
+    <div className="flex h-full flex-col">
+      <AssessmentFooterSlot
+        left={
+          <Button
+            variant="outline"
+            onClick={() => navigate(-1)}
+            className="transition-all duration-fast"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back
+          </Button>
+        }
+        right={
+          <Button
+            onClick={goNext}
+            disabled={status === 'loading' || isExtracting}
+            className="transition-all duration-fast"
+          >
+            Continue to report
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </Button>
+        }
+      />
 
-        <main className="relative h-[calc(100vh-8rem)]">
-          {showLoader ? (
+      <main className="relative flex-1 min-h-0">
+        {showLoader ? (
             <div className="absolute inset-0 flex items-center justify-center bg-white">
               <AtlasLoader
                 status={status}
@@ -856,8 +863,9 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
             />
           ) : (
             <>
-              <StructureChart
-                entities={renderEntities}
+              <div className="absolute inset-0 hidden lg:block">
+                <StructureChart
+                  entities={renderEntities}
                 edges={renderableEdges}
                 clusterNodes={clusterNodes}
                 onSelectionChange={setSelection}
@@ -940,10 +948,16 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
                 snapEnabled={snapEnabled}
                 onToggleSnap={() => setSnapEnabled((v) => !v)}
               />
+              </div>
+
+              <div className="flex h-full items-center justify-center p-8 text-center lg:hidden">
+                <p className="text-sm text-muted-foreground">
+                  The structure chart is best viewed on a wider screen.
+                </p>
+              </div>
             </>
           )}
-        </main>
-      </div>
+      </main>
     </div>
   );
 }
