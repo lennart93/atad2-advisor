@@ -502,6 +502,8 @@ export type Database = {
           finalized_at: string | null
           id: string
           session_id: string
+          snapshot_captured_at: string | null
+          snapshot_png: string | null
           status: string
           updated_at: string
           warnings: Json
@@ -514,6 +516,8 @@ export type Database = {
           finalized_at?: string | null
           id?: string
           session_id: string
+          snapshot_captured_at?: string | null
+          snapshot_png?: string | null
           status?: string
           updated_at?: string
           warnings?: Json
@@ -526,6 +530,8 @@ export type Database = {
           finalized_at?: string | null
           id?: string
           session_id?: string
+          snapshot_captured_at?: string | null
+          snapshot_png?: string | null
           status?: string
           updated_at?: string
           warnings?: Json

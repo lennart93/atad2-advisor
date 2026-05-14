@@ -6,10 +6,17 @@ import type {
   EdgeKind,
 } from './types';
 
+// Every atad2_structure_charts column EXCEPT snapshot_png — that column can be
+// a multi-MB base64 string and loadChart runs in a polling loop, so we never
+// want to drag it over the wire. snapshot_captured_at is tiny, so it stays in.
+const CHART_COLUMNS =
+  'id, session_id, status, draft_extracted_at, finalized_at, canvas_width, ' +
+  'canvas_height, warnings, snapshot_captured_at, created_at, updated_at';
+
 export async function loadChart(sessionId: string) {
   const { data: chart } = await supabase
     .from('atad2_structure_charts')
-    .select('*')
+    .select(CHART_COLUMNS)
     .eq('session_id', sessionId)
     .maybeSingle();
   if (!chart) return null;
@@ -171,4 +178,40 @@ export async function forceDraftReady(chartId: string, warningMessage: string) {
       warnings: next,
     })
     .eq('id', chartId);
+}
+
+/**
+ * Persist a transparent-PNG snapshot of the accepted chart. The blob is large,
+ * so it lives in its own column and is never pulled by loadChart's polling.
+ */
+export async function saveChartSnapshot(chartId: string, pngDataUrl: string) {
+  const { error } = await supabase
+    .from('atad2_structure_charts')
+    .update({
+      snapshot_png: pngDataUrl,
+      snapshot_captured_at: new Date().toISOString(),
+    })
+    .eq('id', chartId);
+  if (error) throw error;
+}
+
+export interface ChartSnapshotInfo {
+  snapshot_png: string | null;
+  finalized_at: string | null;
+}
+
+/**
+ * Reads ONLY the snapshot + finalized_at columns — used by the report page.
+ * finalized_at set + snapshot_png null = capture failed (degraded state).
+ */
+export async function loadChartSnapshot(sessionId: string): Promise<ChartSnapshotInfo> {
+  const { data } = await supabase
+    .from('atad2_structure_charts')
+    .select('snapshot_png, finalized_at')
+    .eq('session_id', sessionId)
+    .maybeSingle();
+  return {
+    snapshot_png: data?.snapshot_png ?? null,
+    finalized_at: data?.finalized_at ?? null,
+  };
 }
