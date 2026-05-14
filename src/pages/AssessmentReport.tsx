@@ -22,6 +22,7 @@ import MemoDiffViewer from "@/components/MemoDiffViewer";
 import MissingExplanationsPopover from "@/components/MissingExplanationsPopover";
 import { buildDocumentsBlock } from "@/lib/prefill/buildDocumentsBlock";
 import { AssessmentFooterSlot } from "@/components/assessment/AssessmentFooterSlot";
+import { loadChartSnapshot } from "@/lib/structure/client";
 interface SessionData {
   session_id: string;
   taxpayer_name: string;
@@ -118,6 +119,14 @@ const AssessmentReport = () => {
       return data as ReportData[];
     },
     enabled: !!sessionId && !!user,
+  });
+
+  // Query for the finalized structure-chart snapshot
+  const { data: chartSnapshot } = useQuery({
+    queryKey: ['report-chart-snapshot', sessionId],
+    enabled: !!sessionId,
+    staleTime: 60_000,
+    queryFn: () => loadChartSnapshot(sessionId!),
   });
 
   // Get the most recent report for inline display
@@ -715,6 +724,38 @@ const AssessmentReport = () => {
               ) : null}
             </CardContent>
           </Card>
+
+          {/* Structure chart snapshot */}
+          {chartSnapshot?.snapshot_png ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Structure chart</CardTitle>
+                <CardDescription>
+                  Captured when the structure was finalized — included in the memorandum.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="rounded-lg border border-[hsl(var(--border-subtle))] bg-muted/30 p-4">
+                  <img
+                    src={chartSnapshot.snapshot_png}
+                    alt="Structure chart for this assessment"
+                    className="mx-auto max-h-[480px] w-auto"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          ) : chartSnapshot?.finalized_at ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Structure chart</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  Structure chart snapshot unavailable for this assessment.
+                </p>
+              </CardContent>
+            </Card>
+          ) : null}
 
           {/* Generate Report Button */}
           <Card>
