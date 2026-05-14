@@ -832,7 +832,7 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
 
       <main className="relative flex-1 min-h-0">
         {showLoader ? (
-            <div className="absolute inset-0 flex items-center justify-center bg-white">
+            <div className="absolute inset-0 flex items-center justify-center bg-card">
               <AtlasLoader
                 status={status}
                 warnings={
@@ -870,11 +870,11 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
               />
             </div>
           ) : isFailed ? (
-            <div className="absolute inset-0 flex items-center justify-center bg-white">
+            <div className="absolute inset-0 flex items-center justify-center bg-card">
               <div className="flex flex-col items-center gap-3 text-center max-w-md px-6">
                 <AnimatedLogo state="idle" size={36} className="opacity-35" />
                 <div className="text-sm font-bold">Extraction failed</div>
-                <p className="text-xs text-neutral-500">
+                <p className="text-xs text-muted-foreground">
                   {(chart?.warnings as Array<{ stage: number; message: string }> | undefined)?.[0]?.message ?? 'Unknown error.'}
                 </p>
                 <Button onClick={handleReExtract}>Try again</Button>

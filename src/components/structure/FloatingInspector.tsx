@@ -1,3 +1,4 @@
+import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EntityInspector } from './EntityInspector';
 import { EdgeInspector } from './EdgeInspector';
@@ -26,14 +27,14 @@ export function FloatingInspector({
 
   return (
     <aside
-      className="absolute top-4 right-4 z-10 w-72 max-h-[calc(100vh-8rem)] overflow-y-auto bg-white border border-neutral-200 rounded-lg shadow-lg p-3"
+      className="absolute top-4 right-4 z-10 w-72 max-h-[calc(100vh-8rem)] overflow-y-auto bg-card border border-[hsl(var(--border-subtle))] rounded-lg shadow-lg p-3"
       role="dialog"
       aria-label="Inspector"
       data-snapshot-exclude="true"
     >
       <div className="flex justify-end -mt-1 -mr-1 mb-2">
         <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close inspector">
-          ✕
+          <X className="h-4 w-4" />
         </Button>
       </div>
       {selectedEntity && (

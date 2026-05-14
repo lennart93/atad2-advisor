@@ -79,7 +79,7 @@ export function TransactionBundlePopover({
               gridTemplateColumns: '90px 70px 1fr',
               gap: 8,
             }}
-            className="hover:bg-neutral-50"
+            className="hover:bg-accent"
           >
             <span style={{ textTransform: 'capitalize' }}>{t.transaction_type ?? 'other'}</span>
             <span style={{ color: '#1f5489' }}>€{formatAmount(t.amount_eur)}</span>

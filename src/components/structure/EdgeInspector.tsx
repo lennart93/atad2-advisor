@@ -14,7 +14,7 @@ interface Props {
 export function EdgeInspector({ edge, onChange, onDelete }: Props) {
   return (
     <div className="space-y-3">
-      <div className="text-[10px] uppercase tracking-wide text-neutral-500 font-semibold">
+      <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
         {edge.kind === 'ownership' ? 'Ownership' : 'Transaction'}
       </div>
 

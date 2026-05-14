@@ -345,12 +345,12 @@ function StructureChartInner(props: StructureChartProps) {
       {contextMenu && (
         <div
           style={{ position: 'fixed', left: contextMenu.x, top: contextMenu.y, zIndex: 1000 }}
-          className="bg-white border border-neutral-200 rounded-md shadow-lg py-1 text-sm"
+          className="bg-card border border-[hsl(var(--border-subtle))] rounded-md shadow-lg py-1 text-sm"
           onPointerDown={(e) => e.stopPropagation()}
         >
           <button
             type="button"
-            className="block w-full text-left px-3 py-1.5 hover:bg-neutral-100 whitespace-nowrap"
+            className="block w-full text-left px-3 py-1.5 hover:bg-accent whitespace-nowrap"
             onClick={() => {
               props.onFlowResetRouting(contextMenu.bundleId);
               setContextMenu(null);

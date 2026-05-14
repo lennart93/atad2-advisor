@@ -61,29 +61,29 @@ export function FloatingToolbar({
   const isExtracting = status.startsWith(EXTRACTING_PREFIX);
   return (
     <div
-      className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 bg-white border border-neutral-200 rounded-lg shadow-lg px-3 py-2 flex items-center gap-3 text-sm"
+      className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 bg-card border border-[hsl(var(--border-subtle))] rounded-lg shadow-lg px-3 py-2 flex items-center gap-3 text-sm"
       data-snapshot-exclude="true"
     >
       <span
         className={`px-2 py-1 rounded text-xs font-medium ${
           isExtracting
-            ? 'bg-amber-50 text-amber-700 animate-pulse'
+            ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 animate-pulse'
             : status === 'extraction_failed'
-            ? 'bg-red-50 text-red-700'
-            : 'bg-emerald-50 text-emerald-700'
+            ? 'bg-red-500/10 text-red-700 dark:text-red-400'
+            : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
         }`}
       >
         {status || 'idle'}
       </span>
-      <span className="text-xs text-neutral-500 whitespace-nowrap">
+      <span className="text-xs text-muted-foreground whitespace-nowrap">
         {entityCount} entities · {ownershipCount} ownership · {transactionCount} transactions
       </span>
-      <div className="w-px h-5 bg-neutral-200" />
+      <div className="w-px h-5 bg-[hsl(var(--border-subtle))]" />
       {expandedClusterCount > 0 && (
         <button
           type="button"
           onClick={onCollapseAll}
-          className="text-xs text-neutral-500 hover:text-neutral-900 px-2 py-1 rounded hover:bg-neutral-100 whitespace-nowrap"
+          className="text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded hover:bg-accent whitespace-nowrap"
         >
           {expandedClusterCount} expanded · Collapse
         </button>
@@ -92,7 +92,7 @@ export function FloatingToolbar({
         <button
           type="button"
           onClick={onToggleOrphans}
-          className="text-xs text-red-700 hover:text-red-900 px-2 py-1 rounded hover:bg-red-50 whitespace-nowrap"
+          className="text-xs text-red-700 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300 px-2 py-1 rounded hover:bg-red-500/10 whitespace-nowrap"
         >
           {orphanCount} disconnected · {orphansVisible ? 'Hide' : 'Show'}
         </button>

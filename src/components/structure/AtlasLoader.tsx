@@ -31,7 +31,7 @@ export function AtlasLoader(_props: Props) {
   return (
     <div className="flex flex-col items-center gap-3 text-center">
       <AnimatedLogo state="working" size={48} />
-      <div className="text-sm text-neutral-600">Loading chart…</div>
+      <div className="text-sm text-muted-foreground">Loading chart…</div>
     </div>
   );
 }

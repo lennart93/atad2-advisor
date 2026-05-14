@@ -12,18 +12,18 @@ interface Props {
 export function BlockingBanner({ result, entities, onOpenEntity }: Props) {
   const entityName = (id: string) => entities.find((e) => e.id === id)?.name ?? id;
   return (
-    <div className="absolute inset-0 bg-white flex flex-col items-center justify-center px-8">
-      <div className="max-w-2xl w-full bg-red-50 border border-red-300 rounded-lg p-6">
+    <div className="absolute inset-0 bg-card flex flex-col items-center justify-center px-8">
+      <div className="max-w-2xl w-full bg-destructive/10 border border-destructive/30 rounded-lg p-6">
         <div className="flex items-center gap-3 mb-4">
-          <AlertTriangle className="w-6 h-6 text-red-700" />
-          <h2 className="text-lg font-semibold text-red-900">
+          <AlertTriangle className="w-6 h-6 text-destructive" />
+          <h2 className="text-lg font-semibold text-destructive">
             Chart cannot render — fix the issues below first
           </h2>
         </div>
 
         {result.missingFields.length > 0 && (
           <section className="mb-4">
-            <h3 className="text-sm font-semibold text-neutral-800 mb-2">
+            <h3 className="text-sm font-semibold text-foreground mb-2">
               Missing required fields ({result.missingFields.length})
             </h3>
             <ul className="space-y-1">
@@ -44,13 +44,13 @@ export function BlockingBanner({ result, entities, onOpenEntity }: Props) {
 
         {result.cycles.length > 0 && (
           <section>
-            <h3 className="text-sm font-semibold text-neutral-800 mb-2">
+            <h3 className="text-sm font-semibold text-foreground mb-2">
               Ownership cycles ({result.cycles.length})
             </h3>
             <ul className="space-y-1">
               {result.cycles.map((cycle, i) => (
                 <li key={i} className="text-sm">
-                  <span className="text-neutral-700">
+                  <span className="text-muted-foreground">
                     Cycle: {cycle.map(entityName).join(' → ')} → {entityName(cycle[0])}
                   </span>
                   <div className="flex gap-2 mt-1">
