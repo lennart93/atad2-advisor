@@ -1,5 +1,5 @@
 import { useState, useEffect, useLayoutEffect, useCallback, useMemo, memo, useRef } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useUserPreference } from "@/hooks/useUserPreference";
 import { OptionToggle } from "@/components/prefill/OptionToggle";
 import { useAuth } from "@/hooks/useAuth";
@@ -32,9 +32,10 @@ import { ContextPanelFallback } from "@/components/ContextPanelFallback";
 import { SuggestionCard } from "@/components/prefill/SuggestionCard";
 import { useQuestionPrefill, usePrefillJob, useSessionDocuments } from "@/hooks/usePrefill";
 import { seededIndex } from "@/utils/random";
-import { MotionPage } from "@/components/motion";
 import { motion } from "framer-motion";
 import { startExtraction } from "@/lib/structure/extraction";
+import { AssessmentFooterSlot } from "@/components/assessment/AssessmentFooterSlot";
+import { useAssessmentSessionId } from "@/lib/assessment/useAssessmentSessionId";
 
 interface Question {
   id: string;
@@ -181,8 +182,7 @@ const Assessment = () => {
     return true;
   }
   
-  const [searchParams] = useSearchParams();
-  const resumeSessionId = searchParams.get("session");
+  const resumeSessionId = useAssessmentSessionId();
 
   const [sessionInfo, setSessionInfo] = useState<SessionInfo>({
     taxpayer_name: "",
@@ -1923,8 +1923,7 @@ const Assessment = () => {
   const isViewingAnsweredQuestion = navigationIndex !== -1;
 
   return (
-    <MotionPage className="min-h-screen bg-background p-4">
-      <div className="max-w-7xl mx-auto">
+    <div>
         <div className="mb-8">
           <Button variant="outline" onClick={() => navigate("/")} className="transition-all duration-fast">
             ← Back to dashboard
@@ -2199,137 +2198,141 @@ const Assessment = () => {
                         requiresExplanation={dbRequiresExplanation}
                       />
 
-                  {/* Navigation buttons */}
-                  <div className="flex items-center gap-3">
-                    <Button 
-                      onClick={goToPreviousQuestion}
-                      disabled={questionFlow.length === 0 || (navigationIndex !== -1 && navigationIndex === 0) || loading || isTransitioning}
-                      variant="outline"
-                      className="px-6 py-3 rounded-xl transition-all duration-fast disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      ← Previous
-                    </Button>
-                    
-                    {/* Show Next button only when auto-advance is disabled and navigating */}
-                    {!autoAdvance && navigationIndex !== -1 && navigationIndex < questionFlow.length - 1 && (
-                      <Button
-                        onClick={goToNextQuestion}
-                        disabled={loading || isTransitioning || isWaitingForPrefill}
-                        variant="outline"
-                        className="px-6 py-3 rounded-xl transition-all duration-fast disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        Next →
-                      </Button>
-                    )}
-
-                    {/* Show Continue button when at last answered question and auto-advance is disabled */}
-                    {!autoAdvance && navigationIndex === questionFlow.length - 1 && (
-                      <Button
-                        onClick={continueToNextUnanswered}
-                        disabled={loading || isTransitioning || isWaitingForPrefill}
-                        variant="outline"
-                        className="px-6 py-3 rounded-xl transition-all duration-fast disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        Next →
-                      </Button>
-                    )}
-
-                     {/* Show Finish Assessment button when at end of flow */}
-                     {shouldShowFinishButton && (
-                       <Button 
-                         onClick={finishAssessment}
-                         disabled={loading || isTransitioning}
-                         className="px-6 py-3 rounded-xl transition-all duration-fast disabled:opacity-50 disabled:cursor-not-allowed"
-                       >
-                         {loading ? "Finishing..." : "Finish assessment"}
-                       </Button>
-                     )}
-
-                        {/* Show Submit/Continue button when (a) the context panel is visible OR
-                            (b) the AI made a >=40% suggestion that pre-selected this answer
-                            and the question doesn't require explanation (the rationale
-                            strip is rendered above and the user must click Continue). */}
-                        {(
-                          (shouldShowContextPanel && selectedAnswer)
-                          || (
-                            selectedAnswer
-                            && currentPrefill?.suggested_answer
-                            && (currentPrefill.confidence_pct ?? 0) >= 40
-                            && selectedAnswer.toLowerCase() === currentPrefill.suggested_answer
-                            && !selectedQuestionOption?.requires_explanation
-                          )
-                        ) && !shouldShowFinishButton && (
-                           <Button
-                              onClick={handleContinueWithReminder}
-                              disabled={loading || isTransitioning}
-                              className="px-6 py-3 rounded-xl transition-all duration-fast disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              Continue
-                           </Button>
-                        )}
-
-                        {/* Show Submit button for answers that don't require context panel */}
-                        {!shouldShowContextPanel && selectedAnswer && !shouldShowFinishButton && (() => {
-                          const selectedQuestionOption = questions.find(q => 
-                            q.question_id === currentQuestion?.question_id && 
-                            q.answer_option === selectedAnswer
-                          );
-                          
-                          // If we're in normal flow (navigationIndex === -1) and auto-advance would happen, don't show button
-                          if (navigationIndex === -1 && canAutoAdvance(selectedQuestionOption)) {
-                            return null;
-                          }
-                          
-                          // For back-navigation or non-auto-advance answers, always show the button
-                          return (
-                            <Button 
-                              onClick={async () => {
-                                console.debug('[nav] manual submit: user clicked button for answer submission');
-                                
-                                // Check for flow changes when updating answers during back-navigation
-                                if (navigationIndex >= 0) {
-                                  const existingAnswer = answers[currentQuestion.question_id];
-                                  
-                                  if (existingAnswer && existingAnswer !== selectedAnswer) {
-                                    // Check if this change affects the flow
-                                    const oldSelectedOption = questions.find(q => 
-                                      q.question_id === currentQuestion.question_id && 
-                                      q.answer_option === existingAnswer
-                                    );
-                                    const newSelectedOption = questions.find(q => 
-                                      q.question_id === currentQuestion.question_id && 
-                                      q.answer_option === selectedAnswer
-                                    );
-                                    
-                                    if (newSelectedOption && oldSelectedOption && 
-                                        newSelectedOption.next_question_id !== oldSelectedOption.next_question_id) {
-                                      
-                                      setPendingAnswerChange({
-                                        answer: selectedAnswer,
-                                        newNextQuestionId: newSelectedOption.next_question_id
-                                      });
-                                      setShowFlowChangeDialog(true);
-                                      return;
-                                    }
-                                  }
-                                }
-                                
-                                await submitAnswerDirectly(selectedAnswer);
-                              }}
-                              disabled={loading || isTransitioning}
-                              className="px-6 py-3 rounded-xl transition-all duration-fast disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              {navigationIndex === -1 ? 'Next →' : 'Update answer'}
-                            </Button>
-                          );
-                        })()}
-                  </div>
                 </motion.div>
               </CardContent>
             </Card>
           </div>
         </div>
-      </div>
+
+      <AssessmentFooterSlot
+        left={
+          <Button
+            onClick={goToPreviousQuestion}
+            disabled={questionFlow.length === 0 || (navigationIndex !== -1 && navigationIndex === 0) || loading || isTransitioning}
+            variant="outline"
+            className="transition-all duration-fast disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            ← Previous
+          </Button>
+        }
+        right={
+          <>
+            {/* Show Next button only when auto-advance is disabled and navigating */}
+            {!autoAdvance && navigationIndex !== -1 && navigationIndex < questionFlow.length - 1 && (
+              <Button
+                onClick={goToNextQuestion}
+                disabled={loading || isTransitioning || isWaitingForPrefill}
+                variant="outline"
+                className="transition-all duration-fast disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next →
+              </Button>
+            )}
+
+            {/* Show Continue button when at last answered question and auto-advance is disabled */}
+            {!autoAdvance && navigationIndex === questionFlow.length - 1 && (
+              <Button
+                onClick={continueToNextUnanswered}
+                disabled={loading || isTransitioning || isWaitingForPrefill}
+                variant="outline"
+                className="transition-all duration-fast disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next →
+              </Button>
+            )}
+
+            {/* Show Finish Assessment button when at end of flow */}
+            {shouldShowFinishButton && (
+              <Button
+                onClick={finishAssessment}
+                disabled={loading || isTransitioning}
+                className="transition-all duration-fast disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? "Finishing..." : "Finish assessment"}
+              </Button>
+            )}
+
+            {/* Show Submit/Continue button when (a) the context panel is visible OR
+                (b) the AI made a >=40% suggestion that pre-selected this answer
+                and the question doesn't require explanation (the rationale
+                strip is rendered above and the user must click Continue). */}
+            {(
+              (shouldShowContextPanel && selectedAnswer)
+              || (
+                selectedAnswer
+                && currentPrefill?.suggested_answer
+                && (currentPrefill.confidence_pct ?? 0) >= 40
+                && selectedAnswer.toLowerCase() === currentPrefill.suggested_answer
+                && !selectedQuestionOption?.requires_explanation
+              )
+            ) && !shouldShowFinishButton && (
+              <Button
+                onClick={handleContinueWithReminder}
+                disabled={loading || isTransitioning}
+                className="transition-all duration-fast disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Continue
+              </Button>
+            )}
+
+            {/* Show Submit button for answers that don't require context panel */}
+            {!shouldShowContextPanel && selectedAnswer && !shouldShowFinishButton && (() => {
+              const selectedQuestionOption = questions.find(q =>
+                q.question_id === currentQuestion?.question_id &&
+                q.answer_option === selectedAnswer
+              );
+
+              // If we're in normal flow (navigationIndex === -1) and auto-advance would happen, don't show button
+              if (navigationIndex === -1 && canAutoAdvance(selectedQuestionOption)) {
+                return null;
+              }
+
+              // For back-navigation or non-auto-advance answers, always show the button
+              return (
+                <Button
+                  onClick={async () => {
+                    console.debug('[nav] manual submit: user clicked button for answer submission');
+
+                    // Check for flow changes when updating answers during back-navigation
+                    if (navigationIndex >= 0) {
+                      const existingAnswer = answers[currentQuestion.question_id];
+
+                      if (existingAnswer && existingAnswer !== selectedAnswer) {
+                        // Check if this change affects the flow
+                        const oldSelectedOption = questions.find(q =>
+                          q.question_id === currentQuestion.question_id &&
+                          q.answer_option === existingAnswer
+                        );
+                        const newSelectedOption = questions.find(q =>
+                          q.question_id === currentQuestion.question_id &&
+                          q.answer_option === selectedAnswer
+                        );
+
+                        if (newSelectedOption && oldSelectedOption &&
+                            newSelectedOption.next_question_id !== oldSelectedOption.next_question_id) {
+
+                          setPendingAnswerChange({
+                            answer: selectedAnswer,
+                            newNextQuestionId: newSelectedOption.next_question_id
+                          });
+                          setShowFlowChangeDialog(true);
+                          return;
+                        }
+                      }
+                    }
+
+                    await submitAnswerDirectly(selectedAnswer);
+                  }}
+                  disabled={loading || isTransitioning}
+                  className="transition-all duration-fast disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {navigationIndex === -1 ? 'Next →' : 'Update answer'}
+                </Button>
+              );
+            })()}
+          </>
+        }
+      />
 
       <AlertDialog open={showFlowChangeDialog} onOpenChange={setShowFlowChangeDialog}>
         <AlertDialogContent>
@@ -2345,7 +2348,7 @@ const Assessment = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </MotionPage>
+    </div>
   );
 };
 
