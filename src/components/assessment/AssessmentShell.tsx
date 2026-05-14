@@ -1,7 +1,7 @@
 // src/components/assessment/AssessmentShell.tsx
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { AnimatePresence, motion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
 import { FileUp } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -111,7 +111,12 @@ export default function AssessmentShell() {
           </div>
         </div>
 
-        {/* Body — D10 height budget, D11 concurrent crossfade (no mode="wait").
+        {/* Body — D10 height budget. Mount-only fade-in keyed on pathname:
+            NO AnimatePresence/exit — wrapping <Outlet/> in AnimatePresence
+            double-renders the route component during a transition (both the
+            exiting and entering motion.div resolve <Outlet/> to the new
+            route). A keyed motion.div re-runs initial→animate on every route
+            change without ever mounting two instances.
             DD3 — ref + tabIndex=-1: focus target on route change. */}
         <div
           ref={bodyRef}
@@ -121,22 +126,19 @@ export default function AssessmentShell() {
             stepDef?.fullBleed ? 'flex' : 'overflow-y-auto',
           )}
         >
-          <AnimatePresence initial={false}>
-            <motion.div
-              key={location.pathname}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.2, ease: [0.2, 0, 0, 1] }}
-              className={cn(
-                stepDef?.fullBleed
-                  ? 'flex-1'
-                  : cn('mx-auto px-4 py-6', stepDef?.wide ? 'max-w-7xl' : 'max-w-4xl'),
-              )}
-            >
-              <Outlet />
-            </motion.div>
-          </AnimatePresence>
+          <motion.div
+            key={location.pathname}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2, ease: [0.2, 0, 0, 1] }}
+            className={cn(
+              stepDef?.fullBleed
+                ? 'flex-1'
+                : cn('mx-auto px-4 py-6', stepDef?.wide ? 'max-w-7xl' : 'max-w-4xl'),
+            )}
+          >
+            <Outlet />
+          </motion.div>
         </div>
 
         {/* Footer portal target — always rendered so the portal has a home */}
