@@ -1,39 +1,28 @@
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { DocumentUploader } from "@/components/prefill/DocumentUploader";
 import { AnalyzeProgress } from "@/components/prefill/AnalyzeProgress";
 import { usePrefillStore } from "@/stores/prefillStore";
-import { supabase } from "@/integrations/supabase/client";
 import {
   useSessionDocuments, usePrefillJob, useStartAnalyze,
 } from "@/hooks/usePrefill";
+import { AssessmentFooterSlot } from "@/components/assessment/AssessmentFooterSlot";
+import { useAssessmentSessionMeta } from "@/components/assessment/AssessmentShellContext";
+import { useAssessmentSessionId } from "@/lib/assessment/useAssessmentSessionId";
+import { ArrowRight } from "lucide-react";
 
 export default function AssessmentUpload() {
-  const [params] = useSearchParams();
-  const sessionId = params.get("session");
+  const sessionId = useAssessmentSessionId();
   const navigate = useNavigate();
   const store = usePrefillStore();
+  const { taxpayerName: rawTaxpayerName } = useAssessmentSessionMeta();
+  const taxpayerName = rawTaxpayerName ?? "the taxpayer";
 
   const { data: docs } = useSessionDocuments(sessionId);
   const { data: job } = usePrefillJob(sessionId);
   const startAnalyze = useStartAnalyze(sessionId);
-
-  const { data: sessionRow } = useQuery({
-    enabled: !!sessionId,
-    queryKey: ["session-info", sessionId],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("atad2_sessions")
-        .select("taxpayer_name")
-        .eq("session_id", sessionId!)
-        .maybeSingle();
-      return data;
-    },
-  });
-  const taxpayerName = sessionRow?.taxpayer_name?.trim() || "the taxpayer";
 
   const [waiting, setWaiting] = useState(false);
 
@@ -57,12 +46,8 @@ export default function AssessmentUpload() {
 
   if (waiting) {
     return (
-      <div className="relative min-h-[calc(100vh-4rem)] flex items-center justify-center px-4 py-10 overflow-hidden">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 bg-gradient-to-b from-primary/5 via-background to-background"
-        />
-        <div className="relative w-full max-w-xl text-center space-y-8">
+      <div className="space-y-6 text-center">
+        <div className="w-full max-w-xl mx-auto space-y-8">
           <div className="space-y-3">
             <p className="text-sm uppercase tracking-[0.2em] text-muted-foreground">
               Preparing your assessment for
@@ -86,7 +71,7 @@ export default function AssessmentUpload() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto p-6 space-y-6">
+    <div className="space-y-6">
       <header>
         <h1 className="text-2xl font-semibold">Upload supporting documents (optional)</h1>
         <p className="text-sm text-muted-foreground mt-1">
@@ -104,17 +89,27 @@ export default function AssessmentUpload() {
 
       <DocumentUploader sessionId={sessionId} locked={locked} />
 
-      <div className="flex gap-3">
-        <Button variant="outline" onClick={() => navigate(`/assessment?session=${sessionId}`)}>
-          {hasAtLeastOneUploaded ? "Skip suggestions" : "Skip (no documents)"}
-        </Button>
-        <Button
-          disabled={!hasAtLeastOneUploaded || !allPendingUploaded}
-          onClick={handleContinue}
-        >
-          Continue to questions
-        </Button>
-      </div>
+      <AssessmentFooterSlot
+        left={
+          <Button
+            variant="outline"
+            onClick={() => navigate(`/assessment?session=${sessionId}`)}
+            className="transition-all duration-fast"
+          >
+            {hasAtLeastOneUploaded ? 'Skip suggestions' : 'Skip'}
+          </Button>
+        }
+        right={
+          <Button
+            onClick={handleContinue}
+            disabled={!hasAtLeastOneUploaded || !allPendingUploaded}
+            className="transition-all duration-fast"
+          >
+            Continue to questions
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </Button>
+        }
+      />
     </div>
   );
 }
