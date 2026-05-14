@@ -190,8 +190,6 @@ const Assessment = () => {
     tax_year_not_equals_calendar: false,
   });
   const [dontShowBeforeYouStartAgain, setDontShowBeforeYouStartAgain] = useState(false);
-  const [showBackgroundInfoDialog, setShowBackgroundInfoDialog] = useState(false);
-  const [pendingNewSessionId, setPendingNewSessionId] = useState<string | null>(null);
   const [sessionStarted, setSessionStarted] = useState(false);
   const [sessionId, setSessionId] = useState<string>("");
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
@@ -546,10 +544,8 @@ const Assessment = () => {
       store.clearAllSessions();
       console.log('🧹 Cleared all sessions from store before starting new session');
 
-      // Session created — ask the user whether they'd like to share background
-      // info before entering the question flow. The dialog handles routing.
-      setPendingNewSessionId(newSessionId);
-      setShowBackgroundInfoDialog(true);
+      // Session created — go straight to the inline Documents step.
+      navigate(`/assessment/upload?session=${newSessionId}`);
       return;
     } catch (error) {
       console.error('Error starting session:', error);
@@ -1845,42 +1841,6 @@ const Assessment = () => {
                 disabled={!confirmations.advisory || !confirmations.highLevel || !confirmations.factDriven}
               >
                 Start assessment
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* Background-info chooser shown after session is created. */}
-        <Dialog open={showBackgroundInfoDialog} onOpenChange={setShowBackgroundInfoDialog}>
-          <DialogContent className="sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle>Before we start</DialogTitle>
-              <DialogDescription>
-                Would you like to share background information that can help with context for the report?
-                This is optional. You can paste text or upload financials, tax returns, or prior memos.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter className="gap-2 sm:gap-0">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowBackgroundInfoDialog(false);
-                  if (pendingNewSessionId) {
-                    navigate(`/assessment?session=${pendingNewSessionId}`);
-                  }
-                }}
-              >
-                No, continue
-              </Button>
-              <Button
-                onClick={() => {
-                  setShowBackgroundInfoDialog(false);
-                  if (pendingNewSessionId) {
-                    navigate(`/assessment/upload?session=${pendingNewSessionId}`);
-                  }
-                }}
-              >
-                Yes, share background info
               </Button>
             </DialogFooter>
           </DialogContent>
