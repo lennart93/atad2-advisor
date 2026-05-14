@@ -21,7 +21,7 @@ import MemoFeedbackEditor from "@/components/MemoFeedbackEditor";
 import MemoDiffViewer from "@/components/MemoDiffViewer";
 import MissingExplanationsPopover from "@/components/MissingExplanationsPopover";
 import { buildDocumentsBlock } from "@/lib/prefill/buildDocumentsBlock";
-import { MotionPage } from "@/components/motion";
+import { AssessmentFooterSlot } from "@/components/assessment/AssessmentFooterSlot";
 interface SessionData {
   session_id: string;
   taxpayer_name: string;
@@ -489,7 +489,7 @@ const AssessmentReport = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="flex items-center justify-center py-24">
         <p className="text-xl text-muted-foreground">Loading assessment report...</p>
       </div>
     );
@@ -497,7 +497,7 @@ const AssessmentReport = () => {
 
   if (!sessionData) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="flex items-center justify-center py-24">
         <div className="text-center">
           <p className="text-xl text-muted-foreground">Assessment not found</p>
           <Button onClick={() => navigate("/")} className="mt-4">
@@ -509,15 +509,7 @@ const AssessmentReport = () => {
   }
 
   return (
-    <MotionPage>
-    <div className="min-h-screen bg-background p-4">
-      <div className="max-w-4xl mx-auto">
-        <div className="mb-8">
-          <Button variant="outline" onClick={() => navigate("/")} className="transition-all duration-fast">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to dashboard
-          </Button>
-        </div>
+    <div>
 
         {/* Memorandum header strip */}
         <div className="mb-6 rounded-lg border border-border bg-card px-6 py-5 shadow-sm">
@@ -743,7 +735,7 @@ const AssessmentReport = () => {
                             <Button
                               size="lg"
                               disabled
-                              className="bg-green-600 hover:bg-green-700 text-white disabled:opacity-50 transition-all duration-fast"
+                              className="disabled:opacity-50 transition-all duration-fast"
                             >
                               Memorandum generated
                             </Button>
@@ -767,7 +759,7 @@ const AssessmentReport = () => {
                         size="lg"
                         onClick={handleGenerateButtonClick}
                         disabled={isGeneratingReport}
-                        className="bg-green-600 hover:bg-green-700 text-white disabled:opacity-50 transition-all duration-fast"
+                        className="disabled:opacity-50 transition-all duration-fast"
                       >
                         {isGeneratingReport ? (
                           <>
@@ -924,9 +916,16 @@ const AssessmentReport = () => {
             </CardContent>
           </Card>
         </div>
-      </div>
+
+        <AssessmentFooterSlot
+          left={
+            <Button variant="outline" onClick={() => navigate('/')} className="transition-all duration-fast">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to dashboard
+            </Button>
+          }
+        />
     </div>
-    </MotionPage>
   );
 };
 
