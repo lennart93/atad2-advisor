@@ -1,9 +1,8 @@
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { DocumentUploader } from "@/components/prefill/DocumentUploader";
 import { AnalyzeProgress } from "@/components/prefill/AnalyzeProgress";
+import { DocumentUploadStep } from "@/components/assessment/DocumentUploadStep";
 import { usePrefillStore } from "@/stores/prefillStore";
 import {
   useSessionDocuments, usePrefillJob, useStartAnalyze,
@@ -72,22 +71,7 @@ export default function AssessmentUpload() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold">Upload supporting documents (optional)</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Documents are processed only for pre-fill extraction. They are not used for AI training.
-          You can delete them anytime, and they are automatically removed after you generate the report.
-        </p>
-      </header>
-
-      {!locked && (
-        <Card className="p-4 bg-muted/40 text-sm">
-          Supported formats: PDF, images (PNG/JPG/WEBP), Word (.docx), PowerPoint (.pptx), Excel (.xlsx), text/CSV/Markdown.
-          Max 32 MB per file, 200 MB per session.
-        </Card>
-      )}
-
-      <DocumentUploader sessionId={sessionId} locked={locked} />
+      <DocumentUploadStep sessionId={sessionId} locked={locked} />
 
       <AssessmentFooterSlot
         left={
