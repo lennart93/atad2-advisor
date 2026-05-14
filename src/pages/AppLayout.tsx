@@ -15,6 +15,10 @@ const AppLayout = () => {
   const location = useLocation();
 
   const isAdminRoute = location.pathname.startsWith("/admin");
+  const isAssessmentRoute =
+    location.pathname.startsWith("/assessment") ||
+    location.pathname.startsWith("/assessment-");
+  const isBareRoute = isAdminRoute || isAssessmentRoute;
 
   const { hasAccess, isAdmin, isModerator } = useAdminAccess();
 
@@ -99,7 +103,7 @@ const AppLayout = () => {
       <CommandPalette />
 
       {/* Content */}
-      {isAdminRoute ? (
+      {isBareRoute ? (
         <Outlet />
       ) : (
         <main className="p-4">
