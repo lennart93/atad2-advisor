@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
+import { AssessmentFooterSlot } from "@/components/assessment/AssessmentFooterSlot";
 import { ArrowLeft, AlertTriangle, Info, CheckCircle } from "lucide-react";
 
 type OutcomeType = 'risk_identified' | 'insufficient_information' | 'low_risk';
@@ -23,17 +24,17 @@ const outcomeConfig: Record<OutcomeType, { label: string; icon: typeof AlertTria
   risk_identified: {
     label: "ATAD2 risk identified",
     icon: AlertTriangle,
-    colorClass: "text-red-600"
+    colorClass: "text-red-700 dark:text-red-400"
   },
   insufficient_information: {
     label: "Insufficient information",
     icon: Info,
-    colorClass: "text-orange-600"
+    colorClass: "text-amber-700 dark:text-amber-400"
   },
   low_risk: {
     label: "Low ATAD2 risk",
     icon: CheckCircle,
-    colorClass: "text-green-600"
+    colorClass: "text-emerald-700 dark:text-emerald-400"
   }
 };
 
@@ -197,7 +198,7 @@ const AssessmentConfirmation = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="flex items-center justify-center py-24">
         <p className="text-muted-foreground">Loading...</p>
       </div>
     );
@@ -226,17 +227,8 @@ const AssessmentConfirmation = () => {
   );
 
   return (
-    <div className="min-h-screen bg-background p-4">
-      <div className="max-w-2xl mx-auto">
-        {/* Back button */}
-        <div className="mb-8">
-          <Button variant="outline" onClick={() => navigate("/")}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to dashboard
-          </Button>
-        </div>
-
-        <Card>
+    <div className="max-w-2xl mx-auto">
+      <Card>
           <CardHeader>
             <CardTitle className="text-xl font-medium">
               Preliminary ATAD2 assessment
@@ -335,48 +327,14 @@ const AssessmentConfirmation = () => {
                     </p>
                   )}
                 </div>
-
-                <div className="flex gap-3 pt-2">
-                  <Button
-                    variant="ghost"
-                    onClick={() => handleFinalConfirm(true)}
-                    disabled={submitting}
-                  >
-                    Skip
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => handleFinalConfirm(false)}
-                    disabled={submitting || additionalContext.trim().length < 100}
-                  >
-                    Continue
-                  </Button>
-                </div>
               </div>
             ) : !showOverrideForm ? (
               /* Confirmation section */
               <div className="space-y-5">
                 <p className="text-muted-foreground">
-                  Before we continue, please confirm whether this preliminary outcome 
+                  Before we continue, please confirm whether this preliminary outcome
                   aligns with your own assessment.
                 </p>
-
-                <div className="flex gap-3">
-                  <Button
-                    variant="outline"
-                    onClick={handleConfirm}
-                    disabled={submitting}
-                  >
-                    Confirm outcome
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={handleAdjust}
-                    disabled={submitting}
-                  >
-                    Adjust outcome
-                  </Button>
-                </div>
               </div>
             ) : (
               /* Override Form - inline */
@@ -441,33 +399,78 @@ const AssessmentConfirmation = () => {
                 {/* Confirmation note - only when valid */}
                 {isOverrideValid && (
                   <p className="text-sm text-muted-foreground">
-                    Your explanation will be taken into account when generating the 
+                    Your explanation will be taken into account when generating the
                     assessment report and memorandum.
                   </p>
                 )}
-
-                {/* Actions */}
-                <div className="flex gap-3 pt-2">
-                  <Button
-                    variant="ghost"
-                    onClick={handleCancelOverride}
-                    disabled={submitting}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={handleConfirmOverride}
-                    disabled={!isOverrideValid || submitting}
-                  >
-                    Confirm and continue
-                  </Button>
-                </div>
               </div>
             )}
           </CardContent>
         </Card>
-      </div>
+
+        <AssessmentFooterSlot
+          left={
+            showOverrideForm ? (
+              <Button
+                variant="ghost"
+                onClick={handleCancelOverride}
+                disabled={submitting}
+              >
+                Cancel
+              </Button>
+            ) : (
+              <Button variant="outline" onClick={() => navigate("/")}>
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back to dashboard
+              </Button>
+            )
+          }
+          right={
+            showOverrideForm ? (
+              <Button
+                variant="outline"
+                onClick={handleConfirmOverride}
+                disabled={!isOverrideValid || submitting}
+              >
+                Confirm and continue
+              </Button>
+            ) : showContextForm ? (
+              <>
+                <Button
+                  variant="ghost"
+                  onClick={() => handleFinalConfirm(true)}
+                  disabled={submitting}
+                >
+                  Skip
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => handleFinalConfirm(false)}
+                  disabled={submitting || additionalContext.trim().length < 100}
+                >
+                  Continue
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={handleConfirm}
+                  disabled={submitting}
+                >
+                  Confirm outcome
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleAdjust}
+                  disabled={submitting}
+                >
+                  Adjust outcome
+                </Button>
+              </>
+            )
+          }
+        />
     </div>
   );
 };
