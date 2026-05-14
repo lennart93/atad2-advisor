@@ -16,6 +16,7 @@ import { validate, type ValidatorResult } from '@/lib/structure/validator';
 import { wrapLabels, NODE_HEIGHT } from '@/lib/structure/labelMeasure';
 import {
   loadChart,
+  saveChartSnapshot,
   listGroupings,
   upsertEntity,
   deleteEntity,
@@ -31,6 +32,8 @@ import {
 } from '@/lib/structure/client';
 import { useFlowEditHistory, type FlowEditSnapshot } from './flowEditing/useFlowEditHistory';
 import { startExtraction, pollUntilTerminal } from '@/lib/structure/extraction';
+import { captureChartSnapshot } from '@/lib/structure/captureChartSnapshot';
+import type { Node } from '@xyflow/react';
 import type {
   StructureChart as Chart,
   StructureEntity,
@@ -107,6 +110,12 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
   const [expandedClusters, setExpandedClusters] = useState<Set<string>>(new Set());
   const [clusterLayout, setClusterLayout] = useState<ClusterLayout>([]);
   const activeClustersRef = useRef<Cluster[]>([]);
+  // Capture API handed up from StructureChart on init — used by goNext to grab
+  // a transparent PNG of the whole chart before finalizing.
+  const captureApiRef = useRef<{
+    getViewportEl: () => HTMLElement | null;
+    getNodes: () => Node[];
+  } | null>(null);
   const [focusedEntityIds, setFocusedEntityIds] = useState<Set<string>>(new Set());
   const [showOrphans, setShowOrphans] = useState(false);
   const [tierResult, setTierResult] = useState<TierLayoutResult | null>(null);
@@ -769,7 +778,23 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
   };
 
   const goNext = async () => {
-    if (chart) await finalizeChart(chart.id);
+    if (chart) {
+      // Capture a transparent PNG of the whole chart and persist it. Fully
+      // non-blocking: a null snapshot or a save failure must never stop the
+      // user from continuing to the report.
+      const api = captureApiRef.current;
+      const snapshot = api
+        ? await captureChartSnapshot(api.getViewportEl(), api.getNodes())
+        : null;
+      if (snapshot) {
+        try {
+          await saveChartSnapshot(chart.id, snapshot);
+        } catch (err) {
+          console.warn('[StructureChartStep] snapshot save failed', err);
+        }
+      }
+      await finalizeChart(chart.id);
+    }
     navigate(`/assessment-confirmation/${sessionId}`);
   };
 
@@ -899,6 +924,9 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
                 onFlowRemoveWaypoint={handleFlowRemoveWaypoint}
                 onFlowReconnect={handleFlowReconnect}
                 onFlowResetRouting={handleFlowResetRouting}
+                onCaptureReady={(api) => {
+                  captureApiRef.current = api;
+                }}
               />
 
               <FloatingPalette

@@ -29,6 +29,7 @@ export function FloatingInspector({
       className="absolute top-4 right-4 z-10 w-72 max-h-[calc(100vh-8rem)] overflow-y-auto bg-white border border-neutral-200 rounded-lg shadow-lg p-3"
       role="dialog"
       aria-label="Inspector"
+      data-snapshot-exclude="true"
     >
       <div className="flex justify-end -mt-1 -mr-1 mb-2">
         <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close inspector">

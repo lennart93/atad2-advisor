@@ -13,6 +13,7 @@ import {
   type Connection,
   type NodeChange,
   type Edge,
+  type Node,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { EntityNode, type EntityNodeData, type EntityNodeType, type WarningBadge } from './nodes/EntityNode';
@@ -72,6 +73,14 @@ export interface StructureChartProps {
   onFlowRemoveWaypoint: (bundleId: string, points: RoutedFlowPoint[]) => void;
   onFlowReconnect: (bundleId: string, newFrom: string, newTo: string) => void;
   onFlowResetRouting: (bundleId: string) => void;
+  /**
+   * Called once on init with a stable accessor API the parent can use at
+   * capture time to grab the live ReactFlow viewport element and node array.
+   */
+  onCaptureReady?: (api: {
+    getViewportEl: () => HTMLElement | null;
+    getNodes: () => Node[];
+  }) => void;
 }
 
 export function StructureChart(props: StructureChartProps) {
@@ -231,6 +240,20 @@ function StructureChartInner(props: StructureChartProps) {
   // (after auto-layout runs, after polling refresh, etc.). The static `fitView`
   // prop on <ReactFlow> only fits at mount.
   const reactFlow = useReactFlow();
+
+  // Snapshot capture wiring: expose the live viewport element + node array to
+  // the parent through the onCaptureReady callback, fired once on init.
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const { onCaptureReady } = props;
+  useEffect(() => {
+    if (!onCaptureReady) return;
+    onCaptureReady({
+      getViewportEl: () =>
+        wrapperRef.current?.querySelector<HTMLElement>('.react-flow__viewport') ?? null,
+      getNodes: () => reactFlow.getNodes(),
+    });
+  }, [onCaptureReady, reactFlow]);
+
   const positionSig = useMemo(
     () => initialNodes.map((n) => `${n.id}:${n.position.x},${n.position.y}`).join('|'),
     [initialNodes],
@@ -283,7 +306,7 @@ function StructureChartInner(props: StructureChartProps) {
   }, [contextMenu]);
 
   return (
-    <div className="flex-1 w-full h-full" style={{ background: '#ffffff', width: '100%', height: '100%' }}>
+    <div ref={wrapperRef} className="flex-1 w-full h-full" style={{ background: '#ffffff', width: '100%', height: '100%' }}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
