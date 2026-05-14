@@ -9,6 +9,7 @@ import { FloatingPalette } from './FloatingPalette';
 import { FloatingInspector } from './FloatingInspector';
 import { FloatingToolbar } from './FloatingToolbar';
 import { BlockingBanner } from './BlockingBanner';
+import { StructureContextPanel } from './StructureContextPanel';
 import { exportToPptx } from './exports/exportToPptx';
 import { tierLayout, clusterId, type PositionedEntity, type TierLayoutResult } from '@/lib/structure/tierLayout';
 import { groupNonRelevantSiblings, deriveClusterName, type Cluster } from '@/lib/structure/relevance';
@@ -888,7 +889,8 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
             />
           ) : (
             <>
-              <div className="absolute inset-0 hidden lg:block">
+              <div className="absolute inset-0 hidden lg:flex">
+                <div className="relative flex-1">
                 <StructureChart
                   entities={renderEntities}
                 edges={renderableEdges}
@@ -976,6 +978,18 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
                 snapEnabled={snapEnabled}
                 onToggleSnap={() => setSnapEnabled((v) => !v)}
               />
+                </div>
+
+                <StructureContextPanel
+                  sessionId={sessionId}
+                  warnings={
+                    (chart?.warnings as Array<{ stage: number; message: string }>) ?? []
+                  }
+                  entityCount={visibleEntities.length}
+                  taxpayerName={
+                    visibleEntities.find((e) => e.is_taxpayer)?.name ?? null
+                  }
+                />
               </div>
 
               <div className="flex h-full items-center justify-center p-8 text-center lg:hidden">
