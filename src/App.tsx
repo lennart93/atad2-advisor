@@ -26,6 +26,7 @@ const ReportDetail = lazy(() => import("./pages/ReportDetail"));
 const EmailConfirmed = lazy(() => import("./pages/EmailConfirmed"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const AppLayout = lazy(() => import("./pages/AppLayout"));
+const AssessmentShell = lazy(() => import("./components/assessment/AssessmentShell"));
 
 // Admin routes
 const AdminLayout = lazy(() => import("./pages/admin/AdminLayout"));
@@ -71,11 +72,13 @@ const App = () => (
 
                   <Route element={<AppLayout />}>
                     <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-                    <Route path="/assessment" element={<ProtectedRoute><Assessment /></ProtectedRoute>} />
-                    <Route path="/assessment/upload" element={<ProtectedRoute><AssessmentUpload /></ProtectedRoute>} />
-                    <Route path="/assessment/structure/:sessionId" element={<ProtectedRoute><AssessmentStructure /></ProtectedRoute>} />
-                    <Route path="/assessment-confirmation/:sessionId" element={<ProtectedRoute><AssessmentConfirmation /></ProtectedRoute>} />
-                    <Route path="/assessment-report/:sessionId" element={<ProtectedRoute><AssessmentReport /></ProtectedRoute>} />
+                    <Route element={<AssessmentShell />}>
+                      <Route path="/assessment" element={<ProtectedRoute><Assessment /></ProtectedRoute>} />
+                      <Route path="/assessment/upload" element={<ProtectedRoute><AssessmentUpload /></ProtectedRoute>} />
+                      <Route path="/assessment/structure/:sessionId" element={<ProtectedRoute><AssessmentStructure /></ProtectedRoute>} />
+                      <Route path="/assessment-confirmation/:sessionId" element={<ProtectedRoute><AssessmentConfirmation /></ProtectedRoute>} />
+                      <Route path="/assessment-report/:sessionId" element={<ProtectedRoute><AssessmentReport /></ProtectedRoute>} />
+                    </Route>
                     <Route path="/report/:reportId" element={<ProtectedRoute><ReportDetail /></ProtectedRoute>} />
 
                     <Route path="/admin" element={<ProtectedRoute><AdminRoute><AdminLayout /></AdminRoute></ProtectedRoute>}>
