@@ -48,19 +48,14 @@ scp -i "$KEY" \
   "$HOST":"$REMOTE_FN_DIR/"
 
 echo "==> Configuring ANTHROPIC_API_KEY (skipped if already present)"
-# Read the key from local .env.local if present, otherwise prompt.
+# Use the key from local .env.local if present. If it isn't, that's fine —
+# the VM almost always already has the key; we only error if NEITHER has it.
 ANTHROPIC_KEY=""
 if [[ -f .env.local ]] && grep -q '^ANTHROPIC_API_KEY=' .env.local; then
   ANTHROPIC_KEY="$(grep '^ANTHROPIC_API_KEY=' .env.local | cut -d= -f2-)"
   echo "    Found ANTHROPIC_API_KEY in .env.local"
 else
-  echo "    Paste your Anthropic API key (starts with sk-ant-), then press Enter:"
-  read -r ANTHROPIC_KEY
-fi
-
-if [[ -z "$ANTHROPIC_KEY" ]]; then
-  echo "ERROR: ANTHROPIC_API_KEY is empty. Aborting."
-  exit 1
+  echo "    No ANTHROPIC_API_KEY in .env.local — will rely on the VM's existing key."
 fi
 
 ssh -i "$KEY" "$HOST" bash <<EOF
@@ -69,9 +64,13 @@ cd ~/supabase/docker
 touch .env
 if grep -q '^ANTHROPIC_API_KEY=' .env; then
   echo "    VM .env already has ANTHROPIC_API_KEY — leaving as-is."
-else
+elif [[ -n "$ANTHROPIC_KEY" ]]; then
   echo "ANTHROPIC_API_KEY=$ANTHROPIC_KEY" >> .env
   echo "    Appended ANTHROPIC_API_KEY to VM .env"
+else
+  echo "ERROR: VM .env has no ANTHROPIC_API_KEY and none was provided locally."
+  echo "       Add ANTHROPIC_API_KEY=sk-ant-... to .env.local and re-run."
+  exit 1
 fi
 EOF
 
