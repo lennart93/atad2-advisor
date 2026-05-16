@@ -3,10 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
-import { FileUp } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { ASSESSMENT_STEPS, stepIndexForPath } from '@/lib/assessment/steps';
 import { useAssessmentSessionId } from '@/lib/assessment/useAssessmentSessionId';
@@ -70,44 +67,8 @@ export default function AssessmentShell() {
       <div className="flex h-[calc(100vh-4rem)] min-w-[1024px] flex-col">
         {/* Sub-header */}
         <div className="shrink-0 border-b border-[hsl(var(--border-subtle))] bg-background">
-          <div className="mx-auto max-w-4xl px-4 py-3">
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-                  ATAD2 assessment
-                </p>
-                {/* DD1 — skeleton, not 'New assessment', while the session loads */}
-                {sessionId && !session ? (
-                  <Skeleton className="mt-0.5 h-6 w-48" />
-                ) : (
-                  <h2 className="truncate text-lg font-semibold tracking-tight">
-                    {session?.taxpayer_name ?? 'New assessment'}
-                  </h2>
-                )}
-                {sessionId && (
-                  <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
-                    {sessionId}
-                    {session?.status && (
-                      <><span className="mx-1.5">·</span>{session.status}</>
-                    )}
-                  </p>
-                )}
-              </div>
-              {sessionId && currentStep > 1 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={openDocuments}
-                  className="shrink-0 transition-all duration-fast"
-                >
-                  <FileUp className="mr-2 h-4 w-4" />
-                  Add documents
-                </Button>
-              )}
-            </div>
-            <div className="mt-3">
-              <AssessmentStepper current={currentStep} />
-            </div>
+          <div className="mx-auto max-w-6xl px-4 py-3">
+            <AssessmentStepper current={currentStep} />
           </div>
         </div>
 
@@ -134,7 +95,7 @@ export default function AssessmentShell() {
             className={cn(
               stepDef?.fullBleed
                 ? 'flex-1'
-                : cn('mx-auto px-4 py-6', stepDef?.wide ? 'max-w-7xl' : 'max-w-4xl'),
+                : cn('mx-auto px-4 py-6', stepDef?.wide ? 'max-w-7xl' : 'max-w-6xl'),
             )}
           >
             <Outlet />
