@@ -1884,16 +1884,9 @@ const Assessment = () => {
 
   return (
     <div>
-        <div className="mb-8">
-          <Button variant="outline" onClick={() => navigate("/")} className="transition-all duration-fast">
-            ← Back to dashboard
-          </Button>
-        </div>
-
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           <div className="lg:col-span-1">
             <AssessmentSidebar
-              sessionId={sessionId || null}
               answers={answers}
               questionHistory={questionFlow.map(entry => ({
                 question: {
