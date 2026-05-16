@@ -1,10 +1,8 @@
 import { Circle, Check, X, HelpCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEffect, useRef } from "react";
-import { useAllPrefills, usePrefillJob } from "@/hooks/usePrefill";
 
 interface AssessmentSidebarProps {
-  sessionId?: string | null;
   answers: Record<string, string>;
   questionHistory: Array<{
     question: {
@@ -28,16 +26,7 @@ interface AssessmentSidebarProps {
   onPendingQuestionClick?: () => void;
 }
 
-export function AssessmentSidebar({ sessionId, answers, questionHistory, currentQuestion, pendingQuestion, onQuestionClick, onPendingQuestionClick }: AssessmentSidebarProps) {
-  const { data: prefills } = useAllPrefills(sessionId ?? null);
-  const { data: job } = usePrefillJob(sessionId ?? null);
-  const activeSuggestions = (prefills ?? []).filter((p) => p.user_action !== "dismissed" && p.user_action !== "moved_to_additional_context").length;
-
-  let pillContent: string | null = null;
-  const pillTone: "default" | "success" | "warn" = "warn";
-  if (job?.status === "failed") {
-    pillContent = "Analysis failed. Continuing without suggestions.";
-  }
+export function AssessmentSidebar({ answers, questionHistory, currentQuestion, pendingQuestion, onQuestionClick, onPendingQuestionClick }: AssessmentSidebarProps) {
   const totalAnswered = questionHistory.length;
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   
@@ -56,23 +45,6 @@ export function AssessmentSidebar({ sessionId, answers, questionHistory, current
         <p className="text-sm text-muted-foreground mt-1">
           {totalAnswered} questions answered
         </p>
-        {pillContent && (
-          <div
-            className={cn(
-              "text-xs px-3 py-2 rounded mb-3 mt-2",
-              pillTone === "success" && "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
-              pillTone === "warn" && "bg-amber-500/10 text-amber-700 dark:text-amber-400",
-              pillTone === "default" && "bg-muted text-muted-foreground",
-            )}
-          >
-            {pillContent}
-          </div>
-        )}
-        {(prefills?.length ?? 0) > 0 && (
-          <p className="text-xs text-muted-foreground mt-1">
-            <span className="font-mono text-[11px]">{activeSuggestions}</span> pre-fill suggestion{activeSuggestions === 1 ? "" : "s"} available
-          </p>
-        )}
       </div>
       
       {/* Scrollable content */}
