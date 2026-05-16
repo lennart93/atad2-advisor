@@ -103,9 +103,11 @@ const AssessmentConfirmation = () => {
 
       if (error) throw error;
 
-      // If already confirmed, redirect to report
+      // If already confirmed, skip ahead to the structure step (the next step
+      // in the flow). The report itself enforces "must be confirmed first" so
+      // a deep-link to /assessment-report still ends up here if needed.
       if (data.outcome_confirmed) {
-        navigate(`/assessment-report/${sessionId}`);
+        navigate(`/assessment/structure/${sessionId}`);
         return;
       }
 
@@ -164,7 +166,7 @@ const AssessmentConfirmation = () => {
 
       if (error) throw error;
 
-      navigate(`/assessment-report/${sessionId}`);
+      navigate(`/assessment/structure/${sessionId}`);
     } catch (error) {
       console.error('Error confirming outcome:', error);
       toast.error("Error", { description: "Failed to confirm outcome" });
@@ -419,9 +421,9 @@ const AssessmentConfirmation = () => {
                 Cancel
               </Button>
             ) : (
-              <Button variant="outline" onClick={() => navigate("/")}>
+              <Button variant="outline" onClick={() => navigate(`/assessment?session=${sessionId}`)}>
                 <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to dashboard
+                Previous
               </Button>
             )
           }

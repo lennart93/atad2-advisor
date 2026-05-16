@@ -7,6 +7,7 @@ import { useContextPanel } from "@/hooks/useContextPanel";
 import { usePanelController } from "@/hooks/usePanelController";
 import { useHardenedContextLoader } from "@/hooks/useHardenedContextLoader";
 import { useAssessmentStore } from "@/stores/assessmentStore";
+import { useAssessmentProgress } from "@/stores/assessmentProgressStore";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -414,8 +415,12 @@ const Assessment = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentQuestion?.question_id, currentPrefill?.id, selectedAnswer]);
 
-  // Resume path: /assessment?session=<id> returns here from /assessment/upload.
-  // Load the existing session, its answers, and jump into the question flow.
+  // Resume path: /assessment?session=<id> returns here from /assessment/upload,
+  // browser back from /assessment/structure/<id>, or any direct deep-link.
+  // Load the existing session, replay its stored answers through the question
+  // tree to rebuild questionFlow, then drop the user on the next unanswered
+  // question (or the final question with its answer pre-selected, so the
+  // Finish button is available).
   useEffect(() => {
     if (!resumeSessionId || sessionStarted || questions.length === 0 || !user) return;
 
@@ -438,24 +443,114 @@ const Assessment = () => {
           period_end_date: session.period_end_date ?? undefined,
         } as SessionInfo);
 
+        // Load all answers persisted for this session.
+        const { data: dbAnswers } = await supabase
+          .from("atad2_answers")
+          .select("question_id, answer")
+          .eq("session_id", session.session_id);
+        if (cancelled) return;
+
+        const answerMap: Record<string, string> = {};
+        for (const a of dbAnswers ?? []) {
+          if (a.question_id && a.answer) answerMap[a.question_id] = a.answer;
+        }
+
+        // Replay the tree from Q1, following each answer's next_question_id.
+        const rebuiltFlow: { question: Question; answer: string }[] = [];
+        let cursorQId: string | null | undefined = "1";
+        let nextPending: Question | null = null;
+        let lastAnsweredQ: Question | null = null;
+        let lastAnswer = "";
+        while (cursorQId && cursorQId !== "end") {
+          const ans = answerMap[cursorQId];
+          if (!ans) {
+            nextPending =
+              questions.find((q) => q.question_id === cursorQId && q.answer_option === "Yes") ?? null;
+            break;
+          }
+          const qOpt = questions.find(
+            (q) => q.question_id === cursorQId && q.answer_option === ans,
+          );
+          if (!qOpt) break;
+          rebuiltFlow.push({ question: qOpt, answer: ans });
+          lastAnsweredQ = qOpt;
+          lastAnswer = ans;
+          cursorQId = qOpt.next_question_id;
+        }
+
         store.clearAllSessions();
         setSessionId(session.session_id);
         setSessionStarted(true);
-        setSelectedAnswer("");
-        setQuestionFlow([]);
+        setAnswers(answerMap);
+        setQuestionFlow(rebuiltFlow);
         setNavigationIndex(-1);
 
-        const firstQuestion = questions.find(q => q.question_id === "1" && q.answer_option === "Yes");
-        if (firstQuestion) {
-          setCurrentQuestion(firstQuestion);
-          setPendingQuestion(firstQuestion);
+        if (nextPending) {
+          setCurrentQuestion(nextPending);
+          setPendingQuestion(nextPending);
+          setSelectedAnswer("");
+        } else if (lastAnsweredQ) {
+          // All questions answered through to "end" — land on the last one
+          // with its answer restored so the Finish button is visible.
+          setCurrentQuestion(lastAnsweredQ);
+          setPendingQuestion(null);
+          setSelectedAnswer(lastAnswer);
+        } else {
+          const firstQuestion = questions.find(
+            (q) => q.question_id === "1" && q.answer_option === "Yes",
+          );
+          if (firstQuestion) {
+            setCurrentQuestion(firstQuestion);
+            setPendingQuestion(firstQuestion);
+          }
+          setSelectedAnswer("");
         }
       } catch (e) {
         console.error("Resume session failed", e);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [resumeSessionId, sessionStarted, questions.length, user, store]);
+
+  // Publish a subtle progress signal to the app header while answering questions.
+  // expectedTotal = answered so far + forecast walking the next_question_id chain
+  // from the current question, biased by the selected answer where known.
+  const setProgress = useAssessmentProgress((s) => s.setProgress);
+  const clearProgress = useAssessmentProgress((s) => s.clearProgress);
+  useEffect(() => {
+    if (!sessionStarted || !currentQuestion || questions.length === 0) {
+      clearProgress();
+      return;
+    }
+    const alreadyCounted = new Set(questionFlow.map((e) => e.question.question_id));
+    let forwardCount = 0;
+    let cursorQId: string | null | undefined = currentQuestion.question_id;
+    let cursorAnswer: string | undefined = selectedAnswer || undefined;
+    const visited = new Set<string>();
+    while (cursorQId && cursorQId !== "end" && !visited.has(cursorQId)) {
+      visited.add(cursorQId);
+      if (!alreadyCounted.has(cursorQId)) forwardCount++;
+      const branches = questions.filter((q) => q.question_id === cursorQId);
+      if (branches.length === 0) break;
+      const chosen =
+        branches.find((b) => b.answer_option === cursorAnswer) ?? branches[0];
+      cursorQId = chosen.next_question_id;
+      cursorAnswer = undefined;
+    }
+    const answered = questionFlow.length;
+    setProgress({ answered, expectedTotal: answered + forwardCount });
+  }, [
+    sessionStarted,
+    currentQuestion,
+    selectedAnswer,
+    questionFlow,
+    questions,
+    setProgress,
+    clearProgress,
+  ]);
+  useEffect(() => () => clearProgress(), [clearProgress]);
 
   // Context state is now managed by useContextPanel hook
 
@@ -719,8 +814,9 @@ const Assessment = () => {
 
       // Per-question suggestions are reviewed on the assessment report page,
       // where each answer can be edited inline. Skip the standalone review
-      // step entirely.
-      navigate(`/assessment/structure/${sessionId}`);
+      // step entirely. Confirmation gates the structure step — the user
+      // confirms the preliminary outcome BEFORE drawing the chart.
+      navigate(`/assessment-confirmation/${sessionId}`);
     } catch (error) {
       console.error('Error completing assessment:', error);
       toast.error("Error", {
@@ -856,13 +952,18 @@ const Assessment = () => {
           setIsTransitioning(true);
           setTimeout(async () => {
             console.log(`🚀 Navigating from Q${currentQuestion.question_id} to Q${nextQuestion.question_id}`);
+            // Clear the prior question's answer BEFORE rendering the new question.
+            // Without this, the intermediate render (new currentQuestion + stale
+            // selectedAnswer) makes shouldShowFinishButton briefly true, flashing
+            // the Finish button when arriving on the last question.
+            setSelectedAnswer("");
             setCurrentQuestion(nextQuestion);
             setPendingQuestion(nextQuestion); // Update pending question
-            
+
             // Restore existing answer if any
             const existingAnswer = await restoreExistingAnswer(nextQuestion.question_id);
-            setSelectedAnswer(existingAnswer);
-            
+            if (existingAnswer) setSelectedAnswer(existingAnswer);
+
             setIsTransitioning(false);
           }, 300);
         }
@@ -1357,13 +1458,17 @@ const Assessment = () => {
           
           setIsTransitioning(true);
           setTimeout(async () => {
+            // Clear the prior answer BEFORE the new question renders, otherwise
+            // the intermediate render (new currentQuestion + stale selectedAnswer)
+            // briefly flashes the Finish button on the last question.
+            setSelectedAnswer("");
             setCurrentQuestion(nextQuestion);
             setPendingQuestion(nextQuestion);
-            
+
             // Restore existing answer if any
             const existingAnswer = await restoreExistingAnswer(nextQuestion.question_id);
-            setSelectedAnswer(existingAnswer);
-            
+            if (existingAnswer) setSelectedAnswer(existingAnswer);
+
             setIsTransitioning(false);
           }, 300);
         } else {
@@ -1921,9 +2026,6 @@ const Assessment = () => {
                   transition={{ duration: 0.32, ease: [0.2, 0, 0, 1] }}
                   className="max-w-[640px] mx-auto"
                 >
-                  <div className="font-mono text-[11px] text-muted-foreground uppercase tracking-wide mb-1">
-                    Question {currentQuestion.question_id}
-                  </div>
                   {currentQuestion.question_title && (
                     <div className="mb-3">
                       <h2 className="text-sm uppercase tracking-[0.14em] font-medium text-muted-foreground">
@@ -1947,7 +2049,18 @@ const Assessment = () => {
                      {currentQuestionOptions.map((option, index) => {
                        const isSelected = selectedAnswer === option.answer_option;
                        const answerType = option.answer_option.toLowerCase();
-                       
+
+                       // Cross-question logical constraints. A taxpayer is either
+                       // resident (Q1) or non-resident (Q2) — not both. So if Q1
+                       // was answered "No", lock out "No" on Q2.
+                       const lockedReason: string | null =
+                         currentQuestion?.question_id === "2" &&
+                         answers["1"] === "No" &&
+                         option.answer_option === "No"
+                           ? "You already answered No to resident taxpayer, so this can't also be No."
+                           : null;
+                       const isLockedOut = !!lockedReason;
+
                        // Get styling based on answer type
                        const getAnswerStyle = () => {
                          switch (answerType) {
@@ -1985,14 +2098,18 @@ const Assessment = () => {
                            key={index}
                            type="button"
                            onClick={() => handleAnswerSelect(option.answer_option)}
-                           disabled={loading || isTransitioning}
+                           disabled={loading || isTransitioning || isLockedOut}
+                           aria-disabled={isLockedOut || undefined}
+                           title={lockedReason ?? undefined}
                            className={`
                              w-full p-4 rounded-lg border-2 transition-all duration-normal ease-emphasized text-left
-                             ${isSelected
+                             ${isLockedOut
+                               ? 'border-dashed border-[hsl(var(--border-default))] bg-muted/40 opacity-60 cursor-not-allowed'
+                               : isSelected
                                ? selectedBg
                                : `border-border ${hoverBg}`
                              }
-                             ${loading || isTransitioning ? 'opacity-50 cursor-not-allowed' : ''}
+                             ${!isLockedOut && (loading || isTransitioning) ? 'opacity-50 cursor-not-allowed' : ''}
                              focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
                            `}
                          >
@@ -2016,7 +2133,7 @@ const Assessment = () => {
                                )}
                                {/* Show "Previously answered" only for original submitted answers, not modified ones */}
                                {isSelected && isViewingAnsweredQuestion && (() => {
-                                 const originalAnswer = questionFlow.find(entry => 
+                                 const originalAnswer = questionFlow.find(entry =>
                                    entry.question.question_id === currentQuestion?.question_id
                                  )?.answer;
                                  const isOriginalAnswer = selectedAnswer === originalAnswer;
@@ -2027,6 +2144,11 @@ const Assessment = () => {
                                  );
                                })()}
                              </div>
+                             {lockedReason && (
+                               <p className="mt-2 text-xs italic text-muted-foreground">
+                                 {lockedReason}
+                               </p>
+                             )}
                            </button>
                          );
                        })}

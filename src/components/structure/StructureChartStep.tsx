@@ -9,7 +9,6 @@ import { FloatingPalette } from './FloatingPalette';
 import { FloatingInspector } from './FloatingInspector';
 import { FloatingToolbar } from './FloatingToolbar';
 import { BlockingBanner } from './BlockingBanner';
-import { StructureContextPanel } from './StructureContextPanel';
 import { exportToPptx } from './exports/exportToPptx';
 import { tierLayout, clusterId, type PositionedEntity, type TierLayoutResult } from '@/lib/structure/tierLayout';
 import { groupNonRelevantSiblings, deriveClusterName, type Cluster } from '@/lib/structure/relevance';
@@ -796,7 +795,7 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
       }
       await finalizeChart(chart.id);
     }
-    navigate(`/assessment-confirmation/${sessionId}`);
+    navigate(`/assessment-report/${sessionId}`);
   };
 
   const isExtracting = typeof status === 'string' && status.startsWith('extracting:');
@@ -812,11 +811,11 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
         left={
           <Button
             variant="outline"
-            onClick={() => navigate(-1)}
+            onClick={() => navigate(`/assessment-confirmation/${sessionId}`)}
             className="transition-all duration-fast"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Back
+            Previous
           </Button>
         }
         right={
@@ -843,7 +842,7 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
                 onSkipRemaining={chart ? async () => {
                   await forceDraftReady(
                     chart.id,
-                    'Stage 3 (transactions) skipped by user — extraction was taking too long.',
+                    'Stage 3 (transactions) skipped by user. Extraction was taking too long.',
                   );
                   // Refresh chart state so the UI flips to draft_ready immediately.
                   const refreshed = await loadChart(sessionId);
@@ -979,17 +978,6 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
                 onToggleSnap={() => setSnapEnabled((v) => !v)}
               />
                 </div>
-
-                <StructureContextPanel
-                  sessionId={sessionId}
-                  warnings={
-                    (chart?.warnings as Array<{ stage: number; message: string }>) ?? []
-                  }
-                  entityCount={visibleEntities.length}
-                  taxpayerName={
-                    visibleEntities.find((e) => e.is_taxpayer)?.name ?? null
-                  }
-                />
               </div>
 
               <div className="flex h-full items-center justify-center p-8 text-center lg:hidden">
