@@ -8,13 +8,42 @@ import {
 
 interface QuestionExplanationInlineProps {
   explanation: string | null;
+  contextualHint?: string | null;
 }
 
-export const QuestionExplanationInline = ({ explanation }: QuestionExplanationInlineProps) => {
+// Render one text block (the static explanation or the AI hint) with the same
+// dash-bullet + paragraph-break handling we had before.
+const renderBlock = (text: string) =>
+  text.split("\n").map((line, index) => {
+    const trimmedLine = line.trim();
+
+    if (trimmedLine.startsWith("-")) {
+      const bulletText = trimmedLine.substring(1).trim();
+      return (
+        <div key={index} className="flex gap-2 ml-4 my-1">
+          <span className="text-primary">•</span>
+          <span>{bulletText}</span>
+        </div>
+      );
+    }
+
+    if (trimmedLine === "") {
+      return <div key={index} className="h-3" />;
+    }
+
+    return <p key={index} className="my-1">{line}</p>;
+  });
+
+export const QuestionExplanationInline = ({
+  explanation,
+  contextualHint,
+}: QuestionExplanationInlineProps) => {
   const [isOpen, setIsOpen] = useState(false);
 
-  // Don't render if no explanation
-  if (!explanation || explanation.trim() === "") {
+  const hasExplanation = !!explanation && explanation.trim() !== "";
+  const hasHint = !!contextualHint && contextualHint.trim() !== "";
+
+  if (!hasExplanation && !hasHint) {
     return null;
   }
 
@@ -23,32 +52,13 @@ export const QuestionExplanationInline = ({ explanation }: QuestionExplanationIn
       <CollapsibleContent className="overflow-hidden data-[state=open]:animate-collapsible-down data-[state=closed]:animate-collapsible-up">
         <div className="mb-3 p-4 bg-blue-50/50 border border-blue-100 rounded-lg">
           <div className="text-sm leading-relaxed text-foreground">
-            {explanation.split('\n').map((line, index) => {
-              const trimmedLine = line.trim();
-              
-              // Check if line starts with a dash (bullet point)
-              if (trimmedLine.startsWith('-')) {
-                const bulletText = trimmedLine.substring(1).trim();
-                return (
-                  <div key={index} className="flex gap-2 ml-4 my-1">
-                    <span className="text-primary">•</span>
-                    <span>{bulletText}</span>
-                  </div>
-                );
-              }
-              
-              // Empty line = paragraph break
-              if (trimmedLine === '') {
-                return <div key={index} className="h-3" />;
-              }
-              
-              // Regular paragraph
-              return <p key={index} className="my-1">{line}</p>;
-            })}
+            {hasExplanation && renderBlock(explanation!)}
+            {hasExplanation && hasHint && <div className="h-3" />}
+            {hasHint && renderBlock(contextualHint!)}
           </div>
         </div>
       </CollapsibleContent>
-      
+
       <div className="flex justify-end">
         <CollapsibleTrigger asChild>
           <button
