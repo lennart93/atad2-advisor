@@ -39,7 +39,7 @@ export interface QuestionPrefill {
   id: string;
   session_id: string;
   question_id: string;
-  suggested_toelichting: string;
+  suggested_toelichting: string | null;
   source_refs: SourceRef[];
   verbatim_quote: string | null;
   user_action: PrefillUserAction;
@@ -48,6 +48,7 @@ export interface QuestionPrefill {
   suggested_answer: "yes" | "no" | "unknown" | null;
   confidence_pct: number | null;
   answer_rationale: string | null;
+  contextual_hint: string | null;
 }
 
 export type PrefillJobStatus =
