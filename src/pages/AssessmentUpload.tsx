@@ -11,6 +11,7 @@ import { AssessmentFooterSlot } from "@/components/assessment/AssessmentFooterSl
 import { useAssessmentSessionMeta } from "@/components/assessment/AssessmentShellContext";
 import { useAssessmentSessionId } from "@/lib/assessment/useAssessmentSessionId";
 import { ArrowRight } from "lucide-react";
+import { maybePrewarmPhaseA } from "@/lib/structure/phaseAPrewarm";
 
 export default function AssessmentUpload() {
   const sessionId = useAssessmentSessionId();
@@ -30,6 +31,7 @@ export default function AssessmentUpload() {
   const hasAtLeastOneUploaded = (docs?.length ?? 0) > 0;
 
   const handleContinue = () => {
+    void maybePrewarmPhaseA(sessionId);
     startAnalyze.mutate(undefined, {
       onError: (e) => console.warn("[continue] analyze dispatch failed", e),
     });
@@ -77,7 +79,10 @@ export default function AssessmentUpload() {
         left={
           <Button
             variant="outline"
-            onClick={() => navigate(`/assessment?session=${sessionId}`)}
+            onClick={() => {
+              void maybePrewarmPhaseA(sessionId);
+              navigate(`/assessment?session=${sessionId}`);
+            }}
             className="transition-all duration-fast"
           >
             {hasAtLeastOneUploaded ? 'Skip suggestions' : 'Skip'}
