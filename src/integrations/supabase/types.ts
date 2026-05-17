@@ -216,12 +216,13 @@ export type Database = {
           question_id: string
           session_id: string
           source_refs: Json
-          suggested_toelichting: string
+          suggested_toelichting: string | null
           user_action: string
           verbatim_quote: string | null
           suggested_answer: "yes" | "no" | "unknown" | null
           confidence_pct: number | null
           answer_rationale: string | null
+          contextual_hint: string | null
         }
         Insert: {
           actioned_at?: string | null
@@ -230,12 +231,13 @@ export type Database = {
           question_id: string
           session_id: string
           source_refs: Json
-          suggested_toelichting: string
+          suggested_toelichting?: string | null
           user_action?: string
           verbatim_quote?: string | null
           suggested_answer?: "yes" | "no" | "unknown" | null
           confidence_pct?: number | null
           answer_rationale?: string | null
+          contextual_hint?: string | null
         }
         Update: {
           actioned_at?: string | null
@@ -244,12 +246,13 @@ export type Database = {
           question_id?: string
           session_id?: string
           source_refs?: Json
-          suggested_toelichting?: string
+          suggested_toelichting?: string | null
           user_action?: string
           verbatim_quote?: string | null
           suggested_answer?: "yes" | "no" | "unknown" | null
           confidence_pct?: number | null
           answer_rationale?: string | null
+          contextual_hint?: string | null
         }
         Relationships: [
           {
