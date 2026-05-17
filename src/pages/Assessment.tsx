@@ -806,9 +806,11 @@ const Assessment = () => {
       });
 
       // Pre-fetch Phase B of the structure-chart extraction (refine + transactions)
-      // so the user doesn't wait on Step 5. Phase A (entities + ownership from docs
-      // alone) already ran at upload time via useStartAnalyze. Fire-and-forget.
+      // so the user doesn't wait on Step 5. Phase A runs at the Documents → Questions
+      // transition via maybePrewarmPhaseA. 409 here is expected when Phase A is
+      // still in flight — the backend self-chain will fire Phase B on A's completion.
       startExtraction(sessionId, 'refine_and_transactions').catch((err) => {
+        if ((err as { status?: number })?.status === 409) return;
         console.warn('[Assessment] Phase B pre-fetch failed; Step 5 will retry', err);
       });
 
