@@ -123,6 +123,17 @@ async function runExtractionPipeline(
   try {
     if (phase === "docs_only") {
       await runPhaseA(serviceClient, chartId, sessionId);
+      // Self-chain into Phase B when answers already exist (user finished
+      // Questions faster than Phase A completed). Same isolate, same
+      // EdgeRuntime.waitUntil budget — no second HTTP hop.
+      if (await hasQaAnswers(serviceClient, sessionId)) {
+        console.log(JSON.stringify({
+          level: "info",
+          event: "phase_a_self_chain_to_b",
+          chart_id: chartId,
+        }));
+        await runPhaseB(serviceClient, chartId, sessionId);
+      }
     } else {
       await runPhaseB(serviceClient, chartId, sessionId);
     }
@@ -255,6 +266,14 @@ async function loadTaxpayerName(client: SupabaseClient, sessionId: string): Prom
     .eq("session_id", sessionId)
     .single();
   return data?.taxpayer_name ?? "";
+}
+
+async function hasQaAnswers(client: SupabaseClient, sessionId: string): Promise<boolean> {
+  const { count } = await client
+    .from("atad2_answers")
+    .select("id", { count: "exact", head: true })
+    .eq("session_id", sessionId);
+  return (count ?? 0) > 0;
 }
 
 // ----- Stage runners (shared by Phase A and Phase B) -----
