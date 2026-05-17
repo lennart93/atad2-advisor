@@ -53,3 +53,64 @@ Deno.test("SwarmPrefill rejects rationale over 200 chars", () => {
     source_refs: [{ doc_label: "Doc", location: "p.1" }],
   }));
 });
+
+Deno.test("SwarmPrefill accepts hint-only payload (no answer, no toelichting)", () => {
+  const parsed = SwarmPrefill.parse({
+    suggested_answer: null,
+    confidence_pct: null,
+    answer_rationale: null,
+    suggested_toelichting: null,
+    source_refs: [],
+    contextual_hint: "Confirmation is needed from the participating shareholders.",
+  });
+  assertEquals(parsed.suggested_toelichting, null);
+  assertEquals(parsed.contextual_hint, "Confirmation is needed from the participating shareholders.");
+});
+
+Deno.test("SwarmPrefill accepts toelichting-only payload (no hint)", () => {
+  const parsed = SwarmPrefill.parse({
+    suggested_answer: "yes",
+    confidence_pct: 82,
+    answer_rationale: "Camden B.V. pays disregarded royalties to a US LLC.",
+    suggested_toelichting: "Camden B.V. is a Dutch BV that ...",
+    source_refs: [{ doc_label: "Local file 2025", location: "§3.2 p.14" }],
+    contextual_hint: null,
+  });
+  assertEquals(parsed.suggested_toelichting, "Camden B.V. is a Dutch BV that ...");
+  assertEquals(parsed.contextual_hint, null);
+});
+
+Deno.test("SwarmPrefill drops contextual_hint when both fields populated (toelichting wins)", () => {
+  const parsed = SwarmPrefill.parse({
+    suggested_answer: "yes",
+    confidence_pct: 82,
+    answer_rationale: "x",
+    suggested_toelichting: "Real toelichting content.",
+    source_refs: [{ doc_label: "Doc", location: "p.1" }],
+    contextual_hint: "This should be dropped.",
+  });
+  assertEquals(parsed.suggested_toelichting, "Real toelichting content.");
+  assertEquals(parsed.contextual_hint, null);
+});
+
+Deno.test("SwarmPrefill rejects when both suggested_toelichting and contextual_hint are null", () => {
+  assertThrows(() => SwarmPrefill.parse({
+    suggested_answer: null,
+    confidence_pct: null,
+    answer_rationale: null,
+    suggested_toelichting: null,
+    source_refs: [],
+    contextual_hint: null,
+  }));
+});
+
+Deno.test("SwarmPrefill rejects contextual_hint over 1000 chars", () => {
+  assertThrows(() => SwarmPrefill.parse({
+    suggested_answer: null,
+    confidence_pct: null,
+    answer_rationale: null,
+    suggested_toelichting: null,
+    source_refs: [],
+    contextual_hint: "x".repeat(1001),
+  }));
+});
