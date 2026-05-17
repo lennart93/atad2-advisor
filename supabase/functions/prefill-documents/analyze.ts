@@ -71,20 +71,24 @@ export async function runAnalyzeOne(
 
     const parsed = extractJson(text, SwarmPrefill);
 
-    const lower = parsed.suggested_toelichting.trim().toLowerCase();
-    if (BAD_LEAD_INS.some((p) => lower.startsWith(p))) {
-      console.warn(JSON.stringify({
-        level: "warn", event: "swarm_one_dropped",
-        session_id: sessionId, question_id: questionId, reason: "bad lead-in",
-      }));
-      return { ok: false, error: "bad lead-in", usage: usage as unknown as Record<string, number> };
-    }
-    if (FORBIDDEN_ANYWHERE.some((p) => lower.includes(p))) {
-      console.warn(JSON.stringify({
-        level: "warn", event: "swarm_one_dropped",
-        session_id: sessionId, question_id: questionId, reason: "forbidden phrase",
-      }));
-      return { ok: false, error: "forbidden phrase", usage: usage as unknown as Record<string, number> };
+    // Only run lead-in / forbidden-phrase guards against suggested_toelichting,
+    // since contextual_hint is allowed to reference documents in advisor voice.
+    if (parsed.suggested_toelichting) {
+      const lower = parsed.suggested_toelichting.trim().toLowerCase();
+      if (BAD_LEAD_INS.some((p) => lower.startsWith(p))) {
+        console.warn(JSON.stringify({
+          level: "warn", event: "swarm_one_dropped",
+          session_id: sessionId, question_id: questionId, reason: "bad lead-in",
+        }));
+        return { ok: false, error: "bad lead-in", usage: usage as unknown as Record<string, number> };
+      }
+      if (FORBIDDEN_ANYWHERE.some((p) => lower.includes(p))) {
+        console.warn(JSON.stringify({
+          level: "warn", event: "swarm_one_dropped",
+          session_id: sessionId, question_id: questionId, reason: "forbidden phrase",
+        }));
+        return { ok: false, error: "forbidden phrase", usage: usage as unknown as Record<string, number> };
+      }
     }
 
     await serviceClient.from("atad2_question_prefills").upsert({
@@ -95,6 +99,7 @@ export async function runAnalyzeOne(
       suggested_answer: parsed.suggested_answer,
       confidence_pct: parsed.confidence_pct,
       answer_rationale: parsed.answer_rationale,
+      contextual_hint: parsed.contextual_hint,
       user_action: "pending",
     }, { onConflict: "session_id,question_id" });
 
