@@ -18,7 +18,11 @@ export async function startExtraction(
     },
     body: JSON.stringify({ session_id: sessionId, phase }),
   });
-  if (!r.ok) throw new Error(`Extraction failed: ${r.status} ${await r.text()}`);
+  if (!r.ok) {
+    const err = new Error(`Extraction failed: ${r.status} ${await r.text()}`) as Error & { status: number };
+    err.status = r.status;
+    throw err;
+  }
   return r.json();
 }
 
