@@ -805,11 +805,12 @@ const Assessment = () => {
         description: "Please confirm your preliminary assessment outcome.",
       });
 
-      // Pre-fetch Phase B of the structure-chart extraction (refine + transactions)
-      // so the user doesn't wait on Step 5. Phase A runs at the Documents → Questions
-      // transition via maybePrewarmPhaseA. 409 here is expected when Phase A is
-      // still in flight — the backend self-chain will fire Phase B on A's completion.
-      startExtraction(sessionId, 'refine_and_transactions').catch((err) => {
+      // Pre-fetch Phase B of the structure-chart extraction (refine pass over
+      // Q&A) so the user doesn't wait on Step 5. Phase A runs at the
+      // Documents → Questions transition via maybePrewarmPhaseA. 409 here is
+      // expected when Phase A is still in flight — the backend self-chain will
+      // fire Phase B on A's completion.
+      startExtraction(sessionId, 'refine').catch((err) => {
         if ((err as { status?: number })?.status === 409) return;
         console.warn('[Assessment] Phase B pre-fetch failed; Step 5 will retry', err);
       });
@@ -2175,17 +2176,19 @@ const Assessment = () => {
                         already picked an answer. */}
                     {docsCount > 0
                       && prefillJob?.status === "completed"
-                      && !currentPrefill
+                      && !currentPrefill?.suggested_answer
                       && selectedAnswer && (
                       <div className="text-xs italic text-muted-foreground mt-3 ml-1 mb-3">
                         No suggestion for this one. You're on your own here.
                       </div>
                     )}
 
-                      {/* Question explanation - inline expandable */}
+                      {/* Question explanation - inline expandable. Appends the AI contextual_hint
+                          seamlessly after the static admin-edited explanation when present. */}
                       <QuestionExplanationInline
-                        key={currentQuestion.question_id} 
-                        explanation={currentQuestion.question_explanation} 
+                        key={currentQuestion.question_id}
+                        explanation={currentQuestion.question_explanation}
+                        contextualHint={currentPrefill?.contextual_hint ?? null}
                       />
 
                       {/* Context section - NEW hardened state machine */}
@@ -2211,7 +2214,7 @@ const Assessment = () => {
                                 </div>
                               </div>
 
-                              {currentPrefill && currentQuestion && (
+                              {currentPrefill?.suggested_toelichting && currentQuestion && (
                                 <SuggestionCard
                                   prefill={currentPrefill}
                                   currentToelichting={contextValue ?? ""}
