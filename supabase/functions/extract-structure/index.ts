@@ -65,6 +65,13 @@ serve(async (req) => {
 
     const chart = await ensureChart(serviceClient, body.session_id);
 
+    if (chart.status && chart.status.startsWith("extracting:")) {
+      return json(
+        { reason: "already_running", chart_id: chart.id, status: chart.status },
+        409,
+      );
+    }
+
     await setStatus(serviceClient, chart.id, "extracting:stage1", { warnings: [] });
 
     // Kick off the extraction in the background and return immediately.
@@ -177,17 +184,17 @@ async function callWithRetry<T>(
 async function ensureChart(client: SupabaseClient, sessionId: string) {
   const { data: existing } = await client
     .from("atad2_structure_charts")
-    .select("id")
+    .select("id, status")
     .eq("session_id", sessionId)
     .maybeSingle();
-  if (existing) return existing;
+  if (existing) return existing as { id: string; status: string | null };
   const { data, error } = await client
     .from("atad2_structure_charts")
     .insert({ session_id: sessionId })
-    .select("id")
+    .select("id, status")
     .single();
   if (error) throw error;
-  return data;
+  return data as { id: string; status: string | null };
 }
 
 async function setStatus(
