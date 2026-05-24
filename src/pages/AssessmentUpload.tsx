@@ -1,6 +1,17 @@
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { AnalyzeProgress } from "@/components/prefill/AnalyzeProgress";
 import { DocumentUploadStep } from "@/components/assessment/DocumentUploadStep";
 import { usePrefillStore } from "@/stores/prefillStore";
@@ -8,7 +19,6 @@ import {
   useSessionDocuments, usePrefillJob, useStartAnalyze,
 } from "@/hooks/usePrefill";
 import { AssessmentFooterSlot } from "@/components/assessment/AssessmentFooterSlot";
-import { useAssessmentSessionMeta } from "@/components/assessment/AssessmentShellContext";
 import { useAssessmentSessionId } from "@/lib/assessment/useAssessmentSessionId";
 import { ArrowRight } from "lucide-react";
 import { maybePrewarmPhaseA } from "@/lib/structure/phaseAPrewarm";
@@ -17,8 +27,6 @@ export default function AssessmentUpload() {
   const sessionId = useAssessmentSessionId();
   const navigate = useNavigate();
   const store = usePrefillStore();
-  const { taxpayerName: rawTaxpayerName } = useAssessmentSessionMeta();
-  const taxpayerName = rawTaxpayerName ?? "the taxpayer";
 
   const { data: docs } = useSessionDocuments(sessionId);
   const { data: job } = usePrefillJob(sessionId);
@@ -47,26 +55,17 @@ export default function AssessmentUpload() {
 
   if (waiting) {
     return (
-      <div className="space-y-6 text-center">
-        <div className="w-full max-w-xl mx-auto space-y-8">
-          <div className="space-y-3">
-            <p className="text-sm uppercase tracking-[0.2em] text-muted-foreground">
-              Preparing your assessment for
-            </p>
-            <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-foreground">
-              {taxpayerName}
-            </h1>
-            <div className="mx-auto h-px w-16 bg-primary/40" />
-          </div>
-          <p className="text-base text-muted-foreground leading-relaxed">
-            Reading your documents to pre-fill answers where possible. The questions
-            will open as soon as suggestions start arriving.
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-xl font-semibold tracking-tight">Reading your documents</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Pre-filling answers where possible. The questions open as soon as suggestions start arriving.
           </p>
-          <AnalyzeProgress
-            sessionId={sessionId}
-            onContinue={() => navigate(`/assessment?session=${sessionId}`)}
-          />
         </div>
+        <AnalyzeProgress
+          sessionId={sessionId}
+          onContinue={() => navigate(`/assessment?session=${sessionId}`)}
+        />
       </div>
     );
   }
@@ -77,16 +76,44 @@ export default function AssessmentUpload() {
 
       <AssessmentFooterSlot
         left={
-          <Button
-            variant="outline"
-            onClick={() => {
-              void maybePrewarmPhaseA(sessionId);
-              navigate(`/assessment?session=${sessionId}`);
-            }}
-            className="transition-all duration-fast"
-          >
-            {hasAtLeastOneUploaded ? 'Skip suggestions' : 'Skip'}
-          </Button>
+          hasAtLeastOneUploaded ? (
+            <Button
+              variant="outline"
+              onClick={() => {
+                void maybePrewarmPhaseA(sessionId);
+                navigate(`/assessment?session=${sessionId}`);
+              }}
+              className="transition-all duration-fast"
+            >
+              Skip suggestions
+            </Button>
+          ) : (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" className="transition-all duration-fast">
+                  Skip
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Skip without uploading documents?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Uploading documents like financial statements, tax returns, or
+                    previous ATAD2 memos significantly helps you complete the
+                    assessment. Are you sure you want to continue without uploading?
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => navigate(`/assessment?session=${sessionId}`)}
+                  >
+                    Continue without documents
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )
         }
         right={
           <Button
