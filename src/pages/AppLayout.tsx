@@ -8,6 +8,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { CommandPalette } from "@/components/CommandPalette";
+import { AssessmentProgressIndicator } from "@/components/AssessmentProgressIndicator";
+import { useAssessmentLeaveGuard } from "@/hooks/useAssessmentLeaveGuard";
 import { cn } from "@/lib/utils";
 
 const AppLayout = () => {
@@ -19,6 +21,8 @@ const AppLayout = () => {
     location.pathname.startsWith("/assessment") ||
     location.pathname.startsWith("/assessment-");
   const isBareRoute = isAdminRoute || isAssessmentRoute;
+
+  useAssessmentLeaveGuard(isAssessmentRoute);
 
   const { hasAccess, isAdmin, isModerator } = useAdminAccess();
 
@@ -73,6 +77,7 @@ const AppLayout = () => {
               )}
             </div>
           </div>
+          <AssessmentProgressIndicator />
           <div className="flex items-center gap-1.5">
             <ThemeToggle />
             {hasAccess ? (

@@ -21,23 +21,27 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/sonner";
 import { FadeIn, MotionPage, StaggerChildren, staggerItem } from "@/components/motion";
 import { formatDate } from "@/utils/formatDate";
+import { resumeUrlForSession } from "@/lib/assessment/resumeUrl";
 
-interface CompletedSession {
+interface SessionListItem {
   id: string;
   session_id: string;
   taxpayer_name: string;
   fiscal_year: string;
   created_at: string;
+  completed: boolean;
+  outcome_confirmed: boolean;
   answer_count: number;
   has_memorandum?: boolean;
   memorandum_date?: string;
+  destination_url: string;
 }
 
 const Index = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
-  const [sessions, setSessions] = useState<CompletedSession[]>([]);
+  const [sessions, setSessions] = useState<SessionListItem[]>([]);
   const [loading, setLoading] = useState(true);
 
 
@@ -57,7 +61,7 @@ const Index = () => {
     try {
       setLoading(true);
 
-      // Get completed sessions with answer counts and memorandum status
+      // All sessions (both in-progress and completed) for this user.
       const { data: sessionsData, error: sessionsError } = await supabase
         .from('atad2_sessions')
         .select(`
@@ -65,15 +69,15 @@ const Index = () => {
           session_id,
           taxpayer_name,
           fiscal_year,
-          created_at
+          created_at,
+          completed,
+          outcome_confirmed
         `)
-        .eq('completed', true)
         .eq('user_id', user!.id)
         .order('created_at', { ascending: false });
 
       if (sessionsError) throw sessionsError;
 
-      // Get answer counts and memorandum status for each session
       const sessionsWithCounts = await Promise.all(
         (sessionsData || []).map(async (session) => {
           const { count } = await supabase
@@ -81,7 +85,6 @@ const Index = () => {
             .select('*', { count: 'exact', head: true })
             .eq('session_id', session.session_id);
 
-          // Check if memorandum exists
           const { data: reportData } = await supabase
             .from('atad2_reports')
             .select('generated_at')
@@ -92,11 +95,25 @@ const Index = () => {
           const hasMemorandum = reportData && reportData.length > 0;
           const memorandumDate = hasMemorandum ? reportData[0].generated_at : null;
 
+          // Where this card should take the user when clicked:
+          //  - in-progress → resume at the right step (derived from data)
+          //  - completed → report (existing behavior)
+          const destination = session.completed
+            ? `/assessment-report/${session.session_id}`
+            : await resumeUrlForSession({
+                session_id: session.session_id,
+                completed: session.completed,
+                outcome_confirmed: session.outcome_confirmed,
+              });
+
           return {
             ...session,
+            completed: Boolean(session.completed),
+            outcome_confirmed: Boolean(session.outcome_confirmed),
             answer_count: count || 0,
             has_memorandum: hasMemorandum,
             memorandum_date: memorandumDate,
+            destination_url: destination,
           };
         })
       );
@@ -192,8 +209,8 @@ const Index = () => {
         <section className="rounded-lg border border-border bg-background p-5 sm:p-6 flex flex-col gap-4">
           <div className="flex flex-col gap-1">
             <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">History</span>
-            <h2 className="text-xl sm:text-2xl font-semibold tracking-tight">Completed assessments</h2>
-            <p className="text-sm text-muted-foreground">View or delete your previously completed assessments.</p>
+            <h2 className="text-xl sm:text-2xl font-semibold tracking-tight">Your assessments</h2>
+            <p className="text-sm text-muted-foreground">View, resume or delete your assessments.</p>
           </div>
           {loading ? (
             <div className="flex flex-col gap-3">
@@ -218,11 +235,16 @@ const Index = () => {
           ) : (
             <StaggerChildren stagger={0.04} className="flex flex-col gap-3">
               {sessions.map((session) => {
-                const ready = Boolean(session.has_memorandum);
+                const ready = session.completed && Boolean(session.has_memorandum);
+                const inProgress = !session.completed;
                 const accentClass = ready
                   ? "border-l-emerald-500/70"
                   : "border-l-amber-500/60";
                 const shortId = session.session_id.slice(0, 8);
+                const dateLabel = inProgress ? "Started" : "Completed";
+                const ariaLabel = inProgress
+                  ? `Resume assessment for ${session.taxpayer_name}`
+                  : `Open report for ${session.taxpayer_name}`;
 
                 return (
                   <motion.div key={session.id} variants={staggerItem}>
@@ -230,9 +252,9 @@ const Index = () => {
                       className={`group relative flex items-center gap-4 rounded-lg border border-border border-l-4 ${accentClass} bg-background p-4 sm:p-5 transition-all duration-normal ease-emphasized hover:border-foreground/20 hover:shadow-sm`}
                     >
                       <Link
-                        to={`/assessment-report/${session.session_id}`}
+                        to={session.destination_url}
                         className="absolute inset-0 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        aria-label={`Open report for ${session.taxpayer_name}`}
+                        aria-label={ariaLabel}
                       />
                       <div className="relative flex-1 min-w-0 pointer-events-none">
                         <div className="flex items-center gap-3 mb-1.5">
@@ -241,10 +263,15 @@ const Index = () => {
                           </h3>
                           {ready ? (
                             <Badge variant="live">Ready</Badge>
-                          ) : (
+                          ) : inProgress ? (
                             <Badge variant="secondary" className="gap-1">
                               <Clock className="h-3 w-3" />
                               In progress
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary" className="gap-1">
+                              <Clock className="h-3 w-3" />
+                              Memo pending
                             </Badge>
                           )}
                         </div>
@@ -253,7 +280,7 @@ const Index = () => {
                           <span className="mx-1.5 text-muted-foreground/50">·</span>
                           <span className="font-mono">session {shortId}</span>
                           <span className="mx-1.5 text-muted-foreground/50">·</span>
-                          <span>Completed {formatDate(session.created_at)}</span>
+                          <span>{dateLabel} {formatDate(session.created_at)}</span>
                         </div>
                       </div>
                       <div className="relative flex items-center gap-2 z-10">
@@ -262,11 +289,11 @@ const Index = () => {
                           size="sm"
                           onClick={(e) => {
                             e.stopPropagation();
-                            navigate(`/assessment-report/${session.session_id}`);
+                            navigate(session.destination_url);
                           }}
                         >
                           <FileText className="h-4 w-4 mr-2" />
-                          View report
+                          {inProgress ? "Resume" : "View report"}
                         </Button>
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
