@@ -22,6 +22,9 @@ import { AssessmentFooterSlot } from "@/components/assessment/AssessmentFooterSl
 import { useAssessmentSessionId } from "@/lib/assessment/useAssessmentSessionId";
 import { ArrowRight } from "lucide-react";
 import { maybePrewarmPhaseA } from "@/lib/structure/phaseAPrewarm";
+import { DocumentQualityMeter } from "@/components/prefill/DocumentQualityMeter";
+import { LowQualityGateDialog } from "@/components/prefill/LowQualityGateDialog";
+import { computeQuality } from "@/lib/prefill/qualityMeter";
 
 export default function AssessmentUpload() {
   const sessionId = useAssessmentSessionId();
@@ -37,6 +40,28 @@ export default function AssessmentUpload() {
   const locked = !!job?.locked_at;
   const allPendingUploaded = store.pendingFiles.every((p) => p.status === "uploaded" || p.status === "failed");
   const hasAtLeastOneUploaded = (docs?.length ?? 0) > 0;
+
+  const quality = computeQuality(docs ?? []);
+  const [gateOpen, setGateOpen] = useState(false);
+
+  // Per-session dismissal — once the user clicks "Run pre-fill anyway" we
+  // don't nag again until they upload something new or change a category.
+  const dismissKey = `quality-gate-dismissed:${sessionId}`;
+  const wasDismissed = () => sessionStorage.getItem(dismissKey) === String(quality.distinctCategories.length);
+
+  const handleContinueClick = () => {
+    if (quality.tier === "good" && !wasDismissed()) {
+      setGateOpen(true);
+      return;
+    }
+    handleContinue();
+  };
+
+  const confirmFromGate = () => {
+    sessionStorage.setItem(dismissKey, String(quality.distinctCategories.length));
+    setGateOpen(false);
+    handleContinue();
+  };
 
   const handleContinue = () => {
     void maybePrewarmPhaseA(sessionId);
@@ -116,15 +141,26 @@ export default function AssessmentUpload() {
           )
         }
         right={
-          <Button
-            onClick={handleContinue}
-            disabled={!hasAtLeastOneUploaded || !allPendingUploaded}
-            className="transition-all duration-fast"
-          >
-            Continue to questions
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-4">
+            <DocumentQualityMeter docs={docs ?? []} />
+            <Button
+              onClick={handleContinueClick}
+              disabled={!hasAtLeastOneUploaded || !allPendingUploaded}
+              className="transition-all duration-fast"
+            >
+              Continue to questions
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </div>
         }
+      />
+      <LowQualityGateDialog
+        open={gateOpen}
+        onOpenChange={setGateOpen}
+        tier={quality.tier}
+        currentCategories={quality.distinctCategories}
+        missingTypes={quality.missingTypes}
+        onConfirm={confirmFromGate}
       />
     </div>
   );
