@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { usePrefillStore, type PendingFile } from "@/stores/prefillStore";
-import { useUploadDocument, useSessionDocuments } from "@/hooks/usePrefill";
+import { useUploadDocument, useSessionDocuments, useClassifyDocument, useUpdateDocumentCategory } from "@/hooks/usePrefill";
 import {
   ACCEPTED_MIME_TYPES, MAX_FILE_BYTES, MAX_SESSION_BYTES,
 } from "@/lib/prefill/types";
+import type { DocumentCategory } from "@/lib/prefill/types";
+import { CategoryDropdown } from "./CategoryDropdown";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Trash2, Upload, ClipboardPaste } from "lucide-react";
@@ -20,6 +22,8 @@ export function DocumentUploader({ sessionId, locked }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [pasteOpen, setPasteOpen] = useState(false);
   const upload = useUploadDocument(sessionId);
+  const classify = useClassifyDocument(sessionId);
+  const updateCategory = useUpdateDocumentCategory(sessionId);
   const { data: uploadedDocs } = useSessionDocuments(sessionId);
 
   const onFilesSelected = (selected: FileList | null) => {
@@ -29,11 +33,11 @@ export function DocumentUploader({ sessionId, locked }: Props) {
     const accepted: File[] = [];
     for (const f of incoming) {
       if (!(ACCEPTED_MIME_TYPES as readonly string[]).includes(f.type)) {
-        rejected.push(`${f.name} — unsupported format`);
+        rejected.push(`${f.name}: unsupported format`);
         continue;
       }
       if (f.size > MAX_FILE_BYTES) {
-        rejected.push(`${f.name} — exceeds 32 MB`);
+        rejected.push(`${f.name}: exceeds 15 MB`);
         continue;
       }
       accepted.push(f);
@@ -42,7 +46,7 @@ export function DocumentUploader({ sessionId, locked }: Props) {
     const pendingBytes = store.totalBytes();
     const newBytes = accepted.reduce((a, f) => a + f.size, 0);
     if (existingBytes + pendingBytes + newBytes > MAX_SESSION_BYTES) {
-      toast({ title: "Total upload limit reached", description: "Session limit is 200 MB.", variant: "destructive" });
+      toast({ title: "Total upload limit reached", description: "Session limit is 100 MB.", variant: "destructive" });
       return;
     }
     if (rejected.length > 0) {
@@ -57,7 +61,12 @@ export function DocumentUploader({ sessionId, locked }: Props) {
       if (p.status !== "queued") continue;
       store.setStatus(p.localId, "uploading");
       upload.mutate({ pending: p }, {
-        onSuccess: (doc) => store.setStatus(p.localId, "uploaded", { remoteDocumentId: doc?.id }),
+        onSuccess: (doc) => {
+          store.setStatus(p.localId, "uploaded", { remoteDocumentId: doc?.id });
+          if (doc?.id) {
+            classify.mutate({ documentId: doc.id });
+          }
+        },
         onError: (err) => store.setStatus(p.localId, "failed", { errorMessage: (err as Error).message }),
       });
     }
@@ -123,11 +132,23 @@ export function DocumentUploader({ sessionId, locked }: Props) {
                 <div className="text-sm font-medium break-all flex items-center gap-2" title={d.filename}>
                   {d.mime_type === "text/plain" && <ClipboardPaste className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
                   {d.doc_label || d.filename}
+                  {d.is_thin && (
+                    <span className="text-[10px] text-amber-700 italic">looks empty</span>
+                  )}
                 </div>
                 <div className="text-xs text-muted-foreground">
                   {formatBytes(d.size_bytes)} · {d.status === "summarized" ? "Ready" : d.status === "summarizing" ? "Analyzing…" : d.status}
                 </div>
               </div>
+              {!locked && (
+                <CategoryDropdown
+                  value={d.category}
+                  source={d.category_source}
+                  onChange={(next: DocumentCategory) =>
+                    updateCategory.mutate({ docId: d.id, category: next })
+                  }
+                />
+              )}
             </Card>
           ))}
       </div>
