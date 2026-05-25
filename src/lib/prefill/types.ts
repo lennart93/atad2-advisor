@@ -1,9 +1,11 @@
 export const DOCUMENT_CATEGORIES = [
   { value: "financial_statements", label: "Financial statements" },
   { value: "tax_returns", label: "Tax returns" },
+  { value: "structure_chart", label: "Structure chart" },
+  { value: "previous_year_atad2_analysis", label: "Previous year ATAD2 analysis" },
+  { value: "client_correspondence", label: "Client correspondence" },
   { value: "local_file", label: "Local file" },
   { value: "master_file", label: "Master file" },
-  { value: "previous_year_atad2_analysis", label: "Previous year ATAD2 analysis" },
   { value: "trial_balance", label: "Trial balance" },
   { value: "general_ledger", label: "General ledger" },
   { value: "memo", label: "Memo" },
@@ -24,8 +26,8 @@ export const ACCEPTED_MIME_TYPES = [
   "text/plain", "text/csv", "text/markdown",
 ] as const;
 
-export const MAX_FILE_BYTES = 32 * 1024 * 1024;
-export const MAX_SESSION_BYTES = 200 * 1024 * 1024;
+export const MAX_FILE_BYTES = 15 * 1024 * 1024;
+export const MAX_SESSION_BYTES = 100 * 1024 * 1024;
 
 export interface SourceRef {
   document_id: string;
@@ -49,6 +51,9 @@ export interface QuestionPrefill {
   confidence_pct: number | null;
   answer_rationale: string | null;
   contextual_hint: string | null;
+  // Snapshot of the exact text the user accepted (Accept) or edited-then-saved (Edit).
+  // Falls back to suggested_toelichting for historical rows where the column is null.
+  committed_text: string | null;
 }
 
 export type PrefillJobStatus =
@@ -81,4 +86,6 @@ export interface SessionDocument {
   error_message: string | null;
   relevance_note: string | null;
   created_at: string;
+  is_thin: boolean;
+  category_source: "filename" | "ai" | "user";
 }
