@@ -223,6 +223,7 @@ export type Database = {
           confidence_pct: number | null
           answer_rationale: string | null
           contextual_hint: string | null
+          committed_text: string | null
         }
         Insert: {
           actioned_at?: string | null
@@ -238,6 +239,7 @@ export type Database = {
           confidence_pct?: number | null
           answer_rationale?: string | null
           contextual_hint?: string | null
+          committed_text?: string | null
         }
         Update: {
           actioned_at?: string | null
@@ -253,6 +255,7 @@ export type Database = {
           confidence_pct?: number | null
           answer_rationale?: string | null
           contextual_hint?: string | null
+          committed_text?: string | null
         }
         Relationships: [
           {
@@ -315,11 +318,13 @@ export type Database = {
       atad2_session_documents: {
         Row: {
           category: string
+          category_source: string
           created_at: string
           doc_label: string
           error_message: string | null
           filename: string
           id: string
+          is_thin: boolean
           mime_type: string
           relevance_note: string | null
           session_id: string
@@ -329,11 +334,13 @@ export type Database = {
         }
         Insert: {
           category: string
+          category_source?: string
           created_at?: string
           doc_label: string
           error_message?: string | null
           filename: string
           id?: string
+          is_thin?: boolean
           mime_type: string
           relevance_note?: string | null
           session_id: string
@@ -343,11 +350,13 @@ export type Database = {
         }
         Update: {
           category?: string
+          category_source?: string
           created_at?: string
           doc_label?: string
           error_message?: string | null
           filename?: string
           id?: string
+          is_thin?: boolean
           mime_type?: string
           relevance_note?: string | null
           session_id?: string
@@ -503,6 +512,7 @@ export type Database = {
           created_at: string
           draft_extracted_at: string | null
           finalized_at: string | null
+          heartbeat_at: string | null
           id: string
           session_id: string
           snapshot_captured_at: string | null
@@ -517,6 +527,7 @@ export type Database = {
           created_at?: string
           draft_extracted_at?: string | null
           finalized_at?: string | null
+          heartbeat_at?: string | null
           id?: string
           session_id: string
           snapshot_captured_at?: string | null
@@ -531,6 +542,7 @@ export type Database = {
           created_at?: string
           draft_extracted_at?: string | null
           finalized_at?: string | null
+          heartbeat_at?: string | null
           id?: string
           session_id?: string
           snapshot_captured_at?: string | null
