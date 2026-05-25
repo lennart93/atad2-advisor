@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { PendingFile } from "@/stores/prefillStore";
 import type { PrefillJob, QuestionPrefill, SessionDocument, SourceRef } from "@/lib/prefill/types";
 import { buildDocumentsBlock } from "@/lib/prefill/buildDocumentsBlock";
+import { categorizeFromFilename } from "@/lib/prefill/categorize";
 
 export function useSessionDocuments(sessionId: string | null) {
   return useQuery({
@@ -183,7 +184,8 @@ export function useUploadDocument(sessionId: string | null) {
             session_id: sessionId,
             filename: pending.file.name,
             doc_label: pending.docLabel,
-            category: pending.category ?? "other",
+            category: pending.category ?? categorizeFromFilename(pending.file.name),
+            category_source: pending.category ? "user" : "filename",
             storage_path: storagePath,
             mime_type: uploadMime,
             size_bytes: uploadSize,
@@ -244,6 +246,7 @@ export function useUploadText(sessionId: string | null) {
           filename: `${label}.txt`,
           doc_label: label,
           category,
+          category_source: "filename",
           storage_path: storagePath,
           mime_type: "text/plain",
           size_bytes: blob.size,
@@ -276,9 +279,12 @@ export function useStartAnalyze(sessionId: string | null) {
     mutationFn: async () => {
       if (!sessionId) throw new Error("No session id");
 
-      // 1. Build the documents block via the shared helper.
-      const documentsBlock = await buildDocumentsBlock(sessionId);
-      if (!documentsBlock) throw new Error("No documents to analyze");
+      // 1. Build the documents bundle via the shared helper. Text-extractable
+      //    docs go into the prompt as <document> XML; images travel as refs
+      //    that the edge function fetches and base64-encodes as Anthropic
+      //    image content blocks (Claude native vision, no OCR step).
+      const { textBlock: documentsBlock, imageRefs } = await buildDocumentsBlock(sessionId);
+      if (!documentsBlock && imageRefs.length === 0) throw new Error("No documents to analyze");
 
       // 2. Atomic claim — insert prefill_jobs row.
       const { error: jobErr } = await supabase
@@ -317,6 +323,7 @@ export function useStartAnalyze(sessionId: string | null) {
             question_text: q.question,
             question_explanation: q.question_explanation ?? "",
             documents_block: documentsBlock,
+            image_refs: imageRefs,
           });
         } catch (e) {
           failures.push(`${q.question_id}: ${(e as Error).message}`);
@@ -357,6 +364,22 @@ export function useStartAnalyze(sessionId: string | null) {
   });
 }
 
+export function useClassifyDocument(sessionId: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ documentId }: { documentId: string }) => {
+      const { data, error } = await supabase.functions.invoke("classify-document", {
+        body: { document_id: documentId },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["session-documents", sessionId] });
+    },
+  });
+}
+
 export function useCleanupDocuments(sessionId: string | null) {
   const qc = useQueryClient();
   return useMutation({
@@ -376,7 +399,7 @@ export function useUpdateDocumentCategory(sessionId: string | null) {
     mutationFn: async ({ docId, category }: { docId: string; category: string }) => {
       const { error } = await supabase
         .from("atad2_session_documents")
-        .update({ category })
+        .update({ category, category_source: "user" })
         .eq("id", docId);
       if (error) throw error;
     },
@@ -413,7 +436,22 @@ export function useUpdateDocumentMetadata(sessionId: string | null) {
 export function useUpdatePrefillAction() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ prefillId, action }: { prefillId: string; action: QuestionPrefill["user_action"] }) => {
+    mutationFn: async ({
+      prefillId,
+      action,
+      committedText,
+    }: {
+      prefillId: string;
+      action: QuestionPrefill["user_action"];
+      // Pass on Accept/Edit so the UI can later render the locked AI block.
+      // Pass null on Edit-reopen to clear a previous commit.
+      committedText?: string | null;
+    }) => {
+      // Split into two updates: user_action is the load-bearing write (it's
+      // what hides the SuggestionCard). committed_text lives on a column added
+      // by a later migration; if that migration hasn't reached this DB yet, a
+      // combined PATCH would fail entirely and the rollback un-hides the card.
+      // Fire committed_text as a separate, failure-tolerant follow-up.
       const { data, error } = await supabase
         .from("atad2_question_prefills")
         .update({ user_action: action, actioned_at: new Date().toISOString() })
@@ -421,7 +459,46 @@ export function useUpdatePrefillAction() {
         .select()
         .single();
       if (error) throw error;
+      if (committedText !== undefined) {
+        const { error: ctErr } = await supabase
+          .from("atad2_question_prefills")
+          .update({ committed_text: committedText })
+          .eq("id", prefillId);
+        if (ctErr) {
+          console.warn(
+            "[useUpdatePrefillAction] committed_text update failed (column may be missing)",
+            ctErr,
+          );
+        }
+      }
       return data as unknown as QuestionPrefill;
+    },
+    // Optimistically flip user_action + committed_text in the cache so the
+    // Assessment page's textarea binding switches to "user-only" mode the
+    // instant the user clicks Accept — no flicker waiting for the round trip.
+    onMutate: async ({ prefillId, action, committedText }) => {
+      const keys = qc.getQueriesData<QuestionPrefill[]>({ queryKey: ["question-prefills"] });
+      const snapshots = keys.map(([key, value]) => ({ key, value }));
+      const now = new Date().toISOString();
+      for (const [key, value] of keys) {
+        if (!value) continue;
+        const next = value.map((p) =>
+          p.id === prefillId
+            ? {
+                ...p,
+                user_action: action,
+                actioned_at: now,
+                ...(committedText !== undefined ? { committed_text: committedText } : {}),
+              }
+            : p,
+        );
+        qc.setQueryData(key, next);
+      }
+      return { snapshots };
+    },
+    onError: (_err, _vars, context) => {
+      const snapshots = context?.snapshots ?? [];
+      for (const { key, value } of snapshots) qc.setQueryData(key, value);
     },
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["question-prefills", data.session_id] });
