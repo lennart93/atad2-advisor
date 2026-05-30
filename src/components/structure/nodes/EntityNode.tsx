@@ -3,12 +3,8 @@ import { memo } from 'react';
 import { Handle, Position, useConnection, type Node, type NodeProps } from '@xyflow/react';
 import { geometryFor } from '@/lib/structure/shapeGeometry';
 import { fillFor, PALETTE } from '@/lib/structure/palette';
-import { NODE_WIDTH, NODE_HEIGHT } from '@/lib/structure/labelMeasure';
+import { NODE_WIDTH, NODE_HEIGHT, measureWidth } from '@/lib/structure/labelMeasure';
 import type { EntityType } from '@/lib/structure/types';
-
-export type WarningBadge =
-  | { kind: 'ownership_sum'; sum_pct: number }
-  | { kind: 'orphan' };
 
 export interface EntityNodeData extends Record<string, unknown> {
   name: string;
@@ -18,7 +14,6 @@ export interface EntityNodeData extends Record<string, unknown> {
   entity_type: EntityType;
   is_taxpayer: boolean;
   source: 'ai_extracted' | 'user_added' | 'user_edited';
-  warningBadge?: WarningBadge;
   focused?: boolean;
 }
 
@@ -119,7 +114,8 @@ function EntityNodeComp({ id, data, selected }: NodeProps<EntityNodeType>) {
 
         {!isIndividual && (
           <>
-            {(geom.outer.kind === 'polygon' || geom.outer.kind === 'ellipse') && (
+            {(geom.outer.kind === 'polygon' || geom.outer.kind === 'ellipse') &&
+              needsTextBackdrop(geom.outer.kind, W, H, nameBlockY, lines) && (
               <rect
                 x={W * 0.1}
                 y={nameBlockY - 12}
@@ -156,16 +152,6 @@ function EntityNodeComp({ id, data, selected }: NodeProps<EntityNodeType>) {
           </>
         )}
 
-        {data.warningBadge && (
-          <g>
-            <title>{badgeTooltip(data.warningBadge)}</title>
-            <rect x={W - 14} y={2} width={12} height={12} rx={2}
-              fill="#b91c1c" stroke="#fff" strokeWidth={1} />
-            <text x={W - 8} y={11}
-              fontFamily="Inter, system-ui, sans-serif" fontSize={9} fontWeight={700}
-              fill="#fff" textAnchor="middle">!</text>
-          </g>
-        )}
         {data.focused && (
           <rect
             x={-3} y={-3}
@@ -201,9 +187,34 @@ function EntityNodeComp({ id, data, selected }: NodeProps<EntityNodeType>) {
   );
 }
 
-function badgeTooltip(b: WarningBadge): string {
-  if (b.kind === 'ownership_sum') return `Ownership ${b.sum_pct.toFixed(2)}%`;
-  return 'Disconnected entity';
+// Returns true iff the widest wrapped line would visibly spill past the shape
+// outline at the text's vertical band. Only relevant for non-rect shapes
+// (triangle, oval) — rect shapes already give full-width clearance.
+function needsTextBackdrop(
+  kind: 'polygon' | 'ellipse',
+  W: number,
+  H: number,
+  nameBlockY: number,
+  lines: string[],
+): boolean {
+  const topY = nameBlockY - 12;
+  const bottomY = topY + lines.length * NAME_LINE_HEIGHT + 6;
+  const longest = Math.max(...lines.map((l) => measureWidth(l)));
+  // 4px padding so glyphs don't kiss the outline.
+  const needed = longest + 4;
+
+  if (kind === 'ellipse') {
+    const rx = W / 2;
+    const ry = H / 2;
+    const dy = Math.max(Math.abs(topY - ry), Math.abs(bottomY - ry));
+    if (dy >= ry) return true;
+    const available = 2 * rx * Math.sqrt(1 - (dy / ry) ** 2);
+    return needed > available;
+  }
+  // Downward triangle: apex at (W/2, 0), base at y=H. Width at y = W * y / H.
+  const narrowestY = Math.max(0, topY);
+  const available = (W * narrowestY) / H;
+  return needed > available;
 }
 
 export const EntityNode = memo(EntityNodeComp);

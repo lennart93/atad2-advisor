@@ -1,29 +1,30 @@
-import { unstable_usePrompt as usePrompt } from "react-router-dom";
-
-const ASSESSMENT_PATH_RE = /^\/assessment(\/|-|$)/;
+import { useEffect } from "react";
 
 const MESSAGE =
   "Are you sure you want to leave this assessment? Your progress is saved — you can resume it from the dashboard.";
 
 /**
- * Blocks in-app navigation away from any assessment route to a non-assessment
- * route. Lets the user navigate freely BETWEEN assessment routes
- * (Documents → Questions → Confirmation → Structure → Report).
+ * Warns the user before they close the tab, reload, or navigate to an external
+ * URL while an assessment is active.
  *
- * Uses React Router's unstable_usePrompt — a styled custom dialog would
- * require migrating to a data router. Browser-native confirm is good enough
- * for v1.
+ * In-app navigation between routes is NOT intercepted: react-router's
+ * `unstable_usePrompt` / `useBlocker` require a data router
+ * (`createBrowserRouter`), and this app still uses `<BrowserRouter>`.
+ * Migrating to a data router is the proper fix for in-app leave prompts.
+ * Progress is auto-saved per question, so missing the in-app warning is a
+ * UX regression, not data loss.
  */
 export function useAssessmentLeaveGuard(enabled: boolean): void {
-  usePrompt({
-    when: ({ currentLocation, nextLocation }) => {
-      if (!enabled) return false;
-      // Block only when leaving the assessment area.
-      const leaving =
-        ASSESSMENT_PATH_RE.test(currentLocation.pathname) &&
-        !ASSESSMENT_PATH_RE.test(nextLocation.pathname);
-      return leaving;
-    },
-    message: MESSAGE,
-  });
+  useEffect(() => {
+    if (!enabled) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      // Modern browsers ignore the custom string and show their own prompt,
+      // but assigning returnValue is what actually triggers the dialog.
+      e.returnValue = MESSAGE;
+      return MESSAGE;
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [enabled]);
 }

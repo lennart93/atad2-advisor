@@ -17,44 +17,33 @@ const ownEdge = (from: string, to: string, id = `${from}->${to}`): StructureEdge
   label: null, source: 'ai_extracted', created_at: '', updated_at: '',
 });
 
-const txEdge = (from: string, to: string, id = `tx-${from}->${to}`): StructureEdge => ({
-  ...ownEdge(from, to, id), kind: 'transaction', ownership_pct: null, transaction_type: 'loan',
-});
-
 describe('isAtad2Relevant', () => {
   it('returns true for the taxpayer', () => {
     const tx = ent('tx', { is_taxpayer: true });
-    expect(isAtad2Relevant(tx, [tx], [], [], 'tx')).toBe(true);
+    expect(isAtad2Relevant(tx, [tx], [], 'tx')).toBe(true);
   });
 
   it('returns true for an ancestor of the taxpayer', () => {
     const parent = ent('p');
     const tx = ent('tx', { is_taxpayer: true });
     const edges = [ownEdge('p', 'tx')];
-    expect(isAtad2Relevant(parent, [parent, tx], edges, [], 'tx')).toBe(true);
-  });
-
-  it('returns true if the entity has any transaction edge', () => {
-    const a = ent('a');
-    const b = ent('b');
-    expect(isAtad2Relevant(a, [a, b], [], [txEdge('a', 'b')], 'tx')).toBe(true);
-    expect(isAtad2Relevant(b, [a, b], [], [txEdge('a', 'b')], 'tx')).toBe(true);
+    expect(isAtad2Relevant(parent, [parent, tx], edges, 'tx')).toBe(true);
   });
 
   it('returns true for hybrid entity types', () => {
     const dh = ent('dh', { entity_type: 'dh_entity' });
     const hp = ent('hp', { entity_type: 'hybrid_partnership' });
     const rh = ent('rh', { entity_type: 'reverse_hybrid' });
-    expect(isAtad2Relevant(dh, [dh], [], [], '')).toBe(true);
-    expect(isAtad2Relevant(hp, [hp], [], [], '')).toBe(true);
-    expect(isAtad2Relevant(rh, [rh], [], [], '')).toBe(true);
+    expect(isAtad2Relevant(dh, [dh], [], '')).toBe(true);
+    expect(isAtad2Relevant(hp, [hp], [], '')).toBe(true);
+    expect(isAtad2Relevant(rh, [rh], [], '')).toBe(true);
   });
 
-  it('returns false for a plain subsidiary with no transactions or special status', () => {
+  it('returns false for a plain subsidiary with no special status', () => {
     const tx = ent('tx', { is_taxpayer: true });
     const sub = ent('sub');
     const edges = [ownEdge('tx', 'sub')];
-    expect(isAtad2Relevant(sub, [tx, sub], edges, [], 'tx')).toBe(false);
+    expect(isAtad2Relevant(sub, [tx, sub], edges, 'tx')).toBe(false);
   });
 });
 
@@ -63,7 +52,7 @@ describe('groupNonRelevantSiblings', () => {
     const tx = ent('tx', { is_taxpayer: true });
     const sub = ent('sub');
     const edges = [ownEdge('tx', 'sub')];
-    const result = groupNonRelevantSiblings([tx, sub], edges, [], 'tx');
+    const result = groupNonRelevantSiblings([tx, sub], edges, 'tx');
     expect(result.clusters).toEqual([]);
   });
 
@@ -73,7 +62,7 @@ describe('groupNonRelevantSiblings', () => {
     const b = ent('b');
     const c = ent('c');
     const ownership = [ownEdge('tx', 'a'), ownEdge('tx', 'b'), ownEdge('tx', 'c')];
-    const result = groupNonRelevantSiblings([tx, a, b, c], ownership, [], 'tx');
+    const result = groupNonRelevantSiblings([tx, a, b, c], ownership, 'tx');
     expect(result.clusters).toHaveLength(1);
     expect(result.clusters[0].parent_id).toBe('tx');
     expect(result.clusters[0].member_ids.sort()).toEqual(['a', 'b', 'c']);
@@ -91,7 +80,7 @@ describe('groupNonRelevantSiblings', () => {
       ownEdge('tx', 'dull'),
       ownEdge('tx', 'dull2'),
     ];
-    const result = groupNonRelevantSiblings([tx, inter, dh, dull, dull2], edges, [], 'tx');
+    const result = groupNonRelevantSiblings([tx, inter, dh, dull, dull2], edges, 'tx');
     expect(result.clusters).toHaveLength(1);
     expect(result.clusters[0].member_ids.sort()).toEqual(['dull', 'dull2']);
   });

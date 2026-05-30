@@ -111,11 +111,11 @@ const Dashboard = () => {
         supabase
           .from("atad2_reports")
           .select("id", { count: "exact", head: true })
-          .gte("created_at", since),
+          .gte("generated_at", since),
         supabase
           .from("atad2_reports")
           .select("id", { count: "exact", head: true })
-          .gte("created_at", todayStart.toISOString()),
+          .gte("generated_at", todayStart.toISOString()),
       ]);
       if (totalRes.error) throw totalRes.error;
       return {

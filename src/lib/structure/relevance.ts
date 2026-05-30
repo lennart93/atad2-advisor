@@ -10,17 +10,11 @@ export function isAtad2Relevant(
   entity: StructureEntity,
   allEntities: StructureEntity[],
   ownershipEdges: StructureEdge[],
-  transactionEdges: StructureEdge[],
   taxpayerId: string,
   groupings: StructureGroup[] = [],
 ): boolean {
   if (entity.is_taxpayer) return true;
   if (HYBRID_TYPES.includes(entity.entity_type)) return true;
-  if (transactionEdges.some(
-    (e) => e.from_entity_id === entity.id || e.to_entity_id === entity.id,
-  )) {
-    return true;
-  }
   if (taxpayerId && isAncestorOf(entity.id, taxpayerId, ownershipEdges)) return true;
   if (taxpayerId && groupings.some(
     (g) => g.kind === 'fiscal_unity' &&
@@ -66,7 +60,6 @@ export interface ClusteringResult {
 export function groupNonRelevantSiblings(
   allEntities: StructureEntity[],
   ownershipEdges: StructureEdge[],
-  transactionEdges: StructureEdge[],
   taxpayerId: string,
   groupings: StructureGroup[] = [],
 ): ClusteringResult {
@@ -74,7 +67,7 @@ export function groupNonRelevantSiblings(
   for (const e of allEntities) {
     relevance.set(
       e.id,
-      isAtad2Relevant(e, allEntities, ownershipEdges, transactionEdges, taxpayerId, groupings),
+      isAtad2Relevant(e, allEntities, ownershipEdges, taxpayerId, groupings),
     );
   }
 

@@ -2,7 +2,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import type {
   StructureChart, StructureEntity, StructureEdge, StructureGroup,
-  StructureFlowRouting,
   EdgeKind,
 } from './types';
 
@@ -44,47 +43,40 @@ export async function listGroupings(chart_id: string): Promise<StructureGroup[]>
   return (data ?? []) as StructureGroup[];
 }
 
-export async function listFlowRouting(chart_id: string): Promise<StructureFlowRouting[]> {
+export async function createGrouping(input: {
+  chart_id: string;
+  kind: string;
+  label: string;
+  member_ids: string[];
+}): Promise<StructureGroup> {
   const { data, error } = await supabase
-    .from('atad2_structure_flow_routing')
+    .from('atad2_structure_groupings')
+    .insert(input)
     .select('*')
-    .eq('chart_id', chart_id);
-  if (error) throw error;
-  return (data ?? []) as StructureFlowRouting[];
-}
-
-export async function upsertFlowRouting(
-  row: Pick<StructureFlowRouting, 'chart_id' | 'from_entity_id' | 'to_entity_id'> &
-    Partial<Pick<StructureFlowRouting, 'waypoints' | 'label_position' | 'routing_mode'>>,
-): Promise<StructureFlowRouting> {
-  const { data, error } = await supabase
-    .from('atad2_structure_flow_routing')
-    .upsert(row, { onConflict: 'chart_id,from_entity_id,to_entity_id' })
-    .select()
     .single();
   if (error) throw error;
-  return data as StructureFlowRouting;
+  return data as StructureGroup;
 }
 
-export async function deleteFlowRouting(
-  chart_id: string,
-  from_entity_id: string,
-  to_entity_id: string,
-): Promise<void> {
-  const { error } = await supabase
-    .from('atad2_structure_flow_routing')
-    .delete()
-    .eq('chart_id', chart_id)
-    .eq('from_entity_id', from_entity_id)
-    .eq('to_entity_id', to_entity_id);
+export async function updateGrouping(
+  id: string,
+  patch: Partial<Pick<StructureGroup, 'label' | 'member_ids'>>,
+): Promise<StructureGroup> {
+  const { data, error } = await supabase
+    .from('atad2_structure_groupings')
+    .update(patch)
+    .eq('id', id)
+    .select('*')
+    .single();
   if (error) throw error;
+  return data as StructureGroup;
 }
 
-export async function deleteAllFlowRouting(chart_id: string): Promise<void> {
+export async function deleteGrouping(id: string): Promise<void> {
   const { error } = await supabase
-    .from('atad2_structure_flow_routing')
+    .from('atad2_structure_groupings')
     .delete()
-    .eq('chart_id', chart_id);
+    .eq('id', id);
   if (error) throw error;
 }
 
@@ -155,11 +147,6 @@ export async function finalizeChart(chartId: string) {
     .eq('id', chartId);
 }
 
-/**
- * Escape hatch: when an extraction stage is stuck, manually flip the chart
- * to draft_ready so the user can see what we have so far. Used by the
- * "Continue without transactions" button in AtlasLoader.
- */
 export async function forceDraftReady(chartId: string, warningMessage: string) {
   const { data: existing } = await supabase
     .from('atad2_structure_charts')
@@ -169,7 +156,7 @@ export async function forceDraftReady(chartId: string, warningMessage: string) {
   const prev = Array.isArray(existing?.warnings)
     ? (existing!.warnings as Array<{ stage: number; message: string }>)
     : [];
-  const next = [...prev, { stage: 3, message: warningMessage }];
+  const next = [...prev, { stage: 0, message: warningMessage }];
   await supabase
     .from('atad2_structure_charts')
     .update({

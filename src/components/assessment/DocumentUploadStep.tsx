@@ -14,15 +14,15 @@ export function DocumentUploadStep({
       <div>
         <h2 className="text-xl font-semibold tracking-tight">Supporting documents</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Optional. Documents are processed only for pre-fill extraction — not used
-          for AI training. You can delete them anytime, and they are removed
-          automatically after the report is generated.
+          Optional. Documents are processed only for pre-fill extraction, not used
+          for AI training. They are removed automatically after the report is
+          generated.
         </p>
       </div>
       {!locked && (
         <Card className="bg-muted/40 p-4 text-sm text-muted-foreground">
           Supported: PDF, images (PNG/JPG/WEBP), Word (.docx), PowerPoint (.pptx),
-          Excel (.xlsx), text/CSV/Markdown. Max 32 MB per file, 200 MB per session.
+          Excel (.xlsx), text/CSV/Markdown. Max 15 MB per file, 100 MB per session.
         </Card>
       )}
       <DocumentUploader sessionId={sessionId} locked={locked} />

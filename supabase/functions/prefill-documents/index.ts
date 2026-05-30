@@ -11,6 +11,13 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+interface ImageRefPayload {
+  doc_label: string;
+  storage_path: string;
+  mime_type: string;
+  relevance_note: string | null;
+}
+
 interface PrefillRequest {
   action: "analyze_one" | "cleanup";
   session_id: string;
@@ -18,6 +25,7 @@ interface PrefillRequest {
   question_text?: string;
   question_explanation?: string;
   documents_block?: string;
+  image_refs?: ImageRefPayload[];
 }
 
 serve(async (req) => {
@@ -52,6 +60,7 @@ serve(async (req) => {
           body.question_text,
           body.question_explanation ?? "",
           body.documents_block,
+          body.image_refs ?? [],
         );
         return json(result, result.ok ? 200 : 500);
       }

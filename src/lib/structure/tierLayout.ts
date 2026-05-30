@@ -1,4 +1,4 @@
-import type { StructureEntity, StructureEdge } from './types';
+import type { StructureEntity, StructureEdge, StructureGroup } from './types';
 import type { Cluster } from './relevance';
 import { NODE_WIDTH, NODE_HEIGHT } from './labelMeasure';
 
@@ -69,8 +69,10 @@ export function tierLayout(args: {
   entities: StructureEntity[];
   ownershipEdges: StructureEdge[];
   clusters: Cluster[];
+  groupings?: StructureGroup[];
 }): TierLayoutResult {
   const { entities, ownershipEdges, clusters } = args;
+  const groupings = args.groupings ?? [];
 
   const positions = new Map<string, PositionedEntity>();
   const clusterPositions = new Map<string, PositionedEntity>();
@@ -213,6 +215,118 @@ export function tierLayout(args: {
     }
   }
 
+  // Phase 6.5: Alignment + unity-grouping, bottom-up per tier.
+  //
+  // We lopen van diep naar ondiep, en per single-row tier:
+  //   1. Bepaal de volgorde (alfabetisch voor de diepste; centroid-gebaseerd
+  //      voor hogere tiers o.b.v. de tier eronder).
+  //   2. Pas unity-grouping toe: leden van dezelfde fiscale eenheid worden
+  //      aaneengesloten geplaatst, niet-leden gaan eromheen.
+  //   3. Re-pack X-posities met behoud van de tier-centroid.
+  //
+  // Bottom-up volgorde is cruciaal: als unity-grouping in een tier de kinderen
+  // verschuift, ziet de centroid-stap voor de ouder-tier daarna de nieuwe
+  // kind-posities. Ouders volgen dus hun verschoven kinderen.
+  const primaryUnity = new Map<string, string>(); // entityId -> unityId
+  for (const g of groupings) {
+    for (const mid of g.member_ids) {
+      if (!primaryUnity.has(mid)) primaryUnity.set(mid, g.id);
+    }
+  }
+  const slotUnityId = (s: Slot): string | null => {
+    if (s.kind !== 'entity') return null;
+    return primaryUnity.get(s.entity.id) ?? null;
+  };
+  const applyUnityGrouping = (tier: Slot[]): void => {
+    const memberCount = tier.filter((s) => slotUnityId(s) !== null).length;
+    if (memberCount < 2) return;
+    type Token = { slots: Slot[]; anchorX: number };
+    const unityBuckets = new Map<string, Slot[]>();
+    const tokens: Token[] = [];
+    for (const s of tier) {
+      const uid = slotUnityId(s);
+      if (uid !== null) {
+        let list = unityBuckets.get(uid);
+        if (!list) { list = []; unityBuckets.set(uid, list); }
+        list.push(s);
+      } else {
+        tokens.push({ slots: [s], anchorX: s.x });
+      }
+    }
+    for (const [, slots] of unityBuckets) {
+      const anchorX = Math.min(...slots.map((s) => s.x));
+      tokens.push({ slots, anchorX });
+    }
+    tokens.sort((p, q) => p.anchorX - q.anchorX);
+    const newOrder: Slot[] = [];
+    for (const t of tokens) for (const s of t.slots) newOrder.push(s);
+    const targetCentroid = newOrder.length > 0
+      ? (newOrder.reduce((sum, s) => sum + s.x, 0) / newOrder.length)
+      : 0;
+    tier.length = 0;
+    tier.push(...newOrder);
+    let cursor = 0;
+    for (const s of tier) {
+      s.x = cursor + NODE_WIDTH / 2;
+      cursor += NODE_WIDTH + MIN_GAP;
+    }
+    const newCentroid = tier.reduce((sum, s) => sum + s.x, 0) / tier.length;
+    const shift = targetCentroid - newCentroid;
+    for (const s of tier) s.x += shift;
+  };
+
+  // Deepest tier: alfabetisch + uniforme spacing.
+  {
+    const deepestRank = ranksRendered[ranksRendered.length - 1];
+    const deepestRows = tierRowAssignments.get(deepestRank)!;
+    if (deepestRows.length === 1) {
+      const tier = deepestRows[0];
+      tier.sort((a, b) => slotName(a).localeCompare(slotName(b)));
+      let cursor = 0;
+      for (const slot of tier) {
+        slot.x = cursor + NODE_WIDTH / 2;
+        cursor += NODE_WIDTH + MIN_GAP;
+      }
+      const totalWidth = cursor - MIN_GAP;
+      const shift = -totalWidth / 2;
+      for (const slot of tier) slot.x += shift;
+      applyUnityGrouping(tier);
+    }
+  }
+
+  // Tiers van diep naar ondiep: centroid alignment + unity-grouping.
+  for (let i = ranksRendered.length - 2; i >= 0; i--) {
+    const rank = ranksRendered[i];
+    const rows = tierRowAssignments.get(rank)!;
+    if (rows.length !== 1) continue;
+    const tier = rows[0];
+
+    const below = slotsByRank.get(ranksRendered[i + 1])!;
+    const belowX = new Map<string, number>();
+    for (const s of below) belowX.set(slotId(s), s.x);
+
+    for (const s of tier) {
+      const cs = childIdsOf(s, ownershipEdges, clusters);
+      const xs: number[] = [];
+      for (const cid of cs) {
+        const cx = belowX.get(cid);
+        if (cx !== undefined) xs.push(cx);
+      }
+      if (xs.length > 0) {
+        s.x = xs.reduce((a, b) => a + b, 0) / xs.length;
+      }
+    }
+
+    tier.sort((a, b) => a.x - b.x);
+
+    for (let j = 1; j < tier.length; j++) {
+      const minNextX = tier[j - 1].x + NODE_WIDTH + MIN_GAP;
+      if (tier[j].x < minNextX) tier[j].x = minNextX;
+    }
+
+    applyUnityGrouping(tier);
+  }
+
   // Phase 7: Y assignment with multi-row support
   let yCursor = 0;
   for (const rank of ranksRendered) {
@@ -320,6 +434,40 @@ function longestPathRanks(
       }
     }
   }
+
+  // Snap-stap: een UPE die alleen diepe dochters heeft, schuift omlaag naar
+  // rang (min dochter-rang) − 1. Reden: een eigenaar die geen eigen baas heeft
+  // maar alleen iets onderaan bezit, hoort visueel pal boven die dochter te
+  // zweven, niet bovenaan tussen de "echte" topbazen.
+  //
+  // We lezen de rangen die we hierboven hebben gezet (firstPassRanks), zodat
+  // UPEs die ZELF schuiven elkaar niet beïnvloeden. UPEs zijn per definitie
+  // zonder ouder, dus een UPE kan nooit de dochter van een andere UPE zijn —
+  // volgorde maakt niet uit.
+  const firstPassRanks = new Map(ranks);
+  const childrenOf = new Map<string, string[]>();
+  for (const e of ownershipEdges) {
+    if (!reachable.has(e.from_entity_id) || !reachable.has(e.to_entity_id)) continue;
+    const list = childrenOf.get(e.from_entity_id) ?? [];
+    list.push(e.to_entity_id);
+    childrenOf.set(e.from_entity_id, list);
+  }
+  for (const id of allReachableIds) {
+    const ps = parents.get(id) ?? [];
+    if (ps.length > 0) continue; // geen UPE — overslaan
+    const cs = childrenOf.get(id) ?? [];
+    if (cs.length === 0) continue; // geen dochters om naartoe te schuiven
+    let minChildRank = Number.POSITIVE_INFINITY;
+    for (const c of cs) {
+      const cr = firstPassRanks.get(c);
+      if (cr === undefined) continue;
+      if (cr < minChildRank) minChildRank = cr;
+    }
+    if (minChildRank === Number.POSITIVE_INFINITY) continue;
+    const snapped = Math.max(0, minChildRank - 1);
+    ranks.set(id, snapped);
+  }
+
   return ranks;
 }
 

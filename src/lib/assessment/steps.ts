@@ -16,7 +16,7 @@ export const ASSESSMENT_STEPS: readonly AssessmentStep[] = [
   { key: 'questions',    label: 'Questions',    wide: true,  fullBleed: false },
   { key: 'confirmation', label: 'Confirmation', wide: false, fullBleed: false },
   { key: 'structure',    label: 'Structure',    wide: true,  fullBleed: true  },
-  { key: 'report',       label: 'Report',       wide: false, fullBleed: false },
+  { key: 'report',       label: 'Overview',     wide: false, fullBleed: false },
 ] as const;
 
 /**

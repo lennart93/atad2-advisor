@@ -19,7 +19,7 @@ function getCtx(): CanvasRenderingContext2D | null {
   return ctx;
 }
 
-function measureWidth(text: string): number {
+export function measureWidth(text: string): number {
   const c = getCtx();
   if (!c) {
     // SSR / jsdom fallback — ~7px per char at 13px bold

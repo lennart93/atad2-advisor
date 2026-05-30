@@ -1,6 +1,6 @@
 // src/components/structure/StructureChartStep.tsx
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AssessmentFooterSlot } from '@/components/assessment/AssessmentFooterSlot';
@@ -13,7 +13,7 @@ import { exportToPptx } from './exports/exportToPptx';
 import { tierLayout, clusterId, type PositionedEntity, type TierLayoutResult } from '@/lib/structure/tierLayout';
 import { groupNonRelevantSiblings, deriveClusterName, type Cluster } from '@/lib/structure/relevance';
 import { validate, type ValidatorResult } from '@/lib/structure/validator';
-import { wrapLabels, NODE_HEIGHT } from '@/lib/structure/labelMeasure';
+import { wrapLabels } from '@/lib/structure/labelMeasure';
 import {
   loadChart,
   saveChartSnapshot,
@@ -25,13 +25,12 @@ import {
   updateEntityPosition,
   finalizeChart,
   forceDraftReady,
-  listFlowRouting,
-  upsertFlowRouting,
-  deleteFlowRouting,
-  deleteAllFlowRouting,
+  createGrouping,
+  updateGrouping,
+  deleteGrouping,
 } from '@/lib/structure/client';
-import { useFlowEditHistory, type FlowEditSnapshot } from './flowEditing/useFlowEditHistory';
 import { startExtraction, pollUntilTerminal } from '@/lib/structure/extraction';
+import { FiscalUnityEditPopover } from './overlays/FiscalUnityEditPopover';
 import { captureChartSnapshot } from '@/lib/structure/captureChartSnapshot';
 import type { Node } from '@xyflow/react';
 import type {
@@ -39,14 +38,9 @@ import type {
   StructureEntity,
   StructureEdge,
   StructureGroup,
-  StructureFlowRouting,
-  FlowWaypoint,
   ChartStatus,
   EntityType,
-  TransactionType,
-  MismatchClassification,
 } from '@/lib/structure/types';
-import type { RoutedFlowPoint } from '@/lib/structure/flowRouting';
 import type { ClusterNodeData } from './nodes/ClusterNode';
 import { AtlasLoader } from './AtlasLoader';
 import { AnimatedLogo } from '@/components/AnimatedLogo';
@@ -100,14 +94,58 @@ function buildClusterLayout(
 
 export function StructureChartStep({ sessionId }: { sessionId: string }) {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  // When the user opens this step via "Edit" on the Overview, hide Previous
+  // and re-label the forward CTA — they're not progressing, they're returning.
+  const editFromOverview = searchParams.get('from') === 'overview';
   const [chart, setChart] = useState<Chart | null>(null);
   const [entities, setEntities] = useState<StructureEntity[]>([]);
   const [edges, setEdgesState] = useState<StructureEdge[]>([]);
   const [groupings, setGroupings] = useState<StructureGroup[]>([]);
-  const [selection, setSelection] = useState<{ kind: 'node' | 'edge'; id: string } | null>(null);
+  type Selection =
+    | { kind: 'node'; id: string }
+    | { kind: 'edge'; id: string }
+    | { kind: 'nodes'; ids: string[] }
+    | null;
+  const [selection, setSelection] = useState<Selection>(null);
+  const [editingGrouping, setEditingGrouping] = useState<{
+    grouping: StructureGroup;
+    screenX: number;
+    screenY: number;
+  } | null>(null);
   const [status, setStatus] = useState<ChartStatus | 'loading'>('loading');
   const [busy, setBusy] = useState(false);
   const [expandedClusters, setExpandedClusters] = useState<Set<string>>(new Set());
+  // Persist expand state per chart in localStorage so the editor opens with the
+  // same set the user last saw. Keeps the editor symmetric with the overview
+  // snapshot, which captures whatever was expanded at navigate-time.
+  // hydratedKey is state (not a ref) so React commits the hydrate setState
+  // before the write effect re-runs — otherwise the write would wipe the saved
+  // entry with the still-empty initial Set in the same render.
+  const expandStorageKey = chart ? `atad2.expandedClusters:${chart.id}` : null;
+  const [hydratedKey, setHydratedKey] = useState<string | null>(null);
+  useEffect(() => {
+    if (!expandStorageKey || hydratedKey === expandStorageKey) return;
+    try {
+      const raw = window.localStorage.getItem(expandStorageKey);
+      if (raw) {
+        const ids = JSON.parse(raw);
+        if (Array.isArray(ids)) setExpandedClusters(new Set(ids.filter((s) => typeof s === 'string')));
+      }
+    } catch {
+      // Corrupt entry: ignore and start collapsed.
+    }
+    setHydratedKey(expandStorageKey);
+  }, [expandStorageKey, hydratedKey]);
+  useEffect(() => {
+    if (!expandStorageKey || hydratedKey !== expandStorageKey) return;
+    try {
+      if (expandedClusters.size === 0) window.localStorage.removeItem(expandStorageKey);
+      else window.localStorage.setItem(expandStorageKey, JSON.stringify([...expandedClusters]));
+    } catch {
+      // Quota/private-mode: silently degrade to in-memory only.
+    }
+  }, [expandStorageKey, expandedClusters, hydratedKey]);
   const [clusterLayout, setClusterLayout] = useState<ClusterLayout>([]);
   const activeClustersRef = useRef<Cluster[]>([]);
   // Capture API handed up from StructureChart on init — used by goNext to grab
@@ -116,14 +154,9 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
     getViewportEl: () => HTMLElement | null;
     getNodes: () => Node[];
   } | null>(null);
-  const [focusedEntityIds, setFocusedEntityIds] = useState<Set<string>>(new Set());
   const [showOrphans, setShowOrphans] = useState(false);
   const [tierResult, setTierResult] = useState<TierLayoutResult | null>(null);
-  const [flowRouting, setFlowRouting] = useState<Map<string, StructureFlowRouting>>(new Map());
-  const [liveFlowPoints, setLiveFlowPoints] = useState<Map<string, RoutedFlowPoint[]>>(new Map());
-  const [snapEnabled, setSnapEnabled] = useState(true);
-  const [gridVisible, setGridVisible] = useState(false);
-  const history = useFlowEditHistory();
+  const gridVisible = true;
 
   // Hide orphans: an entity is "visible" only if it has an ownership-edge path
   // to the chart anchor (taxpayer, or first entity as fallback). Entities that
@@ -174,19 +207,6 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
     [visibleEntities, tierResult],
   );
 
-  // Map from child_id → sum_pct for ownership-sum warnings.
-  const ownershipSumIssuesMap = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const i of validation.ownershipSumIssues) m.set(i.child_id, i.sum_pct);
-    return m;
-  }, [validation]);
-
-  // Set of orphan entity IDs from the last layout result.
-  const orphanIds = useMemo(() => {
-    if (!tierResult) return new Set<string>();
-    return new Set(tierResult.orphans.map((o) => o.id));
-  }, [tierResult]);
-
   // Synthesize parent → cluster_placeholder ownership edges so the cluster
   // placeholder is visibly connected to its parent in the chart.
   const clusterEdges = useMemo<StructureEdge[]>(() => {
@@ -218,14 +238,10 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chart, clusterLayout]);
 
-  const edgesWithCluster = useMemo<StructureEdge[]>(
+  const renderableEdges = useMemo<StructureEdge[]>(
     () => [...visibleEdges, ...clusterEdges],
     [visibleEdges, clusterEdges],
   );
-
-  // All edges (ownership + transactions) passed to chart; bundle aggregation
-  // in StructureChart filters transactions to focused entities only.
-  const renderableEdges = edgesWithCluster;
 
   // When showOrphans is true, append orphan entities at the bottom of the chart
   // (below the lowest positioned tier). They are excluded from the main layout
@@ -277,15 +293,6 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
     return visibleEntities.every((e) => e.position_x === 0 && e.position_y === 0);
   }, [visibleEntities]);
 
-  const tierBands = useMemo(() => {
-    const byY = new Map<number, { topY: number; bottomY: number }>();
-    for (const e of visibleEntities) {
-      const key = Math.round(e.position_y);
-      if (!byY.has(key)) byY.set(key, { topY: e.position_y, bottomY: e.position_y + NODE_HEIGHT });
-    }
-    return Array.from(byY.values()).sort((a, b) => a.topY - b.topY);
-  }, [visibleEntities]);
-
   useEffect(() => {
     let aborted = false;
     (async () => {
@@ -297,25 +304,34 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
         setEdgesState(loaded.edges);
         setGroupings(loaded.groupings);
         setStatus(loaded.chart.status as ChartStatus);
-        const loadedRouting = await listFlowRouting(loaded.chart.id);
-        if (!aborted) {
-          setFlowRouting(new Map(loadedRouting.map((r) => [`${r.from_entity_id}|${r.to_entity_id}`, r])));
-        }
-        // Poll if extraction is mid-flight (any non-terminal status that isn't
-        // phase_a_ready — phase_a_ready means Phase A finished and we're now
-        // waiting for the user-driven Phase B trigger from Q&A).
+        // Poll if extraction is mid-flight. For phase_a_ready, auto-trigger
+        // Phase B: Assessment.tsx fires it fire-and-forget after Q&A, but if
+        // that call failed (network blip, raced the self-chain) the chart
+        // sits in phase_a_ready forever and the loader dead-ends. 409 means
+        // Phase A is still running — fall through and poll; the backend
+        // self-chain will fire Phase B on A's completion.
+        const onPollTick = async (s: ChartStatus) => {
+          if (aborted) return;
+          setStatus(s);
+          const refreshed = await loadChart(sessionId);
+          if (refreshed && !aborted) {
+            setChart(refreshed.chart);
+            setEntities(refreshed.entities);
+            setEdgesState(refreshed.edges);
+            setGroupings(refreshed.groupings);
+          }
+        };
         if (loaded.chart.status.startsWith('extracting:')) {
-          await pollUntilTerminal(loaded.chart.id, async (s) => {
-            if (aborted) return;
-            setStatus(s);
-            const refreshed = await loadChart(sessionId);
-            if (refreshed && !aborted) {
-              setChart(refreshed.chart);
-              setEntities(refreshed.entities);
-              setEdgesState(refreshed.edges);
-              setGroupings(refreshed.groupings);
+          await pollUntilTerminal(loaded.chart.id, onPollTick);
+        } else if (loaded.chart.status === 'phase_a_ready') {
+          try {
+            await startExtraction(sessionId, 'refine');
+          } catch (err) {
+            if ((err as { status?: number })?.status !== 409) {
+              console.warn('[StructureChartStep] Phase B trigger failed', err);
             }
-          });
+          }
+          await pollUntilTerminal(loaded.chart.id, onPollTick);
         }
       } else {
         // No chart row yet. Phase A may still be priming. Show the loader and
@@ -352,7 +368,7 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
         // 60s passed and still no chart row — Phase A and Phase B both failed
         // to fire. Fall back: trigger Phase B ourselves so the user isn't stuck.
         try {
-          await startExtraction(sessionId, 'refine_and_transactions');
+          await startExtraction(sessionId, 'refine');
           const refreshed = await loadChart(sessionId);
           if (refreshed) {
             setChart(refreshed.chart);
@@ -391,13 +407,11 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
     if (validation.hasBlocking) return;
 
     const ownership = visibleEdges.filter((e) => e.kind === 'ownership');
-    const transactions = visibleEdges.filter((e) => e.kind === 'transaction');
     const taxpayer = visibleEntities.find((e) => e.is_taxpayer);
 
     const allClusters = groupNonRelevantSiblings(
       visibleEntities,
       ownership,
-      transactions,
       taxpayer?.id ?? '',
     );
     // Honor user's expand toggles: clusters whose ID is in expandedClusters
@@ -411,6 +425,7 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
       entities: visibleEntities,
       ownershipEdges: ownership,
       clusters: activeClusters,
+      groupings,
     });
     setTierResult(result);
 
@@ -423,155 +438,11 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
     for (const [, p] of result.positions) updateEntityPosition(p.id, p.x, p.y);
 
     setClusterLayout(buildClusterLayout(activeClusters, result.clusterPositions, visibleEntities));
-  }, [chart, visibleEntities, visibleEdges, expandedClusters, validation.hasBlocking]);
+  }, [chart, visibleEntities, visibleEdges, expandedClusters, validation.hasBlocking, groupings]);
 
   const handleCollapseAll = useCallback(() => {
     setExpandedClusters(new Set());
   }, []);
-
-  const handleToggleFocus = useCallback((entityId: string) => {
-    setFocusedEntityIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(entityId)) next.delete(entityId);
-      else next.add(entityId);
-      return next;
-    });
-  }, []);
-
-  const handleClearFocus = useCallback(() => {
-    setFocusedEntityIds(new Set());
-  }, []);
-
-  const handleSelectTransaction = useCallback((txnId: string) => {
-    setSelection({ kind: 'edge', id: txnId });
-  }, []);
-
-  // --- Flow routing persistence handlers ---
-
-  const snapshotFlows = useCallback((): FlowEditSnapshot[] => {
-    return Array.from(flowRouting.values()).map((r) => ({
-      bundleId: `${r.from_entity_id}|${r.to_entity_id}`,
-      waypoints: r.waypoints,
-      labelPosition: r.label_position,
-    }));
-  }, [flowRouting]);
-
-  const persistFlow = useCallback(async (
-    bundleId: string,
-    patch: { waypoints?: FlowWaypoint[]; label_position?: FlowWaypoint | null },
-  ) => {
-    if (!chart) return;
-    const [from, to] = bundleId.split('|');
-    const existing = flowRouting.get(bundleId);
-    const row = await upsertFlowRouting({
-      chart_id: chart.id,
-      from_entity_id: from,
-      to_entity_id: to,
-      waypoints: patch.waypoints ?? existing?.waypoints ?? [],
-      label_position:
-        patch.label_position !== undefined ? patch.label_position : existing?.label_position ?? null,
-      routing_mode: 'manual',
-    });
-    setFlowRouting((prev) => new Map(prev).set(bundleId, row));
-  }, [chart, flowRouting]);
-
-  // Live preview — called every pointer-move frame. Cheap: only updates transient
-  // state, no history push, no DB write.
-  const handleFlowPathChange = useCallback((bundleId: string, points: RoutedFlowPoint[]) => {
-    setLiveFlowPoints((prev) => new Map(prev).set(bundleId, points));
-  }, []);
-
-  // Commit — called once on pointer-up. Pushes history + persists to DB, then
-  // clears the transient live entry so the persisted value takes over.
-  const handleFlowPathCommit = useCallback((bundleId: string, points: RoutedFlowPoint[]) => {
-    history.push(snapshotFlows());
-    void persistFlow(bundleId, { waypoints: points });
-    setLiveFlowPoints((prev) => {
-      const m = new Map(prev);
-      m.delete(bundleId);
-      return m;
-    });
-  }, [history, snapshotFlows, persistFlow]);
-
-  const handleFlowLabelMove = useCallback((bundleId: string, position: RoutedFlowPoint) => {
-    history.push(snapshotFlows());
-    void persistFlow(bundleId, { label_position: position });
-  }, [history, snapshotFlows, persistFlow]);
-
-  // The edge computes the new geometry (add/remove waypoint) and hands us the
-  // full path — works uniformly whether the flow was auto or already manual;
-  // the first such edit creates the manual routing row.
-  const handleFlowAddWaypoint = useCallback((bundleId: string, points: RoutedFlowPoint[]) => {
-    history.push(snapshotFlows());
-    void persistFlow(bundleId, { waypoints: points });
-  }, [history, snapshotFlows, persistFlow]);
-
-  const handleFlowRemoveWaypoint = useCallback((bundleId: string, points: RoutedFlowPoint[]) => {
-    history.push(snapshotFlows());
-    void persistFlow(bundleId, { waypoints: points });
-  }, [history, snapshotFlows, persistFlow]);
-
-  const handleFlowReconnect = useCallback(async (bundleId: string, _newFrom: string, _newTo: string) => {
-    if (!chart) return;
-    const [from, to] = bundleId.split('|');
-    // Only an undoable step if there was a manual routing row to clear.
-    if (flowRouting.has(bundleId)) history.push(snapshotFlows());
-    await deleteFlowRouting(chart.id, from, to);
-    setFlowRouting((prev) => {
-      const m = new Map(prev);
-      m.delete(bundleId);
-      return m;
-    });
-    // NOTE: updating the underlying transaction edge rows' from/to to the new
-    // entities is out of scope for this task — the flow routing override is
-    // simply cleared so the (still-original) bundle re-routes automatically.
-    // A follow-up will wire the actual edge-row reconnection.
-  }, [chart, flowRouting, history, snapshotFlows]);
-
-  const handleFlowResetRouting = useCallback(async (bundleId: string) => {
-    if (!chart) return;
-    if (!flowRouting.has(bundleId)) return; // already auto — nothing to reset
-    history.push(snapshotFlows());
-    const [from, to] = bundleId.split('|');
-    await deleteFlowRouting(chart.id, from, to);
-    setFlowRouting((prev) => {
-      const m = new Map(prev);
-      m.delete(bundleId);
-      return m;
-    });
-  }, [chart, flowRouting, history, snapshotFlows]);
-
-  const handleResetAllRouting = useCallback(async () => {
-    if (!chart) return;
-    history.push(snapshotFlows());
-    await deleteAllFlowRouting(chart.id);
-    setFlowRouting(new Map());
-  }, [chart, history, snapshotFlows]);
-
-  const applyFlowSnapshots = useCallback(async (snaps: FlowEditSnapshot[]) => {
-    if (!chart) return;
-    const keep = new Set(snaps.map((s) => s.bundleId));
-    for (const [bundleId] of flowRouting) {
-      if (!keep.has(bundleId)) {
-        const [from, to] = bundleId.split('|');
-        await deleteFlowRouting(chart.id, from, to);
-      }
-    }
-    const nextMap = new Map<string, StructureFlowRouting>();
-    for (const s of snaps) {
-      const [from, to] = s.bundleId.split('|');
-      const row = await upsertFlowRouting({
-        chart_id: chart.id,
-        from_entity_id: from,
-        to_entity_id: to,
-        waypoints: s.waypoints,
-        label_position: s.labelPosition,
-        routing_mode: 'manual',
-      });
-      nextMap.set(s.bundleId, row);
-    }
-    setFlowRouting(nextMap);
-  }, [chart, flowRouting]);
 
   // Re-bind onExpand handlers each render so they capture the current setExpandedClusters.
   const clusterNodes = useMemo<ClusterLayout>(
@@ -601,7 +472,7 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
     if (validation.hasBlocking) return;
     runLayout();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chart?.id, entities.length, edges.length, expandedClusters, validation.hasBlocking]);
+  }, [chart?.id, entities.length, edges.length, expandedClusters, validation.hasBlocking, groupings.length]);
 
   useEffect(() => {
     if (!chart) return;
@@ -612,32 +483,6 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
     if (isExtracting) return;
     runLayout();
   }, [chart, positionsLookBroken, status, runLayout]);
-
-  // Undo/redo keyboard listener for flow routing edits.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      // Don't hijack Ctrl/Cmd+Z from text inputs — let the browser's native
-      // text undo handle it when the user is editing a field.
-      const target = e.target as HTMLElement | null;
-      if (target) {
-        const tag = target.tagName;
-        if (tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable) return;
-      }
-      const mod = e.ctrlKey || e.metaKey;
-      if (!mod) return;
-      if (e.key === 'z' && !e.shiftKey) {
-        e.preventDefault();
-        const restored = history.undo(snapshotFlows());
-        if (restored) void applyFlowSnapshots(restored);
-      } else if ((e.key === 'z' && e.shiftKey) || e.key === 'y') {
-        e.preventDefault();
-        const restored = history.redo(snapshotFlows());
-        if (restored) void applyFlowSnapshots(restored);
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [history, snapshotFlows, applyFlowSnapshots]);
 
   const handleReExtract = async () => {
     if (!chart) return;
@@ -655,14 +500,11 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
         setGroupings(refreshed.groupings);
       }
     });
-    // Also refresh groupings and flow routing after re-extraction completes.
     try {
       const loadedGroupings = await listGroupings(chart.id);
       setGroupings(loadedGroupings);
-      const loadedRouting = await listFlowRouting(chart.id);
-      setFlowRouting(new Map(loadedRouting.map((r) => [`${r.from_entity_id}|${r.to_entity_id}`, r])));
     } catch {
-      // Non-fatal: groupings/routing may be empty or stale.
+      // Non-fatal: groupings may be empty.
     }
     setBusy(false);
   };
@@ -671,7 +513,8 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
     entityType: EntityType;
     name: string;
     jurisdiction_iso: string;
-    parentId: string;
+    relatedId: string;
+    direction: 'above' | 'below';
     ownershipPct: number;
   }) => {
     if (!chart) return;
@@ -686,10 +529,14 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
       position_y: 200,
       source: 'user_added',
     } as Partial<StructureEntity> & { chart_id: string });
+    // direction === 'below': new entity is owned by relatedId  → edge related → new
+    // direction === 'above': new entity owns relatedId           → edge new → related
+    const fromId = payload.direction === 'below' ? payload.relatedId : created.id;
+    const toId = payload.direction === 'below' ? created.id : payload.relatedId;
     const createdEdge = await upsertEdge({
       chart_id: chart.id,
-      from_entity_id: payload.parentId,
-      to_entity_id: created.id,
+      from_entity_id: fromId,
+      to_entity_id: toId,
       kind: 'ownership',
       ownership_pct: payload.ownershipPct,
       ownership_voting_only: false,
@@ -698,31 +545,6 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
     setEntities((prev) => [...prev, created]);
     setEdgesState((prev) => [...prev, createdEdge]);
   };
-
-  const handleCreateTransaction = useCallback(async (payload: {
-    from_entity_id: string;
-    to_entity_id: string;
-    transaction_type: TransactionType;
-    amount_eur: number | null;
-    is_mismatch: boolean;
-    mismatch_classification: MismatchClassification | null;
-    mismatch_atad2_article: string | null;
-  }) => {
-    if (!chart) return;
-    const created = await upsertEdge({
-      chart_id: chart.id,
-      from_entity_id: payload.from_entity_id,
-      to_entity_id: payload.to_entity_id,
-      kind: 'transaction',
-      transaction_type: payload.transaction_type,
-      amount_eur: payload.amount_eur,
-      is_mismatch: payload.is_mismatch,
-      mismatch_classification: payload.mismatch_classification,
-      mismatch_atad2_article: payload.mismatch_atad2_article,
-      source: 'user_added',
-    });
-    setEdgesState((prev) => [...prev, created]);
-  }, [chart]);
 
   const handlePctChange = useCallback(async (edgeId: string, newPct: number) => {
     const edge = edges.find((e) => e.id === edgeId);
@@ -779,10 +601,16 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
 
   const goNext = async () => {
     if (chart) {
+      // Wis de selectie voordat we de snapshot pakken — anders zien we de
+      // blauwe selectie-ring rond een entity terug in de gefinalizede PNG.
+      setSelection(null);
+      const api = captureApiRef.current;
+      api?.clearSelection();
+      // Geef React één frame om de selectie-class te laten verdwijnen.
+      await new Promise((r) => requestAnimationFrame(() => r(null)));
       // Capture a transparent PNG of the whole chart and persist it. Fully
       // non-blocking: a null snapshot or a save failure must never stop the
       // user from continuing to the report.
-      const api = captureApiRef.current;
       const snapshot = api
         ? await captureChartSnapshot(api.getViewportEl(), api.getNodes())
         : null;
@@ -809,14 +637,16 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
     <div className="flex h-full flex-col">
       <AssessmentFooterSlot
         left={
-          <Button
-            variant="outline"
-            onClick={() => navigate(`/assessment-confirmation/${sessionId}`)}
-            className="transition-all duration-fast"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Previous
-          </Button>
+          editFromOverview ? null : (
+            <Button
+              variant="outline"
+              onClick={() => navigate(`/assessment-confirmation/${sessionId}`)}
+              className="transition-all duration-fast"
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Previous
+            </Button>
+          )
         }
         right={
           <Button
@@ -824,8 +654,14 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
             disabled={status === 'loading' || isExtracting}
             className="transition-all duration-fast"
           >
-            Continue to report
-            <ArrowRight className="ml-2 h-4 w-4" />
+            {editFromOverview ? (
+              'Save and return to overview'
+            ) : (
+              <>
+                Continue to overview
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </>
+            )}
           </Button>
         }
       />
@@ -842,7 +678,7 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
                 onSkipRemaining={chart ? async () => {
                   await forceDraftReady(
                     chart.id,
-                    'Stage 3 (transactions) skipped by user. Extraction was taking too long.',
+                    'Extraction skipped by user.',
                   );
                   // Refresh chart state so the UI flips to draft_ready immediately.
                   const refreshed = await loadChart(sessionId);
@@ -855,7 +691,7 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
                   }
                 } : undefined}
                 onResumeFromPhaseA={status === 'phase_a_ready' && chart ? async () => {
-                  await startExtraction(sessionId, 'refine_and_transactions');
+                  await startExtraction(sessionId, 'refine');
                   await pollUntilTerminal(chart.id, async (s) => {
                     setStatus(s);
                     const refreshed = await loadChart(sessionId);
@@ -908,25 +744,13 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
                 ranks={tierResult?.ranks ?? new Map()}
                 groupings={groupings}
                 labelLineBreaks={labelLineBreaks}
-                ownershipSumIssues={ownershipSumIssuesMap}
-                orphanIds={orphanIds}
-                focusedEntityIds={focusedEntityIds}
-                onToggleFocus={handleToggleFocus}
-                onSelectTransaction={handleSelectTransaction}
-                flowRouting={flowRouting}
-                tierBands={tierBands}
-                snapEnabled={snapEnabled}
                 gridVisible={gridVisible}
-                liveFlowPoints={liveFlowPoints}
-                onFlowPathChange={handleFlowPathChange}
-                onFlowPathCommit={handleFlowPathCommit}
-                onFlowLabelMove={handleFlowLabelMove}
-                onFlowAddWaypoint={handleFlowAddWaypoint}
-                onFlowRemoveWaypoint={handleFlowRemoveWaypoint}
-                onFlowReconnect={handleFlowReconnect}
-                onFlowResetRouting={handleFlowResetRouting}
                 onCaptureReady={(api) => {
                   captureApiRef.current = api;
+                }}
+                onGroupingLabelClick={(groupId, screenX, screenY) => {
+                  const g = groupings.find((x) => x.id === groupId);
+                  if (g) setEditingGrouping({ grouping: g, screenX, screenY });
                 }}
               />
 
@@ -934,7 +758,6 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
                 entities={visibleEntities}
                 taxpayerId={visibleEntities.find((e) => e.is_taxpayer)?.id ?? null}
                 onCreateEntity={handleCreateEntity}
-                onCreateTransaction={handleCreateTransaction}
               />
 
               <FloatingInspector
@@ -948,34 +771,34 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
               />
 
               <FloatingToolbar
-                status={typeof status === 'string' ? status : ''}
-                entityCount={visibleEntities.length}
-                ownershipCount={visibleEdges.filter((e) => e.kind === 'ownership').length}
-                transactionCount={visibleEdges.filter((e) => e.kind === 'transaction').length}
-                onReExtract={handleReExtract}
+                isExtracting={typeof status === 'string' && status.startsWith('extracting:')}
                 onExportPptx={() => {
                   exportToPptx({
                     entities: visibleEntities,
                     edges: visibleEdges,
                     groupings,
-                    focusedEntityIds,
                     taxpayerName: visibleEntities.find((e) => e.is_taxpayer)?.name ?? '',
                   });
                 }}
                 busy={busy}
-                focusedCount={focusedEntityIds.size}
-                onClearFocus={handleClearFocus}
                 expandedClusterCount={expandedClusters.size}
                 onCollapseAll={handleCollapseAll}
                 orphanCount={tierResult?.orphans.length ?? 0}
                 orphansVisible={showOrphans}
                 onToggleOrphans={() => setShowOrphans((v) => !v)}
                 onAutoArrange={runLayout}
-                onResetAllRouting={handleResetAllRouting}
-                gridVisible={gridVisible}
-                onToggleGrid={() => setGridVisible((v) => !v)}
-                snapEnabled={snapEnabled}
-                onToggleSnap={() => setSnapEnabled((v) => !v)}
+                selectedEntityIds={selection?.kind === 'nodes' ? selection.ids : []}
+                onCreateFiscalUnity={async () => {
+                  if (!chart || selection?.kind !== 'nodes') return;
+                  const created = await createGrouping({
+                    chart_id: chart.id,
+                    kind: 'fiscal_unity',
+                    label: '',
+                    member_ids: selection.ids,
+                  });
+                  setGroupings((prev) => [...prev, created]);
+                  setSelection(null);
+                }}
               />
                 </div>
               </div>
@@ -988,6 +811,23 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
             </>
           )}
       </main>
+
+      {editingGrouping && (
+        <FiscalUnityEditPopover
+          grouping={editingGrouping.grouping}
+          screenX={editingGrouping.screenX}
+          screenY={editingGrouping.screenY}
+          onRename={async (newLabel) => {
+            const updated = await updateGrouping(editingGrouping.grouping.id, { label: newLabel });
+            setGroupings((prev) => prev.map((g) => (g.id === updated.id ? updated : g)));
+          }}
+          onDelete={async () => {
+            await deleteGrouping(editingGrouping.grouping.id);
+            setGroupings((prev) => prev.filter((g) => g.id !== editingGrouping.grouping.id));
+          }}
+          onClose={() => setEditingGrouping(null)}
+        />
+      )}
     </div>
   );
 }

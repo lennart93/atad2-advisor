@@ -1,8 +1,6 @@
+import { Trash2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import type { StructureEdge } from '@/lib/structure/types';
 
 interface Props {
@@ -11,84 +9,47 @@ interface Props {
   onDelete: () => void;
 }
 
+const FIELD_LABEL = 'block text-[10.5px] font-semibold uppercase tracking-[0.06em] text-stone-500 mb-1.5';
+const INPUT_BASE = 'h-9 bg-white/70 border-stone-200 focus-visible:ring-1 focus-visible:ring-stone-400 focus-visible:ring-offset-0';
+
 export function EdgeInspector({ edge, onChange, onDelete }: Props) {
   return (
-    <div className="space-y-3">
-      <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
-        {edge.kind === 'ownership' ? 'Ownership' : 'Transaction'}
+    <div className="space-y-3.5">
+      <div>
+        <label htmlFor="pct" className={FIELD_LABEL}>Ownership %</label>
+        <Input
+          id="pct"
+          type="number"
+          min={0}
+          max={100}
+          step={0.01}
+          value={edge.ownership_pct ?? ''}
+          onChange={(e) => onChange({ ownership_pct: e.target.value === '' ? null : Number(e.target.value) })}
+          className={INPUT_BASE}
+        />
       </div>
 
-      {edge.kind === 'ownership' ? (
-        <>
-          <div className="space-y-1">
-            <Label htmlFor="pct">Ownership %</Label>
-            <Input id="pct" type="number" min={0} max={100} step={0.01}
-              value={edge.ownership_pct ?? ''}
-              onChange={e => onChange({ ownership_pct: e.target.value === '' ? null : Number(e.target.value) })} />
-          </div>
-          <div className="flex items-center gap-2">
-            <Checkbox id="voting_only" checked={Boolean(edge.ownership_voting_only)}
-              onCheckedChange={c => onChange({ ownership_voting_only: Boolean(c) })} />
-            <Label htmlFor="voting_only">Voting rights only</Label>
-          </div>
-        </>
-      ) : (
-        <>
-          <div className="space-y-1">
-            <Label htmlFor="ttype">Type</Label>
-            <Select value={edge.transaction_type ?? 'other'}
-              onValueChange={v => onChange({ transaction_type: v as StructureEdge['transaction_type'] })}>
-              <SelectTrigger id="ttype"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {['loan','royalty','dividend','service_fee','management_fee','other'].map(t =>
-                  <SelectItem key={t} value={t}>{t}</SelectItem>
-                )}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="amt">Amount (EUR)</Label>
-            <Input id="amt" type="number" min={0} step="any"
-              value={edge.amount_eur ?? ''}
-              onChange={e => onChange({ amount_eur: e.target.value === '' ? null : Number(e.target.value) })} />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="lbl">Label</Label>
-            <Input id="lbl" value={edge.label ?? ''}
-              onChange={e => onChange({ label: e.target.value || null })} />
-          </div>
-          <div className="flex items-center gap-2">
-            <Checkbox id="ismm" checked={edge.is_mismatch}
-              onCheckedChange={c => onChange({ is_mismatch: Boolean(c) })} />
-            <Label htmlFor="ismm">Hybrid mismatch (ATAD2)</Label>
-          </div>
-          {edge.is_mismatch && (
-            <>
-              <div className="space-y-1">
-                <Label htmlFor="mc">Classification</Label>
-                <Select value={edge.mismatch_classification ?? 'D/NI'}
-                  onValueChange={v => onChange({ mismatch_classification: v as 'D/NI' | 'DD' })}>
-                  <SelectTrigger id="mc"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="D/NI">D/NI — Deduction without inclusion</SelectItem>
-                    <SelectItem value="DD">DD — Double deduction</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="art">ATAD2 article</Label>
-                <Input id="art" placeholder="12aa"
-                  value={edge.mismatch_atad2_article ?? ''}
-                  onChange={e => onChange({ mismatch_atad2_article: e.target.value || null })} />
-              </div>
-            </>
-          )}
-        </>
-      )}
+      <label className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-md border border-stone-200/80 bg-stone-50/40 hover:bg-stone-50/80 transition-colors cursor-pointer">
+        <div className="flex flex-col">
+          <span className="text-[13px] font-medium text-stone-800 leading-tight">Voting rights only</span>
+          <span className="text-[11px] text-stone-500 leading-tight">No economic stake</span>
+        </div>
+        <Switch
+          checked={Boolean(edge.ownership_voting_only)}
+          onCheckedChange={(c) => onChange({ ownership_voting_only: Boolean(c) })}
+        />
+      </label>
 
-      <Button variant="destructive" size="sm" onClick={onDelete} className="w-full">
-        Delete
-      </Button>
+      <div className="pt-1 border-t border-stone-100/80 -mx-4 px-4 mt-4">
+        <button
+          type="button"
+          onClick={onDelete}
+          className="mt-2 inline-flex items-center gap-1.5 text-[12px] text-red-700/90 hover:text-red-800 transition-colors font-medium"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+          Delete edge
+        </button>
+      </div>
     </div>
   );
 }

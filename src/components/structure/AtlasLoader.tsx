@@ -1,6 +1,6 @@
 // src/components/structure/AtlasLoader.tsx
-import { AnimatedLogo } from '@/components/AnimatedLogo';
 import type { ChartStatus } from '@/lib/structure/types';
+import { useUiBusySignal } from '@/stores/uiBusyStore';
 
 type Stage = 0 | 1 | 2 | 3 | 4;
 
@@ -8,9 +8,8 @@ type Stage = 0 | 1 | 2 | 3 | 4;
 export function stageOf(status: ChartStatus | 'loading'): Stage {
   if (status === 'loading' || status === 'extracting:stage1') return 1;
   if (status === 'extracting:stage2') return 2;
-  if (status === 'phase_a_ready') return 3;
   if (status === 'extracting:refining') return 2;
-  if (status === 'extracting:stage3') return 3;
+  if (status === 'phase_a_ready') return 3;
   if (status === 'draft_ready' || status === 'user_edited' || status === 'finalized') return 4;
   return 0;
 }
@@ -28,10 +27,12 @@ interface Props {
 }
 
 export function AtlasLoader(_props: Props) {
+  // Top-left AppLayout logo spins while this loader is on screen, so we don't
+  // render a second spinner here — just the textual status.
+  useUiBusySignal(true);
   return (
-    <div className="flex flex-col items-center gap-3 text-center">
-      <AnimatedLogo state="working" size={48} />
-      <div className="text-sm text-muted-foreground">Loading chart…</div>
+    <div className="text-sm text-muted-foreground text-center">
+      Loading chart…
     </div>
   );
 }

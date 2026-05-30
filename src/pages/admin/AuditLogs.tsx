@@ -38,14 +38,28 @@ const AuditLogs = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("audit_logs")
-        .select(`
-          id, user_id, action, table_name, record_id, old_values, new_values, created_at,
-          profiles:user_id(email)
-        `)
+        .select("id, user_id, action, table_name, record_id, old_values, new_values, created_at")
         .order("created_at", { ascending: false })
         .limit(200);
       if (error) throw error;
-      return (data ?? []) as unknown as AuditLogRow[];
+      const rows = (data ?? []) as unknown as AuditLogRow[];
+
+      const userIds = Array.from(
+        new Set(rows.map((r) => r.user_id).filter((v): v is string => !!v))
+      );
+      if (userIds.length === 0) return rows;
+
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("user_id, email")
+        .in("user_id", userIds);
+      const emailByUserId = new Map(
+        (profiles ?? []).map((p) => [p.user_id, p.email ?? null])
+      );
+      return rows.map((r) => ({
+        ...r,
+        profiles: r.user_id ? { email: emailByUserId.get(r.user_id) ?? "" } : null,
+      }));
     },
     staleTime: 30_000,
   });

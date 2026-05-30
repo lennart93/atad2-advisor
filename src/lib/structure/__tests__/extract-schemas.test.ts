@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { Stage1Output, Stage2Output, Stage3Output } from '../../../../supabase/functions/extract-structure/schemas';
-import { formatQaBlock, QA_PRIMACY_HEADER, type QaAnswerRow } from '../../../../supabase/functions/extract-structure/formatters';
-import stage3Prompt from '../../../../supabase/functions/extract-structure/prompts/stage3-transactions';
+import { Stage1Output, Stage2Output } from '../../../../supabase/functions/extract-structure/schemas';
+import { formatQaBlock, type QaAnswerRow } from '../../../../supabase/functions/extract-structure/formatters';
 
 describe('Stage1Output', () => {
   it('accepts a minimal valid payload', () => {
@@ -49,50 +48,6 @@ describe('Stage2Output', () => {
   });
 });
 
-describe('Stage3Output', () => {
-  it('accepts mismatch transactions', () => {
-    const ok = Stage3Output.parse({
-      transactions: [
-        {
-          from_temp_id: 'ent_1', to_temp_id: 'ent_2',
-          transaction_type: 'loan',
-          amount_eur: 5_000_000,
-          is_mismatch: true,
-          mismatch_classification: 'D/NI',
-          mismatch_atad2_article: '12aa',
-        },
-      ],
-    });
-    expect(ok.transactions[0].is_mismatch).toBe(true);
-  });
-
-  it('accepts non-mismatch transactions without classification fields', () => {
-    const ok = Stage3Output.parse({
-      transactions: [
-        { from_temp_id: 'ent_1', to_temp_id: 'ent_2', transaction_type: 'dividend', is_mismatch: false },
-      ],
-    });
-    expect(ok.transactions[0].is_mismatch).toBe(false);
-  });
-
-  it('accepts arbitrary transaction_type strings (normalized to enum at insert time in the Edge Function)', () => {
-    const ok = Stage3Output.parse({
-      transactions: [
-        { from_temp_id: 'ent_1', to_temp_id: 'ent_2', transaction_type: 'interest', is_mismatch: false },
-      ],
-    });
-    expect(ok.transactions[0].transaction_type).toBe('interest');
-  });
-
-  it('rejects empty transaction_type', () => {
-    expect(() => Stage3Output.parse({
-      transactions: [
-        { from_temp_id: 'ent_1', to_temp_id: 'ent_2', transaction_type: '', is_mismatch: false },
-      ],
-    })).toThrow();
-  });
-});
-
 describe('formatQaBlock', () => {
   it('includes explanation on its own line when present', () => {
     const rows: QaAnswerRow[] = [
@@ -117,11 +72,5 @@ describe('formatQaBlock', () => {
 
   it('returns empty string for zero rows', () => {
     expect(formatQaBlock([])).toBe('');
-  });
-});
-
-describe('stage3 prompt', () => {
-  it('begins with the Q&A primacy header', () => {
-    expect(stage3Prompt.startsWith(QA_PRIMACY_HEADER)).toBe(true);
   });
 });

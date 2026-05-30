@@ -22,7 +22,7 @@ function estimateCostEUR(usage: { input_tokens?: number; output_tokens?: number 
 export default function PrefillJobs() {
   const [detailJobId, setDetailJobId] = useState<string | null>(null);
 
-  const { data } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ["admin-prefill-jobs"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -44,6 +44,12 @@ export default function PrefillJobs() {
         </div>
       </div>
 
+      {error && (
+        <div className="mb-4 border border-destructive/40 bg-destructive/10 text-destructive text-xs font-mono p-3 rounded-md whitespace-pre-wrap">
+          {error instanceof Error ? `${error.name}: ${error.message}` : String(error)}
+        </div>
+      )}
+
       <AdminCard className="overflow-x-auto p-0">
         <table className="w-full text-sm">
           <thead>
@@ -57,6 +63,20 @@ export default function PrefillJobs() {
             </tr>
           </thead>
           <tbody>
+            {isLoading && (
+              <tr>
+                <td colSpan={6} className="px-4 py-8 text-center text-xs text-muted-foreground">
+                  Loading…
+                </td>
+              </tr>
+            )}
+            {!isLoading && (data?.length ?? 0) === 0 && !error && (
+              <tr>
+                <td colSpan={6} className="px-4 py-8 text-center text-xs text-muted-foreground">
+                  No pre-fill jobs yet.
+                </td>
+              </tr>
+            )}
             {data?.map((j) => {
               const durMs = j.stage2_finished_at && j.started_at
                 ? new Date(j.stage2_finished_at).getTime() - new Date(j.started_at).getTime()

@@ -7,7 +7,7 @@ const FUNCTIONS_BASE = import.meta.env.VITE_SUPABASE_URL + '/functions/v1';
 
 export async function startExtraction(
   sessionId: string,
-  phase: 'docs_only' | 'refine_and_transactions' = 'refine_and_transactions',
+  phase: 'docs_only' | 'refine' = 'refine',
 ): Promise<{ chart_id: string }> {
   const { data: { session } } = await supabase.auth.getSession();
   const r = await fetch(`${FUNCTIONS_BASE}/extract-structure`, {

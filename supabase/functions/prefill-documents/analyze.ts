@@ -2,6 +2,14 @@ import type { SupabaseClient } from "supabase";
 import { loadActivePrompt, renderTemplate, type PromptKey } from "./prompts.ts";
 import { callOpus, extractJson } from "./anthropic.ts";
 import { SwarmPrefill } from "./schemas.ts";
+import { type AnthropicBlock, toAnthropicBlock } from "./converters.ts";
+
+export interface ImageRef {
+  doc_label: string;
+  storage_path: string;
+  mime_type: string;
+  relevance_note: string | null;
+}
 
 const BAD_LEAD_INS = [
   "based on", "according to", "from the document", "from the documents",
@@ -38,6 +46,7 @@ export async function runAnalyzeOne(
   questionText: string,
   questionExplanation: string,
   documentsBlock: string,
+  imageRefs: ImageRef[] = [],
 ): Promise<{ ok: boolean; error?: string; usage?: Record<string, number> }> {
   const started = Date.now();
 
@@ -56,15 +65,31 @@ export async function runAnalyzeOne(
     const docPrefix = splitIndex >= 0 ? userText.slice(0, splitIndex) : userText;
     const questionSuffix = splitIndex >= 0 ? userText.slice(splitIndex) : "";
 
-    const userContent = [
-      { type: "text" as const, text: docPrefix, cache_control: { type: "ephemeral" } as const },
-      { type: "text" as const, text: questionSuffix },
-    ];
+    // Fetch image bytes once per request; failures are logged but non-fatal so
+    // a single broken image doesn't sink the whole analyze call.
+    const imageBlocks = await fetchImageBlocks(serviceClient, sessionId, questionId, imageRefs);
+
+    // Layout: [textPrefix, image header (if any), image blocks…, questionSuffix].
+    // The cache marker sits on the LAST prefix block (or on the lone text
+    // prefix when there are no images) so the whole document + image context
+    // is cached together — written once per session, read by every other
+    // question call in the swarm.
+    const headerBlock: AnthropicBlock | null = imageBlocks.length > 0
+      ? { type: "text", text: buildImageHeader(imageRefs) }
+      : null;
+
+    type CacheableBlock = AnthropicBlock & { cache_control?: { type: "ephemeral" } };
+    const prefix: CacheableBlock[] = [{ type: "text", text: docPrefix }];
+    if (headerBlock) prefix.push(headerBlock);
+    for (const ib of imageBlocks) prefix.push(ib);
+    prefix[prefix.length - 1].cache_control = { type: "ephemeral" };
+
+    const userContent: CacheableBlock[] = [...prefix, { type: "text", text: questionSuffix }];
 
     const { text, usage } = await callOpus({
       model: prompt.model,
       systemPrompt: prompt.system_prompt,
-      userContent: userContent as unknown as { type: "text"; text: string }[],
+      userContent: userContent as unknown as AnthropicBlock[],
       temperature: prompt.temperature,
       maxTokens: prompt.max_tokens,
     });
@@ -129,4 +154,41 @@ export async function runAnalyzeOne(
     }));
     return { ok: false, error: message };
   }
+}
+
+function buildImageHeader(refs: ImageRef[]): string {
+  const lines = refs.map((r, i) => {
+    const note = r.relevance_note ? ` — ${r.relevance_note}` : "";
+    return `  [${i + 1}] ${r.doc_label}${note}`;
+  });
+  return `\n\nThe following ${refs.length} image document${refs.length === 1 ? " is" : "s are"} attached for visual reference:\n${lines.join("\n")}\n`;
+}
+
+export async function fetchImageBlocks(
+  serviceClient: SupabaseClient,
+  sessionId: string,
+  questionId: string,
+  refs: ImageRef[],
+): Promise<AnthropicBlock[]> {
+  if (refs.length === 0) return [];
+  const blocks: AnthropicBlock[] = [];
+  for (const ref of refs) {
+    try {
+      const { data, error } = await serviceClient.storage
+        .from("session-documents")
+        .download(ref.storage_path);
+      if (error || !data) throw error ?? new Error("empty file");
+      const bytes = new Uint8Array(await data.arrayBuffer());
+      const block = await toAnthropicBlock(bytes, ref.mime_type);
+      blocks.push(block);
+    } catch (err) {
+      console.warn(JSON.stringify({
+        level: "warn", event: "image_fetch_failed",
+        session_id: sessionId, question_id: questionId,
+        storage_path: ref.storage_path,
+        error: err instanceof Error ? err.message : String(err),
+      }));
+    }
+  }
+  return blocks;
 }

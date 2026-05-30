@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState } from "react";
+import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
+import { AssessmentFooterSlot } from "@/components/assessment/AssessmentFooterSlot";
 import { usePrefillJob, useAllPrefills } from "@/hooks/usePrefill";
+import { useUiBusySignal } from "@/stores/uiBusyStore";
+import { ArrowRight } from "lucide-react";
 
 const WAIT_TIMEOUT_MS = 120_000;
 
@@ -47,28 +51,56 @@ export function AnalyzeProgress({ sessionId, onContinue }: Props) {
   }, [ready]);
 
   const canContinue = ready || timedOut || failed;
-  const buttonLabel = ready ? "Start questions" : "Start questions anyway";
+  const buttonLabel = !ready && (timedOut || failed) ? "Start questions anyway" : "Start questions";
+
+  // Top-left AppLayout logo spins while we're actively reading documents. The
+  // signal turns off as soon as the first suggestion lands (ready) or the job
+  // gives up — the card itself stays on screen showing the result state.
+  useUiBusySignal(!ready && !failed && !timedOut);
+
+  const statusLabel = failed
+    ? "Couldn't process documents"
+    : ready
+    ? "Suggestions ready"
+    : timedOut
+    ? "Still working in the background"
+    : "Reading your documents…";
+
+  const statusDetail = failed
+    ? "You can start the questions now; suggestions may still appear inline if the analysis recovers in the background."
+    : ready
+    ? "The questionnaire is unlocked. More suggestions will keep arriving as the analysis finishes."
+    : timedOut
+    ? "We didn't finish in time. You can start the questions now; suggestions will appear inline as we finish."
+    : "We're reading your documents and drafting suggested answers.";
 
   return (
-    <div className="space-y-4">
-      <Progress value={pct} className="h-2" />
-      <div className="flex items-center justify-end text-xs text-muted-foreground">
-        <span>{Math.round(pct)}%</span>
-      </div>
-      {(timedOut || failed) && !ready && (
-        <p className="text-sm text-muted-foreground">
-          {failed
-            ? "We couldn't process the documents this time. You can start the questions now; suggestions may still appear inline if the analysis recovers in the background."
-            : "Looks like we couldn't fully process the documents in time. You can start the questions now; suggestions will still appear inline as we finish."}
-        </p>
-      )}
-      {canContinue && (
-        <div className="pt-2">
-          <Button onClick={onContinue} size="lg" className="w-full sm:w-auto">
-            {buttonLabel}
-          </Button>
+    <>
+      <Card className="p-5">
+        <div className="space-y-2">
+          <div className="flex items-baseline justify-between gap-3">
+            <p className="text-sm font-medium tracking-tight">{statusLabel}</p>
+            <span className="text-xs tabular-nums text-muted-foreground">
+              {Math.round(pct)}%
+            </span>
+          </div>
+          <Progress value={pct} className="h-1.5" />
+          <p className="text-xs text-muted-foreground">{statusDetail}</p>
         </div>
-      )}
-    </div>
+      </Card>
+
+      <AssessmentFooterSlot
+        right={
+          <Button
+            onClick={onContinue}
+            disabled={!canContinue}
+            className="transition-all duration-fast"
+          >
+            {buttonLabel}
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </Button>
+        }
+      />
+    </>
   );
 }

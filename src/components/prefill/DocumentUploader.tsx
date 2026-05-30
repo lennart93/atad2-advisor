@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { usePrefillStore, type PendingFile } from "@/stores/prefillStore";
-import { useUploadDocument, useSessionDocuments, useClassifyDocument, useUpdateDocumentCategory } from "@/hooks/usePrefill";
+import { useUploadDocument, useSessionDocuments, useClassifyDocument, useUpdateDocumentCategory, useDeleteDocument } from "@/hooks/usePrefill";
 import {
   ACCEPTED_MIME_TYPES, MAX_FILE_BYTES, MAX_SESSION_BYTES,
 } from "@/lib/prefill/types";
@@ -24,6 +24,7 @@ export function DocumentUploader({ sessionId, locked }: Props) {
   const upload = useUploadDocument(sessionId);
   const classify = useClassifyDocument(sessionId);
   const updateCategory = useUpdateDocumentCategory(sessionId);
+  const deleteDocument = useDeleteDocument(sessionId);
   const { data: uploadedDocs } = useSessionDocuments(sessionId);
 
   const onFilesSelected = (selected: FileList | null) => {
@@ -105,7 +106,11 @@ export function DocumentUploader({ sessionId, locked }: Props) {
       )}
 
       <div className="space-y-2">
-        {store.pendingFiles.map((p) => (
+        {/* Pending Cards alleen tonen zolang de upload nog niet klaar is.
+            Zodra status === 'uploaded' nemen we de server-side Card (met dropdown). */}
+        {store.pendingFiles
+          .filter((p) => p.status !== 'uploaded')
+          .map((p) => (
           <Card key={p.localId} className="p-3 flex items-start gap-3">
             <div className="flex-1 min-w-0">
               <div className="text-sm font-medium break-all" title={p.file.name}>
@@ -125,7 +130,12 @@ export function DocumentUploader({ sessionId, locked }: Props) {
         ))}
 
         {(uploadedDocs ?? [])
-          .filter((d) => !store.pendingFiles.some((p) => p.remoteDocumentId === d.id))
+          .filter((d) => {
+            // Verberg server-side Card alleen als de pending-versie nog in flight is.
+            // Eenmaal 'uploaded' nemen we de server-side Card over (met dropdown).
+            const matching = store.pendingFiles.find((p) => p.remoteDocumentId === d.id);
+            return !matching || matching.status === 'uploaded';
+          })
           .map((d) => (
             <Card key={d.id} className="p-3 flex items-start gap-3">
               <div className="flex-1 min-w-0">
@@ -141,13 +151,28 @@ export function DocumentUploader({ sessionId, locked }: Props) {
                 </div>
               </div>
               {!locked && (
-                <CategoryDropdown
-                  value={d.category}
-                  source={d.category_source}
-                  onChange={(next: DocumentCategory) =>
-                    updateCategory.mutate({ docId: d.id, category: next })
-                  }
-                />
+                <>
+                  <CategoryDropdown
+                    value={d.category}
+                    onChange={(next: DocumentCategory) =>
+                      updateCategory.mutate({ docId: d.id, category: next })
+                    }
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      // Wis ook eventuele pending-entry zodat de Card niet
+                      // even terugploft naar de in-flight versie.
+                      const pending = store.pendingFiles.find((p) => p.remoteDocumentId === d.id);
+                      if (pending) store.removeFile(pending.localId);
+                      deleteDocument.mutate(d.id);
+                    }}
+                    aria-label="Remove document"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </>
               )}
             </Card>
           ))}

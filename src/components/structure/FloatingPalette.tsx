@@ -1,9 +1,8 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Plus, ArrowRight } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { AddEntityDialog } from './AddEntityDialog';
-import { AddTransactionDialog } from './AddTransactionDialog';
-import type { EntityType, StructureEntity, TransactionType, MismatchClassification } from '@/lib/structure/types';
+import type { EntityType, StructureEntity } from '@/lib/structure/types';
 
 interface Props {
   entities: StructureEntity[];
@@ -15,28 +14,15 @@ interface Props {
     parentId: string;
     ownershipPct: number;
   }) => Promise<void>;
-  onCreateTransaction: (payload: {
-    from_entity_id: string;
-    to_entity_id: string;
-    transaction_type: TransactionType;
-    amount_eur: number | null;
-    is_mismatch: boolean;
-    mismatch_classification: MismatchClassification | null;
-    mismatch_atad2_article: string | null;
-  }) => Promise<void>;
 }
 
-export function FloatingPalette({ entities, taxpayerId, onCreateEntity, onCreateTransaction }: Props) {
+export function FloatingPalette({ entities, taxpayerId, onCreateEntity }: Props) {
   const [entityOpen, setEntityOpen] = useState(false);
-  const [transactionOpen, setTransactionOpen] = useState(false);
   return (
     <>
       <div className="absolute top-6 left-6 z-10 flex gap-2" data-snapshot-exclude="true">
         <Button onClick={() => setEntityOpen(true)} size="sm" variant="outline">
           <Plus className="w-4 h-4 mr-1" /> Entity
-        </Button>
-        <Button onClick={() => setTransactionOpen(true)} size="sm" variant="outline">
-          <ArrowRight className="w-4 h-4 mr-1" /> Transaction
         </Button>
       </div>
       <AddEntityDialog
@@ -45,13 +31,6 @@ export function FloatingPalette({ entities, taxpayerId, onCreateEntity, onCreate
         entities={entities}
         taxpayerId={taxpayerId}
         onCreate={onCreateEntity}
-      />
-      <AddTransactionDialog
-        open={transactionOpen}
-        onOpenChange={setTransactionOpen}
-        entities={entities}
-        taxpayerId={taxpayerId}
-        onCreate={onCreateTransaction}
       />
     </>
   );

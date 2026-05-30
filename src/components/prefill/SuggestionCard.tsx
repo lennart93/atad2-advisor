@@ -1,67 +1,108 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import type { QuestionPrefill } from "@/lib/prefill/types";
 import { useUpdatePrefillAction } from "@/hooks/usePrefill";
+import { combineExplanation } from "@/lib/prefill/combine";
 
 interface Props {
   prefill: QuestionPrefill;
-  currentToelichting: string;
-  onCommit: (newValue: string) => void;
+  // The user's portion of the explanation (textarea content sans AI text).
+  // Used to recombine when the user accepts, edits, or removes the AI block.
+  userNotes: string;
+  onCommit: (combinedExplanation: string) => void;
   onDismissToAdditionalContext?: (text: string) => void;
 }
 
+const isCommittedAction = (action: QuestionPrefill["user_action"]) =>
+  action === "accepted" || action === "edited";
+
+const isHiddenAction = (action: QuestionPrefill["user_action"]) =>
+  action === "dismissed" || action === "moved_to_additional_context";
+
 export function SuggestionCard({
   prefill,
-  currentToelichting,
+  userNotes,
   onCommit,
   onDismissToAdditionalContext,
 }: Props) {
+  const suggested = prefill.suggested_toelichting ?? "";
+  const persistedCommitted = prefill.committed_text ?? (isCommittedAction(prefill.user_action) ? suggested : "");
+
+  // Optimistic state: render the locked block immediately on Accept/Edit
+  // without waiting for the prefill round trip to land via react-query.
+  const [justCommitted, setJustCommitted] = useState<{ text: string } | null>(null);
+  const [localHidden, setLocalHidden] = useState(false);
   const [editMode, setEditMode] = useState(false);
-  const [draft, setDraft] = useState(prefill.suggested_toelichting);
-  const [dismissedLocally, setDismissedLocally] = useState(false);
+  const [draft, setDraft] = useState(persistedCommitted || suggested);
   const updateAction = useUpdatePrefillAction();
 
-  if (
-    dismissedLocally ||
-    prefill.user_action === "accepted" ||
-    prefill.user_action === "edited" ||
-    prefill.user_action === "dismissed" ||
-    prefill.user_action === "moved_to_additional_context"
-  ) {
-    return null;
-  }
+  // When the prefill changes (new question), clear local optimistic + edit state.
+  useEffect(() => {
+    setJustCommitted(null);
+    setLocalHidden(false);
+    setEditMode(false);
+    setDraft(persistedCommitted || suggested);
+  }, [prefill.id, persistedCommitted, suggested]);
 
-  const appendToCurrent = (text: string) =>
-    currentToelichting.trim().length === 0 ? text : `${currentToelichting}\n\n${text}`;
+  if (localHidden || isHiddenAction(prefill.user_action)) return null;
 
+  // Once the user has accepted/edited the AI suggestion, the card disappears.
+  // The committed text lives in the explanation Textarea below, where the
+  // user can keep editing it inline like any other explanation.
+  const showLockedBlock = !!justCommitted || isCommittedAction(prefill.user_action);
+  if (showLockedBlock) return null;
+
+  if (!suggested.trim()) return null;
+
+  // -- Pending: original Accept / Edit / Dismiss card -----------------------
   const accept = () => {
-    onCommit(appendToCurrent(prefill.suggested_toelichting));
-    updateAction.mutate({ prefillId: prefill.id, action: "accepted" });
-    setDismissedLocally(true);
+    const text = suggested.trim();
+    if (!text) return;
+    onCommit(combineExplanation(text, userNotes));
+    setJustCommitted({ text });
+    updateAction.mutate({
+      prefillId: prefill.id,
+      action: "accepted",
+      committedText: text,
+    });
   };
 
   const commitEdit = () => {
-    onCommit(appendToCurrent(draft));
-    updateAction.mutate({ prefillId: prefill.id, action: "edited" });
+    const trimmed = draft.trim();
+    if (!trimmed) return;
+    onCommit(combineExplanation(trimmed, userNotes));
+    setJustCommitted({ text: trimmed });
+    updateAction.mutate({
+      prefillId: prefill.id,
+      action: "edited",
+      committedText: trimmed,
+    });
     setEditMode(false);
-    setDismissedLocally(true);
   };
 
   const dismiss = (moveToAdditional: boolean) => {
     if (moveToAdditional && onDismissToAdditionalContext) {
-      onDismissToAdditionalContext(prefill.suggested_toelichting);
-      updateAction.mutate({ prefillId: prefill.id, action: "moved_to_additional_context" });
+      onDismissToAdditionalContext(suggested);
+      updateAction.mutate({
+        prefillId: prefill.id,
+        action: "moved_to_additional_context",
+        committedText: null,
+      });
     } else {
-      updateAction.mutate({ prefillId: prefill.id, action: "dismissed" });
+      updateAction.mutate({
+        prefillId: prefill.id,
+        action: "dismissed",
+        committedText: null,
+      });
     }
-    setDismissedLocally(true);
+    setLocalHidden(true);
   };
 
   return (
     <div className="border-l-2 border-primary/40 bg-primary/5 pl-4 py-3 my-2 text-sm leading-relaxed space-y-2">
       {!editMode ? (
-        <p className="whitespace-pre-wrap">{prefill.suggested_toelichting}</p>
+        <p className="whitespace-pre-wrap">{suggested}</p>
       ) : (
         <Textarea
           value={draft}
@@ -80,7 +121,7 @@ export function SuggestionCard({
               variant="outline"
               className="transition-all duration-fast"
               onClick={() => {
-                setDraft(prefill.suggested_toelichting);
+                setDraft(suggested);
                 setEditMode(true);
               }}
             >

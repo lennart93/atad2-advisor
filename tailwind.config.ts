@@ -102,13 +102,24 @@ export default {
 					'50%': {
 						boxShadow: '0 0 0 8px hsl(var(--primary) / 0)'
 					}
+				},
+				'wiggle': {
+					'0%':   { transform: 'rotate(0deg) scale(1)' },
+					'4%':   { transform: 'rotate(-22deg) scale(1.18)' },
+					'8%':   { transform: 'rotate(20deg) scale(1.18)' },
+					'12%':  { transform: 'rotate(-16deg) scale(1.14)' },
+					'16%':  { transform: 'rotate(14deg) scale(1.12)' },
+					'20%':  { transform: 'rotate(-8deg) scale(1.08)' },
+					'24%':  { transform: 'rotate(4deg) scale(1.04)' },
+					'28%, 100%': { transform: 'rotate(0deg) scale(1)' },
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
 				'accordion-up': 'accordion-up 0.2s ease-out',
 				'fade-in': 'fade-in 0.2s ease-out',
-				'pulse-glow': 'pulse-glow 2s ease-in-out infinite'
+				'pulse-glow': 'pulse-glow 2s ease-in-out infinite',
+				'wiggle': 'wiggle 3.5s ease-in-out infinite'
 			},
 			fontFamily: {
 				sans: ['Geist', 'Inter Variable', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],

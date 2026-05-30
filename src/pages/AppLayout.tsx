@@ -10,6 +10,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { CommandPalette } from "@/components/CommandPalette";
 import { AssessmentProgressIndicator } from "@/components/AssessmentProgressIndicator";
 import { useAssessmentLeaveGuard } from "@/hooks/useAssessmentLeaveGuard";
+import { useIsUiBusy } from "@/stores/uiBusyStore";
 import { cn } from "@/lib/utils";
 
 const AppLayout = () => {
@@ -24,6 +25,7 @@ const AppLayout = () => {
 
   useAssessmentLeaveGuard(isAssessmentRoute);
 
+  const isBusy = useIsUiBusy();
   const { hasAccess, isAdmin, isModerator } = useAdminAccess();
 
   const { data: userProfile } = useQuery({
@@ -62,7 +64,7 @@ const AppLayout = () => {
                     aria-label="To dashboard"
                     className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   >
-                    <AnimatedLogo size={36} />
+                    <AnimatedLogo size={36} state={isBusy ? "working" : "idle"} />
                   </Link>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">To dashboard</TooltipContent>

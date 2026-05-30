@@ -9,10 +9,9 @@ describe('stageOf', () => {
   it('maps extraction stages to their numbers', () => {
     expect(stageOf('extracting:stage1')).toBe(1);
     expect(stageOf('extracting:stage2')).toBe(2);
-    expect(stageOf('extracting:stage3')).toBe(3);
   });
 
-  it('maps phase_a_ready to stage 3 (waiting on transactions)', () => {
+  it('maps phase_a_ready to stage 3 (waiting on Phase B refine)', () => {
     expect(stageOf('phase_a_ready')).toBe(3);
   });
 

@@ -1,23 +1,51 @@
 import { supabase } from "@/integrations/supabase/client";
 
+const IMAGE_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
+
+export interface ImageRef {
+  doc_label: string;
+  storage_path: string;
+  mime_type: string;
+  relevance_note: string | null;
+}
+
+export interface DocumentsBundle {
+  textBlock: string;
+  imageRefs: ImageRef[];
+}
+
 /**
- * Fetch all session documents and assemble them into the canonical
- * <document …> XML block used by both the swarm prefill and memo
- * generation prompts. Returns "" when no docs exist.
+ * Fetch all session documents and split them into:
+ *  - textBlock: canonical <document …> XML for text-extractable docs (PDF/DOCX
+ *    are already text-extracted at upload time; CSV/TXT/MD are raw text)
+ *  - imageRefs: storage pointers for PNG/JPG/WEBP, sent to the edge function
+ *    which downloads + base64-encodes them as Anthropic image content blocks.
  *
- * Format mirrors what useStartAnalyze already produces in iter 3 so the
- * model sees the same shape across both prompts.
+ * Calling .text() on raw image bytes used to pump garbage UTF-8 into the prompt
+ * — this split prevents that and routes images through Claude's native vision.
  */
-export async function buildDocumentsBlock(sessionId: string): Promise<string> {
+export async function buildDocumentsBlock(sessionId: string): Promise<DocumentsBundle> {
   const { data: docs } = await supabase
     .from("atad2_session_documents")
-    .select("id, doc_label, category, storage_path, relevance_note")
+    .select("id, doc_label, category, storage_path, relevance_note, mime_type")
     .eq("session_id", sessionId);
 
-  if (!docs || docs.length === 0) return "";
+  if (!docs || docs.length === 0) return { textBlock: "", imageRefs: [] };
 
-  const docTexts = await Promise.all(
-    docs.map(async (d) => {
+  const imageRefs: ImageRef[] = [];
+  const textPromises: Promise<string | null>[] = [];
+
+  for (const d of docs) {
+    if (IMAGE_MIME_TYPES.has(d.mime_type)) {
+      imageRefs.push({
+        doc_label: d.doc_label,
+        storage_path: d.storage_path,
+        mime_type: d.mime_type,
+        relevance_note: d.relevance_note,
+      });
+      continue;
+    }
+    textPromises.push((async () => {
       const { data: file } = await supabase.storage
         .from("session-documents")
         .download(d.storage_path);
@@ -27,8 +55,11 @@ export async function buildDocumentsBlock(sessionId: string): Promise<string> {
         ? ` relevance_note="${String(d.relevance_note).replace(/"/g, "'")}"`
         : "";
       return `<document doc_label="${d.doc_label}" category="${d.category}"${noteAttr}>\n${text}\n</document>`;
-    })
-  );
+    })());
+  }
 
-  return docTexts.filter(Boolean).join("\n\n");
+  const docTexts = await Promise.all(textPromises);
+  const textBlock = docTexts.filter(Boolean).join("\n\n");
+
+  return { textBlock, imageRefs };
 }

@@ -17,7 +17,7 @@ export function BlockingBanner({ result, entities, onOpenEntity }: Props) {
         <div className="flex items-center gap-3 mb-4">
           <AlertTriangle className="w-6 h-6 text-destructive" />
           <h2 className="text-lg font-semibold text-destructive">
-            Chart cannot render — fix the issues below first
+            Chart cannot render. Fix the issues below first.
           </h2>
         </div>
 
@@ -30,7 +30,7 @@ export function BlockingBanner({ result, entities, onOpenEntity }: Props) {
               {result.missingFields.map((mf) => (
                 <li key={mf.entity_id} className="flex items-center justify-between text-sm">
                   <span>
-                    <strong>{entityName(mf.entity_id)}</strong> — missing{' '}
+                    <strong>{entityName(mf.entity_id)}</strong> is missing{' '}
                     {mf.missing.join(' and ')}
                   </span>
                   <Button size="sm" variant="outline" onClick={() => onOpenEntity(mf.entity_id)}>

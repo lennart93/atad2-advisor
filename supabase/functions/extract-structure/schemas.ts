@@ -30,23 +30,3 @@ export const Stage2Output = z.object({
   })),
 });
 export type Stage2OutputT = z.infer<typeof Stage2Output>;
-
-// transaction_type accepts any string the LLM produces. The Edge Function
-// normalizes it into the DB-allowed set ('loan' | 'royalty' | 'dividend' |
-// 'service_fee' | 'management_fee' | 'other') before persisting.
-const TransactionType = z.string().min(1);
-const Mismatch = z.enum(['D/NI', 'DD']);
-
-export const Stage3Output = z.object({
-  transactions: z.array(z.object({
-    from_temp_id: TempId,
-    to_temp_id: TempId,
-    transaction_type: TransactionType,
-    amount_eur: z.number().nullable().optional(),
-    label: z.string().nullable().optional(),
-    is_mismatch: z.boolean(),
-    mismatch_classification: Mismatch.nullable().optional(),
-    mismatch_atad2_article: z.string().nullable().optional(),
-  })),
-});
-export type Stage3OutputT = z.infer<typeof Stage3Output>;

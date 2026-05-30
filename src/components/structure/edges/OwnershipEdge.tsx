@@ -36,14 +36,14 @@ export function OwnershipEdge({
   //  - Straight edge (source and target vertically aligned): midpoint of the line.
   //  - Short hark edge: middle of the LAST vertical drop (above the child) —
   //    sits at 75% along source→target since the bus is at the 50% mark.
+  //    Multi-parent children get each parent's percentage visibly stacked
+  //    near the child, which is more informative than hiding them.
   //  - Long hark (generation-skip): the bottom-half drop visually sits below the
   //    intermediate tier where other labels live, so place label on the FIRST
   //    drop (above the bus) instead — 25% along source→target, aligned with the
   //    source's column.
   const isStraight = Math.abs(targetX - sourceX) < 5;
   const dy = Math.abs(targetY - sourceY);
-  // Adjacent tier edges measure ~180px between tier bottoms/tops; anything
-  // taller means we skip at least one tier and should use the top-half rule.
   const isLongSkip = !isStraight && dy > 200;
   const labelX = isLongSkip ? sourceX : targetX;
   const labelY = isStraight

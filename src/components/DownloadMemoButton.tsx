@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import PizZip from 'pizzip';
 import Docxtemplater from 'docxtemplater';
 // @ts-ignore - no TS types ship with docxtemplater-image-module-free
-import ImageModule from 'docxtemplater-image-module-free';
+import ImageModule from 'docxtemplater-image';
 import { captureChartPng } from '@/components/structure/exports/exportToPng';
 
 // HTML to Docxtemplater inline formatting converter
@@ -52,14 +52,17 @@ type Props = {
   templatePath?: string;
   enabled?: boolean;
   disabled?: boolean;
+  /** Whether to capture and embed the structure-chart PNG in the DOCX. Default true. */
+  includeChart?: boolean;
 };
 
-export default function DownloadMemoButton({ 
-  sessionId, 
-  memoMarkdown, 
-  templatePath = 'memo_atad2.docx',
+export default function DownloadMemoButton({
+  sessionId,
+  memoMarkdown,
+  templatePath = 'memo_atad2_with_structure_placeholder.docx',
   enabled = true,
-  disabled = false
+  disabled = false,
+  includeChart = true,
 }: Props) {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
@@ -85,10 +88,11 @@ export default function DownloadMemoButton({
         memo = reportData.report_md;
       }
 
-      // Get session to find user_id
+      // Get session to find user_id + meta (taxpayer + fiscal year), zodat we
+      // de docxData kunnen aanvullen mocht de parser ze niet meegeven.
       const { data: sessionData } = await supabase
         .from('atad2_sessions')
-        .select('user_id')
+        .select('user_id, taxpayer_name, fiscal_year')
         .eq('session_id', sessionId)
         .single();
 
@@ -154,6 +158,25 @@ export default function DownloadMemoButton({
         throw new Error('No docx_data returned from parser');
       }
 
+      // Vul meta aan vanuit sessionData mocht de parser het hebben overgeslagen
+      // of leeg gelaten. De template heeft taxpayer_name + fiscal_year nodig en
+      // we hebben die zelf al in de DB.
+      docxData.meta = docxData.meta ?? {};
+      if (!docxData.meta.taxpayer_name && sessionData?.taxpayer_name) {
+        docxData.meta.taxpayer_name = sessionData.taxpayer_name;
+      }
+      if (!docxData.meta.fiscal_year && sessionData?.fiscal_year != null) {
+        docxData.meta.fiscal_year = String(sessionData.fiscal_year);
+      }
+      if (!docxData.meta.user_full_name && userFullName) {
+        docxData.meta.user_full_name = userFullName;
+      }
+      if (!docxData.meta.today_long) {
+        docxData.meta.today_long = new Date().toLocaleDateString('en-GB', {
+          day: 'numeric', month: 'long', year: 'numeric',
+        });
+      }
+
       // C) Get signed URL for template
       const { data: signedUrlData, error: urlError } = await supabase
         .storage
@@ -176,12 +199,35 @@ export default function DownloadMemoButton({
       // E) Render DOCX using v4 API
       const zip = new PizZip(templateArrayBuffer);
 
-      // Image module: renders {%structureChart} placeholder in template.
-      // If template has no such placeholder, getImage is simply not called.
+      // 1x1 transparante PNG als fallback — voorkomt crash van de image-module
+      // als er geen structure-chart snapshot beschikbaar is.
+      const FALLBACK_PNG_BASE64 =
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkAAIAAAoAAv/lxKUAAAAASUVORK5CYII=';
+
+      // Decodeer een base64 string naar Uint8Array. getImage moet binaire
+      // image-bytes teruggeven aan de module (die ze dan in het docx-zip stopt).
+      const base64ToBytes = (b64: string): Uint8Array => {
+        const bin = atob(b64);
+        const arr = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+        return arr;
+      };
+
       const imageModule = new ImageModule({
         centered: true,
         fileType: 'docx',
-        getImage: (tagValue: ArrayBuffer | null) => tagValue ?? new ArrayBuffer(0),
+        getImage: (tagValue: unknown, tagName: string) => {
+          console.log('[DownloadMemoButton] imageModule.getImage', {
+            tagName,
+            isString: typeof tagValue === 'string',
+            stringLen: typeof tagValue === 'string' ? (tagValue as string).length : undefined,
+          });
+          if (typeof tagValue === 'string' && tagValue.length > 0) {
+            return base64ToBytes(tagValue);
+          }
+          console.warn('[DownloadMemoButton] structureChart leeg/ongeldig — fallback PNG gebruikt');
+          return base64ToBytes(FALLBACK_PNG_BASE64);
+        },
         getSize: () => [600, 360],
       });
 
@@ -202,23 +248,37 @@ export default function DownloadMemoButton({
       console.groupEnd();
       // ----------------------------------------
 
-      // Guard: vereiste velden checken en duidelijke error tonen
+      // Guard: alleen de meta-velden zijn echt vereist (voor de bestandsnaam).
+      // De template heeft `nullGetter: () => ''` (zie hierboven), dus ontbrekende
+      // sectie-keys leveren netjes een lege string op — geen reden om de download
+      // te blokkeren. Loggen we wel zodat we het zien als het structureel is.
       function hasPath(o: any, p: string) {
         return p.split('.').reduce((v, k) => (v != null ? v[k] : undefined), o) !== undefined;
       }
-      const required = [
-        'meta.taxpayer_name',
-        'meta.fiscal_year',
+      const requiredMeta = ['meta.taxpayer_name', 'meta.fiscal_year'];
+      const missingMeta = requiredMeta.filter((k) => {
+        const v = k.split('.').reduce((o: any, kk) => (o != null ? o[kk] : undefined), docxData);
+        return v === undefined || v === null || v === '';
+      });
+      if (missingMeta.length) {
+        throw new Error('docxData missing required meta keys: ' + missingMeta.join(', '));
+      }
+
+      // Informatieve log: welke sectie-tags in het template ontbreken in de data?
+      const templateSectionTags = [
         'sections.introduction',
-        'sections.general_background',
+        'sections.risk_outcome_line',
+        'sections.executive_summary_intro',
+        'sections.executive_summary_bullets',
+        'sections.general_background_intro',
+        'sections.general_background_bullets',
         'sections.technical_assessment',
-        'sections.conclusion_next_steps',
+        'sections.conclusion_intro',
+        'sections.conclusion_next_steps_bullets',
       ];
-      // log missende paden
-      const missing = required.filter((k) => !hasPath(docxData, k) || docxData?.meta?.taxpayer_name === '');
-      console.log('Missing/empty required keys:', missing);
-      if (missing.length) {
-        throw new Error('docxData missing required keys: ' + missing.join(', '));
+      const missingSections = templateSectionTags.filter((k) => !hasPath(docxData, k));
+      if (missingSections.length) {
+        console.warn('[DownloadMemoButton] template tags zonder data (worden leeg):', missingSections);
       }
 
       console.group('DOCX RENDER DIAG');
@@ -241,19 +301,50 @@ export default function DownloadMemoButton({
         console.warn('Using __forceTestData for render()');
       }
 
-      // Capture the structure chart PNG (if a react-flow root is currently mounted).
-      // Failure is non-fatal: memo is generated without chart.
-      let structureChartBytes: ArrayBuffer | null = null;
-      try {
-        const chartBlob = await captureChartPng();
-        structureChartBytes = await chartBlob.arrayBuffer();
-      } catch (e) {
-        console.warn('Structure chart capture failed; memo will be generated without chart', e);
+      // Haal de opgeslagen structure-chart PNG uit de DB. Op de report-pagina
+      // is er geen live react-flow meer; de chart is bij finalize als
+      // transparant PNG opgeslagen in atad2_structure_charts.snapshot_png.
+      // Fallback: als er geen snapshot is, probeer alsnog een live capture
+      // (zou normaal niet gebeuren, maar voorkomt dat de download faalt).
+      // Belangrijk: de image-module ziet objecten (zoals Uint8Array) als
+      // 'al gerenderd' en probeert tagValue.rId/sizePixel te lezen — dat crasht.
+      // We geven daarom een base64 STRING door als tagValue, en decoden die in
+      // getImage naar bytes.
+      let structureChartBase64: string | null = null;
+      if (includeChart) {
+        try {
+          const { data: chartRow, error: chartErr } = await supabase
+            .from('atad2_structure_charts')
+            .select('snapshot_png')
+            .eq('session_id', sessionId)
+            .maybeSingle();
+          if (chartErr) {
+            console.warn('[DownloadMemoButton] chart query error', chartErr);
+          }
+          const pngDataUrl = chartRow?.snapshot_png;
+          console.log('[DownloadMemoButton] snapshot in DB?',
+            pngDataUrl ? `yes, ${pngDataUrl.length} chars` : 'no');
+          if (pngDataUrl && pngDataUrl.startsWith('data:image/png;base64,')) {
+            structureChartBase64 = pngDataUrl.slice('data:image/png;base64,'.length);
+            console.log('[DownloadMemoButton] snapshot base64 length:', structureChartBase64.length);
+          } else {
+            console.log('[DownloadMemoButton] geen DB-snapshot, probeer live capture');
+            const chartBlob = await captureChartPng();
+            const arrayBuf = await chartBlob.arrayBuffer();
+            let binStr = '';
+            const bytes = new Uint8Array(arrayBuf);
+            for (let i = 0; i < bytes.length; i++) binStr += String.fromCharCode(bytes[i]);
+            structureChartBase64 = btoa(binStr);
+            console.log('[DownloadMemoButton] live capture base64 length:', structureChartBase64.length);
+          }
+        } catch (e) {
+          console.warn('Structure chart capture failed; memo will be generated without chart', e);
+        }
       }
 
       try {
         // ✅ v4 API: data direct meegeven
-        doc.render({ ...docxData, structureChart: structureChartBytes });
+        doc.render({ ...docxData, structureChart: structureChartBase64 ?? '' });
         console.log('Render OK');
       } catch (err: any) {
         console.error('Render ERR properties:', err?.properties);

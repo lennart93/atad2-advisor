@@ -3,12 +3,13 @@ import type { StructureGroup } from '@/lib/structure/types';
 
 interface Props {
   groupings: StructureGroup[];
+  onLabelClick?: (groupId: string, screenX: number, screenY: number) => void;
 }
 
 const PADDING = 16;
 const LABEL_HEIGHT = 18;
 
-export function FiscalUnityOverlay({ groupings }: Props) {
+export function FiscalUnityOverlay({ groupings, onLabelClick }: Props) {
   const nodeLookup = useStore((s: ReactFlowState) => s.nodeLookup);
   const transform = useStore((s: ReactFlowState) => s.transform);
 
@@ -52,20 +53,41 @@ export function FiscalUnityOverlay({ groupings }: Props) {
 
           const stroke = g.kind === 'fiscal_unity' ? '#555' : '#999';
           const dasharray = g.kind === 'fiscal_unity' ? '4 4' : '8 4';
-          const labelText = g.label || (g.kind === 'fiscal_unity' ? 'Dutch CIT fiscal unity' : 'Consolidation group');
+          // Lege label = niets tekenen op de rand, behalve een kleine
+          // onzichtbare klik-zone in de linkerbovenhoek zodat de gebruiker
+          // alsnog op de groep kan klikken om hem te bewerken of te verwijderen.
+          const hasLabel = g.label.trim().length > 0;
+          const labelText = hasLabel ? g.label : '';
+          const labelWidth = hasLabel ? Math.max(140, labelText.length * 7) : 20;
 
           return (
             <g key={g.id}>
               <rect x={x} y={y} width={w} height={h}
                 fill="none" stroke={stroke} strokeWidth={1.5}
                 strokeDasharray={dasharray} rx={4} />
-              <rect x={x + 8} y={y - LABEL_HEIGHT / 2} width={Math.max(140, labelText.length * 7)} height={LABEL_HEIGHT}
-                fill="#fff" stroke={stroke} strokeWidth={0.5} rx={2} />
-              <text x={x + 14} y={y + 4}
-                fontFamily="Inter, system-ui, sans-serif" fontSize={11} fontWeight={500}
-                fill="#333">
-                {labelText}
-              </text>
+              <rect
+                x={x + 8} y={y - LABEL_HEIGHT / 2}
+                width={labelWidth} height={LABEL_HEIGHT}
+                fill={hasLabel ? '#fff' : 'transparent'}
+                stroke={hasLabel ? stroke : 'none'}
+                strokeWidth={0.5} rx={2}
+                style={{ pointerEvents: onLabelClick ? 'auto' : 'none', cursor: onLabelClick ? 'pointer' : 'default' }}
+                onClick={(e) => {
+                  if (!onLabelClick) return;
+                  e.stopPropagation();
+                  onLabelClick(g.id, e.clientX, e.clientY);
+                }}
+              />
+              {hasLabel && (
+                <text
+                  x={x + 14} y={y + 4}
+                  fontFamily="Inter, system-ui, sans-serif" fontSize={11} fontWeight={500}
+                  fill="#333"
+                  style={{ pointerEvents: 'none' }}
+                >
+                  {labelText}
+                </text>
+              )}
             </g>
           );
         })}

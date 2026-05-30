@@ -393,6 +393,20 @@ export function useCleanupDocuments(sessionId: string | null) {
   });
 }
 
+export function useDeleteDocument(sessionId: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (docId: string) => {
+      const { error } = await supabase
+        .from("atad2_session_documents")
+        .delete()
+        .eq("id", docId);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["session-documents", sessionId] }),
+  });
+}
+
 export function useUpdateDocumentCategory(sessionId: string | null) {
   const qc = useQueryClient();
   return useMutation({

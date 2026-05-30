@@ -20,6 +20,31 @@ export default function AssessmentShell() {
   const currentStep = stepIndexForPath(location.pathname, { hasSession });
   const stepDef = currentStep >= 0 ? ASSESSMENT_STEPS[currentStep] : null;
 
+  // Edit-from-overview: when a user opens an earlier step from the finalized
+  // Overview (e.g. Structure → Edit), keep Overview ticked in the stepper so
+  // the user knows it's a round-trip and not a regression. The Overview tile
+  // becomes clickable so the user has a second way back besides the footer CTA.
+  const fromOverview = searchParams.get('from') === 'overview';
+  const overviewIndex = ASSESSMENT_STEPS.findIndex((s) => s.key === 'report');
+  const extraDone = fromOverview && overviewIndex >= 0 ? [overviewIndex] : undefined;
+  const handleStepClick = useCallback(
+    (index: number) => {
+      if (fromOverview && index === overviewIndex && sessionId) {
+        navigate(`/assessment-report/${sessionId}`);
+      }
+    },
+    [fromOverview, overviewIndex, sessionId, navigate],
+  );
+
+  // On the finalized Overview, the intake-through-confirmation steps can't be
+  // revisited — surface that on hover so users don't try to click them.
+  // Structure stays untagged: it's reachable via the Edit button on the chart card.
+  const onOverview = currentStep === overviewIndex;
+  const lockedTooltip = onOverview
+    ? "Locked. This step can't be revisited once the assessment is finalized."
+    : undefined;
+  const lockedIndexes = onOverview ? [0, 1, 2, 3] : undefined;
+
   // Footer portal target — state-backed so context consumers re-render once
   // the node mounts (one-frame gap on first paint; footer has min-height).
   const [footerEl, setFooterEl] = useState<HTMLElement | null>(null);
@@ -68,7 +93,13 @@ export default function AssessmentShell() {
         {/* Sub-header */}
         <div className="shrink-0 border-b border-[hsl(var(--border-subtle))] bg-background">
           <div className="mx-auto max-w-6xl px-4 py-3">
-            <AssessmentStepper current={currentStep} />
+            <AssessmentStepper
+              current={currentStep}
+              extraDone={extraDone}
+              onStepClick={fromOverview ? handleStepClick : undefined}
+              lockedTooltip={lockedTooltip}
+              lockedIndexes={lockedIndexes}
+            />
           </div>
         </div>
 

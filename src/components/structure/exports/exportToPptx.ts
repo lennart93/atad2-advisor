@@ -2,10 +2,9 @@
 import PptxGenJS from 'pptxgenjs';
 import { fillFor, formatLegalForm, PALETTE } from '@/lib/structure/palette';
 import type { StructureEntity, StructureEdge, StructureGroup } from '@/lib/structure/types';
-import { bundleTransactions, type TransactionBundle } from '@/lib/structure/bundleTransactions';
 
 const PX_PER_IN  = 96;
-const BOX_W_IN   = 1.4;
+const BOX_W_IN   = 1.7;
 const BOX_H_IN   = 0.85;
 
 const MARGIN_IN = 0.3;
@@ -55,34 +54,25 @@ function projectXY(e: StructureEntity, fit: Fit): EntityRect {
 function buildEntityLabel(e: StructureEntity): string {
   const lines: string[] = [e.name];
   const lf = formatLegalForm(e.legal_form).trim();
-  if (lf && !e.name.toLowerCase().includes(lf.toLowerCase())) {
+  // Normaliseer beide kanten (geen punten, geen spaties) voor de duplicate-check,
+  // anders telt "S4 Energy B.V." vs "BV" als ongelijk en eindigt "BV" als tweede regel.
+  const nameNorm = e.name.toLowerCase().replace(/[.\s]/g, '');
+  const lfNorm = lf.toLowerCase().replace(/[.\s]/g, '');
+  if (lf && lfNorm && !nameNorm.includes(lfNorm)) {
     lines.push(lf);
   }
   lines.push(`(${e.jurisdiction_iso})`);
   return lines.join('\n');
 }
 
-function labelPosition(fx: number, fy: number, tx: number, ty: number) {
-  const midX = (fx + tx) / 2;
-  const midY = (fy + ty) / 2;
-  const dx = tx - fx;
-  const dy = ty - fy;
-  const len = Math.hypot(dx, dy) || 1;
-  // perpendicular offset, 0.15" away on the "up" side
-  const offX = (-dy / len) * 0.15;
-  const offY = (dx / len) * 0.15;
-  return { x: midX + offX - 0.5, y: midY + offY - 0.1 };
-}
-
 interface Args {
   entities: StructureEntity[];
   edges: StructureEdge[];
   groupings?: StructureGroup[];
-  focusedEntityIds?: Set<string>;
   taxpayerName: string;
 }
 
-export async function exportToPptx({ entities, edges, groupings = [], focusedEntityIds = new Set(), taxpayerName }: Args) {
+export async function exportToPptx({ entities, edges, groupings = [], taxpayerName }: Args) {
   const pres = new PptxGenJS();
   pres.layout = 'LAYOUT_WIDE';
 
@@ -112,16 +102,6 @@ export async function exportToPptx({ entities, edges, groupings = [], focusedEnt
     addOwnershipBus(slide, parent, kids, ownershipEdges, fit);
   }
 
-  // Transactions: render as bundles per focused-entity aggregation.
-  // Empty focus set → no transactions exported (ownership-only PPTX).
-  const bundles = bundleTransactions(edges, focusedEntityIds);
-  for (const bundle of bundles) {
-    const from = entities.find((x) => x.id === bundle.from_entity_id);
-    const to = entities.find((x) => x.id === bundle.to_entity_id);
-    if (!from || !to) continue;
-    addTransactionBundle(slide, bundle, from, to, fit);
-  }
-
   // Grouping overlays: dashed rectangles drawn on top of all other shapes
   for (const g of groupings) {
     addGroupingOverlay(slide, g, entities, fit);
@@ -145,6 +125,7 @@ function addEntityShape(
     fontFace: 'Inter',
     fontSize, bold: true, color: 'FFFFFF',
     align: 'center' as const, valign: 'middle' as const,
+    autoFit: true,
   };
   const baseShapeOpts: any = {
     x, y, w, h,
@@ -232,11 +213,11 @@ function addOwnershipBus(
 
   const lineColor = PALETTE.ownershipStroke.replace('#', '');
 
-  // 1. Vertical drop from parent to bus
+  // 1. Vertical drop from parent to bus — w=0 voor kaarsrechte verticale lijn
   slide.addShape('line' as PptxGenJS.ShapeType, {
     x: parentBottomX,
     y: parentBottomY,
-    w: 0.001,
+    w: 0,
     h: busY - parentBottomY,
     line: { color: lineColor, width: 1.5 },
   } as never);
@@ -244,11 +225,12 @@ function addOwnershipBus(
   if (childEntities.length > 1) {
     const minChildX = Math.min(...childPositions.map((c) => c.x + c.w / 2));
     const maxChildX = Math.max(...childPositions.map((c) => c.x + c.w / 2));
+    // Horizontale bus — h=0 voor kaarsrechte horizontale lijn
     slide.addShape('line' as PptxGenJS.ShapeType, {
       x: minChildX,
       y: busY,
       w: maxChildX - minChildX,
-      h: 0.001,
+      h: 0,
       line: { color: lineColor, width: 1.5 },
     } as never);
   }
@@ -258,10 +240,11 @@ function addOwnershipBus(
     const child = childEntities[i];
     const childTopX = c.x + c.w / 2;
 
+    // Verticale drop naar kind — w=0 voor kaarsrechte verticale lijn
     slide.addShape('line' as PptxGenJS.ShapeType, {
       x: childTopX,
       y: busY,
-      w: 0.001,
+      w: 0,
       h: c.y - busY,
       line: { color: lineColor, width: 1.5 },
     } as never);
@@ -270,16 +253,35 @@ function addOwnershipBus(
       (e) => e.from_entity_id === parent.id && e.to_entity_id === child.id,
     );
     if (edge?.ownership_pct != null) {
-      slide.addText(`${edge.ownership_pct}%`, {
-        x: childTopX - 0.3,
-        y: (busY + c.y) / 2 - 0.1,
-        w: 0.6,
-        h: 0.2,
+      // Parchment-vakje achter het percentage, zelfde palette als in de app.
+      const labelText = `${edge.ownership_pct}%`;
+      // Brede min + ruime char-width zodat "62.7%" / "100%" niet wrappen.
+      const labelW = Math.max(0.55, labelText.length * 0.11);
+      const labelH = 0.26;
+      const labelX = childTopX - labelW / 2;
+      const labelY = (busY + c.y) / 2 - labelH / 2;
+      slide.addShape('rect' as PptxGenJS.ShapeType, {
+        x: labelX,
+        y: labelY,
+        w: labelW,
+        h: labelH,
+        fill: { color: 'EBE5DC' },
+        line: { color: 'C9C0B2', width: 0.5 },
+        rectRadius: 0.03,
+      } as never);
+      slide.addText(labelText, {
+        x: labelX,
+        y: labelY,
+        w: labelW,
+        h: labelH,
         fontFace: 'Inter',
-        fontSize: Math.max(7, 9 * fit.scale),
+        fontSize: Math.max(8, 9 * fit.scale),
+        bold: true,
         color: '3a3530',
         align: 'center' as const,
-      });
+        valign: 'middle' as const,
+        wrap: false,
+      } as never);
     }
   }
 }
@@ -326,56 +328,3 @@ function addGroupingOverlay(
   );
 }
 
-function formatAmount(n: number | null): string {
-  if (n == null) return '—';
-  if (n >= 1e6) return `${(n / 1e6).toFixed(1).replace(/\.0$/, '')}M`;
-  if (n >= 1e3) return `${(n / 1e3).toFixed(0)}k`;
-  return n.toString();
-}
-
-function addTransactionBundle(
-  slide: PptxGenJS.Slide,
-  bundle: TransactionBundle,
-  from: StructureEntity,
-  to: StructureEntity,
-  fit: Fit,
-) {
-  const fp = projectXY(from, fit);
-  const tp = projectXY(to, fit);
-  const fx = fp.x + fp.w;
-  const fy = fp.y + fp.h / 2;
-  const tx = tp.x;
-  const ty = tp.y + tp.h / 2;
-  const stroke = bundle.hasMismatch ? PALETTE.mismatchStroke : PALETTE.normalTransactionStroke;
-  const strokeHex = stroke.replace('#', '');
-
-  slide.addShape('line' as PptxGenJS.ShapeType, {
-    x: Math.min(fx, tx), y: Math.min(fy, ty),
-    w: Math.abs(tx - fx) || 0.01, h: Math.abs(ty - fy) || 0.01,
-    line: {
-      color: strokeHex,
-      width: 1.5,
-      endArrowType: 'triangle',
-    } as any,
-    flipH: tx < fx, flipV: ty < fy,
-  } as never);
-
-  const N = bundle.transactions.length;
-  const labelText = N === 1
-    ? `${bundle.transactions[0].transaction_type ?? 'other'}${bundle.transactions[0].amount_eur != null ? ` · €${formatAmount(bundle.transactions[0].amount_eur)}` : ''}`
-    : `${N} transactions${bundle.totalAmount != null ? ` · €${formatAmount(bundle.totalAmount)} total` : ''}`;
-
-  const lp = labelPosition(fx, fy, tx, ty);
-  slide.addText(labelText, {
-    x: lp.x,
-    y: lp.y,
-    w: 1.2,
-    h: 0.2,
-    fontFace: 'Inter',
-    fontSize: Math.max(7, 9 * fit.scale),
-    bold: true,
-    color: strokeHex,
-    align: 'center' as const,
-    fill: { color: 'FFFFFF' },
-  });
-}

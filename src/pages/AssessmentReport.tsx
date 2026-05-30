@@ -11,6 +11,7 @@ import { format } from "date-fns";
 import { ArrowLeft, FileText, Bot, Loader2, AlertTriangle, Info, CheckCircle, Pencil, X, Check } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Checkbox } from "@/components/ui/checkbox";
 import { EditableAnswer } from "@/components/EditableAnswer";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import ReactMarkdown from "react-markdown";
@@ -88,6 +89,7 @@ const AssessmentReport = () => {
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [hasAcceptedChanges, setHasAcceptedChanges] = useState(false);
   const [isApplyingFeedback, setIsApplyingFeedback] = useState(false);
+  const [includeChartInMemo, setIncludeChartInMemo] = useState(true);
   
   // Editable reasoning and context state
   const [isEditingReasoning, setIsEditingReasoning] = useState(false);
@@ -121,11 +123,16 @@ const AssessmentReport = () => {
     enabled: !!sessionId && !!user,
   });
 
-  // Query for the finalized structure-chart snapshot
+  // Query for the finalized structure-chart snapshot. `refetchOnMount: 'always'`
+  // is load-bearing: when the user edits the chart (e.g. expands clusters) and
+  // returns to the overview, the StructureChartStep saves a fresh PNG before
+  // navigating — but without an always-refetch, React Query would keep showing
+  // the previous PNG until staleTime elapses. The DB has the truth; trust it.
   const { data: chartSnapshot } = useQuery({
     queryKey: ['report-chart-snapshot', sessionId],
     enabled: !!sessionId,
     staleTime: 60_000,
+    refetchOnMount: 'always',
     queryFn: () => loadChartSnapshot(sessionId!),
   });
 
@@ -407,7 +414,11 @@ const AssessmentReport = () => {
       // fails the user can retry without re-uploading.
       let documentsBlock = "";
       try {
-        documentsBlock = await buildDocumentsBlock(sessionId);
+        // Memo generation runs through n8n which is text-only — images stay
+        // out of the documents_block but their content already lives in the
+        // accepted prefill suggestions, so the memo doesn't lose anything.
+        const bundle = await buildDocumentsBlock(sessionId);
+        documentsBlock = bundle.textBlock;
       } catch (e) {
         console.warn('[generate-report] buildDocumentsBlock failed, continuing without docs', e);
       }
@@ -519,20 +530,6 @@ const AssessmentReport = () => {
 
   return (
     <div>
-
-        {/* Memorandum header strip */}
-        <div className="mb-6 rounded-lg border border-border bg-card px-6 py-5 shadow-sm">
-          <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">MEMORANDUM</p>
-          <h1 className="mt-1 text-2xl sm:text-3xl font-semibold tracking-tight">
-            {sessionData.taxpayer_name}
-          </h1>
-          <p className="mt-2 font-mono text-xs text-muted-foreground">
-            <span>{sessionData.session_id}</span>
-            <span className="mx-2">·</span>
-            <span>FY {sessionData.fiscal_year}</span>
-          </p>
-        </div>
-
         <div className="space-y-6">
           {/* Session Summary */}
           <Card>
@@ -547,11 +544,11 @@ const AssessmentReport = () => {
                 <div>
                   <h3 className="font-semibold mb-2">Session details:</h3>
                   <div className="space-y-1 text-sm">
-                    <p><span className="font-medium">Taxpayer:</span> <span className="font-mono text-sm">{sessionData.taxpayer_name}</span></p>
-                    <p><span className="font-medium">Tax year:</span> <span className="font-mono text-sm">{sessionData.fiscal_year}</span></p>
-                    <p><span className="font-medium">Completed:</span> <span className="font-mono text-sm">{format(new Date(sessionData.created_at), 'MMM d, yyyy HH:mm')}</span></p>
+                    <p><span className="font-medium">Taxpayer:</span> {sessionData.taxpayer_name}</p>
+                    <p><span className="font-medium">Tax year:</span> {sessionData.fiscal_year}</p>
+                    <p><span className="font-medium">Completed:</span> {format(new Date(sessionData.created_at), 'MMM d, yyyy HH:mm')}</p>
                     {sessionData.is_custom_period && sessionData.period_start_date && sessionData.period_end_date && (
-                      <p><span className="font-medium">Period:</span> <span className="font-mono text-sm">{format(new Date(sessionData.period_start_date), 'MMM d, yyyy')} - {format(new Date(sessionData.period_end_date), 'MMM d, yyyy')}</span></p>
+                      <p><span className="font-medium">Period:</span> {format(new Date(sessionData.period_start_date), 'MMM d, yyyy')} - {format(new Date(sessionData.period_end_date), 'MMM d, yyyy')}</p>
                     )}
                   </div>
                 </div>
@@ -728,11 +725,22 @@ const AssessmentReport = () => {
           {/* Structure chart snapshot */}
           {chartSnapshot?.snapshot_png ? (
             <Card>
-              <CardHeader>
-                <CardTitle>Structure chart</CardTitle>
-                <CardDescription>
-                  Captured when the structure was finalized — included in the memorandum.
-                </CardDescription>
+              <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
+                <div className="space-y-1.5">
+                  <CardTitle>Structure chart</CardTitle>
+                  <CardDescription>
+                    Captured when the structure was finalized. Included in the memorandum.
+                  </CardDescription>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigate(`/assessment/structure/${sessionId}?from=overview`)}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <Pencil className="h-3.5 w-3.5 mr-1.5" />
+                  Edit
+                </Button>
               </CardHeader>
               <CardContent>
                 <div className="rounded-lg border border-[hsl(var(--border-subtle))] bg-muted/30 p-4">
@@ -746,8 +754,17 @@ const AssessmentReport = () => {
             </Card>
           ) : chartSnapshot?.finalized_at ? (
             <Card>
-              <CardHeader>
+              <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
                 <CardTitle>Structure chart</CardTitle>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigate(`/assessment/structure/${sessionId}?from=overview`)}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <Pencil className="h-3.5 w-3.5 mr-1.5" />
+                  Edit
+                </Button>
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground">
@@ -759,11 +776,22 @@ const AssessmentReport = () => {
 
           {/* Generate Report Button */}
           <Card>
-            <CardHeader>
-              <CardTitle>Generate memorandum</CardTitle>
-              <CardDescription>
-                Generate an AI-powered ATAD2 memorandum based on this assessment
-              </CardDescription>
+            <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
+              <div className="space-y-1.5">
+                <CardTitle>Generate memorandum</CardTitle>
+                <CardDescription>
+                  Generate an AI-powered ATAD2 memorandum based on this assessment
+                </CardDescription>
+              </div>
+              {latestReport && chartSnapshot?.snapshot_png && (
+                <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none whitespace-nowrap pt-1">
+                  <Checkbox
+                    checked={includeChartInMemo}
+                    onCheckedChange={(v) => setIncludeChartInMemo(v === true)}
+                  />
+                  Include structure chart
+                </label>
+              )}
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
@@ -822,6 +850,7 @@ const AssessmentReport = () => {
                     memoMarkdown={displayMemo}
                     enabled={!!latestReport}
                     disabled={isApplyingFeedback}
+                    includeChart={includeChartInMemo}
                   />
                 </div>
                 {isGeneratingReport && (
@@ -881,7 +910,7 @@ const AssessmentReport = () => {
                     onSubmittingChange={setIsApplyingFeedback}
                   />
                 ) : displayMemo ? (
-                  <div className="markdown-body prose prose-base dark:prose-invert max-w-3xl text-left prose-headings:tracking-tight prose-headings:font-semibold prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg">
+                  <div className="markdown-body prose prose-base dark:prose-invert max-w-none text-left prose-headings:tracking-tight prose-headings:font-semibold prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg">
                     <ReactMarkdown
                       rehypePlugins={[rehypeRaw]}
                       components={{

@@ -16,7 +16,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { ENTITY_TYPES, type EntityType, type StructureEntity } from '@/lib/structure/types';
+import { JurisdictionPicker } from './JurisdictionPicker';
+
+export type AddEntityDirection = 'above' | 'below';
 
 interface Props {
   open: boolean;
@@ -27,16 +31,21 @@ interface Props {
     entityType: EntityType;
     name: string;
     jurisdiction_iso: string;
-    parentId: string;
+    /** The existing entity the new one attaches to. */
+    relatedId: string;
+    /** 'below' = new entity is a child of relatedId (existing behavior).
+     *  'above' = new entity is a parent of relatedId (becomes its owner). */
+    direction: AddEntityDirection;
     ownershipPct: number;
   }) => Promise<void>;
 }
 
 export function AddEntityDialog({ open, onOpenChange, entities, taxpayerId, onCreate }: Props) {
-  const defaultParentId = taxpayerId ?? entities[0]?.id ?? '';
+  const defaultRelatedId = taxpayerId ?? entities[0]?.id ?? '';
 
   const [entityType, setEntityType] = useState<EntityType>('corporation');
-  const [parentId, setParentId] = useState(defaultParentId);
+  const [direction, setDirection] = useState<AddEntityDirection>('below');
+  const [relatedId, setRelatedId] = useState(defaultRelatedId);
   const [ownershipPct, setOwnershipPct] = useState(100);
   const [name, setName] = useState('New entity');
   const [jurisdiction, setJurisdiction] = useState('NL');
@@ -46,7 +55,8 @@ export function AddEntityDialog({ open, onOpenChange, entities, taxpayerId, onCr
   useEffect(() => {
     if (open) {
       setEntityType('corporation');
-      setParentId(taxpayerId ?? entities[0]?.id ?? '');
+      setDirection('below');
+      setRelatedId(taxpayerId ?? entities[0]?.id ?? '');
       setOwnershipPct(100);
       setName('New entity');
       setJurisdiction('NL');
@@ -54,15 +64,25 @@ export function AddEntityDialog({ open, onOpenChange, entities, taxpayerId, onCr
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSubmit = async () => {
-    if (!parentId) return;
+    if (!relatedId) return;
     setBusy(true);
     try {
-      await onCreate({ entityType, name, jurisdiction_iso: jurisdiction, parentId, ownershipPct });
+      await onCreate({
+        entityType,
+        name,
+        jurisdiction_iso: jurisdiction,
+        relatedId,
+        direction,
+        ownershipPct,
+      });
       onOpenChange(false);
     } finally {
       setBusy(false);
     }
   };
+
+  const relatedLabel =
+    direction === 'below' ? 'Place new entity below' : 'Place new entity above';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -87,18 +107,32 @@ export function AddEntityDialog({ open, onOpenChange, entities, taxpayerId, onCr
             <Input id="entity-name" value={name} onChange={(e) => setName(e.target.value)} />
           </div>
           <div>
-            <Label htmlFor="entity-jurisdiction">Jurisdiction (ISO)</Label>
-            <Input
+            <Label htmlFor="entity-jurisdiction">Jurisdiction</Label>
+            <JurisdictionPicker
               id="entity-jurisdiction"
               value={jurisdiction}
-              onChange={(e) => setJurisdiction(e.target.value.toUpperCase())}
-              maxLength={3}
+              onChange={setJurisdiction}
             />
           </div>
           <div>
-            <Label htmlFor="entity-parent">Parent</Label>
-            <Select value={parentId} onValueChange={setParentId}>
-              <SelectTrigger id="entity-parent"><SelectValue /></SelectTrigger>
+            <ToggleGroup
+              type="single"
+              value={direction}
+              onValueChange={(v) => v && setDirection(v as AddEntityDirection)}
+              className="grid grid-cols-2"
+            >
+              <ToggleGroupItem value="below" aria-label="Below — new entity is a subsidiary">
+                Below (subsidiary)
+              </ToggleGroupItem>
+              <ToggleGroupItem value="above" aria-label="Above — new entity is a shareholder">
+                Above (shareholder)
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </div>
+          <div>
+            <Label htmlFor="entity-related">{relatedLabel}</Label>
+            <Select value={relatedId} onValueChange={setRelatedId}>
+              <SelectTrigger id="entity-related"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {entities.map((e) => (
                   <SelectItem key={e.id} value={e.id}>
@@ -125,7 +159,7 @@ export function AddEntityDialog({ open, onOpenChange, entities, taxpayerId, onCr
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={busy || !parentId || !name.trim()}>
+          <Button onClick={handleSubmit} disabled={busy || !relatedId || !name.trim()}>
             Create
           </Button>
         </DialogFooter>

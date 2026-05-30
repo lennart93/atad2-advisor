@@ -175,11 +175,20 @@ const Assessment = () => {
 
   // Helper function to check if auto-advance is allowed.
   // Blocks auto-advance whenever (a) the answer requires explanation OR
-  // (b) the AI made a confident call (>=40% suggestion) — in case (b) the
-  // user must see the rationale and click Continue manually.
+  // (b) the user picked the AI's confidently-suggested answer (>=40%) — in
+  // case (b) the user must see the rationale and click Continue manually.
+  // When the user picks a non-suggested answer, the rationale doesn't apply
+  // and we auto-advance like any other vanilla answer (no flashing button).
   function canAutoAdvance(selectedOption?: { requires_explanation?: boolean }) {
     if (selectedOption?.requires_explanation === true) return false;
-    if (currentPrefill?.suggested_answer && (currentPrefill.confidence_pct ?? 0) >= 40) return false;
+    if (
+      currentPrefill?.suggested_answer &&
+      (currentPrefill.confidence_pct ?? 0) >= 40 &&
+      selectedAnswer &&
+      selectedAnswer.toLowerCase() === currentPrefill.suggested_answer
+    ) {
+      return false;
+    }
     return true;
   }
   
@@ -216,6 +225,9 @@ const Assessment = () => {
   // Friendly explanation reminder state
   const [explanationReminderShown, setExplanationReminderShown] = useState(false);
   const [showExplanationShake, setShowExplanationShake] = useState(false);
+  // True for ~350ms after Continue is clicked: textarea gets a green "locked"
+  // border so the user sees the explanation was accepted before navigating.
+  const [committingExplanation, setCommittingExplanation] = useState(false);
   const [reminderMessage, setReminderMessage] = useState("");
   
   // Friendly reminder messages for empty explanations
@@ -658,6 +670,7 @@ const Assessment = () => {
       currentQuestion: !!currentQuestion,
       selectedAnswer,
       shouldShowContextPanel,
+      dbRequiresExplanation,
       contextValue,
       contextValueTrimmed: contextValue?.trim(),
       explanationReminderShown
@@ -668,8 +681,11 @@ const Assessment = () => {
       return;
     }
 
-    // Check if explanation field is empty and we haven't shown reminder yet
-    if (shouldShowContextPanel && (!contextValue || contextValue.trim() === '') && !explanationReminderShown) {
+    // Reminder only fires when the question ACTUALLY requires explanation,
+    // not on prefill-only panels (shouldShowContextPanel is also true when a
+    // prefill suggestion exists, which was making Finish require two clicks
+    // on questions that don't need a toelichting).
+    if (dbRequiresExplanation && (!contextValue || contextValue.trim() === '') && !explanationReminderShown) {
       console.log("🔔 finishAssessment: showing reminder");
       // First time clicking Finish with empty explanation - show friendly reminder
       const randomReminder = friendlyReminders[Math.floor(Math.random() * friendlyReminders.length)];
@@ -1265,10 +1281,15 @@ const Assessment = () => {
       return; // Don't proceed to next question
     }
     
-    // Second time clicking or explanation has content - proceed normally
+    // Second time clicking or explanation has content - proceed normally.
+    // Briefly lock the textarea (green border) so the user sees the
+    // explanation was accepted before we navigate.
     console.debug('[nav] context panel: allowing continue with answered question');
+    setCommittingExplanation(true);
+    await new Promise((r) => setTimeout(r, 350));
     await submitAnswerDirectly(selectedAnswer, true);
-    
+    setCommittingExplanation(false);
+
     // Reset reminder state for next question
     setExplanationReminderShown(false);
     setReminderMessage("");
@@ -2095,8 +2116,15 @@ const Assessment = () => {
                        };
                        
                        const { emoji, selectedBg, hoverBg } = getAnswerStyle();
-                       
-                       return (
+
+                       const isSuggestedAnswer = !!currentPrefill?.suggested_answer
+                         && option.answer_option.toLowerCase() === currentPrefill.suggested_answer
+                         && (currentPrefill.confidence_pct ?? 0) >= 40;
+                       const rationaleTooltip = isSuggestedAnswer
+                         ? currentPrefill?.answer_rationale ?? null
+                         : null;
+
+                       const answerButton = (
                          <button
                            key={index}
                            type="button"
@@ -2127,11 +2155,9 @@ const Assessment = () => {
                                }`}>
                                  {option.answer_option}
                                </span>
-                               {currentPrefill?.suggested_answer
-                                 && option.answer_option.toLowerCase() === currentPrefill.suggested_answer
-                                 && (currentPrefill.confidence_pct ?? 0) >= 40 && (
+                               {isSuggestedAnswer && (
                                  <span className="ml-2 text-[10px] uppercase tracking-wide bg-primary/10 text-primary px-1.5 py-0.5 rounded">
-                                   Suggested (<span className="font-mono text-[10px]">{currentPrefill.confidence_pct}%</span>)
+                                   Suggested (<span className="font-mono text-[10px]">{currentPrefill!.confidence_pct}%</span>)
                                  </span>
                                )}
                                {/* Show "Previously answered" only for original submitted answers, not modified ones */}
@@ -2153,23 +2179,22 @@ const Assessment = () => {
                                </p>
                              )}
                            </button>
-                         );
+                       );
+
+                       if (!rationaleTooltip) return answerButton;
+
+                       return (
+                         <TooltipProvider key={index} delayDuration={150}>
+                           <Tooltip>
+                             <TooltipTrigger asChild>{answerButton}</TooltipTrigger>
+                             <TooltipContent side="right" align="start" className="max-w-sm whitespace-normal text-sm leading-relaxed">
+                               {rationaleTooltip}
+                             </TooltipContent>
+                           </Tooltip>
+                         </TooltipProvider>
+                       );
                        })}
                     </div>
-
-                    {/* Plain rationale — single render-site that fires whenever a
-                        confident suggestion matches the picked answer, regardless of
-                        requires_explanation. Replaces the iter-6 italic strip and the
-                        SuggestionCard inline rationale block. */}
-                    {currentPrefill?.suggested_answer
-                      && (currentPrefill.confidence_pct ?? 0) >= 40
-                      && selectedAnswer
-                      && selectedAnswer.toLowerCase() === currentPrefill.suggested_answer
-                      && currentPrefill.answer_rationale && (
-                      <div className="text-sm text-muted-foreground mt-3 mb-3">
-                        {currentPrefill.answer_rationale}
-                      </div>
-                    )}
 
                     {/* Playful no-suggestion note. Fires when the session has docs,
                         analysis is done, this question has no prefill, and the user
@@ -2183,8 +2208,17 @@ const Assessment = () => {
                       </div>
                     )}
 
+                      {/* The AI's per-question prefill (suggestion + contextual hint
+                          + committed text) only applies when the user picked the
+                          answer the AI suggested. If they pick a different branch,
+                          the AI material is for the wrong context — drop it. */}
                       {/* Question explanation - inline expandable. Appends the AI contextual_hint
-                          seamlessly after the static admin-edited explanation when present. */}
+                          seamlessly after the static admin-edited explanation when present.
+                          contextual_hint is produced ONLY when the AI couldn't derive an
+                          answer from the docs (per swarm prompt Rule 0 it's mutually
+                          exclusive with suggested_toelichting / suggested_answer), so it
+                          doesn't depend on which answer the user picks — surface it whenever
+                          it exists. */}
                       <QuestionExplanationInline
                         key={currentQuestion.question_id}
                         explanation={currentQuestion.question_explanation}
@@ -2193,13 +2227,33 @@ const Assessment = () => {
 
                       {/* Context section - NEW hardened state machine */}
                       {/* RENDER GUARD: panel renders when the answer requires
-                          explanation OR an AI prefill exists for this question
-                          (so user can Accept/Edit/Dismiss the suggestion). */}
-                      {sessionStarted && currentQuestion && qId && selectedAnswer && (
-                        selectedQuestionOption?.requires_explanation
-                        || !!currentPrefill
-                      ) && (
-                        <div 
+                          explanation OR an AI prefill exists with text to act
+                          on AND that prefill applies to the answer the user just
+                          picked (suggested_answer matches selectedAnswer). When
+                          the user picks a different branch than the AI suggested,
+                          we treat this question as if no prefill exists so the
+                          panel disappears and auto-advance on No can fire cleanly. */}
+                      {sessionStarted && currentQuestion && qId && selectedAnswer && (() => {
+                        const aiAppliesToAnswer =
+                          !!currentPrefill?.suggested_answer &&
+                          selectedAnswer.toLowerCase() === currentPrefill.suggested_answer;
+                        const effectivePrefill = aiAppliesToAnswer ? currentPrefill : null;
+                        const shouldRender =
+                          selectedQuestionOption?.requires_explanation
+                          || !!effectivePrefill?.suggested_toelichting
+                          || !!effectivePrefill?.committed_text
+                          || effectivePrefill?.user_action === "accepted"
+                          || effectivePrefill?.user_action === "edited";
+                        if (!shouldRender) return null;
+                        // Once the SuggestionCard is committed it disappears,
+                        // so the Textarea owns the full explanation — AI text
+                        // and user notes live together as one freely editable
+                        // string. SuggestionCard only needs userNotes for the
+                        // pending Accept path, where contextValue is still
+                        // just the user's typing.
+                        const textareaValue = contextValue ?? "";
+                        return (
+                        <div
                           key={paneKey}
                           className="bg-muted/40 rounded-lg px-4 py-3 mb-8 border border-border"
                         >
@@ -2214,14 +2268,14 @@ const Assessment = () => {
                                 </div>
                               </div>
 
-                              {currentPrefill?.suggested_toelichting && currentQuestion && (
+                              {effectivePrefill && currentQuestion && (
                                 <SuggestionCard
-                                  prefill={currentPrefill}
-                                  currentToelichting={contextValue ?? ""}
+                                  prefill={effectivePrefill}
+                                  userNotes={textareaValue}
                                   onCommit={(next) => updateExplanation(next)}
                                 />
                               )}
-                              {prefillJob?.status === "failed" && !currentPrefill && (
+                              {prefillJob?.status === "failed" && !effectivePrefill && (
                                 <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm mb-3">
                                   Couldn't generate suggestions. Continue without them.
                                 </div>
@@ -2229,7 +2283,8 @@ const Assessment = () => {
 
                               <Textarea
                                 key={`explanation-${sessionId}-${qId}-${selectedAnswerId}`}
-                                value={contextValue}
+                                value={textareaValue}
+                                disabled={committingExplanation}
                                 onChange={(e) => {
                                   updateExplanation(e.target.value);
                                   // Clear reminder when user starts typing
@@ -2239,14 +2294,14 @@ const Assessment = () => {
                                   }
                                 }}
                                 placeholder={
-                                  contextPrompts.length > 0 
-                                    ? (contextPrompts.length === 1 
-                                        ? contextPrompts[0] 
+                                  contextPrompts.length > 0
+                                    ? (contextPrompts.length === 1
+                                        ? contextPrompts[0]
                                         : contextPrompts[seededIndex(`${sessionId}::${currentQuestion?.id}`, contextPrompts.length)]
                                       )
                                     : "Provide context for your answer..."
                                 }
-                                className={`min-h-[120px] resize-none border-border bg-background mt-3 ${showExplanationShake ? 'explanation-shake' : ''}`}
+                                className={`min-h-[120px] resize-none mt-3 transition-all duration-200 ${showExplanationShake ? 'explanation-shake' : ''} ${committingExplanation ? 'border-emerald-500 ring-2 ring-emerald-500/30 bg-emerald-50/50 disabled:opacity-100 disabled:cursor-default' : 'border-border bg-background'}`}
                               />
                               {/* Friendly reminder message */}
                               {reminderMessage && (
@@ -2262,13 +2317,14 @@ const Assessment = () => {
                           )}
 
                           {contextStatus === 'error' && (
-                            <ContextErrorState 
+                            <ContextErrorState
                               text="Couldn't load context questions. Please try again."
                               onRetry={() => hardenedLoadContext(sessionId, qId, selectedAnswer)}
                             />
                           )}
                         </div>
-                      )}
+                        );
+                      })()}
 
                       {/* Fallback Context Panel - Feature flagged */}
                       <ContextPanelFallback
@@ -2332,28 +2388,43 @@ const Assessment = () => {
               </Button>
             )}
 
-            {/* Show Submit/Continue button when (a) the context panel is visible OR
-                (b) the AI made a >=40% suggestion that pre-selected this answer
-                and the question doesn't require explanation (the rationale
-                strip is rendered above and the user must click Continue). */}
-            {(
-              (shouldShowContextPanel && selectedAnswer)
-              || (
-                selectedAnswer
-                && currentPrefill?.suggested_answer
-                && (currentPrefill.confidence_pct ?? 0) >= 40
-                && selectedAnswer.toLowerCase() === currentPrefill.suggested_answer
-                && !selectedQuestionOption?.requires_explanation
-              )
-            ) && !shouldShowFinishButton && (
-              <Button
-                onClick={handleContinueWithReminder}
-                disabled={loading || isTransitioning}
-                className="transition-all duration-fast disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Continue
-              </Button>
-            )}
+            {/* Show Submit/Continue button when (a) the context panel is visible
+                AND it actually has content for the chosen answer (requires_explanation
+                forces the textarea, or the AI suggestion applies to this answer)
+                OR (b) the AI made a >=40% suggestion that pre-selected this
+                answer and the question doesn't require explanation (the rationale
+                strip is rendered above and the user must click Continue).
+                The aiAppliesToAnswer gate prevents a Continue-button flash when
+                the user picks a non-suggested answer that auto-advances. */}
+            {(() => {
+              const aiAppliesToAnswer =
+                !!currentPrefill?.suggested_answer &&
+                !!selectedAnswer &&
+                selectedAnswer.toLowerCase() === currentPrefill.suggested_answer;
+              const showContinue =
+                !!selectedAnswer
+                && !shouldShowFinishButton
+                && (
+                  (shouldShowContextPanel
+                    && (aiAppliesToAnswer || !!selectedQuestionOption?.requires_explanation))
+                  || (
+                    !!currentPrefill?.suggested_answer
+                    && (currentPrefill.confidence_pct ?? 0) >= 40
+                    && aiAppliesToAnswer
+                    && !selectedQuestionOption?.requires_explanation
+                  )
+                );
+              if (!showContinue) return null;
+              return (
+                <Button
+                  onClick={handleContinueWithReminder}
+                  disabled={loading || isTransitioning}
+                  className="transition-all duration-fast disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Continue
+                </Button>
+              );
+            })()}
 
             {/* Show Submit button for answers that don't require context panel */}
             {!shouldShowContextPanel && selectedAnswer && !shouldShowFinishButton && (() => {

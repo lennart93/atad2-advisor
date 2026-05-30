@@ -151,6 +151,141 @@ describe('tierLayout', () => {
     });
     expect(result.ranksRendered).toEqual([0, 1, 2]);
   });
+
+  it('zij-eigenaar met alleen een diepe dochter schuift omlaag', () => {
+    // castleton → s4energy → s4sub  (castleton: rang 0, s4energy: 1, s4sub: 2)
+    // energiefonds → s4sub          (energiefonds is een UPE die alleen een dochter op rang 2 heeft)
+    // Verwacht: energiefonds schuift naar rang 1 (= 2 − 1), dus zelfde Y als s4energy.
+    const castleton = ent('castleton');
+    const s4energy = ent('s4energy');
+    const s4sub = ent('s4sub', { is_taxpayer: true });
+    const energiefonds = ent('energiefonds');
+    const result = tierLayout({
+      entities: [castleton, s4energy, s4sub, energiefonds],
+      ownershipEdges: [
+        ownEdge('castleton', 's4energy'),
+        ownEdge('s4energy', 's4sub'),
+        ownEdge('energiefonds', 's4sub'),
+      ],
+      clusters: [],
+    });
+    expect(result.positions.get('castleton')!.y).toBe(0);
+    expect(result.positions.get('s4energy')!.y).toBe(TIER_Y_STEP);
+    expect(result.positions.get('energiefonds')!.y).toBe(TIER_Y_STEP);
+    expect(result.positions.get('s4sub')!.y).toBe(TIER_Y_STEP * 2);
+  });
+
+  it('UPE met directe dochter op rang 1 blijft op rang 0', () => {
+    // castleton → s4energy. Dochter zit op rang 1, dus snap = 1 − 1 = 0 → geen verschuiving.
+    const castleton = ent('castleton');
+    const s4energy = ent('s4energy', { is_taxpayer: true });
+    const result = tierLayout({
+      entities: [castleton, s4energy],
+      ownershipEdges: [ownEdge('castleton', 's4energy')],
+      clusters: [],
+    });
+    expect(result.positions.get('castleton')!.y).toBe(0);
+    expect(result.positions.get('s4energy')!.y).toBe(TIER_Y_STEP);
+  });
+
+  it('elke ouder staat horizontaal pal boven zijn (centroid van) kinderen', () => {
+    // Setup zoals user's chart: 1 hoofdketen (Castleton → S4 Energy → 2 kinderen)
+    // plus 2 zij-eigenaren die elk 1 ander rang-2 kind bezitten. S4 Energy heeft ook
+    // edges naar die kinderen zodat ze bereikbaar zijn vanaf de anchor.
+    const castleton = ent('castleton', { is_taxpayer: true });
+    const s4energy = ent('s4energy');
+    const enNed = ent('enNed');
+    const engineering = ent('engineering');
+    const ancillary = ent('ancillary');
+    const manufacturing = ent('manufacturing');
+    const energiefonds = ent('energiefonds');
+    const osse = ent('osse');
+    const result = tierLayout({
+      entities: [castleton, s4energy, enNed, engineering, ancillary, manufacturing, energiefonds, osse],
+      ownershipEdges: [
+        ownEdge('castleton', 's4energy'),
+        ownEdge('s4energy', 'enNed'),
+        ownEdge('s4energy', 'engineering'),
+        ownEdge('s4energy', 'ancillary'),
+        ownEdge('s4energy', 'manufacturing'),
+        ownEdge('energiefonds', 'ancillary'),
+        ownEdge('osse', 'manufacturing'),
+      ],
+      clusters: [],
+    });
+    // X opvragen als center (positions.x is top-left, +NODE_WIDTH/2 = center).
+    const cx = (id: string) => result.positions.get(id)!.x + 80;
+    // Energiefonds pal boven Ancillary (zijn ene kind):
+    expect(cx('energiefonds')).toBeCloseTo(cx('ancillary'), 0);
+    // Osse pal boven Manufacturing (zijn ene kind):
+    expect(cx('osse')).toBeCloseTo(cx('manufacturing'), 0);
+  });
+
+  it('unity-leden binnen dezelfde rij worden contiguous geplaatst', () => {
+    // 5 broers/zussen onder dezelfde ouder: a, b, c, d, e (alfabetisch).
+    // Unity = {a, c, e} (3 niet-aanliggende leden). Verwacht: a, c, e komen
+    // aaneengesloten te staan; b en d worden eruit geschoven.
+    const tx = ent('tx', { is_taxpayer: true });
+    const a = ent('a');
+    const b = ent('b');
+    const c = ent('c');
+    const d = ent('d');
+    const e = ent('e');
+    const result = tierLayout({
+      entities: [tx, a, b, c, d, e],
+      ownershipEdges: [
+        ownEdge('tx', 'a'),
+        ownEdge('tx', 'b'),
+        ownEdge('tx', 'c'),
+        ownEdge('tx', 'd'),
+        ownEdge('tx', 'e'),
+      ],
+      clusters: [],
+      groupings: [{
+        id: 'g1',
+        chart_id: 'c1',
+        kind: 'fiscal_unity',
+        label: 'F.E.',
+        member_ids: ['a', 'c', 'e'],
+        created_at: '',
+      }],
+    });
+    const xs = [
+      { id: 'a', x: result.positions.get('a')!.x },
+      { id: 'b', x: result.positions.get('b')!.x },
+      { id: 'c', x: result.positions.get('c')!.x },
+      { id: 'd', x: result.positions.get('d')!.x },
+      { id: 'e', x: result.positions.get('e')!.x },
+    ].sort((p, q) => p.x - q.x);
+    const order = xs.map((p) => p.id);
+    const aIdx = order.indexOf('a');
+    const cIdx = order.indexOf('c');
+    const eIdx = order.indexOf('e');
+    const members = [aIdx, cIdx, eIdx].sort((p, q) => p - q);
+    expect(members[2] - members[0]).toBe(2); // 3 aaneengesloten posities
+  });
+
+  it('UPE met meerdere dochters op verschillende dieptes pakt de dichtstbij', () => {
+    // upe → shallow (direct, rang 1) en upe → deep (via mid op rang 2)
+    // Snap = min(1, 2) − 1 = 0. UPE blijft op rang 0.
+    const upe = ent('upe');
+    const shallow = ent('shallow', { is_taxpayer: true });
+    const mid = ent('mid');
+    const deep = ent('deep');
+    const result = tierLayout({
+      entities: [upe, shallow, mid, deep],
+      ownershipEdges: [
+        ownEdge('upe', 'shallow'),
+        ownEdge('shallow', 'mid'),
+        ownEdge('mid', 'deep'),
+        ownEdge('upe', 'deep'),
+      ],
+      clusters: [],
+    });
+    // upe heeft een dichtstbij dochter op rang 1 → blijft op rang 0
+    expect(result.positions.get('upe')!.y).toBe(0);
+    expect(result.positions.get('shallow')!.y).toBe(TIER_Y_STEP);
+  });
 });
 
 function entE(id: string, name = `Entity ${id}`, overrides: Partial<StructureEntity> = {}): StructureEntity {
