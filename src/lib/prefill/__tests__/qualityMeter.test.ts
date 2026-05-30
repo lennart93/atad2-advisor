@@ -65,12 +65,27 @@ describe('computeQuality', () => {
     expect(q.distinctCategories).toEqual(['financial_statements']);
   });
 
-  it('ignores "other" docs', () => {
+  it('"other" docs still trigger Good (bar always fills on upload)', () => {
     const q = computeQuality([
       doc({ category: 'other' }),
       doc({ category: 'other' }),
     ]);
-    expect(q.tier).toBe('empty');
+    expect(q.tier).toBe('good');
+    // ...but they don't add diversity, so distinctCategories stays empty
+    expect(q.distinctCategories).toEqual([]);
+  });
+
+  it('"other" does not push past Good even with multiple essentials', () => {
+    const q = computeQuality([
+      doc({ category: 'financial_statements' }),
+      doc({ category: 'other' }),
+    ]);
+    expect(q.tier).toBe('good');
+    expect(q.distinctCategories).toEqual(['financial_statements']);
+  });
+
+  it('hint is empty for all-"other" Good (suggestion text was removed)', () => {
+    expect(computeQuality([doc({ category: 'other' })]).hint).toBe('');
   });
 
   it('ignores thin docs', () => {
@@ -94,25 +109,25 @@ describe('computeQuality', () => {
     expect(computeQuality([]).hint).toMatch(/add a document/i);
   });
 
-  it('hint at Good suggests another type', () => {
-    expect(computeQuality([doc({ category: 'financial_statements' })]).hint).toMatch(/another type/i);
+  it('hint at Good is empty (no suggestion text)', () => {
+    expect(computeQuality([doc({ category: 'financial_statements' })]).hint).toBe('');
   });
 
-  it('hint at Strong suggests one more type', () => {
+  it('hint at Strong is empty (no suggestion text)', () => {
     const q = computeQuality([
       doc({ category: 'financial_statements' }),
       doc({ category: 'tax_returns' }),
     ]);
-    expect(q.hint).toMatch(/one more type/i);
+    expect(q.hint).toBe('');
   });
 
-  it('hint at Excellent celebrates', () => {
+  it('hint at Excellent is empty (no suggestion text)', () => {
     const q = computeQuality([
       doc({ category: 'financial_statements' }),
       doc({ category: 'tax_returns' }),
       doc({ category: 'structure_chart' }),
     ]);
-    expect(q.hint).toMatch(/excellent/i);
+    expect(q.hint).toBe('');
   });
 
   it('missingTypes at Good excludes already-present', () => {

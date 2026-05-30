@@ -4,25 +4,27 @@ import type { ReactNode } from 'react';
 import { useAssessmentShell } from './AssessmentShellContext';
 
 /**
- * Renders `left` / `right` nodes into the shell's footer via a portal.
- * Pages just render <AssessmentFooterSlot left={...} right={...} /> — React
- * handles updates normally; no config registration, no memoisation, no
- * stale-closure risk. Renders nothing until the shell footer node exists
- * (one frame on first paint; the footer has min-height so it doesn't jump).
+ * Renders `left` / `center` / `right` nodes into the shell's footer via a
+ * portal. Three equal-width columns, each cell self-aligned (start / center
+ * / end), so pages that pass only left+right keep behaving like the old
+ * justify-between layout.
  */
 export function AssessmentFooterSlot({
   left,
+  center,
   right,
 }: {
   left?: ReactNode;
+  center?: ReactNode;
   right?: ReactNode;
 }) {
   const { footerEl } = useAssessmentShell();
   if (!footerEl) return null;
   return createPortal(
-    <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-3">
-      <div>{left}</div>
-      <div>{right}</div>
+    <div className="mx-auto grid max-w-6xl grid-cols-3 items-center px-4 py-3">
+      <div className="justify-self-start">{left}</div>
+      <div className="justify-self-center">{center}</div>
+      <div className="justify-self-end">{right}</div>
     </div>,
     footerEl,
   );

@@ -140,18 +140,16 @@ export default function AssessmentUpload() {
             </AlertDialog>
           )
         }
+        center={<DocumentQualityMeter docs={docs ?? []} />}
         right={
-          <div className="flex items-center gap-4">
-            <DocumentQualityMeter docs={docs ?? []} />
-            <Button
-              onClick={handleContinueClick}
-              disabled={!hasAtLeastOneUploaded || !allPendingUploaded}
-              className="transition-all duration-fast"
-            >
-              Continue to questions
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          </div>
+          <Button
+            onClick={handleContinueClick}
+            disabled={!hasAtLeastOneUploaded || !allPendingUploaded}
+            className="transition-all duration-fast"
+          >
+            Continue to questions
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </Button>
         }
       />
       <LowQualityGateDialog

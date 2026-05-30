@@ -21,25 +21,31 @@ export function DocumentQualityMeter({ docs }: Props) {
   const q = computeQuality(docs);
 
   return (
-    <div className="flex items-center gap-3 text-sm">
-      {q.tier !== 'empty' && (
-        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${TIER_PILL[q.tier].pill}`}>
-          {TIER_PILL[q.tier].label}
-        </span>
-      )}
-      <div className="flex gap-1 w-32" aria-label={`Quality: ${q.tier}, ${q.segments} of 4`}>
-        {[0, 1, 2, 3].map((i) => (
-          <div
-            key={i}
-            className={`h-1.5 flex-1 rounded-sm ${
-              i < q.segments && q.tier !== 'empty'
-                ? SEGMENT_COLOR[q.tier]
-                : 'bg-muted'
-            }`}
-          />
-        ))}
+    <div className="flex flex-col items-center gap-1">
+      <div className="relative flex h-7 w-56 items-center" aria-label={`Quality: ${q.tier}, ${q.segments} of 4`}>
+        <div className="flex w-full gap-1">
+          {[0, 1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className={`h-2 flex-1 rounded-sm ${
+                i < q.segments && q.tier !== 'empty'
+                  ? SEGMENT_COLOR[q.tier]
+                  : 'bg-muted'
+              }`}
+            />
+          ))}
+        </div>
+        {q.tier !== 'empty' && (
+          <span
+            className={`pointer-events-none absolute inset-0 m-auto h-fit w-fit rounded-full px-2.5 py-0.5 text-xs font-semibold shadow-sm ${TIER_PILL[q.tier].pill}`}
+          >
+            {TIER_PILL[q.tier].label}
+          </span>
+        )}
       </div>
-      <span className="text-xs text-muted-foreground">{q.hint}</span>
+      {q.hint && (
+        <div className="text-center text-xs text-muted-foreground">{q.hint}</div>
+      )}
     </div>
   );
 }

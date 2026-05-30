@@ -39,13 +39,17 @@ const LABELS: Record<DocumentCategory, string> = {
 };
 
 export function computeQuality(docs: SessionDocument[]): QualityResult {
-  const qualifying = docs.filter(
-    (d) => d.category !== 'other' && !d.is_thin
-  );
-  const distinct = Array.from(new Set(qualifying.map((d) => d.category))) as DocumentCategory[];
+  // Non-thin docs count toward "you uploaded something" (Good tier).
+  // Thin docs (empty scans, cover-only PDFs) don't even count for Good.
+  const nonThin = docs.filter((d) => !d.is_thin);
+  // Distinct non-'other' categories drive Strong/Excellent.
+  // 'other' docs still trigger Good but don't add diversity, so dumping
+  // five uncategorised PDFs caps you at Good instead of gaming Excellent.
+  const diverse = nonThin.filter((d) => d.category !== 'other');
+  const distinct = Array.from(new Set(diverse.map((d) => d.category))) as DocumentCategory[];
   const missingTypes = SUGGESTED_TYPES.filter((t) => !distinct.includes(t));
 
-  if (distinct.length === 0) {
+  if (nonThin.length === 0) {
     return {
       tier: 'empty',
       segments: 0,
@@ -54,27 +58,30 @@ export function computeQuality(docs: SessionDocument[]): QualityResult {
       missingTypes,
     };
   }
-  if (distinct.length === 1) {
-    const next = missingTypes.slice(0, 1).map((t) => LABELS[t]).join('');
+  if (distinct.length === 0) {
     return {
       tier: 'good',
       segments: 2,
       distinctCategories: distinct,
-      hint: next
-        ? `Good start — add another type (${next}) for more context.`
-        : 'Good start — add another type for more context.',
+      hint: '',
+      missingTypes,
+    };
+  }
+  if (distinct.length === 1) {
+    return {
+      tier: 'good',
+      segments: 2,
+      distinctCategories: distinct,
+      hint: '',
       missingTypes,
     };
   }
   if (distinct.length === 2) {
-    const next = missingTypes.slice(0, 1).map((t) => LABELS[t]).join('');
     return {
       tier: 'strong',
       segments: 3,
       distinctCategories: distinct,
-      hint: next
-        ? `Strong — one more type (${next}) would round it out.`
-        : 'Strong — one more type would round it out.',
+      hint: '',
       missingTypes,
     };
   }
@@ -82,7 +89,7 @@ export function computeQuality(docs: SessionDocument[]): QualityResult {
     tier: 'excellent',
     segments: 4,
     distinctCategories: distinct,
-    hint: 'Excellent — comprehensive set of documents.',
+    hint: '',
     missingTypes,
   };
 }

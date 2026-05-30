@@ -36,17 +36,17 @@ export function LowQualityGateDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
-            {isEmpty ? 'Run pre-fill without documents?' : 'Solid start — want to add more?'}
+            {isEmpty ? 'Run pre-fill without documents?' : 'Solid start. Want to add more?'}
           </DialogTitle>
           <DialogDescription>
             {isEmpty
               ? "Pre-fill works best when there's something to ground it in. Without documents, suggestions will be based purely on the answers you've already given."
-              : `You've added ${haveLabels}. The pre-fill will work, but tends to be much sharper with at least one more type${suggestions ? ` — ${suggestions}` : ''}.`}
+              : `You've added ${haveLabels}. The pre-fill will work, but tends to be much sharper with at least one more type${suggestions ? `. Try ${suggestions}.` : '.'}`}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            {isEmpty ? 'Cancel — add documents' : 'Add more documents'}
+            {isEmpty ? 'Cancel' : 'Add more documents'}
           </Button>
           <Button onClick={onConfirm}>
             {isEmpty ? 'Continue without' : 'Run pre-fill anyway'}
