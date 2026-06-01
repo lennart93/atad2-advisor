@@ -1,16 +1,20 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Download } from "lucide-react";
 import { Seo } from "@/components/Seo";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { toast } from "@/components/ui/sonner";
 import { SearchFilterBar } from "@/components/admin/SearchFilterBar";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { StatusChip } from "@/components/admin/StatChip";
 import {
   useAdminSessionsList, AdminSessionRow,
 } from "@/components/admin/useAdminSessions";
+import { exportAssessmentsToExcel } from "@/lib/admin/exportAssessments";
 
 type StatusFilter = "all" | "completed" | "in_progress";
 
@@ -36,6 +40,21 @@ const Sessions = () => {
   const { data, isLoading } = useAdminSessionsList();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      await exportAssessmentsToExcel();
+      toast.success("Export ready", { description: "Excel file downloaded." });
+    } catch (err) {
+      toast.error("Export failed", {
+        description: err instanceof Error ? err.message : "Unknown error",
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -59,6 +78,15 @@ const Sessions = () => {
           <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-1">Admin</div>
           <h1 className="text-2xl font-semibold tracking-tight">Sessions</h1>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleExport}
+          disabled={exporting}
+        >
+          <Download className="size-4 mr-2" />
+          {exporting ? "Exporting…" : "Export to Excel"}
+        </Button>
       </div>
 
       <SearchFilterBar

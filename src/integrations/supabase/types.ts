@@ -71,6 +71,69 @@ export type Database = {
           },
         ]
       }
+      atad2_assessment_log: {
+        Row: {
+          id: string
+          session_uuid: string
+          session_id: string
+          user_id: string | null
+          user_email: string | null
+          user_full_name: string | null
+          taxpayer_name: string | null
+          entity_name: string | null
+          fiscal_year: string | null
+          status: string | null
+          final_score: number | null
+          preliminary_outcome: string | null
+          outcome_confirmed: boolean | null
+          session_created_at: string | null
+          session_updated_at: string | null
+          confirmed_at: string | null
+          event_type: "created" | "completed" | "deleted" | "backfill"
+          event_at: string
+        }
+        Insert: {
+          id?: string
+          session_uuid: string
+          session_id: string
+          user_id?: string | null
+          user_email?: string | null
+          user_full_name?: string | null
+          taxpayer_name?: string | null
+          entity_name?: string | null
+          fiscal_year?: string | null
+          status?: string | null
+          final_score?: number | null
+          preliminary_outcome?: string | null
+          outcome_confirmed?: boolean | null
+          session_created_at?: string | null
+          session_updated_at?: string | null
+          confirmed_at?: string | null
+          event_type: "created" | "completed" | "deleted" | "backfill"
+          event_at?: string
+        }
+        Update: {
+          id?: string
+          session_uuid?: string
+          session_id?: string
+          user_id?: string | null
+          user_email?: string | null
+          user_full_name?: string | null
+          taxpayer_name?: string | null
+          entity_name?: string | null
+          fiscal_year?: string | null
+          status?: string | null
+          final_score?: number | null
+          preliminary_outcome?: string | null
+          outcome_confirmed?: boolean | null
+          session_created_at?: string | null
+          session_updated_at?: string | null
+          confirmed_at?: string | null
+          event_type?: "created" | "completed" | "deleted" | "backfill"
+          event_at?: string
+        }
+        Relationships: []
+      }
       atad2_context_questions: {
         Row: {
           answer_trigger: string
