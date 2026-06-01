@@ -18,7 +18,6 @@ set -e
 
 REPO=/root/atad2-advisor
 FUNCDIR=/root/supabase/docker/volumes/functions
-DOCKERDIR=/root/supabase/docker
 MIGRATION_REL=supabase/migrations/20260601200000_swarm_prompt_v10_assessment_context.sql
 
 DB=$(docker ps --filter name=supabase-db -q | head -1)
@@ -54,11 +53,13 @@ docker exec "$DB" psql -U postgres -d postgres -t -c \
 
 echo
 echo '=== Step 5: restart edge-runtime so it picks up new function source ==='
-cd "$DOCKERDIR"
-SERVICE=$(docker compose ps --services | grep -Ei 'functions|edge-runtime' | head -1)
-if [ -z "$SERVICE" ]; then echo "ERROR: edge-runtime service not found"; exit 1; fi
-echo "Restarting service: $SERVICE"
-docker compose restart "$SERVICE"
+# Restart the container directly (same pattern as .tmp-deploy.sh's EDGE
+# discovery). docker compose restart needs a compose-file path which varies
+# between Supabase self-hosted releases; restarting the container by id is
+# always safe.
+echo "Restarting container: $EDGE"
+docker restart "$EDGE"
+docker ps --filter id="$EDGE" --format 'edge-runtime now: {{.Status}}'
 
 echo
 echo '=== Done ==='
