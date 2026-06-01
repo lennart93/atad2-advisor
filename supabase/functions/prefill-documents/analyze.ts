@@ -125,6 +125,7 @@ export async function runAnalyzeOne(
       confidence_pct: parsed.confidence_pct,
       answer_rationale: parsed.answer_rationale,
       contextual_hint: parsed.contextual_hint,
+      suggested_toelichting_unknown: parsed.suggested_toelichting_unknown,
       user_action: "pending",
     }, { onConflict: "session_id,question_id" });
 

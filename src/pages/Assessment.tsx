@@ -2198,11 +2198,15 @@ const Assessment = () => {
 
                     {/* Playful no-suggestion note. Fires when the session has docs,
                         analysis is done, this question has no prefill, and the user
-                        already picked an answer. */}
+                        already picked an answer. The Unknown route B case (no
+                        suggested_answer but a companion suggested_toelichting_unknown
+                        ready to show) counts as having a suggestion — silence the
+                        note there so it doesn't contradict the SuggestionCard below. */}
                     {docsCount > 0
                       && prefillJob?.status === "completed"
                       && !currentPrefill?.suggested_answer
-                      && selectedAnswer && (
+                      && selectedAnswer
+                      && !(selectedAnswer === "Unknown" && currentPrefill?.suggested_toelichting_unknown) && (
                       <div className="text-xs italic text-muted-foreground mt-3 ml-1 mb-3">
                         No suggestion for this one. You're on your own here.
                       </div>
@@ -2237,7 +2241,21 @@ const Assessment = () => {
                         const aiAppliesToAnswer =
                           !!currentPrefill?.suggested_answer &&
                           selectedAnswer.toLowerCase() === currentPrefill.suggested_answer;
-                        const effectivePrefill = aiAppliesToAnswer ? currentPrefill : null;
+                        // v9 Unknown branch: when the swarm couldn't derive an
+                        // answer (Route B → contextual_hint) and the user picks
+                        // Unknown, surface the companion unknown-toelichting in
+                        // the existing SuggestionCard. Map it onto
+                        // suggested_toelichting so the card renders unchanged;
+                        // Accept/Edit still write committed_text on the same row.
+                        const unknownToelichtingApplies =
+                          selectedAnswer === "Unknown" &&
+                          !!currentPrefill?.contextual_hint &&
+                          !!currentPrefill?.suggested_toelichting_unknown;
+                        const effectivePrefill = aiAppliesToAnswer
+                          ? currentPrefill
+                          : unknownToelichtingApplies && currentPrefill
+                          ? { ...currentPrefill, suggested_toelichting: currentPrefill.suggested_toelichting_unknown }
+                          : null;
                         const shouldRender =
                           selectedQuestionOption?.requires_explanation
                           || !!effectivePrefill?.suggested_toelichting

@@ -33,13 +33,23 @@ const SwarmPrefillRaw = z.object({
   // to find it, the model puts that pointer here instead of in
   // suggested_toelichting. Mutually exclusive with suggested_toelichting.
   contextual_hint: z.string().min(1).max(1000).nullable(),
+  // v9: companion to contextual_hint. Same dossier facts reframed as the
+  // user-voice "it is unknown..." explanation the advisor would type when
+  // picking Unknown for this question. Populated ONLY when contextual_hint
+  // is populated; otherwise null. Older swarm versions that don't emit this
+  // field still parse cleanly because we default it before validation.
+  suggested_toelichting_unknown: z.string().min(1).max(1000).nullable().default(null),
 });
 
 export const SwarmPrefill = SwarmPrefillRaw.transform((raw) => {
   // Routing invariant: drop contextual_hint if suggested_toelichting is also
   // populated. Defensive — keeps a bad LLM payload from breaking the row.
   if (raw.suggested_toelichting && raw.contextual_hint) {
-    return { ...raw, contextual_hint: null };
+    return { ...raw, contextual_hint: null, suggested_toelichting_unknown: null };
+  }
+  // suggested_toelichting_unknown only rides along with contextual_hint.
+  if (!raw.contextual_hint && raw.suggested_toelichting_unknown) {
+    return { ...raw, suggested_toelichting_unknown: null };
   }
   return raw;
 }).refine(

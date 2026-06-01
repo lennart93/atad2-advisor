@@ -51,6 +51,10 @@ export interface QuestionPrefill {
   confidence_pct: number | null;
   answer_rationale: string | null;
   contextual_hint: string | null;
+  // v9 companion to contextual_hint. Populated when contextual_hint is, holds
+  // the user-voice "it is unknown..." version of the same dossier facts that
+  // the SuggestionCard renders when the user picks Unknown on this question.
+  suggested_toelichting_unknown: string | null;
   // Snapshot of the exact text the user accepted (Accept) or edited-then-saved (Edit).
   // Falls back to suggested_toelichting for historical rows where the column is null.
   committed_text: string | null;

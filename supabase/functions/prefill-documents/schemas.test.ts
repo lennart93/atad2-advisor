@@ -114,3 +114,54 @@ Deno.test("SwarmPrefill rejects contextual_hint over 1000 chars", () => {
     contextual_hint: "x".repeat(1001),
   }));
 });
+
+Deno.test("SwarmPrefill accepts hint + companion unknown-toelichting (v9 route B)", () => {
+  const parsed = SwarmPrefill.parse({
+    suggested_answer: null,
+    confidence_pct: null,
+    answer_rationale: null,
+    suggested_toelichting: null,
+    source_refs: [],
+    contextual_hint: "In this case, confirmation is needed from the participants.",
+    suggested_toelichting_unknown: "Camden B.V. has participants whose classification is unknown.",
+  });
+  assertEquals(parsed.contextual_hint, "In this case, confirmation is needed from the participants.");
+  assertEquals(parsed.suggested_toelichting_unknown, "Camden B.V. has participants whose classification is unknown.");
+});
+
+Deno.test("SwarmPrefill defaults missing suggested_toelichting_unknown to null (older swarm payloads)", () => {
+  const parsed = SwarmPrefill.parse({
+    suggested_answer: null,
+    confidence_pct: null,
+    answer_rationale: null,
+    suggested_toelichting: null,
+    source_refs: [],
+    contextual_hint: "Hint only, older swarm.",
+  });
+  assertEquals(parsed.suggested_toelichting_unknown, null);
+});
+
+Deno.test("SwarmPrefill drops suggested_toelichting_unknown when contextual_hint is null", () => {
+  const parsed = SwarmPrefill.parse({
+    suggested_answer: "yes",
+    confidence_pct: 82,
+    answer_rationale: "x",
+    suggested_toelichting: "Real toelichting.",
+    source_refs: [{ doc_label: "Doc", location: "p.1" }],
+    contextual_hint: null,
+    suggested_toelichting_unknown: "Stray unknown text that should be dropped.",
+  });
+  assertEquals(parsed.suggested_toelichting_unknown, null);
+});
+
+Deno.test("SwarmPrefill rejects suggested_toelichting_unknown over 1000 chars", () => {
+  assertThrows(() => SwarmPrefill.parse({
+    suggested_answer: null,
+    confidence_pct: null,
+    answer_rationale: null,
+    suggested_toelichting: null,
+    source_refs: [],
+    contextual_hint: "Hint.",
+    suggested_toelichting_unknown: "x".repeat(1001),
+  }));
+});

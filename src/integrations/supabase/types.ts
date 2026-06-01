@@ -223,6 +223,7 @@ export type Database = {
           confidence_pct: number | null
           answer_rationale: string | null
           contextual_hint: string | null
+          suggested_toelichting_unknown: string | null
           committed_text: string | null
         }
         Insert: {
@@ -239,6 +240,7 @@ export type Database = {
           confidence_pct?: number | null
           answer_rationale?: string | null
           contextual_hint?: string | null
+          suggested_toelichting_unknown?: string | null
           committed_text?: string | null
         }
         Update: {
@@ -255,6 +257,7 @@ export type Database = {
           confidence_pct?: number | null
           answer_rationale?: string | null
           contextual_hint?: string | null
+          suggested_toelichting_unknown?: string | null
           committed_text?: string | null
         }
         Relationships: [
@@ -753,6 +756,7 @@ export type Database = {
       }
       atad2_structure_groupings: {
         Row: {
+          bounds_override: Json | null
           chart_id: string
           created_at: string
           id: string
@@ -761,6 +765,7 @@ export type Database = {
           member_ids: string[]
         }
         Insert: {
+          bounds_override?: Json | null
           chart_id: string
           created_at?: string
           id?: string
@@ -769,6 +774,7 @@ export type Database = {
           member_ids: string[]
         }
         Update: {
+          bounds_override?: Json | null
           chart_id?: string
           created_at?: string
           id?: string
