@@ -1,3 +1,14 @@
+#!/bin/bash
+# Re-deploy classify-document with hardened auth check (rejects anon JWTs).
+
+set -e
+
+EDGE=$(docker ps --filter name=supabase-edge-functions -q | head -1)
+if [ -z "$EDGE" ]; then echo "ABORT: supabase-edge-functions container not found"; exit 1; fi
+CLASSIFY_DIR=/root/supabase/docker/volumes/functions/classify-document
+
+mkdir -p "$CLASSIFY_DIR"
+cat > "$CLASSIFY_DIR/index.ts" <<'TS_EOF'
 import { serve } from "std/http/server.ts";
 import { createClient } from "supabase";
 import Anthropic from "anthropic";
@@ -196,3 +207,8 @@ function json(body: unknown, status = 200) {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 }
+TS_EOF
+echo "classify-document/index.ts written ($(wc -c < "$CLASSIFY_DIR/index.ts") bytes)"
+
+docker restart "$EDGE"
+echo "edge-runtime restarted"

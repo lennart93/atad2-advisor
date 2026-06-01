@@ -2,6 +2,18 @@ import { supabase } from "@/integrations/supabase/client";
 
 const IMAGE_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 
+// Strip control chars + escape XML so a malicious document can't break out
+// of <document> tags and inject system instructions into the LLM prompt.
+const escapeXmlText = (s: string): string =>
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+const escapeXmlAttr = (s: string): string =>
+  s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+
 export interface ImageRef {
   doc_label: string;
   storage_path: string;
@@ -67,9 +79,9 @@ export async function buildDocumentsBlock(sessionId: string): Promise<DocumentsB
       if (!file) return null;
       const text = await file.text();
       const noteAttr = d.relevance_note
-        ? ` relevance_note="${String(d.relevance_note).replace(/"/g, "'")}"`
+        ? ` relevance_note="${escapeXmlAttr(String(d.relevance_note))}"`
         : "";
-      return `<document doc_label="${d.doc_label}" category="${d.category}"${noteAttr}>\n${text}\n</document>`;
+      return `<document doc_label="${escapeXmlAttr(d.doc_label)}" category="${escapeXmlAttr(d.category)}"${noteAttr}>\n${escapeXmlText(text)}\n</document>`;
     })());
   }
 

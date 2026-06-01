@@ -1,3 +1,36 @@
+#!/bin/bash
+# Fixup pass for deploy-security-fixes.sh:
+#   - M2 trigger creation requires owner of public.atad2_prompts (= supabase_admin)
+#   - M3 documentsLoader.ts overwrite + edge restart were skipped due to set -e
+
+set -e
+
+DB=$(docker ps --filter name=supabase-db -q | head -1)
+EDGE=$(docker ps --filter name=supabase-edge-functions -q | head -1)
+if [ -z "$DB" ]; then echo "ABORT: supabase-db container not found"; exit 1; fi
+if [ -z "$EDGE" ]; then echo "ABORT: supabase-edge-functions container not found"; exit 1; fi
+EXTRACT_DIR=/root/supabase/docker/volumes/functions/extract-structure
+
+mkdir -p /tmp/security-fixes
+
+echo '=== M2 (fixup): create trigger as supabase_admin ==='
+cat > /tmp/security-fixes/m2-trigger.sql <<'SQL_EOF'
+DROP TRIGGER IF EXISTS atad2_prompts_audit_trigger ON public.atad2_prompts;
+
+CREATE TRIGGER atad2_prompts_audit_trigger
+  AFTER INSERT OR UPDATE OR DELETE ON public.atad2_prompts
+  FOR EACH ROW
+  EXECUTE FUNCTION public.log_atad2_prompts_change();
+
+COMMENT ON TABLE public.atad2_prompts_audit IS
+  'Append-only audit log of every change to atad2_prompts. Populated by a SECURITY DEFINER trigger so service-role and superuser writes are captured.';
+SQL_EOF
+docker exec -i "$DB" psql -U supabase_admin -d postgres -v ON_ERROR_STOP=1 < /tmp/security-fixes/m2-trigger.sql
+
+echo
+echo '=== M3: overwrite documentsLoader.ts with XML-escaping version ==='
+mkdir -p "$EXTRACT_DIR"
+cat > "$EXTRACT_DIR/documentsLoader.ts" <<'TS_EOF'
 // Server-side documents-block loader for the corporate-structure-chart
 // extractor.
 //
@@ -68,3 +101,30 @@ export async function loadDocumentsBlock(
 
   return docTexts.filter((t): t is string => t !== null).join("\n\n");
 }
+TS_EOF
+echo "documentsLoader.ts written ($(wc -c < "$EXTRACT_DIR/documentsLoader.ts") bytes)"
+
+echo
+echo '=== Restart edge-runtime so it picks up new documentsLoader.ts ==='
+docker restart "$EDGE"
+docker ps --filter id="$EDGE" --format 'edge-runtime now: {{.Status}}'
+
+echo
+echo '=== Verification ==='
+echo '-- H1 trigger:'
+docker exec "$DB" psql -U postgres -d postgres -t -c \
+  "SELECT tgname FROM pg_trigger WHERE tgname = 'enforce_signup_email_domain';"
+
+echo '-- M1 policies (expect 3 rows):'
+docker exec "$DB" psql -U postgres -d postgres -t -c \
+  "SELECT policyname FROM pg_policies WHERE schemaname='storage' AND tablename='objects' AND policyname LIKE 'Users can%session documents';"
+
+echo '-- M2 audit table + trigger:'
+docker exec "$DB" psql -U postgres -d postgres -t -c \
+  "SELECT to_regclass('public.atad2_prompts_audit') IS NOT NULL AS table_present, EXISTS(SELECT 1 FROM pg_trigger WHERE tgname='atad2_prompts_audit_trigger') AS trigger_present;"
+
+echo '-- M3 escape helpers in deployed file:'
+grep -c "escapeXmlAttr" "$EXTRACT_DIR/documentsLoader.ts"
+
+echo
+echo '=== Done ==='

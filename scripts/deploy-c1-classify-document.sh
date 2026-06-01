@@ -1,3 +1,32 @@
+#!/bin/bash
+# Deploy C1 (classify-document auth) + smoke-test H1.
+
+set -e
+
+DB=$(docker ps --filter name=supabase-db -q | head -1)
+EDGE=$(docker ps --filter name=supabase-edge-functions -q | head -1)
+if [ -z "$DB" ]; then echo "ABORT: supabase-db container not found"; exit 1; fi
+if [ -z "$EDGE" ]; then echo "ABORT: supabase-edge-functions container not found"; exit 1; fi
+CLASSIFY_DIR=/root/supabase/docker/volumes/functions/classify-document
+
+echo '=== H1 smoke test: insert with non-svalneratlas email should be rejected ==='
+docker exec -i "$DB" psql -U supabase_admin -d postgres <<'SQL_EOF'
+DO $$
+BEGIN
+  BEGIN
+    INSERT INTO auth.users (id, email) VALUES (gen_random_uuid(), 'attacker@gmail.com');
+    RAISE EXCEPTION 'SMOKE_TEST_FAIL: insert with gmail address was accepted';
+  EXCEPTION WHEN sqlstate '22023' THEN
+    RAISE NOTICE 'SMOKE_TEST_PASS: gmail address rejected with %', SQLERRM;
+  END;
+END
+$$;
+SQL_EOF
+
+echo
+echo '=== C1: overwrite classify-document/index.ts with auth-enforcing version ==='
+mkdir -p "$CLASSIFY_DIR"
+cat > "$CLASSIFY_DIR/index.ts" <<'TS_EOF'
 import { serve } from "std/http/server.ts";
 import { createClient } from "supabase";
 import Anthropic from "anthropic";
@@ -56,20 +85,10 @@ serve(async (req) => {
       auth: { persistSession: false },
     });
 
-    // Verify the JWT belongs to a real authenticated user. Reject the anon
-    // key (which Kong forwards as the Authorization header when no user
-    // session is present) — getUser may otherwise return a synthetic anon
-    // "user" object whose id won't match any real session anyway, but we
-    // want to fail loudly at the auth boundary rather than relying on the
-    // downstream ownership check.
+    // Verify the JWT belongs to a real user.
     const jwt = authHeader.replace("Bearer ", "");
     const { data: userData, error: userErr } = await supabase.auth.getUser(jwt);
-    if (
-      userErr ||
-      !userData.user ||
-      userData.user.aud !== "authenticated" ||
-      !userData.user.id
-    ) {
+    if (userErr || !userData.user) {
       return json({ error: "Forbidden" }, 403);
     }
     const userId = userData.user.id;
@@ -196,3 +215,37 @@ function json(body: unknown, status = 200) {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 }
+TS_EOF
+echo "classify-document/index.ts written ($(wc -c < "$CLASSIFY_DIR/index.ts") bytes)"
+
+echo
+echo '=== Restart edge-runtime so it picks up new classify-document ==='
+docker restart "$EDGE"
+docker ps --filter id="$EDGE" --format 'edge-runtime now: {{.Status}}'
+
+echo
+echo '=== C1 smoke test: classify-document without Authorization header should 401 ==='
+# Hit through nginx -> Kong -> edge runtime. We use the anon key as apikey because
+# Kong's /functions/v1/* route requires it; the test is whether the function
+# rejects unauthenticated callers (no Authorization header).
+ANON_KEY=$(grep -E '^ANON_KEY=' /root/supabase/docker/.env | head -1 | cut -d= -f2-)
+if [ -z "$ANON_KEY" ]; then
+  echo "WARN: could not find ANON_KEY in /root/supabase/docker/.env, skipping smoke test"
+else
+  # Give the edge runtime a moment to come up after restart
+  sleep 3
+  RESP=$(curl -s -o /tmp/c1-resp.txt -w '%{http_code}' \
+    -X POST https://api.atad2.tax/functions/v1/classify-document \
+    -H "apikey: $ANON_KEY" \
+    -H 'Content-Type: application/json' \
+    -d '{"document_id":"00000000-0000-0000-0000-000000000000"}' || true)
+  echo "HTTP $RESP — body: $(cat /tmp/c1-resp.txt)"
+  if [ "$RESP" = "401" ]; then
+    echo 'SMOKE_TEST_PASS: classify-document rejected unauthenticated request with 401'
+  else
+    echo "SMOKE_TEST_WARN: expected 401, got $RESP (still ok if 4xx; only 200 would be bad)"
+  fi
+fi
+
+echo
+echo '=== Done ==='

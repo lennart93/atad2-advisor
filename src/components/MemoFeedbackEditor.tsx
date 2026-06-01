@@ -130,6 +130,8 @@ const MemoFeedbackEditor: React.FC<MemoFeedbackEditorProps> = ({
         }))
         .filter((item) => item.feedbackText.trim().length > 0);
 
+      const { data: { session: authSession } } = await supabase.auth.getSession();
+
       const payload = {
         session_id: sessionId,
         auth_token: authSession?.access_token,
@@ -142,10 +144,6 @@ const MemoFeedbackEditor: React.FC<MemoFeedbackEditorProps> = ({
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10 * 60 * 1000);
-
-      console.log("Submitting feedback to n8n...", payload);
-
-      const { data: { session: authSession } } = await supabase.auth.getSession();
 
       const response = await fetch(
         `${import.meta.env.VITE_N8N_WEBHOOK_BASE}/atad2/submit-feedback`,
