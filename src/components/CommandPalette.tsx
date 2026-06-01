@@ -67,9 +67,9 @@ export function CommandPalette() {
                 <Users className="mr-2 h-4 w-4" />
                 Users
               </CommandItem>
-              <CommandItem onSelect={go("/admin/prefill-prompts")}>
+              <CommandItem onSelect={go("/admin/prompts")}>
                 <Sparkles className="mr-2 h-4 w-4" />
-                Pre-fill prompts
+                Prompts
               </CommandItem>
             </CommandGroup>
           </>

@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
 interface Props {
-  promptKey: "prefill_stage1_system" | "prefill_stage2_system" | "prefill_swarm_system";
+  promptKey: string;
   onClose: () => void;
 }
 
@@ -30,7 +30,7 @@ export function PrefillPromptHistory({ promptKey, onClose }: Props) {
       const { error } = await supabase.from("atad2_prompts").update({ is_active: true }).eq("id", id);
       if (error) throw error;
       await qc.invalidateQueries({ queryKey: ["prefill-prompt-history", promptKey] });
-      await qc.invalidateQueries({ queryKey: ["prefill-prompts-active"] });
+      await qc.invalidateQueries({ queryKey: ["admin-prompts-active"] });
       toast({ title: "Activated" });
     } catch (e) {
       toast({ title: "Failed to activate", description: String(e), variant: "destructive" });

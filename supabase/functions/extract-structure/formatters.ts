@@ -23,11 +23,3 @@ export function formatQaBlock(rows: QaAnswerRow[]): string {
     .join('\n\n');
 }
 
-/**
- * Prepended to every Phase-B prompt. Tells Claude to treat the Q&A as
- * authoritative and never re-classify mismatches against the user's yes/no.
- */
-export const QA_PRIMACY_HEADER = `\
-The <qa_answers> block below is the user's authoritative testimony about their corporate structure. Treat every Q&A answer and explanation as ground truth. The <documents> block is background — use it only to fill factual gaps (legal names, ISO codes, amounts) the Q&A does not specify. Where Q&A and documents conflict, the Q&A wins. Never re-classify an ATAD2 mismatch contrary to the user's yes/no answer.
-
-`;

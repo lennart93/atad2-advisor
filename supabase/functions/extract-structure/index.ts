@@ -11,10 +11,7 @@ import {
 import { loadDocumentsBlock } from "./documentsLoader.ts";
 import { formatQaBlock } from "./formatters.ts";
 import { isStaleExtracting } from "./staleness.ts";
-import stage1InitialPrompt from "./prompts/stage1-initial.ts";
-import stage1RefinePrompt from "./prompts/stage1-refine.ts";
-import stage2InitialPrompt from "./prompts/stage2-initial.ts";
-import stage2RefinePrompt from "./prompts/stage2-refine.ts";
+import { loadStructurePrompts, type LoadedStructurePrompts } from "./promptsLoader.ts";
 
 const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") || "*";
 
@@ -302,33 +299,43 @@ async function hasQaAnswers(client: SupabaseClient, sessionId: string): Promise<
 
 // ----- Stage runners (shared by Phase A and Phase B) -----
 
-async function runStage1Initial(cachedSystem: string, taxpayerName: string): Promise<Stage1OutputT> {
-  const user = stage1InitialPrompt.replace("{{TAXPAYER_NAME}}", taxpayerName);
+async function runStage1Initial(
+  prompts: LoadedStructurePrompts,
+  cachedSystem: string,
+  taxpayerName: string,
+): Promise<Stage1OutputT> {
+  const user = prompts.stage1_initial.replace("{{TAXPAYER_NAME}}", taxpayerName);
   return await callWithRetry(() => callClaude({ cachedSystem, user }), Stage1Output);
 }
 
 async function runStage1Refine(
+  prompts: LoadedStructurePrompts,
   cachedSystem: string,
   taxpayerName: string,
   existingEntities: Stage1OutputT["entities"],
 ): Promise<Stage1OutputT> {
-  const user = stage1RefinePrompt
+  const user = prompts.stage1_refine
     .replace("{{TAXPAYER_NAME}}", taxpayerName)
     .replace("{{EXISTING_ENTITIES_JSON}}", JSON.stringify(existingEntities, null, 2));
   return await callWithRetry(() => callClaude({ cachedSystem, user }), Stage1Output);
 }
 
-async function runStage2Initial(cachedSystem: string, entities: unknown): Promise<Stage2OutputT> {
-  const user = stage2InitialPrompt.replace("{{ENTITIES_JSON}}", JSON.stringify(entities, null, 2));
+async function runStage2Initial(
+  prompts: LoadedStructurePrompts,
+  cachedSystem: string,
+  entities: unknown,
+): Promise<Stage2OutputT> {
+  const user = prompts.stage2_initial.replace("{{ENTITIES_JSON}}", JSON.stringify(entities, null, 2));
   return await callWithRetry(() => callClaude({ cachedSystem, user }), Stage2Output);
 }
 
 async function runStage2Refine(
+  prompts: LoadedStructurePrompts,
   cachedSystem: string,
   entities: unknown,
   existingOwnership: Stage2OutputT["ownership_edges"],
 ): Promise<Stage2OutputT> {
-  const user = stage2RefinePrompt
+  const user = prompts.stage2_refine
     .replace("{{ENTITIES_JSON}}", JSON.stringify(entities, null, 2))
     .replace("{{EXISTING_OWNERSHIP_JSON}}", JSON.stringify(existingOwnership, null, 2));
   return await callWithRetry(() => callClaude({ cachedSystem, user }), Stage2Output);
@@ -360,6 +367,7 @@ async function runPhaseA(
   const stopHeartbeat = startHeartbeat(serviceClient, chartId);
   try {
     // Phase A uses documents only — Q&A may not yet exist.
+    const prompts = await loadStructurePrompts(serviceClient);
     const docsBlock = await loadDocumentsBlock(serviceClient, sessionId);
     const taxpayerName = await loadTaxpayerName(serviceClient, sessionId);
     const cachedSystem = `<documents>\n${docsBlock}\n</documents>`;
@@ -371,7 +379,7 @@ async function runPhaseA(
     // ----- Stage 1: entities -----
     let stage1: Stage1OutputT;
     try {
-      stage1 = await runStage1Initial(cachedSystem, taxpayerName);
+      stage1 = await runStage1Initial(prompts, cachedSystem, taxpayerName);
     } catch (err) {
       console.error(JSON.stringify({
         level: "error", event: "phaseA_stage1_failed",
@@ -405,7 +413,7 @@ async function runPhaseA(
     // ----- Stage 2: ownership (graceful) -----
     await setStatus(serviceClient, chartId, "extracting:stage2");
     try {
-      const stage2 = await runStage2Initial(cachedSystem, stage1.entities);
+      const stage2 = await runStage2Initial(prompts, cachedSystem, stage1.entities);
       for (const oe of stage2.ownership_edges) {
         const fromId = tempIdToUuid.get(oe.from_temp_id);
         const toId = tempIdToUuid.get(oe.to_temp_id);
@@ -446,6 +454,7 @@ async function runPhaseB(
 ): Promise<void> {
   const stopHeartbeat = startHeartbeat(serviceClient, chartId);
   try {
+    const prompts = await loadStructurePrompts(serviceClient);
     const docsBlock = await loadDocumentsBlock(serviceClient, sessionId);
     const qaText = await loadQaAnswersText(serviceClient, sessionId);
     const taxpayerName = await loadTaxpayerName(serviceClient, sessionId);
@@ -466,7 +475,7 @@ async function runPhaseB(
       // (ent_1..ent_N) that map back to DB UUIDs via existingAi.tempIdToUuid.
       await setStatus(serviceClient, chartId, "extracting:refining");
       try {
-        stage1 = await runStage1Refine(cachedSystem, taxpayerName, existingAi.entities);
+        stage1 = await runStage1Refine(prompts, cachedSystem, taxpayerName, existingAi.entities);
       } catch (err) {
         console.error(JSON.stringify({
           level: "error", event: "phaseB_stage1_refine_failed",
@@ -483,7 +492,7 @@ async function runPhaseB(
       await setStatus(serviceClient, chartId, "extracting:stage1");
       await clearAiExtracted(serviceClient, chartId);
       try {
-        stage1 = await runStage1Initial(cachedSystem, taxpayerName);
+        stage1 = await runStage1Initial(prompts, cachedSystem, taxpayerName);
       } catch (err) {
         console.error(JSON.stringify({
           level: "error", event: "phaseB_stage1_initial_failed",
@@ -518,7 +527,7 @@ async function runPhaseB(
     let stage2: Stage2OutputT = { ownership_edges: [] };
     if (hasExisting) {
       try {
-        stage2 = await runStage2Refine(cachedSystem, stage1.entities, existingAi.ownershipEdges);
+        stage2 = await runStage2Refine(prompts, cachedSystem, stage1.entities, existingAi.ownershipEdges);
       } catch (err) {
         console.warn(JSON.stringify({
           level: "warn", event: "phaseB_stage2_refine_failed",
@@ -531,7 +540,7 @@ async function runPhaseB(
     } else {
       await setStatus(serviceClient, chartId, "extracting:stage2");
       try {
-        stage2 = await runStage2Initial(cachedSystem, stage1.entities);
+        stage2 = await runStage2Initial(prompts, cachedSystem, stage1.entities);
       } catch (err) {
         console.warn(JSON.stringify({
           level: "warn", event: "phaseB_stage2_initial_failed",

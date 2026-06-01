@@ -17,7 +17,7 @@ const ITEMS: Item[] = [
   { title: "Users",             url: "/admin/users",             icon: Users },
   { title: "Analytics",         url: "/admin/analytics",         icon: BarChart3 },
   { title: "Data Explorer",     url: "/admin/explorer",          icon: Database },
-  { title: "Pre-Fill Prompts",  url: "/admin/prefill-prompts",   icon: Sparkles },
+  { title: "Prompts",           url: "/admin/prompts",           icon: Sparkles },
   { title: "Pre-Fill Jobs",     url: "/admin/prefill-jobs",      icon: Activity },
   { title: "Audit Log",         url: "/admin/audit",             icon: AlertCircle },
 ];
