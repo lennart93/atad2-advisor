@@ -100,6 +100,32 @@ export async function runAnalyzeOne(
 
     const parsed = extractJson(text, SwarmPrefill);
 
+    // Route B safety net: Opus consistently drops suggested_toelichting_unknown
+    // even when the swarm prompt requires it as a pair with contextual_hint
+    // (observed across v9, v10, v11). When the main call returns hint-only,
+    // make a small focused follow-up call to derive the unknown-toelichting
+    // from the hint. Cheap (Haiku), deterministic, no further prompt-coaxing
+    // needed. Only fires when the main call took Route B and dropped the
+    // companion; Route A (suggested_toelichting) is unaffected.
+    let unknownToelichting = parsed.suggested_toelichting_unknown;
+    if (parsed.contextual_hint && !unknownToelichting) {
+      try {
+        unknownToelichting = await synthesizeUnknownToelichting(parsed.contextual_hint);
+        console.log(JSON.stringify({
+          level: "info", event: "swarm_unknown_synthesized",
+          session_id: sessionId, question_id: questionId,
+          hint_chars: parsed.contextual_hint.length,
+          unknown_chars: unknownToelichting?.length ?? 0,
+        }));
+      } catch (err) {
+        console.warn(JSON.stringify({
+          level: "warn", event: "swarm_unknown_synth_failed",
+          session_id: sessionId, question_id: questionId,
+          error: err instanceof Error ? err.message : String(err),
+        }));
+      }
+    }
+
     // Only run lead-in / forbidden-phrase guards against suggested_toelichting,
     // since contextual_hint is allowed to reference documents in advisor voice.
     if (parsed.suggested_toelichting) {
@@ -129,7 +155,7 @@ export async function runAnalyzeOne(
       confidence_pct: parsed.confidence_pct,
       answer_rationale: parsed.answer_rationale,
       contextual_hint: parsed.contextual_hint,
-      suggested_toelichting_unknown: parsed.suggested_toelichting_unknown,
+      suggested_toelichting_unknown: unknownToelichting,
       user_action: "pending",
     }, { onConflict: "session_id,question_id" });
 
@@ -159,6 +185,39 @@ export async function runAnalyzeOne(
     }));
     return { ok: false, error: message };
   }
+}
+
+const UNKNOWN_SYNTH_SYSTEM = `You convert an ATAD2 advisor's contextual_hint into a companion "unknown-toelichting": the user-voice explanation the same advisor would type if they picked "Unknown" for the question.
+
+Output plain text (NO JSON, NO markdown). 2-4 sentences, <=1000 characters.
+
+REQUIRED structure:
+1. Open with the Dutch taxpayer entity name (e.g. "Camden B.V. has...", "The taxpayer holds...").
+2. State the relevant structural facts from the hint (parties, percentages, jurisdictions, dates).
+3. Explicitly state what is unknown using "It is unknown ...", "It is currently unclear ...", or "It has not yet been confirmed ...".
+4. Where the hint says "Confirmation is needed on X" / "particularly whether Y", restate as "It is unknown whether X..." / "Specifically, it has not been confirmed whether Y...".
+
+BANNED:
+- References to documents ("the documents", "the memo", "based on", "according to", etc.). Speak as the advisor with direct knowledge.
+- Meta-language ("I am picking Unknown because...", "this is unknown for ATAD2 purposes").
+- Restating the question.
+- Em-dashes or en-dashes. Hyphen-minus (-) is fine for compound words.
+- Dutch short titles for legislation (use "Dutch Corporate Income Tax Act", not "Wet Vpb").
+
+Output the unknown-toelichting now.`;
+
+async function synthesizeUnknownToelichting(hint: string): Promise<string | null> {
+  const { text } = await callOpus({
+    model: "claude-haiku-4-5-20251001",
+    systemPrompt: UNKNOWN_SYNTH_SYSTEM,
+    userContent: `contextual_hint:\n${hint}`,
+    temperature: 0,
+    maxTokens: 600,
+  });
+  const cleaned = text.trim().replace(/^```(?:text|markdown)?\s*/i, "").replace(/\s*```$/, "").trim();
+  if (!cleaned) return null;
+  if (cleaned.length > 1000) return cleaned.slice(0, 1000);
+  return cleaned;
 }
 
 function buildImageHeader(refs: ImageRef[]): string {
