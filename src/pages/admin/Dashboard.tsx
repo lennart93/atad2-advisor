@@ -128,15 +128,15 @@ const Dashboard = () => {
   return (
     <main>
       <Seo
-        title="Admin Hub"
-        description="ATAD2 Admin Hub"
+        title="Dashboard"
+        description="ATAD2 Admin Dashboard"
         canonical="/admin/dashboard"
       />
 
       <header className="flex items-end justify-between mb-6">
         <div>
           <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-1">Admin</div>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Admin Hub</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Dashboard</h1>
         </div>
         <Select value={period} onValueChange={(v) => setPeriod(v as Period)}>
           <SelectTrigger className="w-[180px] h-9">

@@ -10,7 +10,7 @@ import { useAdminAccess } from "@/hooks/useAdminAccess";
 type Item = { title: string; url: string; icon: LucideIcon };
 
 const ITEMS: Item[] = [
-  { title: "Hub",               url: "/admin/dashboard",         icon: LayoutDashboard },
+  { title: "Dashboard",         url: "/admin/dashboard",         icon: LayoutDashboard },
   { title: "Questions",         url: "/admin/questions",         icon: ListChecks },
   { title: "Context questions", url: "/admin/context-questions", icon: HelpCircle },
   { title: "Sessions",          url: "/admin/sessions",          icon: FileText },
