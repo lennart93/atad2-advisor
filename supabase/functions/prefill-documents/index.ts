@@ -26,6 +26,8 @@ interface PrefillRequest {
   question_explanation?: string;
   documents_block?: string;
   image_refs?: ImageRefPayload[];
+  taxpayer_name?: string;
+  fiscal_year?: string;
 }
 
 serve(async (req) => {
@@ -61,6 +63,8 @@ serve(async (req) => {
           body.question_explanation ?? "",
           body.documents_block,
           body.image_refs ?? [],
+          body.taxpayer_name ?? "",
+          body.fiscal_year ?? "",
         );
         return json(result, result.ok ? 200 : 500);
       }

@@ -12,6 +12,8 @@ export interface ImageRef {
 export interface DocumentsBundle {
   textBlock: string;
   imageRefs: ImageRef[];
+  taxpayerName: string;
+  fiscalYear: string;
 }
 
 /**
@@ -21,16 +23,29 @@ export interface DocumentsBundle {
  *  - imageRefs: storage pointers for PNG/JPG/WEBP, sent to the edge function
  *    which downloads + base64-encodes them as Anthropic image content blocks.
  *
- * Calling .text() on raw image bytes used to pump garbage UTF-8 into the prompt
- * — this split prevents that and routes images through Claude's native vision.
+ * Also pulls the session's user-entered taxpayer_name and fiscal_year so the
+ * swarm can anchor on them instead of guessing the taxpayer from a docless
+ * image (e.g. a structure chart with 7 NL entities and no metadata).
  */
 export async function buildDocumentsBlock(sessionId: string): Promise<DocumentsBundle> {
-  const { data: docs } = await supabase
-    .from("atad2_session_documents")
-    .select("id, doc_label, category, storage_path, relevance_note, mime_type")
-    .eq("session_id", sessionId);
+  const [{ data: docs }, { data: session }] = await Promise.all([
+    supabase
+      .from("atad2_session_documents")
+      .select("id, doc_label, category, storage_path, relevance_note, mime_type")
+      .eq("session_id", sessionId),
+    supabase
+      .from("atad2_sessions")
+      .select("taxpayer_name, fiscal_year")
+      .eq("session_id", sessionId)
+      .maybeSingle(),
+  ]);
 
-  if (!docs || docs.length === 0) return { textBlock: "", imageRefs: [] };
+  const taxpayerName = (session?.taxpayer_name ?? "").trim();
+  const fiscalYear = (session?.fiscal_year ?? "").toString().trim();
+
+  if (!docs || docs.length === 0) {
+    return { textBlock: "", imageRefs: [], taxpayerName, fiscalYear };
+  }
 
   const imageRefs: ImageRef[] = [];
   const textPromises: Promise<string | null>[] = [];
@@ -61,5 +76,5 @@ export async function buildDocumentsBlock(sessionId: string): Promise<DocumentsB
   const docTexts = await Promise.all(textPromises);
   const textBlock = docTexts.filter(Boolean).join("\n\n");
 
-  return { textBlock, imageRefs };
+  return { textBlock, imageRefs, taxpayerName, fiscalYear };
 }

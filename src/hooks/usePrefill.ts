@@ -283,7 +283,7 @@ export function useStartAnalyze(sessionId: string | null) {
       //    docs go into the prompt as <document> XML; images travel as refs
       //    that the edge function fetches and base64-encodes as Anthropic
       //    image content blocks (Claude native vision, no OCR step).
-      const { textBlock: documentsBlock, imageRefs } = await buildDocumentsBlock(sessionId);
+      const { textBlock: documentsBlock, imageRefs, taxpayerName, fiscalYear } = await buildDocumentsBlock(sessionId);
       if (!documentsBlock && imageRefs.length === 0) throw new Error("No documents to analyze");
 
       // 2. Atomic claim — insert prefill_jobs row.
@@ -324,6 +324,8 @@ export function useStartAnalyze(sessionId: string | null) {
             question_explanation: q.question_explanation ?? "",
             documents_block: documentsBlock,
             image_refs: imageRefs,
+            taxpayer_name: taxpayerName,
+            fiscal_year: fiscalYear,
           });
         } catch (e) {
           failures.push(`${q.question_id}: ${(e as Error).message}`);

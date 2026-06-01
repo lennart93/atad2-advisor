@@ -47,6 +47,8 @@ export async function runAnalyzeOne(
   questionExplanation: string,
   documentsBlock: string,
   imageRefs: ImageRef[] = [],
+  taxpayerName: string = "",
+  fiscalYear: string = "",
 ): Promise<{ ok: boolean; error?: string; usage?: Record<string, number> }> {
   const started = Date.now();
 
@@ -58,6 +60,8 @@ export async function runAnalyzeOne(
       question_id: questionId,
       question_text: questionText,
       question_explanation: questionExplanation ?? "",
+      taxpayer_name: taxpayerName,
+      fiscal_year: fiscalYear,
     });
 
     const splitMarker = "## Question";
