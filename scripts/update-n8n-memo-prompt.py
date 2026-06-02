@@ -194,7 +194,7 @@ def main():
             "limit": 50,
             "filters": {
                 "conditions": [
-                    {"keyName": "key", "keyValue": "memo_system"}
+                    {"keyName": "key", "condition": "eq", "keyValue": "memo_system"}
                 ]
             }
         },
