@@ -6,9 +6,10 @@ export type PromptKey =
   | "structure_stage1_initial"
   | "structure_stage1_refine"
   | "structure_stage2_initial"
-  | "structure_stage2_refine";
+  | "structure_stage2_refine"
+  | "memo_system";
 
-export type PromptGroup = "Pre-fill" | "Structure chart";
+export type PromptGroup = "Pre-fill" | "Structure chart" | "Memo";
 
 export interface PromptDescriptor {
   key: PromptKey;
@@ -59,6 +60,15 @@ export const PROMPT_DESCRIPTORS: PromptDescriptor[] = [
     description:
       "Refine ownership edges with the user's Q&A answers as authoritative.",
   },
+  {
+    key: "memo_system",
+    group: "Memo",
+    label: "Final memorandum (n8n)",
+    placeholders:
+      "{{TAXPAYER_NAME}}, {{FISCAL_YEAR}}, {{SESSION_ID}}, {{TOTAL_RISK}}, {{ANSWERS_COUNT}}, {{UNKNOWN_COUNT}}, {{RISK_CATEGORY}}, {{CORE_LOGIC_BLOCK}}, {{OVERRIDE_BLOCK}}, {{OVERRIDE_INFO_BLOCK}}, {{DOCUMENTS_BLOCK_FORMATTED}}, {{QA_LIST}}, {{ADDITIONAL_CONTEXT_BLOCK}}",
+    description:
+      "System prompt the AI Agent uses to draft the final ATAD2 memorandum. The n8n 'ATAD2' workflow fetches the active version at runtime; edits here go live on the next memo generation.",
+  },
 ];
 
 // Prompts that exist in the system but are not (yet) editable via this admin
@@ -70,14 +80,6 @@ export interface ExternalPrompt {
   description: string;
 }
 
-export const EXTERNAL_PROMPTS: ExternalPrompt[] = [
-  {
-    label: "Memo generation",
-    group: "Memo",
-    location: "n8n workflow 'ATAD2' → 'Build prompt + metrics' node",
-    description:
-      "Builds the final ATAD2 memorandum prompt. Currently lives inside the n8n workflow and is edited there. Moving this to atad2_prompts is planned in a follow-up.",
-  },
-];
+export const EXTERNAL_PROMPTS: ExternalPrompt[] = [];
 
-export const PROMPT_GROUPS: PromptGroup[] = ["Pre-fill", "Structure chart"];
+export const PROMPT_GROUPS: PromptGroup[] = ["Pre-fill", "Structure chart", "Memo"];
