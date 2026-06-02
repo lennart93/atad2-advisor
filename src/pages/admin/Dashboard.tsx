@@ -16,6 +16,7 @@ import { IconChip } from "@/components/admin/IconChip";
 import { KpiCard } from "@/components/admin/KpiCard";
 import type { EntityKey } from "@/components/admin/entityColors";
 import { StaggerChildren, staggerItem } from "@/components/motion";
+import { useFeedbackNewCount } from "@/hooks/useFeedbackNewCount";
 
 type Period = "24h" | "7d" | "30d" | "90d";
 
@@ -37,12 +38,13 @@ function periodToDate(p: Period): Date {
   return d;
 }
 
-const SHORTCUTS: Array<{ title: string; url: string; entity: EntityKey; icon: LucideIcon; sub: string }> = [
+type ShortcutBadgeKey = "feedback";
+const SHORTCUTS: Array<{ title: string; url: string; entity: EntityKey; icon: LucideIcon; sub: string; badgeKey?: ShortcutBadgeKey }> = [
   { title: "Sessions",          url: "/admin/sessions",          entity: "sessions",         icon: FileText,      sub: "View all assessments" },
   { title: "Users",             url: "/admin/users",             entity: "users",            icon: Users,         sub: "Accounts & roles" },
   { title: "Questions",         url: "/admin/questions",         entity: "questions",        icon: CheckSquare,   sub: "ATAD2 questionnaire" },
   { title: "Context questions", url: "/admin/context-questions", entity: "contextQuestions", icon: HelpCircle,    sub: "Follow-up questions" },
-  { title: "Feedback",          url: "/admin/audit",             entity: "feedback",         icon: MessageSquare, sub: "User comments" },
+  { title: "Feedback",          url: "/admin/feedback",          entity: "feedback",         icon: MessageSquare, sub: "User comments", badgeKey: "feedback" },
   { title: "Data Explorer",     url: "/admin/explorer",          entity: "explorer",         icon: Database,      sub: "Browse tables" },
   { title: "Analytics",         url: "/admin/analytics",         entity: "analytics",        icon: BarChart3,     sub: "Trends & insights" },
   { title: "Audit Log",         url: "/admin/audit",             entity: "audit",            icon: AlertCircle,   sub: "Security events" },
@@ -51,6 +53,7 @@ const SHORTCUTS: Array<{ title: string; url: string; entity: EntityKey; icon: Lu
 const Dashboard = () => {
   const [period, setPeriod] = useState<Period>("7d");
   const since = periodToDate(period).toISOString();
+  const feedbackNew = useFeedbackNewCount();
 
   const { data: sessionStats } = useQuery({
     queryKey: ["hub-session-stats", period],
@@ -195,22 +198,33 @@ const Dashboard = () => {
           Shortcuts
         </div>
         <StaggerChildren className="grid grid-cols-4 gap-3">
-          {SHORTCUTS.map((s) => (
-            <motion.div key={s.title} variants={staggerItem}>
-              <NavLink to={s.url} className="block">
-                <AdminCard
-                  interactive
-                  className="flex flex-col gap-3 transition-all duration-normal ease-emphasized hover:shadow-sm hover:border-foreground/20"
-                >
-                  <IconChip entity={s.entity} icon={s.icon} size="md" />
-                  <div>
-                    <div className="text-[13px] font-semibold text-foreground">{s.title}</div>
-                    <div className="text-[11px] text-muted-foreground mt-0.5">{s.sub}</div>
-                  </div>
-                </AdminCard>
-              </NavLink>
-            </motion.div>
-          ))}
+          {SHORTCUTS.map((s) => {
+            const badge = s.badgeKey === "feedback" && feedbackNew > 0 ? feedbackNew : 0;
+            return (
+              <motion.div key={s.title} variants={staggerItem}>
+                <NavLink to={s.url} className="block">
+                  <AdminCard
+                    interactive
+                    className="relative flex flex-col gap-3 transition-all duration-normal ease-emphasized hover:shadow-sm hover:border-foreground/20"
+                  >
+                    <IconChip entity={s.entity} icon={s.icon} size="md" />
+                    <div>
+                      <div className="text-[13px] font-semibold text-foreground">{s.title}</div>
+                      <div className="text-[11px] text-muted-foreground mt-0.5">{s.sub}</div>
+                    </div>
+                    {badge > 0 && (
+                      <span
+                        className="absolute top-2 right-2 inline-flex items-center justify-center min-w-[20px] h-[20px] rounded-full bg-[#db2777] text-white text-[10px] font-semibold px-1.5"
+                        aria-label={`${badge} new`}
+                      >
+                        {badge > 99 ? "99+" : badge}
+                      </span>
+                    )}
+                  </AdminCard>
+                </NavLink>
+              </motion.div>
+            );
+          })}
         </StaggerChildren>
       </section>
     </main>

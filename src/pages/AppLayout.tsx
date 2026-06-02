@@ -8,6 +8,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { CommandPalette } from "@/components/CommandPalette";
+import { FloatingFeedbackButton } from "@/components/FloatingFeedbackButton";
 import { AssessmentProgressIndicator } from "@/components/AssessmentProgressIndicator";
 import { useAssessmentLeaveGuard } from "@/hooks/useAssessmentLeaveGuard";
 import { useIsUiBusy } from "@/stores/uiBusyStore";
@@ -120,6 +121,7 @@ const AppLayout = () => {
         </main>
       )}
 
+      <FloatingFeedbackButton />
     </div>
   );
 };

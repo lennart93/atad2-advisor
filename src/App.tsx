@@ -41,6 +41,7 @@ const AdminAnalytics = lazy(() => import("./pages/admin/Analytics"));
 const AdminDataExplorer = lazy(() => import("./pages/admin/DataExplorer"));
 const AdminPrompts = lazy(() => import("./pages/admin/Prompts"));
 const AdminPrefillJobs = lazy(() => import("./pages/admin/PrefillJobs"));
+const AdminFeedback = lazy(() => import("./pages/admin/Feedback"));
 const NotAuthorized = lazy(() => import("./pages/NotAuthorized"));
 
 const queryClient = new QueryClient();
@@ -96,6 +97,7 @@ const App = () => (
                       <Route path="explorer" element={<AdminDataExplorer />} />
                       <Route path="prompts" element={<AdminPrompts />} />
                       <Route path="prefill-jobs" element={<AdminPrefillJobs />} />
+                      <Route path="feedback" element={<AdminFeedback />} />
                       <Route path="*" element={<NotAuthorized />} />
                     </Route>
 

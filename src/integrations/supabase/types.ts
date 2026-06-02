@@ -158,6 +158,48 @@ export type Database = {
         }
         Relationships: []
       }
+      atad2_feedback: {
+        Row: {
+          id: string
+          user_id: string
+          user_email: string
+          category: "bug" | "idea" | "question" | "other"
+          message: string
+          page_url: string | null
+          user_agent: string | null
+          status: "new" | "triaged" | "done"
+          admin_notes: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          user_email: string
+          category: "bug" | "idea" | "question" | "other"
+          message: string
+          page_url?: string | null
+          user_agent?: string | null
+          status?: "new" | "triaged" | "done"
+          admin_notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          user_email?: string
+          category?: "bug" | "idea" | "question" | "other"
+          message?: string
+          page_url?: string | null
+          user_agent?: string | null
+          status?: "new" | "triaged" | "done"
+          admin_notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       // Manually added — no Supabase CLI available for self-hosted VM (feat/document-prefill)
       atad2_prefill_jobs: {
         Row: {

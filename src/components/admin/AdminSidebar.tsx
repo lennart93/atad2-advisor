@@ -1,13 +1,15 @@
 import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard, ListChecks, HelpCircle, FileText, Users,
-  BarChart3, Database, AlertCircle, ArrowLeft, Sparkles, Activity, LucideIcon,
+  BarChart3, Database, AlertCircle, ArrowLeft, Sparkles, Activity,
+  MessageSquare, LucideIcon,
 } from "lucide-react";
 import { IconChip } from "@/components/admin/IconChip";
 import { cn } from "@/lib/utils";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
+import { useFeedbackNewCount } from "@/hooks/useFeedbackNewCount";
 
-type Item = { title: string; url: string; icon: LucideIcon };
+type Item = { title: string; url: string; icon: LucideIcon; badgeKey?: "feedback" };
 
 const ITEMS: Item[] = [
   { title: "Dashboard",         url: "/admin/dashboard",         icon: LayoutDashboard },
@@ -15,6 +17,7 @@ const ITEMS: Item[] = [
   { title: "Context questions", url: "/admin/context-questions", icon: HelpCircle },
   { title: "Sessions",          url: "/admin/sessions",          icon: FileText },
   { title: "Users",             url: "/admin/users",             icon: Users },
+  { title: "Feedback",          url: "/admin/feedback",          icon: MessageSquare, badgeKey: "feedback" },
   { title: "Analytics",         url: "/admin/analytics",         icon: BarChart3 },
   { title: "Data Explorer",     url: "/admin/explorer",          icon: Database },
   { title: "Prompts",           url: "/admin/prompts",           icon: Sparkles },
@@ -32,6 +35,7 @@ const linkClasses = ({ isActive }: { isActive: boolean }) =>
 
 export function AppSidebar() {
   const { isAdmin, isModerator } = useAdminAccess();
+  const feedbackNew = useFeedbackNewCount();
   const sectionLabel = isAdmin ? "Admin" : isModerator ? "Moderator" : "Admin";
   return (
     <aside className="w-52 shrink-0">
@@ -47,12 +51,20 @@ export function AppSidebar() {
         <div className="mt-4 mb-1 px-3 text-xs uppercase tracking-[0.18em] text-muted-foreground font-medium">
           {sectionLabel}
         </div>
-        {ITEMS.map((item) => (
-          <NavLink key={item.title} to={item.url} end className={linkClasses}>
-            <IconChip icon={item.icon} size="sm" />
-            <span>{item.title}</span>
-          </NavLink>
-        ))}
+        {ITEMS.map((item) => {
+          const badge = item.badgeKey === "feedback" && feedbackNew > 0 ? feedbackNew : 0;
+          return (
+            <NavLink key={item.title} to={item.url} end className={linkClasses}>
+              <IconChip icon={item.icon} size="sm" />
+              <span className="flex-1">{item.title}</span>
+              {badge > 0 && (
+                <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-[#db2777] text-white text-[10px] font-semibold px-1">
+                  {badge > 99 ? "99+" : badge}
+                </span>
+              )}
+            </NavLink>
+          );
+        })}
       </nav>
     </aside>
   );
