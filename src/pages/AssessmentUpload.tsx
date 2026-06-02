@@ -49,8 +49,12 @@ export default function AssessmentUpload() {
   const dismissKey = `quality-gate-dismissed:${sessionId}`;
   const wasDismissed = () => sessionStorage.getItem(dismissKey) === String(quality.distinctCategories.length);
 
+  // If the user already uploaded 2+ real documents, they've made enough
+  // effort that we shouldn't nag them — even if one is categorised "other".
+  const nonThinDocCount = (docs ?? []).filter((d) => !d.is_thin).length;
+
   const handleContinueClick = () => {
-    if (quality.tier === "good" && !wasDismissed()) {
+    if (quality.tier === "good" && nonThinDocCount < 2 && !wasDismissed()) {
       setGateOpen(true);
       return;
     }

@@ -67,8 +67,12 @@ function computeMissingFields(entities: StructureEntity[]): MissingFieldsEntry[]
   for (const e of entities) {
     const missing: ('legal_form' | 'jurisdiction_iso')[] = [];
     if (e.legal_form == null || e.legal_form.trim() === '') {
-      // Individuals don't need legal_form; everything else does.
-      if (e.entity_type !== 'individual') missing.push('legal_form');
+      // Individuals and trusts/non-entities (trust, foundation, STAK, VI/PE,
+      // branch) don't have a legal form in the BV/NV/GmbH sense — the enum
+      // value literally means "non-entity". Everything else needs one.
+      if (e.entity_type !== 'individual' && e.entity_type !== 'trust_or_non_entity') {
+        missing.push('legal_form');
+      }
     }
     if (e.jurisdiction_iso == null || e.jurisdiction_iso.trim() === '') {
       missing.push('jurisdiction_iso');

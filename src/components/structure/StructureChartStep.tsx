@@ -9,7 +9,6 @@ import { FloatingPalette } from './FloatingPalette';
 import { FloatingInspector } from './FloatingInspector';
 import { FloatingToolbar } from './FloatingToolbar';
 import { BlockingBanner } from './BlockingBanner';
-import { exportToPptx } from './exports/exportToPptx';
 import { tierLayout, clusterId, type PositionedEntity, type TierLayoutResult } from '@/lib/structure/tierLayout';
 import { groupNonRelevantSiblings, deriveClusterName, type Cluster } from '@/lib/structure/relevance';
 import { validate, type ValidatorResult } from '@/lib/structure/validator';
@@ -24,11 +23,13 @@ import {
   deleteEdge,
   updateEntityPosition,
   finalizeChart,
+  unfinalizeChart,
   forceDraftReady,
   createGrouping,
   updateGrouping,
   deleteGrouping,
 } from '@/lib/structure/client';
+import { addOrMergeFiscalUnity } from '@/lib/structure/fiscalUnity';
 import { startExtraction, pollUntilTerminal } from '@/lib/structure/extraction';
 import { FiscalUnityEditPopover } from './overlays/FiscalUnityEditPopover';
 import { captureChartSnapshot } from '@/lib/structure/captureChartSnapshot';
@@ -44,6 +45,7 @@ import type {
 import type { ClusterNodeData } from './nodes/ClusterNode';
 import { AtlasLoader } from './AtlasLoader';
 import { AnimatedLogo } from '@/components/AnimatedLogo';
+import { StructureRefiningCallout } from './StructureRefiningCallout';
 
 type ClusterLayout = Array<{
   id: string;
@@ -108,44 +110,107 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
     | { kind: 'nodes'; ids: string[] }
     | null;
   const [selection, setSelection] = useState<Selection>(null);
+  const [selectedGroupingId, setSelectedGroupingId] = useState<string | null>(null);
   const [editingGrouping, setEditingGrouping] = useState<{
     grouping: StructureGroup;
     screenX: number;
     screenY: number;
   } | null>(null);
+
+  // Delete-key op een geselecteerde fiscale eenheid: verwijder het kader
+  // (zonder confirmatie — undo is via terug-toevoegen). Negeer als focus in
+  // een tekstveld zit anders eet je delete in formulieren op.
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== 'Delete' && e.key !== 'Backspace') return;
+      if (!selectedGroupingId) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+      const id = selectedGroupingId;
+      setSelectedGroupingId(null);
+      setGroupings((prev) => prev.filter((g) => g.id !== id));
+      deleteGrouping(id).catch((err) => console.error('[FE] delete failed', err));
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [selectedGroupingId]);
+
+  // Delete-key op een (multi)entity- of edge-selectie. Verwijdert optimistisch
+  // uit de UI en vuurt de delete naar de DB op de achtergrond. Edges die aan
+  // verwijderde entities hangen halen we ook lokaal weg zodat ze niet als
+  // dangling stub blijven hangen tot de volgende refresh.
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== 'Delete' && e.key !== 'Backspace') return;
+      if (!selection) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+
+      if (selection.kind === 'node') {
+        const id = selection.id;
+        setSelection(null);
+        setEntities((prev) => prev.filter((en) => en.id !== id));
+        setEdgesState((prev) =>
+          prev.filter((ed) => ed.from_entity_id !== id && ed.to_entity_id !== id),
+        );
+        deleteEntity(id).catch((err) => console.error('[FE] delete entity failed', err));
+      } else if (selection.kind === 'nodes') {
+        const ids = new Set(selection.ids);
+        if (ids.size === 0) return;
+        setSelection(null);
+        setEntities((prev) => prev.filter((en) => !ids.has(en.id)));
+        setEdgesState((prev) =>
+          prev.filter((ed) => !ids.has(ed.from_entity_id) && !ids.has(ed.to_entity_id)),
+        );
+        Promise.all([...ids].map((id) => deleteEntity(id))).catch((err) =>
+          console.error('[FE] bulk delete failed', err),
+        );
+      } else if (selection.kind === 'edge') {
+        const id = selection.id;
+        setSelection(null);
+        setEdgesState((prev) => prev.filter((ed) => ed.id !== id));
+        deleteEdge(id).catch((err) => console.error('[FE] delete edge failed', err));
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [selection]);
   const [status, setStatus] = useState<ChartStatus | 'loading'>('loading');
   const [busy, setBusy] = useState(false);
-  const [expandedClusters, setExpandedClusters] = useState<Set<string>>(new Set());
-  // Persist expand state per chart in localStorage so the editor opens with the
-  // same set the user last saw. Keeps the editor symmetric with the overview
-  // snapshot, which captures whatever was expanded at navigate-time.
+  // Tracks which clusters the user has explicitly COLLAPSED. Default empty =
+  // nothing collapsed = the chart opens fully expanded. New entities from
+  // Phase B inherit the default (not in the set → expanded).
+  const [collapsedClusters, setCollapsedClusters] = useState<Set<string>>(new Set());
+  // Persist collapse state per chart in localStorage so the editor opens with
+  // the same set the user last saw. Keeps the editor symmetric with the
+  // overview snapshot, which captures whatever was collapsed at navigate-time.
   // hydratedKey is state (not a ref) so React commits the hydrate setState
   // before the write effect re-runs — otherwise the write would wipe the saved
   // entry with the still-empty initial Set in the same render.
-  const expandStorageKey = chart ? `atad2.expandedClusters:${chart.id}` : null;
+  const collapseStorageKey = chart ? `atad2.collapsedClusters:${chart.id}` : null;
   const [hydratedKey, setHydratedKey] = useState<string | null>(null);
   useEffect(() => {
-    if (!expandStorageKey || hydratedKey === expandStorageKey) return;
+    if (!collapseStorageKey || hydratedKey === collapseStorageKey) return;
     try {
-      const raw = window.localStorage.getItem(expandStorageKey);
+      const raw = window.localStorage.getItem(collapseStorageKey);
       if (raw) {
         const ids = JSON.parse(raw);
-        if (Array.isArray(ids)) setExpandedClusters(new Set(ids.filter((s) => typeof s === 'string')));
+        if (Array.isArray(ids)) setCollapsedClusters(new Set(ids.filter((s) => typeof s === 'string')));
       }
     } catch {
-      // Corrupt entry: ignore and start collapsed.
+      // Corrupt entry: ignore and start expanded.
     }
-    setHydratedKey(expandStorageKey);
-  }, [expandStorageKey, hydratedKey]);
+    setHydratedKey(collapseStorageKey);
+  }, [collapseStorageKey, hydratedKey]);
   useEffect(() => {
-    if (!expandStorageKey || hydratedKey !== expandStorageKey) return;
+    if (!collapseStorageKey || hydratedKey !== collapseStorageKey) return;
     try {
-      if (expandedClusters.size === 0) window.localStorage.removeItem(expandStorageKey);
-      else window.localStorage.setItem(expandStorageKey, JSON.stringify([...expandedClusters]));
+      if (collapsedClusters.size === 0) window.localStorage.removeItem(collapseStorageKey);
+      else window.localStorage.setItem(collapseStorageKey, JSON.stringify([...collapsedClusters]));
     } catch {
       // Quota/private-mode: silently degrade to in-memory only.
     }
-  }, [expandStorageKey, expandedClusters, hydratedKey]);
+  }, [collapseStorageKey, collapsedClusters, hydratedKey]);
   const [clusterLayout, setClusterLayout] = useState<ClusterLayout>([]);
   const activeClustersRef = useRef<Cluster[]>([]);
   // Capture API handed up from StructureChart on init — used by goNext to grab
@@ -414,10 +479,10 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
       ownership,
       taxpayer?.id ?? '',
     );
-    // Honor user's expand toggles: clusters whose ID is in expandedClusters
-    // are removed (their members go back to being individual nodes).
+    // Default = expanded for everyone. We only fold a cluster when the user
+    // has explicitly collapsed it (its ID lives in collapsedClusters).
     const activeClusters = allClusters.clusters.filter(
-      (c) => !expandedClusters.has(clusterId(c)),
+      (c) => collapsedClusters.has(clusterId(c)),
     );
     activeClustersRef.current = activeClusters;
 
@@ -438,13 +503,25 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
     for (const [, p] of result.positions) updateEntityPosition(p.id, p.x, p.y);
 
     setClusterLayout(buildClusterLayout(activeClusters, result.clusterPositions, visibleEntities));
-  }, [chart, visibleEntities, visibleEdges, expandedClusters, validation.hasBlocking, groupings]);
+  }, [chart, visibleEntities, visibleEdges, collapsedClusters, validation.hasBlocking, groupings]);
 
+  // "Collapse all": fold every cluster that the current data shape can produce.
+  // Recompute against the live entity/edge set so newly-arrived Phase B
+  // entities also collapse instead of staying visible.
   const handleCollapseAll = useCallback(() => {
-    setExpandedClusters(new Set());
-  }, []);
+    const ownership = visibleEdges.filter((e) => e.kind === 'ownership');
+    const taxpayer = visibleEntities.find((e) => e.is_taxpayer);
+    const { clusters } = groupNonRelevantSiblings(
+      visibleEntities,
+      ownership,
+      taxpayer?.id ?? '',
+      groupings,
+    );
+    setCollapsedClusters(new Set(clusters.map((c) => clusterId(c))));
+  }, [visibleEntities, visibleEdges, groupings]);
 
-  // Re-bind onExpand handlers each render so they capture the current setExpandedClusters.
+  // Re-bind onExpand handlers each render so they capture current state.
+  // Expanding a cluster removes its ID from the collapsed set.
   const clusterNodes = useMemo<ClusterLayout>(
     () =>
       clusterLayout.map((c) => ({
@@ -452,9 +529,10 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
         data: {
           ...c.data,
           onExpand: () => {
-            setExpandedClusters((prev) => {
+            setCollapsedClusters((prev) => {
+              if (!prev.has(c.id)) return prev;
               const next = new Set(prev);
-              next.add(c.id);
+              next.delete(c.id);
               return next;
             });
           },
@@ -472,7 +550,7 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
     if (validation.hasBlocking) return;
     runLayout();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chart?.id, entities.length, edges.length, expandedClusters, validation.hasBlocking, groupings.length]);
+  }, [chart?.id, entities.length, edges.length, collapsedClusters, validation.hasBlocking, groupings.length]);
 
   useEffect(() => {
     if (!chart) return;
@@ -488,7 +566,7 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
     if (!chart) return;
     setBusy(true);
     setStatus('extracting:stage1' as ChartStatus);
-    setExpandedClusters(new Set());
+    setCollapsedClusters(new Set());
     setClusterLayout([]);
     await startExtraction(sessionId);
     await pollUntilTerminal(chart.id, async (s) => {
@@ -626,12 +704,28 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
     navigate(`/assessment-report/${sessionId}`);
   };
 
+  const skipNext = async () => {
+    if (chart) {
+      try {
+        await unfinalizeChart(chart.id);
+      } catch (err) {
+        console.warn('[StructureChartStep] unfinalize failed', err);
+      }
+    }
+    navigate(`/assessment-report/${sessionId}`);
+  };
+
   const isExtracting = typeof status === 'string' && status.startsWith('extracting:');
   const isFailed = status === 'extraction_failed';
+  // Block the canvas only while the data isn't yet showable. As soon as Phase
+  // A has produced entities and ownership edges (status hits phase_a_ready or
+  // beyond), we render the chart. Phase B's refine pass runs in the
+  // background and the polling effect updates the chart live — no need to
+  // stare at a loader for ~2 min while the user's Q&A is folded in.
   const showLoader =
     status === 'loading' ||
-    isExtracting ||
-    status === 'phase_a_ready';
+    status === 'extracting:stage1' ||
+    status === 'extracting:stage2';
 
   return (
     <div className="flex h-full flex-col">
@@ -649,20 +743,30 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
           )
         }
         right={
-          <Button
-            onClick={goNext}
-            disabled={status === 'loading' || isExtracting}
-            className="transition-all duration-fast"
-          >
-            {editFromOverview ? (
-              'Save and return to overview'
-            ) : (
-              <>
-                Continue to overview
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </>
-            )}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={skipNext}
+              disabled={status === 'loading' || isExtracting}
+              className="transition-all duration-fast"
+            >
+              Continue without structure chart
+            </Button>
+            <Button
+              onClick={goNext}
+              disabled={status === 'loading' || isExtracting}
+              className="transition-all duration-fast"
+            >
+              {editFromOverview ? (
+                'Save structure chart and return to overview'
+              ) : (
+                <>
+                  Save structure chart and continue
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </>
+              )}
+            </Button>
+          </div>
         }
       />
 
@@ -730,7 +834,13 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
                   entities={renderEntities}
                 edges={renderableEdges}
                 clusterNodes={clusterNodes}
-                onSelectionChange={setSelection}
+                onSelectionChange={(s) => {
+                  setSelection(s);
+                  // Node/edge/pane-klik wist de FE-kader-selectie ook, anders
+                  // blijft de delete-toets per ongeluk een FE wegblazen
+                  // terwijl je een entity geselecteerd hebt.
+                  setSelectedGroupingId(null);
+                }}
                 onNodePositionEnd={(id, x, y) => {
                   setEntities((prev) =>
                     prev.map((e) =>
@@ -752,6 +862,26 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
                   const g = groupings.find((x) => x.id === groupId);
                   if (g) setEditingGrouping({ grouping: g, screenX, screenY });
                 }}
+                onGroupingFrameClick={(groupId) => {
+                  setSelectedGroupingId((prev) => (prev === groupId ? null : groupId));
+                  setSelection(null);
+                }}
+                onGroupingBoundsOverride={async (groupId, deltas) => {
+                  // Optimistisch in lokale state, dan persist via updateGrouping.
+                  // bounds_override = null wist de handmatige override → terug
+                  // naar pure auto-fit.
+                  setGroupings((prev) =>
+                    prev.map((g) =>
+                      g.id === groupId ? { ...g, bounds_override: deltas } : g,
+                    ),
+                  );
+                  try {
+                    await updateGrouping(groupId, { bounds_override: deltas });
+                  } catch (err) {
+                    console.error('[FE] persist bounds_override failed', err);
+                  }
+                }}
+                selectedGroupingId={selectedGroupingId}
               />
 
               <FloatingPalette
@@ -760,28 +890,13 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
                 onCreateEntity={handleCreateEntity}
               />
 
-              <FloatingInspector
-                selectedEntity={selectedEntity}
-                selectedEdge={selectedEdge}
-                onEntityChange={updateSelectedEntity}
-                onEntityDelete={deleteSelectedEntity}
-                onEdgeChange={updateSelectedEdge}
-                onEdgeDelete={deleteSelectedEdge}
-                onClose={() => setSelection(null)}
-              />
+              <StructureRefiningCallout chartId={chart?.id ?? null} status={status} />
 
               <FloatingToolbar
                 isExtracting={typeof status === 'string' && status.startsWith('extracting:')}
-                onExportPptx={() => {
-                  exportToPptx({
-                    entities: visibleEntities,
-                    edges: visibleEdges,
-                    groupings,
-                    taxpayerName: visibleEntities.find((e) => e.is_taxpayer)?.name ?? '',
-                  });
-                }}
                 busy={busy}
-                expandedClusterCount={expandedClusters.size}
+                collapsedClusterCount={collapsedClusters.size}
+                onExpandAll={() => setCollapsedClusters(new Set())}
                 onCollapseAll={handleCollapseAll}
                 orphanCount={tierResult?.orphans.length ?? 0}
                 orphansVisible={showOrphans}
@@ -790,13 +905,12 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
                 selectedEntityIds={selection?.kind === 'nodes' ? selection.ids : []}
                 onCreateFiscalUnity={async () => {
                   if (!chart || selection?.kind !== 'nodes') return;
-                  const created = await createGrouping({
-                    chart_id: chart.id,
-                    kind: 'fiscal_unity',
-                    label: '',
-                    member_ids: selection.ids,
-                  });
-                  setGroupings((prev) => [...prev, created]);
+                  const { groupings: next } = await addOrMergeFiscalUnity(
+                    chart.id,
+                    selection.ids,
+                    groupings,
+                  );
+                  setGroupings(next);
                   setSelection(null);
                 }}
               />
@@ -810,6 +924,46 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
               </div>
             </>
           )}
+
+        {/* Inspector lives outside the chart/blocking branches so the
+            "Open in inspector" buttons in BlockingBanner can actually open it. */}
+        {!showLoader && !isFailed && (
+          <FloatingInspector
+            selectedEntity={selectedEntity}
+            selectedEdge={selectedEdge}
+            onEntityChange={updateSelectedEntity}
+            onEntityDelete={deleteSelectedEntity}
+            fiscalUnities={groupings}
+            onAddToFiscalUnity={async (groupId) => {
+              if (!chart || !selectedEntity) return;
+              const target = groupings.find((g) => g.id === groupId);
+              if (!target) return;
+              const memberSet = [...target.member_ids, selectedEntity.id];
+              const { groupings: next } = await addOrMergeFiscalUnity(
+                chart.id,
+                memberSet,
+                groupings,
+              );
+              setGroupings(next);
+            }}
+            onRemoveFromFiscalUnity={async (groupId) => {
+              if (!selectedEntity) return;
+              const g = groupings.find((x) => x.id === groupId);
+              if (!g) return;
+              const remaining = g.member_ids.filter((id) => id !== selectedEntity.id);
+              if (remaining.length < 2) {
+                await deleteGrouping(g.id);
+                setGroupings((prev) => prev.filter((x) => x.id !== g.id));
+              } else {
+                const updated = await updateGrouping(g.id, { member_ids: remaining });
+                setGroupings((prev) => prev.map((x) => (x.id === updated.id ? updated : x)));
+              }
+            }}
+            onEdgeChange={updateSelectedEdge}
+            onEdgeDelete={deleteSelectedEdge}
+            onClose={() => setSelection(null)}
+          />
+        )}
       </main>
 
       {editingGrouping && (

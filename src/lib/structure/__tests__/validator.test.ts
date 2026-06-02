@@ -110,6 +110,32 @@ describe('validate — missing fields', () => {
       { entity_id: 'a', missing: ['legal_form', 'jurisdiction_iso'] },
     ]);
   });
+
+  it('does not flag missing legal_form on an individual', () => {
+    const r = validate(
+      [ent('a', { legal_form: null, entity_type: 'individual' })],
+      [],
+    );
+    expect(r.missingFields).toEqual([]);
+  });
+
+  it('does not flag missing legal_form on a trust_or_non_entity', () => {
+    const r = validate(
+      [ent('a', { legal_form: null, entity_type: 'trust_or_non_entity' })],
+      [],
+    );
+    expect(r.missingFields).toEqual([]);
+  });
+
+  it('still flags missing jurisdiction_iso on a trust_or_non_entity', () => {
+    const r = validate(
+      [ent('a', { legal_form: null, jurisdiction_iso: '', entity_type: 'trust_or_non_entity' })],
+      [],
+    );
+    expect(r.missingFields).toEqual([
+      { entity_id: 'a', missing: ['jurisdiction_iso'] },
+    ]);
+  });
 });
 
 describe('validate — cycles', () => {

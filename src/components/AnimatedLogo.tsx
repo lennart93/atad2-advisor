@@ -16,7 +16,6 @@ export interface AnimatedLogoProps {
  * - state="idle": subtle breathe. Hover = snap-rotate 60° (if interactive).
  * - state="working": continuous rotation (replaces Loader2 in prominent flows).
  * CSS lives in src/index.css under `.animated-logo`.
- * Asset path: public/lovable-uploads/new-logo.png (do not change).
  */
 export function AnimatedLogo({
   size = 32,
@@ -43,7 +42,7 @@ export function AnimatedLogo({
       style={{ width: size, height: size }}
     >
       <img
-        src="/lovable-uploads/new-logo.png"
+        src="/brand/new-logo.png"
         alt=""
         aria-hidden="true"
         draggable={false}

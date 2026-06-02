@@ -26,20 +26,34 @@ export default function AssessmentShell() {
   // becomes clickable so the user has a second way back besides the footer CTA.
   const fromOverview = searchParams.get('from') === 'overview';
   const overviewIndex = ASSESSMENT_STEPS.findIndex((s) => s.key === 'report');
-  const extraDone = fromOverview && overviewIndex >= 0 ? [overviewIndex] : undefined;
+  const structureIndex = ASSESSMENT_STEPS.findIndex((s) => s.key === 'structure');
+  // Structure is reachable from Overview both directions: via the "Edit"
+  // button on the chart card (when a chart was saved) AND via the Structure
+  // tile in the top stepper. The stepper path matters when the user picked
+  // "Continue without structure chart" — no chart card to click, so the
+  // stepper is the only way back.
+  const onOverview = currentStep === overviewIndex;
+  const extraDoneList: number[] = [];
+  if (fromOverview && overviewIndex >= 0) extraDoneList.push(overviewIndex);
+  if (onOverview && structureIndex >= 0) extraDoneList.push(structureIndex);
+  const extraDone = extraDoneList.length > 0 ? extraDoneList : undefined;
   const handleStepClick = useCallback(
     (index: number) => {
-      if (fromOverview && index === overviewIndex && sessionId) {
+      if (!sessionId) return;
+      if (fromOverview && index === overviewIndex) {
         navigate(`/assessment-report/${sessionId}`);
+        return;
+      }
+      if (onOverview && index === structureIndex) {
+        navigate(`/assessment/structure/${sessionId}?from=overview`);
       }
     },
-    [fromOverview, overviewIndex, sessionId, navigate],
+    [fromOverview, onOverview, overviewIndex, structureIndex, sessionId, navigate],
   );
 
   // On the finalized Overview, the intake-through-confirmation steps can't be
   // revisited — surface that on hover so users don't try to click them.
-  // Structure stays untagged: it's reachable via the Edit button on the chart card.
-  const onOverview = currentStep === overviewIndex;
+  // Structure stays untagged: it's the one earlier step that can be revisited.
   const lockedTooltip = onOverview
     ? "Locked. This step can't be revisited once the assessment is finalized."
     : undefined;
@@ -48,6 +62,17 @@ export default function AssessmentShell() {
   // Footer portal target — state-backed so context consumers re-render once
   // the node mounts (one-frame gap on first paint; footer has min-height).
   const [footerEl, setFooterEl] = useState<HTMLElement | null>(null);
+
+  // Reserve vertical space so the floating Feedback button never sits on top
+  // of the sticky assessment footer. Cleared on unmount so non-assessment
+  // routes get their normal bottom-5 placement back.
+  useEffect(() => {
+    const root = document.documentElement;
+    root.style.setProperty('--app-bottom-inset', '60px');
+    return () => {
+      root.style.removeProperty('--app-bottom-inset');
+    };
+  }, []);
 
   // DD3 — move keyboard focus to the new step's content region on route change.
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -96,7 +121,7 @@ export default function AssessmentShell() {
             <AssessmentStepper
               current={currentStep}
               extraDone={extraDone}
-              onStepClick={fromOverview ? handleStepClick : undefined}
+              onStepClick={fromOverview || onOverview ? handleStepClick : undefined}
               lockedTooltip={lockedTooltip}
               lockedIndexes={lockedIndexes}
             />

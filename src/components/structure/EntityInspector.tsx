@@ -1,20 +1,35 @@
-import { Trash2 } from 'lucide-react';
+import { Trash2, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { ENTITY_TYPES, type StructureEntity } from '@/lib/structure/types';
+import { ENTITY_TYPES, type StructureEntity, type StructureGroup } from '@/lib/structure/types';
 import { JurisdictionPicker } from './JurisdictionPicker';
 
 interface Props {
   entity: StructureEntity;
   onChange: (patch: Partial<StructureEntity>) => void;
   onDelete: () => void;
+  /** Alle bestaande FE's in de chart, zodat de inspector er een lijst van kan tonen. */
+  fiscalUnities?: StructureGroup[];
+  /** Voeg deze entity toe aan een bestaande FE (of maak nieuwe). */
+  onAddToFiscalUnity?: (groupingId: string) => void;
+  /** Haal deze entity weg uit haar huidige FE. */
+  onRemoveFromFiscalUnity?: (groupingId: string) => void;
 }
 
 const FIELD_LABEL = 'block text-[10.5px] font-semibold uppercase tracking-[0.06em] text-stone-500 mb-1.5';
 const INPUT_BASE = 'h-9 bg-white/70 border-stone-200 focus-visible:ring-1 focus-visible:ring-stone-400 focus-visible:ring-offset-0';
 
-export function EntityInspector({ entity, onChange, onDelete }: Props) {
+export function EntityInspector({
+  entity, onChange, onDelete,
+  fiscalUnities = [], onAddToFiscalUnity, onRemoveFromFiscalUnity,
+}: Props) {
+  const fes = fiscalUnities.filter((g) => g.kind === 'fiscal_unity');
+  const currentFe = fes.find((g) => g.member_ids.includes(entity.id)) ?? null;
+  // FE's waar deze entity NOG niet in zit (kandidaten om aan toe te voegen).
+  // Een entity zit per regel in max één FE, dus bij toevoegen aan een andere
+  // wordt automatisch gemerged in de parent.
+  const candidates = fes.filter((g) => !g.member_ids.includes(entity.id));
   return (
     <div className="space-y-3.5">
       <div>
@@ -74,6 +89,46 @@ export function EntityInspector({ entity, onChange, onDelete }: Props) {
           onCheckedChange={(c) => onChange({ is_taxpayer: Boolean(c) })}
         />
       </label>
+
+      {(onAddToFiscalUnity || onRemoveFromFiscalUnity) && (
+        <div>
+          <label className={FIELD_LABEL}>Fiscal unity</label>
+          {currentFe ? (
+            <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-md border border-stone-200/80 bg-stone-50/40">
+              <span className="text-[12.5px] text-stone-800 truncate">
+                {currentFe.label.trim() || 'Untitled fiscal unity'}
+              </span>
+              {onRemoveFromFiscalUnity && (
+                <button
+                  type="button"
+                  onClick={() => onRemoveFromFiscalUnity(currentFe.id)}
+                  aria-label="Remove from fiscal unity"
+                  className="p-0.5 rounded text-stone-400 hover:text-red-700 hover:bg-red-50 transition-colors"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          ) : candidates.length > 0 && onAddToFiscalUnity ? (
+            <Select onValueChange={(v) => onAddToFiscalUnity(v)}>
+              <SelectTrigger className={INPUT_BASE}>
+                <SelectValue placeholder="Add to existing fiscal unity…" />
+              </SelectTrigger>
+              <SelectContent>
+                {candidates.map((g) => (
+                  <SelectItem key={g.id} value={g.id}>
+                    {g.label.trim() || `Fiscal unity (${g.member_ids.length})`}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <p className="text-[11.5px] text-stone-500 px-1">
+              Not in a fiscal unity. Select 2+ entities in the chart and click "Create fiscal unity".
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="pt-1 border-t border-stone-100/80 -mx-4 px-4 mt-4">
         <button

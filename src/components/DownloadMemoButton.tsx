@@ -343,9 +343,18 @@ export default function DownloadMemoButton({
       }
 
       try {
-        // ✅ v4 API: data direct meegeven
-        doc.render({ ...docxData, structureChart: structureChartBase64 ?? '' });
-        console.log('Render OK');
+        // ✅ v4 API: data direct meegeven.
+        // hasStructureChart drijft de `{{#hasStructureChart}}...{{/hasStructureChart}}`
+        // sectie in de template. Wanneer false, valt de hele Corporate
+        // structure overview-sectie weg (heading + image-placeholder + lege
+        // paragraaf), zodat een memo zonder chart geen lege chart-regel toont.
+        const hasStructureChart = !!structureChartBase64;
+        doc.render({
+          ...docxData,
+          structureChart: structureChartBase64 ?? '',
+          hasStructureChart,
+        });
+        console.log('Render OK, hasStructureChart:', hasStructureChart);
       } catch (err: any) {
         console.error('Render ERR properties:', err?.properties);
         console.groupEnd();

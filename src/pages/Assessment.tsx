@@ -8,6 +8,7 @@ import { usePanelController } from "@/hooks/usePanelController";
 import { useHardenedContextLoader } from "@/hooks/useHardenedContextLoader";
 import { useAssessmentStore } from "@/stores/assessmentStore";
 import { useAssessmentProgress } from "@/stores/assessmentProgressStore";
+import { aiHasExplanationForAnswer as computeAiHasExplanationForAnswer } from "@/lib/assessment/autoAdvanceGate";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,6 +29,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AssessmentSidebar } from "@/components/AssessmentSidebar";
 import { QuestionExplanationInline } from "@/components/QuestionExplanationInline";
 import { Textarea } from "@/components/ui/textarea";
+import { AutoGrowTextarea } from "@/components/ui/AutoGrowTextarea";
 import { ContextSkeleton, ContextEmptyState, ContextErrorState } from "@/components/ContextPanelStates";
 import { ContextPanelFallback } from "@/components/ContextPanelFallback";
 import { SuggestionCard } from "@/components/prefill/SuggestionCard";
@@ -37,6 +39,19 @@ import { motion } from "framer-motion";
 import { startExtraction } from "@/lib/structure/extraction";
 import { AssessmentFooterSlot } from "@/components/assessment/AssessmentFooterSlot";
 import { useAssessmentSessionId } from "@/lib/assessment/useAssessmentSessionId";
+
+// Playful placeholders that rotate (seeded per session+question) when the user
+// picks "Unknown" and the explanation textarea is empty. Soften the moment by
+// normalising "we don't know yet" as a respectable answer.
+const UNKNOWN_PLACEHOLDERS = [
+  "Nobody knows everything; note what's missing.",
+  "Tax law isn't telepathy. Write what's still open.",
+  "An honest \"we don't know yet\" beats a confident guess.",
+  "What would you ask the client to confirm?",
+  "The brave thing is naming the unknown.",
+  "Not every dossier hands you the answer.",
+  "\"Pending confirmation\" is a respectable answer.",
+] as const;
 
 interface Question {
   id: string;
@@ -225,10 +240,19 @@ const Assessment = () => {
   // Friendly explanation reminder state
   const [explanationReminderShown, setExplanationReminderShown] = useState(false);
   const [showExplanationShake, setShowExplanationShake] = useState(false);
-  // True for ~350ms after Continue is clicked: textarea gets a green "locked"
-  // border so the user sees the explanation was accepted before navigating.
+  // True from the moment Continue locks in the explanation until we land on a
+  // different question — keeps the textarea in a darker "accepted" state
+  // through the navigation transition. Reset by the question-change effect
+  // below so back-navigation lands on a fresh, editable textarea.
   const [committingExplanation, setCommittingExplanation] = useState(false);
   const [reminderMessage, setReminderMessage] = useState("");
+
+  // Whenever the visible question changes (forward via Continue or back via
+  // Previous), drop the committing lock so the new question's textarea
+  // renders in its normal editable white state.
+  useEffect(() => {
+    setCommittingExplanation(false);
+  }, [currentQuestion?.question_id]);
   
   // Friendly reminder messages for empty explanations
   const friendlyReminders = [
@@ -407,6 +431,11 @@ const Assessment = () => {
     if (autoSelectedRef.current.has(currentQuestion.question_id)) return;
     if (!currentPrefill.suggested_answer) return;
     if ((currentPrefill.confidence_pct ?? 0) < 40) return;
+    // Never auto-pre-select Unknown. "I don't know" must be a deliberate user
+    // choice — surfacing it as an AI-staged answer would let the model defer
+    // questions on the user's behalf, which defeats the assessment's purpose.
+    // Yes/No suggestions still auto-select normally.
+    if (currentPrefill.suggested_answer === "unknown") return;
     if (selectedAnswer) {
       // The user (or a stale carry-over from prior question) already has an
       // answer set. Don't override — but warn if it doesn't match the AI
@@ -1131,27 +1160,45 @@ const Assessment = () => {
     
     const questionId = currentQuestion.question_id;
     
-    // Check for flow changes during back-navigation BEFORE updating anything
+    // Check for flow changes during back-navigation BEFORE updating anything.
+    // The dialog warns the user that downstream answers will be wiped when the
+    // new answer branches differently. Skip the dialog when there are no
+    // downstream answers to lose — typically right after the user answered the
+    // current question and hasn't progressed further. Without this guard,
+    // changing Q1 from Yes (→Q3) to Unknown (→Q2) pops a "Confirm change of
+    // answer" dialog even though questionFlow has only Q1 and nothing
+    // downstream would be deleted, forcing an unnecessary 2nd click.
     if (navigationIndex !== -1) {
       const newSelectedOption = questions.find(
         q => q.question_id === questionId && q.answer_option === answer
       );
-      
+
       const currentAnswerEntry = questionFlow.find(entry => entry.question.question_id === currentQuestion.question_id);
       const oldSelectedOption = questions.find(
         q => q.question_id === currentQuestion.question_id && q.answer_option === currentAnswerEntry?.answer
       );
-      
-      if (newSelectedOption && oldSelectedOption && 
+
+      if (newSelectedOption && oldSelectedOption &&
           newSelectedOption.next_question_id !== oldSelectedOption.next_question_id) {
-        
-        // Don't update anything yet - show dialog first
-        setPendingAnswerChange({
-          answer,
-          newNextQuestionId: newSelectedOption.next_question_id
-        });
-        setShowFlowChangeDialog(true);
-        return;
+
+        const currentIdx = questionFlow.findIndex(e => e.question.question_id === questionId);
+        const hasDownstreamAnswers = currentIdx >= 0 && currentIdx < questionFlow.length - 1;
+
+        if (hasDownstreamAnswers) {
+          // Real flow change with answers downstream: show dialog so user can
+          // confirm the wipe.
+          setPendingAnswerChange({
+            answer,
+            newNextQuestionId: newSelectedOption.next_question_id
+          });
+          setShowFlowChangeDialog(true);
+          return;
+        }
+        // Otherwise fall through: no downstream data to protect, treat as a
+        // normal answer change. handleFlowChangeConfirm-equivalent work
+        // (questionFlow trim, navigationIndex reset) is unnecessary because
+        // there is nothing to trim and the auto-advance path below will set
+        // navigationIndex back to -1 on the next question.
       }
     }
     
@@ -1171,28 +1218,53 @@ const Assessment = () => {
       q.answer_option === answer
     );
     const requiresExplanation = !!selectedOption?.requires_explanation;
-    
-    console.debug('[answer]', { 
-      qid: questionId, 
-      answerId: `${questionId}-${answer}`, 
-      requiresExplanation: selectedOption?.requires_explanation 
+
+    // Block auto-advance when the AI has prepared explanation material for THIS
+    // answer (suggested toelichting, a committed text, or a prior accept/edit).
+    // Without this, picking the AI-suggested "no" — even when "no" wouldn't
+    // normally need an explanation — would flash the suggestion and immediately
+    // skip to the next question, leaving the user no chance to accept/edit it.
+    // Mirrors the panel-render guard further down in the JSX.
+    const aiHasExplanationForAnswer = computeAiHasExplanationForAnswer(currentPrefill, answer);
+    // Belt-and-suspenders inline check for the Route B Unknown companion. The
+    // gate function in src/lib already covers this, but Vite HMR occasionally
+    // misses leaf .ts file edits — keeping the rule inline here ensures the
+    // Assessment.tsx HMR cycle picks it up regardless.
+    const unknownRouteBStaged =
+      answer.toLowerCase() === "unknown"
+      && !!currentPrefill?.contextual_hint
+      && !!currentPrefill?.suggested_toelichting_unknown;
+    const blockAutoAdvance = aiHasExplanationForAnswer || unknownRouteBStaged;
+
+    console.debug('[answer]', {
+      qid: questionId,
+      answerId: `${questionId}-${answer}`,
+      requiresExplanation: selectedOption?.requires_explanation,
+      aiHasExplanationForAnswer,
+      unknownRouteBStaged,
+      blockAutoAdvance,
     });
-    
-    // If answer doesn't require explanation, auto-advance immediately
-    if (!requiresExplanation) {
+
+    // If answer doesn't require explanation AND nothing has staged content for
+    // this answer (neither the Route A gate nor the Route B Unknown companion),
+    // auto-advance immediately. Otherwise the user needs to see/accept/edit
+    // the suggested explanation first.
+    if (!requiresExplanation && !blockAutoAdvance) {
       console.log(`🚫 Answer ${answer} for Q${questionId} does not require explanation - auto-advancing`);
       store.setQuestionState(sessionId, questionId, answer, {
         shouldShowContext: false,
         contextPrompt: '',
       });
-      
-      // Auto-advance to next question if not in navigation mode
-      if (navigationIndex === -1) {
-        console.log(`⏩ Auto-advancing immediately after ${answer} selection (no context required)`);
-        setTimeout(async () => {
-          await submitAnswerDirectly(answer);
-        }, 100);
-      }
+
+      // Auto-advance whenever the answer needs no dwell, regardless of nav
+      // mode. Previously gated on navigationIndex === -1, but in nav mode that
+      // left the user stranded on an already-answered question with no
+      // Continue button after switching to a no-explanation answer (e.g.
+      // picking Unknown on Q1 where no AI suggestion was staged).
+      console.log(`⏩ Auto-advancing immediately after ${answer} selection (no context required)`);
+      setTimeout(async () => {
+        await submitAnswerDirectly(answer);
+      }, 100);
       return;
     }
     
@@ -1243,14 +1315,19 @@ const Assessment = () => {
         return;
       }
 
-      // Only auto-advance when not navigating and auto-advance is enabled and no explanation required
-      if (autoAdvance && !requiresExplanation) {
+      // Only auto-advance when not navigating, auto-advance is enabled, no
+      // explanation is required, and nothing has staged an explanation for
+      // this answer (otherwise the user must see/accept/edit it first).
+      if (autoAdvance && !requiresExplanation && !blockAutoAdvance) {
         console.log(`⏩ Auto-advancing to next question after ${answer} selection`);
         setTimeout(async () => {
           await submitAnswerDirectly(answer);
         }, 300);
       } else if (requiresExplanation) {
         console.debug('[nav] blocked: requires explanation; stay on question for context');
+        setLoading(false);
+      } else if (blockAutoAdvance) {
+        console.debug('[nav] blocked: AI explanation staged for this answer (Route A or Route B Unknown companion); wait for user to accept/edit');
         setLoading(false);
       } else {
         setLoading(false);
@@ -1282,13 +1359,16 @@ const Assessment = () => {
     }
     
     // Second time clicking or explanation has content - proceed normally.
-    // Briefly lock the textarea (green border) so the user sees the
-    // explanation was accepted before we navigate.
+    // Lock the textarea in a "we got your text" darker state while we
+    // navigate away. We do NOT clear it here — the question-change effect
+    // resets it on the next/previous question so going back lands you in a
+    // fresh, editable (white) textarea.
+    const hasTypedExplanation = !!contextValue && contextValue.trim().length > 0;
     console.debug('[nav] context panel: allowing continue with answered question');
-    setCommittingExplanation(true);
-    await new Promise((r) => setTimeout(r, 350));
+    if (hasTypedExplanation) {
+      setCommittingExplanation(true);
+    }
     await submitAnswerDirectly(selectedAnswer, true);
-    setCommittingExplanation(false);
 
     // Reset reminder state for next question
     setExplanationReminderShown(false);
@@ -2277,7 +2357,14 @@ const Assessment = () => {
                         >
                           {contextStatus === 'loading' && <ContextSkeleton />}
 
-                          {(contextStatus === 'ready' || contextStatus === 'idle') && (
+                          {/* Show the SuggestionCard + textarea whenever we have a
+                              ready/idle context status OR an effectivePrefill
+                              (Route A match or Route B Unknown companion). The
+                              Unknown-toelichting path doesn't go through
+                              atad2_context_questions, so contextStatus is often
+                              'none' for these rows — we still want to render the
+                              card. */}
+                          {(contextStatus === 'ready' || contextStatus === 'idle' || !!effectivePrefill) && (
                             <>
                               <div className="flex items-center mb-3">
                                 <div className="flex items-center text-sm text-foreground">
@@ -2299,7 +2386,7 @@ const Assessment = () => {
                                 </div>
                               )}
 
-                              <Textarea
+                              <AutoGrowTextarea
                                 key={`explanation-${sessionId}-${qId}-${selectedAnswerId}`}
                                 value={textareaValue}
                                 disabled={committingExplanation}
@@ -2312,14 +2399,16 @@ const Assessment = () => {
                                   }
                                 }}
                                 placeholder={
-                                  contextPrompts.length > 0
+                                  selectedAnswer === "Unknown"
+                                    ? UNKNOWN_PLACEHOLDERS[seededIndex(`${sessionId}::${currentQuestion?.id}::unknown`, UNKNOWN_PLACEHOLDERS.length)]
+                                    : contextPrompts.length > 0
                                     ? (contextPrompts.length === 1
                                         ? contextPrompts[0]
                                         : contextPrompts[seededIndex(`${sessionId}::${currentQuestion?.id}`, contextPrompts.length)]
                                       )
                                     : "Provide context for your answer..."
                                 }
-                                className={`min-h-[120px] resize-none mt-3 transition-all duration-200 ${showExplanationShake ? 'explanation-shake' : ''} ${committingExplanation ? 'border-emerald-500 ring-2 ring-emerald-500/30 bg-emerald-50/50 disabled:opacity-100 disabled:cursor-default' : 'border-border bg-background'}`}
+                                className={`min-h-[120px] resize-none mt-3 transition-all duration-200 ${showExplanationShake ? 'explanation-shake' : ''} ${committingExplanation ? 'border-foreground/40 bg-foreground/[0.08] disabled:opacity-100 disabled:cursor-default' : 'border-border bg-background'}`}
                               />
                               {/* Friendly reminder message */}
                               {reminderMessage && (
@@ -2330,7 +2419,7 @@ const Assessment = () => {
                             </>
                           )}
 
-                          {contextStatus === 'none' && (
+                          {contextStatus === 'none' && !effectivePrefill && (
                             <ContextEmptyState text="No context questions available for this answer." />
                           )}
 
@@ -2419,6 +2508,15 @@ const Assessment = () => {
                 !!currentPrefill?.suggested_answer &&
                 !!selectedAnswer &&
                 selectedAnswer.toLowerCase() === currentPrefill.suggested_answer;
+              // Route B Unknown companion: same condition the panel/gate use.
+              // When the user picked Unknown and the swarm staged a paired
+              // hint+unknown-toelichting, surface the Continue button so the
+              // user can accept/edit then proceed (no auto-advance fires for
+              // this branch).
+              const unknownRouteBStaged =
+                selectedAnswer === "Unknown"
+                && !!currentPrefill?.contextual_hint
+                && !!currentPrefill?.suggested_toelichting_unknown;
               const showContinue =
                 !!selectedAnswer
                 && !shouldShowFinishButton
@@ -2431,6 +2529,7 @@ const Assessment = () => {
                     && aiAppliesToAnswer
                     && !selectedQuestionOption?.requires_explanation
                   )
+                  || unknownRouteBStaged
                 );
               if (!showContinue) return null;
               return (

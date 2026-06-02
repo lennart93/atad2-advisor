@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { useLocation } from "react-router-dom";
-import { MessageSquare, Send } from "lucide-react";
+import {
+  MessageSquare, Send,
+  Bug, Lightbulb, HelpCircle, MoreHorizontal,
+  type LucideIcon,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -29,6 +33,20 @@ const CATEGORY_LABELS: Record<Category, string> = {
   idea: "Idea",
   question: "Question",
   other: "Other",
+};
+
+const CATEGORY_ICONS: Record<Category, LucideIcon> = {
+  bug: Bug,
+  idea: Lightbulb,
+  question: HelpCircle,
+  other: MoreHorizontal,
+};
+
+const CATEGORY_ICON_COLOR: Record<Category, string> = {
+  bug: "text-red-600",
+  idea: "text-amber-500",
+  question: "text-sky-600",
+  other: "text-muted-foreground",
 };
 
 const PLACEHOLDERS: Record<Category, string> = {
@@ -84,7 +102,8 @@ export function FloatingFeedbackButton() {
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Send feedback"
-        className="fixed bottom-5 right-5 z-30 inline-flex items-center gap-2 rounded-full bg-foreground text-background px-4 py-2.5 text-sm font-medium shadow-lg shadow-black/15 transition-all duration-fast hover:shadow-xl hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        style={{ bottom: "calc(var(--app-bottom-inset, 0px) + 20px)" }}
+        className="fixed left-5 z-30 inline-flex items-center gap-2 rounded-full bg-foreground text-background px-4 py-2.5 text-sm font-medium shadow-lg shadow-black/15 transition-[bottom,box-shadow,transform] duration-fast hover:shadow-xl hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
       >
         <MessageSquare size={16} />
         <span>Feedback</span>
@@ -115,11 +134,17 @@ export function FloatingFeedbackButton() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {(Object.keys(CATEGORY_LABELS) as Category[]).map((c) => (
-                    <SelectItem key={c} value={c}>
-                      {CATEGORY_LABELS[c]}
-                    </SelectItem>
-                  ))}
+                  {(Object.keys(CATEGORY_LABELS) as Category[]).map((c) => {
+                    const Icon = CATEGORY_ICONS[c];
+                    return (
+                      <SelectItem key={c} value={c}>
+                        <span className="flex items-center gap-2">
+                          <Icon size={14} className={CATEGORY_ICON_COLOR[c]} />
+                          {CATEGORY_LABELS[c]}
+                        </span>
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>

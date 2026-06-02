@@ -60,7 +60,7 @@ export async function createGrouping(input: {
 
 export async function updateGrouping(
   id: string,
-  patch: Partial<Pick<StructureGroup, 'label' | 'member_ids'>>,
+  patch: Partial<Pick<StructureGroup, 'label' | 'member_ids' | 'bounds_override'>>,
 ): Promise<StructureGroup> {
   const { data, error } = await supabase
     .from('atad2_structure_groupings')
@@ -145,6 +145,25 @@ export async function finalizeChart(chartId: string) {
   await supabase.from('atad2_structure_charts')
     .update({ status: 'finalized', finalized_at: new Date().toISOString() })
     .eq('id', chartId);
+}
+
+/**
+ * "Continue without structure chart" path: clears snapshot_png and
+ * finalized_at so the report renders no chart card, even if a previous
+ * Save left a snapshot behind. The entities/edges stay so the user can
+ * come back later and Save & continue if they change their mind.
+ */
+export async function unfinalizeChart(chartId: string) {
+  const { error } = await supabase
+    .from('atad2_structure_charts')
+    .update({
+      status: 'draft_ready',
+      finalized_at: null,
+      snapshot_png: null,
+      snapshot_captured_at: null,
+    })
+    .eq('id', chartId);
+  if (error) throw error;
 }
 
 export async function forceDraftReady(chartId: string, warningMessage: string) {

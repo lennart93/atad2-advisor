@@ -2,10 +2,10 @@ import { Button } from '@/components/ui/button';
 
 interface Props {
   isExtracting: boolean;
-  onExportPptx: () => void;
   busy?: boolean;
-  expandedClusterCount: number;
+  collapsedClusterCount: number;
   onCollapseAll: () => void;
+  onExpandAll: () => void;
   orphanCount: number;
   orphansVisible: boolean;
   onToggleOrphans: () => void;
@@ -16,10 +16,10 @@ interface Props {
 
 export function FloatingToolbar({
   isExtracting,
-  onExportPptx,
   busy,
-  expandedClusterCount,
+  collapsedClusterCount,
   onCollapseAll,
+  onExpandAll,
   orphanCount,
   orphansVisible,
   onToggleOrphans,
@@ -33,13 +33,30 @@ export function FloatingToolbar({
       className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 bg-card border border-[hsl(var(--border-subtle))] rounded-lg shadow-lg px-3 py-2 flex items-center gap-3 text-sm"
       data-snapshot-exclude="true"
     >
-      {expandedClusterCount > 0 && (
+      {isExtracting && (
+        <span
+          className="text-xs text-muted-foreground inline-flex items-center gap-2 px-2 py-1 whitespace-nowrap"
+          aria-live="polite"
+        >
+          <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" aria-hidden />
+          Refining structure…
+        </span>
+      )}
+      {collapsedClusterCount > 0 ? (
+        <button
+          type="button"
+          onClick={onExpandAll}
+          className="text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded hover:bg-accent whitespace-nowrap"
+        >
+          {collapsedClusterCount} collapsed · Expand
+        </button>
+      ) : (
         <button
           type="button"
           onClick={onCollapseAll}
           className="text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded hover:bg-accent whitespace-nowrap"
         >
-          {expandedClusterCount} expanded · Collapse
+          Collapse non-relevant
         </button>
       )}
       {orphanCount > 0 && (
@@ -53,12 +70,9 @@ export function FloatingToolbar({
       )}
       {canCreateFiscalUnity && (
         <Button size="sm" variant="outline" onClick={onCreateFiscalUnity} disabled={busy || isExtracting}>
-          Maak fiscale eenheid ({selectedEntityIds.length})
+          Create fiscal unity ({selectedEntityIds.length})
         </Button>
       )}
-      <Button size="sm" variant="outline" onClick={onExportPptx} disabled={busy || isExtracting}>
-        Export PPTX
-      </Button>
       <Button size="sm" variant="outline" onClick={onAutoArrange} disabled={busy || isExtracting}>
         Auto-arrange
       </Button>

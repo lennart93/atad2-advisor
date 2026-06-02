@@ -15,7 +15,7 @@ The Svalner Atlas asterisk logo becomes an animated brand anchor used consistent
 - **No palette change.** Keep existing slate/near-black (`--primary: 222.2 47.4% 11.2%`), neutral grays. No colored accent system.
 - **No layout restructuring.** Header stays top, dashboard stays single-column max-w-4xl, assessment flow stays as-is.
 - **No component library swap.** Keep shadcn/ui as baseline; refine its surfaces via design tokens, not forks.
-- **No new logo asset.** Continue referencing `public/lovable-uploads/new-logo.png` at its existing path — proven in production.
+- **No new logo asset.** Continue referencing `public/brand/new-logo.png` at its existing path — proven in production.
 - **No deploy.** Local iteration only until explicitly approved.
 - **Admin surfaces out of scope for this pass** (Dashboard, Questions, Sessions, Users, AuditLogs). Polish applies to the user-facing shell and flow.
 
@@ -74,7 +74,7 @@ Tailwind config (`tailwind.config.ts`) extends `fontFamily`, adds `letterSpacing
 
 ## Logo animation system
 
-Single source: existing `public/lovable-uploads/new-logo.png`. All behavior via CSS transforms — the file and its path do not change.
+Single source: existing `public/brand/new-logo.png`. All behavior via CSS transforms — the file and its path do not change.
 
 New component: `src/components/AnimatedLogo.tsx`. Wraps the `<img>` and accepts three props:
 
@@ -210,7 +210,7 @@ New variant: `live` for the "Ready" state on completed sessions.
 
 ## Constraints the implementation must respect
 
-1. Logo `src` path stays `/lovable-uploads/new-logo.png` — never rename, never move.
+1. Logo `src` path stays `/brand/new-logo.png` — never rename, never move.
 2. No `prefers-color-scheme: dark` polish in this pass. The dark theme block in `index.css` is preserved but untuned; if dark mode is ever enabled it'll look acceptable but not polished. Explicit follow-up.
 3. `prefers-reduced-motion: reduce` disables all non-functional motion (idle breathe, hover snap, button translate). Functional rotation on `<AnimatedLogo state="working" />` falls back to a pure opacity pulse (`animation: work-pulse 1.5s ease-in-out infinite`, opacity 1 → 0.55 → 1) so users still perceive ongoing work without vestibular-triggering rotation.
 4. No new colors. Emerald in the `live` badge is already implicit via `bg-green-100` currently in use — migration, not addition.

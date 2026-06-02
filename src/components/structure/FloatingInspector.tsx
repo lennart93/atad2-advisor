@@ -1,7 +1,7 @@
 import { X } from 'lucide-react';
 import { EntityInspector } from './EntityInspector';
 import { EdgeInspector } from './EdgeInspector';
-import type { StructureEntity, StructureEdge } from '@/lib/structure/types';
+import type { StructureEntity, StructureEdge, StructureGroup } from '@/lib/structure/types';
 
 interface Props {
   selectedEntity: StructureEntity | null;
@@ -11,6 +11,9 @@ interface Props {
   onEdgeChange: (patch: Partial<StructureEdge>) => void;
   onEdgeDelete: () => void;
   onClose: () => void;
+  fiscalUnities?: StructureGroup[];
+  onAddToFiscalUnity?: (groupingId: string) => void;
+  onRemoveFromFiscalUnity?: (groupingId: string) => void;
 }
 
 export function FloatingInspector({
@@ -21,6 +24,9 @@ export function FloatingInspector({
   onEdgeChange,
   onEdgeDelete,
   onClose,
+  fiscalUnities,
+  onAddToFiscalUnity,
+  onRemoveFromFiscalUnity,
 }: Props) {
   if (!selectedEntity && !selectedEdge) return null;
 
@@ -57,6 +63,9 @@ export function FloatingInspector({
             entity={selectedEntity}
             onChange={onEntityChange}
             onDelete={onEntityDelete}
+            fiscalUnities={fiscalUnities}
+            onAddToFiscalUnity={onAddToFiscalUnity}
+            onRemoveFromFiscalUnity={onRemoveFromFiscalUnity}
           />
         )}
         {selectedEdge && (

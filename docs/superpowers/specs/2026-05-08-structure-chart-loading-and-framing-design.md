@@ -343,5 +343,5 @@ Existing 46 unit tests must remain green.
 - Spec MVP-1: `docs/superpowers/specs/2026-05-07-corporate-structure-chart-design.md`
 - Spec MVP-2: `docs/superpowers/specs/2026-05-08-structure-chart-layout-upgrade-design.md`
 - Spec parked Big4 rewrite: `docs/superpowers/specs/2026-05-08-structure-chart-big4-redesign-design.md`
-- Atlas brand asset: `public/lovable-uploads/new-logo.png` (do not change)
+- Atlas brand asset: `public/brand/new-logo.png` (do not change)
 - Existing `AnimatedLogo` component: `src/components/AnimatedLogo.tsx`

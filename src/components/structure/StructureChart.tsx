@@ -22,6 +22,7 @@ import {
   type OwnershipEdgeData,
   type OwnershipEdgeType,
 } from './edges/OwnershipEdge';
+import { NODE_WIDTH, NODE_HEIGHT } from '@/lib/structure/labelMeasure';
 import { FiscalUnityOverlay } from './overlays/FiscalUnityOverlay';
 import type { StructureEntity, StructureEdge, StructureGroup } from '@/lib/structure/types';
 
@@ -44,6 +45,12 @@ export interface StructureChartProps {
       | null,
   ) => void;
   onGroupingLabelClick?: (groupId: string, screenX: number, screenY: number) => void;
+  onGroupingFrameClick?: (groupId: string) => void;
+  onGroupingBoundsOverride?: (
+    groupId: string,
+    deltas: { dLeft: number; dTop: number; dRight: number; dBottom: number } | null,
+  ) => void;
+  selectedGroupingId?: string | null;
   onNodePositionEnd: (id: string, x: number, y: number) => void;
   onConnect: (from: string, to: string) => void;
   onPctChange?: (edgeId: string, newPct: number) => void;
@@ -112,22 +119,56 @@ function StructureChartInner(props: StructureChartProps) {
   }, [props.entities, props.clusterNodes, props.labelLineBreaks]);
 
   const initialEdges = useMemo<ChartEdgeType[]>(() => {
+    // Index entity positions for O(1) lookup when computing per-edge
+    // intermediate-row obstacles.
+    const entityBoundsById = new Map<
+      string,
+      { centerX: number; top: number; bottom: number }
+    >();
+    for (const en of props.entities) {
+      entityBoundsById.set(en.id, {
+        centerX: en.position_x + NODE_WIDTH / 2,
+        top: en.position_y,
+        bottom: en.position_y + NODE_HEIGHT,
+      });
+    }
+
     return props.edges
       .filter((e) => e.kind === 'ownership')
-      .map((e) => ({
-        id: e.id,
-        source: e.from_entity_id,
-        target: e.to_entity_id,
-        sourceHandle: 'bottom',
-        targetHandle: 'top',
-        type: 'ownership',
-        data: {
-          ownership_pct: e.ownership_pct,
-          ownership_voting_only: e.ownership_voting_only,
-          onPctChange: props.onPctChange,
-        } satisfies OwnershipEdgeData,
-      } as OwnershipEdgeType));
-  }, [props.edges, props.onPctChange]);
+      .map((e) => {
+        // For long-skip routing: list center-X of every entity strictly between
+        // source-row and target-row in Y. These are the obstacles the long
+        // vertical drop must avoid.
+        const src = entityBoundsById.get(e.from_entity_id);
+        const tgt = entityBoundsById.get(e.to_entity_id);
+        let intermediateXs: number[] = [];
+        if (src && tgt && tgt.top > src.bottom) {
+          for (const other of props.entities) {
+            if (other.id === e.from_entity_id || other.id === e.to_entity_id) continue;
+            const ob = entityBoundsById.get(other.id);
+            if (!ob) continue;
+            // Strictly between source-bottom and target-top.
+            if (ob.top > src.bottom - 0.5 && ob.bottom < tgt.top + 0.5) {
+              intermediateXs.push(ob.centerX);
+            }
+          }
+        }
+        return {
+          id: e.id,
+          source: e.from_entity_id,
+          target: e.to_entity_id,
+          sourceHandle: 'bottom',
+          targetHandle: 'top',
+          type: 'ownership',
+          data: {
+            ownership_pct: e.ownership_pct,
+            ownership_voting_only: e.ownership_voting_only,
+            onPctChange: props.onPctChange,
+            intermediateXs,
+          } satisfies OwnershipEdgeData,
+        } as OwnershipEdgeType;
+      });
+  }, [props.edges, props.entities, props.onPctChange]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<ChartNodeType>(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState<ChartEdgeType>(initialEdges);
@@ -219,7 +260,13 @@ function StructureChartInner(props: StructureChartProps) {
         multiSelectionKeyCode="Shift"
         fitView
       >
-        <FiscalUnityOverlay groupings={props.groupings} onLabelClick={props.onGroupingLabelClick} />
+        <FiscalUnityOverlay
+          groupings={props.groupings}
+          onLabelClick={props.onGroupingLabelClick}
+          onFrameClick={props.onGroupingFrameClick}
+          onBoundsOverrideChange={props.onGroupingBoundsOverride}
+          selectedId={props.selectedGroupingId ?? null}
+        />
         <Background
           gap={props.gridVisible ? 8 : 40}
           color={props.gridVisible ? 'rgba(0,0,0,0.08)' : 'rgba(0,0,0,0.04)'}

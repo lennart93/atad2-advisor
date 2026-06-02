@@ -38,7 +38,7 @@ The ATAD2 Advisor application has a solid security baseline with properly enforc
 ### 1. n8n Webhooks Are Publicly Accessible (HIGH — To Be Discussed with Intility)
 
 **What it is:**
-The n8n webhooks (`generate-report`, `parse-memo`, `submit-feedback`, `lovable-feedback`) are publicly reachable at `https://n8n.atad2.tax/webhook/*`. Anyone who knows these URLs can trigger requests.
+The n8n webhooks (`generate-report`, `parse-memo`, `submit-feedback`) are publicly reachable at `https://n8n.atad2.tax/webhook/*`. Anyone who knows these URLs can trigger requests.
 
 **Why it matters:**
 - Triggers expensive Claude Opus API calls at the application owner's cost

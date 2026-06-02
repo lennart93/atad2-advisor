@@ -221,6 +221,49 @@ describe('tierLayout', () => {
     expect(cx('osse')).toBeCloseTo(cx('manufacturing'), 0);
   });
 
+  it('tier met deels-anker / deels-leeg houdt centroid op 0 (geen rechts-bias)', () => {
+    // S4-Energy-vorm: rang 2 heeft 5 broers/zussen. 3 daarvan hebben ieder
+    // een dochter op rang 3; de andere 2 hebben geen kinderen. De min-gap
+    // push schoof de hele rij naar rechts (alleen LTR), waardoor s4energy
+    // op rang 1 niet langer pal boven het centroid van zijn dochters
+    // landde. Met de re-center stap moet het tier weer rond X=0 hangen.
+    const tx = ent('tx', { is_taxpayer: true });
+    const a = ent('a'); // tier 2, no children
+    const b = ent('b'); // tier 2, 1 child
+    const c = ent('c'); // tier 2, 2 children
+    const d = ent('d'); // tier 2, 1 child
+    const e = ent('e'); // tier 2, no children
+    const b1 = ent('b1');
+    const c1 = ent('c1');
+    const c2 = ent('c2');
+    const d1 = ent('d1');
+    const result = tierLayout({
+      entities: [tx, a, b, c, d, e, b1, c1, c2, d1],
+      ownershipEdges: [
+        ownEdge('tx', 'a'),
+        ownEdge('tx', 'b'),
+        ownEdge('tx', 'c'),
+        ownEdge('tx', 'd'),
+        ownEdge('tx', 'e'),
+        ownEdge('b', 'b1'),
+        ownEdge('c', 'c1'),
+        ownEdge('c', 'c2'),
+        ownEdge('d', 'd1'),
+      ],
+      clusters: [],
+    });
+    // tx (rang 1) hangt boven het centroid van zijn 5 dochters. Centroid
+    // moet ≈ 0 zijn, want het tier is symmetrisch geconstrueerd.
+    const txX = result.positions.get('tx')!.x + 80;
+    expect(txX).toBeCloseTo(0, 0);
+    // De 5 broers/zussen op rang 2 moeten symmetrisch rond X=0 hangen.
+    const tier2Centroid =
+      (['a', 'b', 'c', 'd', 'e']
+        .map((id) => result.positions.get(id)!.x + 80)
+        .reduce((sum, x) => sum + x, 0)) / 5;
+    expect(tier2Centroid).toBeCloseTo(0, 0);
+  });
+
   it('unity-leden binnen dezelfde rij worden contiguous geplaatst', () => {
     // 5 broers/zussen onder dezelfde ouder: a, b, c, d, e (alfabetisch).
     // Unity = {a, c, e} (3 niet-aanliggende leden). Verwacht: a, c, e komen

@@ -2,7 +2,7 @@ import type { StructureEntity, StructureEdge, StructureGroup } from './types';
 import type { Cluster } from './relevance';
 import { NODE_WIDTH, NODE_HEIGHT } from './labelMeasure';
 
-const MIN_GAP = 32;
+export const MIN_GAP = 32;
 const MAX_ROW_WIDTH = 1200;
 const ROW_GAP = 60;
 const TIER_GAP_BELOW = 80;
@@ -317,11 +317,67 @@ export function tierLayout(args: {
       }
     }
 
-    tier.sort((a, b) => a.x - b.x);
+    // Mixed tiers (sommige slots wél kinderen, sommige niet) hadden een
+    // rechts-bias: de barycenter-sort schuift kinderloze slots naar het einde
+    // van het tier (bary = +Infinity), zodat ze in Phase 6 op de rechter
+    // posities belanden. Na de centroid-stap zitten ze nog steeds rechts,
+    // wat de tier-centroid naar rechts trekt — en daarmee ook de ouder
+    // erboven. We zetten de kinderloze slots opnieuw: de helft links van het
+    // anker-blok, de helft rechts, zodat het anker-centroid (waar het écht om
+    // gaat — die slots dragen ouder-positionering) op zijn doelplek blijft.
+    const anchors: Slot[] = [];
+    const nonAnchors: Slot[] = [];
+    for (const s of tier) {
+      const cs = childIdsOf(s, ownershipEdges, clusters);
+      let has = false;
+      for (const cid of cs) {
+        if (belowX.has(cid)) { has = true; break; }
+      }
+      (has ? anchors : nonAnchors).push(s);
+    }
 
-    for (let j = 1; j < tier.length; j++) {
-      const minNextX = tier[j - 1].x + NODE_WIDTH + MIN_GAP;
-      if (tier[j].x < minNextX) tier[j].x = minNextX;
+    if (anchors.length > 0 && nonAnchors.length > 0) {
+      anchors.sort((a, b) => a.x - b.x);
+      // Enforce min-gap among anchors (small chance of collision if two
+      // ankers delen kinderen of liggen heel dicht op elkaar). LTR pass +
+      // re-center op het oorspronkelijke anker-centroid.
+      const anchorTarget = anchors.reduce((sum, s) => sum + s.x, 0) / anchors.length;
+      for (let j = 1; j < anchors.length; j++) {
+        const minNextX = anchors[j - 1].x + NODE_WIDTH + MIN_GAP;
+        if (anchors[j].x < minNextX) anchors[j].x = minNextX;
+      }
+      const anchorMean = anchors.reduce((sum, s) => sum + s.x, 0) / anchors.length;
+      const anchorShift = anchorTarget - anchorMean;
+      if (anchorShift !== 0) for (const s of anchors) s.x += anchorShift;
+
+      // Split non-anchors: halve links, halve rechts. Originele links/rechts-
+      // voorkeur behouden door op huidige X te sorteren.
+      nonAnchors.sort((a, b) => a.x - b.x);
+      const leftHalf = Math.floor(nonAnchors.length / 2);
+      const step = NODE_WIDTH + MIN_GAP;
+      let leftX = anchors[0].x - step;
+      for (let i = leftHalf - 1; i >= 0; i--) {
+        nonAnchors[i].x = leftX;
+        leftX -= step;
+      }
+      let rightX = anchors[anchors.length - 1].x + step;
+      for (let i = leftHalf; i < nonAnchors.length; i++) {
+        nonAnchors[i].x = rightX;
+        rightX += step;
+      }
+      tier.sort((a, b) => a.x - b.x);
+    } else {
+      // Pure-anchor of pure-non-anchor tier: gewone LTR min-gap + re-center
+      // op tier-centroid (vóór de push), zodat de tier symmetrisch blijft.
+      tier.sort((a, b) => a.x - b.x);
+      const targetCentroid = tier.reduce((sum, s) => sum + s.x, 0) / tier.length;
+      for (let j = 1; j < tier.length; j++) {
+        const minNextX = tier[j - 1].x + NODE_WIDTH + MIN_GAP;
+        if (tier[j].x < minNextX) tier[j].x = minNextX;
+      }
+      const newCentroid = tier.reduce((sum, s) => sum + s.x, 0) / tier.length;
+      const shift = targetCentroid - newCentroid;
+      if (shift !== 0) for (const s of tier) s.x += shift;
     }
 
     applyUnityGrouping(tier);

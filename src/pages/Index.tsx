@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Clock, FileText, Sparkles, Trash2 } from "lucide-react";
+import { Clock, FileText, Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -221,7 +221,6 @@ const Index = () => {
           ) : sessions.length === 0 ? (
             <FadeIn>
               <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed border-border py-16 px-6 text-center">
-                <Sparkles className="h-12 w-12 text-muted-foreground/40 mx-auto" />
                 <div className="flex flex-col gap-1">
                   <h3 className="text-lg font-semibold tracking-tight">
                     No assessments yet

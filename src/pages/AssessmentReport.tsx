@@ -850,7 +850,13 @@ const AssessmentReport = () => {
                     memoMarkdown={displayMemo}
                     enabled={!!latestReport}
                     disabled={isApplyingFeedback}
-                    includeChart={includeChartInMemo}
+                    // Only include the chart when both (a) the user has a
+                    // saved snapshot AND (b) the toggle is on. Without (a),
+                    // there's nothing to embed — passing false skips the
+                    // DB query + live-capture fallback entirely, and the
+                    // template's {{#hasStructureChart}} block drops the
+                    // "Corporate structure overview" section cleanly.
+                    includeChart={includeChartInMemo && !!chartSnapshot?.snapshot_png}
                   />
                 </div>
                 {isGeneratingReport && (

@@ -1,5 +1,4 @@
 // src/components/assessment/AssessmentStepper.tsx
-import { Fragment } from 'react';
 import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ASSESSMENT_STEPS } from '@/lib/assessment/steps';
@@ -36,8 +35,11 @@ export function AssessmentStepper({
         const num = i + 1;
 
         return (
-          <Fragment key={step.key}>
-            <li className="shrink-0">
+          <li
+            key={step.key}
+            className={cn('flex items-center', !isLast && 'flex-1')}
+          >
+            <div className="shrink-0">
               {isActive ? (
                 <div
                   aria-current="step"
@@ -124,9 +126,9 @@ export function AssessmentStepper({
                   <span className="hidden sm:inline">{step.label}</span>
                 </div>
               )}
-            </li>
+            </div>
             {!isLast && (
-              <li
+              <span
                 aria-hidden
                 className={cn(
                   'mx-1.5 h-px min-w-[16px] flex-1 sm:min-w-[24px]',
@@ -134,7 +136,7 @@ export function AssessmentStepper({
                 )}
               />
             )}
-          </Fragment>
+          </li>
         );
       })}
     </ol>

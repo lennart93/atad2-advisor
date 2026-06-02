@@ -1,0 +1,68 @@
+import { useEffect, useRef, useState } from 'react';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import type { StructureGroup } from '@/lib/structure/types';
+
+interface Props {
+  grouping: StructureGroup;
+  screenX: number;
+  screenY: number;
+  onRename: (newLabel: string) => void;
+  onDelete: () => void;
+  onClose: () => void;
+}
+
+export function FiscalUnityEditPopover({
+  grouping, screenX, screenY, onRename, onDelete, onClose,
+}: Props) {
+  const [draft, setDraft] = useState(grouping.label);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    };
+    window.addEventListener('mousedown', handler);
+    return () => window.removeEventListener('mousedown', handler);
+  }, [onClose]);
+
+  const save = () => {
+    const trimmed = draft.trim();
+    if (trimmed && trimmed !== grouping.label) onRename(trimmed);
+    onClose();
+  };
+
+  return (
+    <div
+      ref={ref}
+      className="fixed z-50 bg-card border border-[hsl(var(--border-subtle))] rounded-md shadow-lg p-3 flex flex-col gap-2"
+      style={{ left: screenX, top: screenY + 8, minWidth: 220 }}
+    >
+      <Input
+        autoFocus
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') save();
+          if (e.key === 'Escape') onClose();
+        }}
+      />
+      <div className="flex gap-2 justify-between">
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => {
+            if (window.confirm(`Delete fiscal unity "${grouping.label}"?`)) {
+              onDelete();
+              onClose();
+            }
+          }}
+          className="text-red-700 hover:text-red-900"
+        >
+          Delete
+        </Button>
+        <Button size="sm" onClick={save}>Save</Button>
+      </div>
+    </div>
+  );
+}

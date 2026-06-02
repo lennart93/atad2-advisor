@@ -335,7 +335,7 @@ const AssessmentConfirmation = () => {
               <div className="space-y-5">
                 <p className="text-muted-foreground">
                   Before we continue, please confirm whether this preliminary outcome
-                  aligns with your own assessment.
+                  aligns with your own expectations.
                 </p>
               </div>
             ) : (

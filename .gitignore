@@ -34,3 +34,16 @@ dist-ssr
 .anthropic_key_tmp
 **/.env.local
 .scratch/
+
+# Local debug/diagnostic scripts (not for production)
+.tmp-*.sh
+test_output.txt
+TODOS.md
+supabase/.temp/
+
+# Local design/preview mockups (not for production)
+sidebar-preview.html
+stepper-preview.html
+/knoppen.jpg
+/new.jpg
+/oud.jpg
