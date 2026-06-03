@@ -669,11 +669,18 @@ const Assessment = () => {
       return;
     }
 
-    // Reminder only fires when the question ACTUALLY requires explanation,
-    // not on prefill-only panels (shouldShowContextPanel is also true when a
-    // prefill suggestion exists, which was making Finish require two clicks
-    // on questions that don't need a toelichting).
-    if (dbRequiresExplanation && (!contextValue || contextValue.trim() === '') && !explanationReminderShown) {
+    // Reminder fires when the user is expected to fill in a textarea but left
+    // it empty: either the question requires explanation, OR the user picked
+    // Unknown and the swarm staged the Route B Unknown companion
+    // (contextual_hint + suggested_toelichting_unknown). Mirrors the same gate
+    // in handleContinueWithReminder above.
+    const unknownRouteBStagedForFinish =
+      selectedAnswer === "Unknown"
+      && !!currentPrefill?.contextual_hint
+      && !!currentPrefill?.suggested_toelichting_unknown;
+    const finishExplanationExpected =
+      dbRequiresExplanation || unknownRouteBStagedForFinish;
+    if (finishExplanationExpected && (!contextValue || contextValue.trim() === '') && !explanationReminderShown) {
       console.log("🔔 finishAssessment: showing reminder");
       // First time clicking Finish with empty explanation - show friendly reminder
       const randomReminder = friendlyReminders[Math.floor(Math.random() * friendlyReminders.length)];
@@ -1298,11 +1305,24 @@ const Assessment = () => {
   };
 
   const handleContinueWithReminder = async () => {
-    // Reminder fires only when the answer ACTUALLY requires explanation, not on
-    // prefill-only panels where no textarea is rendered (iter 4 wired hasPrefill
-    // into shouldShowContextPanel for the Continue-button visibility, but the
-    // textarea outer gate still keys on requires_explanation).
-    if (selectedQuestionOption?.requires_explanation === true
+    // Reminder fires when the user is expected to fill in a textarea but left
+    // it empty. That covers two cases:
+    //   (a) the question option itself requires explanation (the classic
+    //       Yes/No-with-required-explanation flow), and
+    //   (b) the user picked Unknown and the swarm staged a contextual hint +
+    //       suggested_toelichting_unknown pair (Route B Unknown companion) —
+    //       there's a visible textarea+suggestion and submitting empty would
+    //       silently skip past it. Same gate as the Continue-button visibility
+    //       check and the answer-handler's blockAutoAdvance.
+    const unknownRouteBStaged =
+      selectedAnswer === "Unknown"
+      && !!currentPrefill?.contextual_hint
+      && !!currentPrefill?.suggested_toelichting_unknown;
+    const explanationExpected =
+      selectedQuestionOption?.requires_explanation === true
+      || unknownRouteBStaged;
+
+    if (explanationExpected
         && (!contextValue || contextValue.trim() === '')
         && !explanationReminderShown) {
       // First time clicking Continue with empty explanation - show friendly reminder
