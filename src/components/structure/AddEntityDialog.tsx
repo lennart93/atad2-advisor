@@ -121,10 +121,10 @@ export function AddEntityDialog({ open, onOpenChange, entities, taxpayerId, onCr
               onValueChange={(v) => v && setDirection(v as AddEntityDirection)}
               className="grid grid-cols-2"
             >
-              <ToggleGroupItem value="below" aria-label="Below — new entity is a subsidiary">
+              <ToggleGroupItem value="below" aria-label="Below: new entity is a subsidiary">
                 Below (subsidiary)
               </ToggleGroupItem>
-              <ToggleGroupItem value="above" aria-label="Above — new entity is a shareholder">
+              <ToggleGroupItem value="above" aria-label="Above: new entity is a shareholder">
                 Above (shareholder)
               </ToggleGroupItem>
             </ToggleGroup>

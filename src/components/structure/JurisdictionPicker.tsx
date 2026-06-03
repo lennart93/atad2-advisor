@@ -115,7 +115,7 @@ export function JurisdictionPicker({ id, value, onChange, placeholder = 'Select 
                   }}
                   className="text-muted-foreground"
                 >
-                  Not in list — enter code manually
+                  Not in list, enter code manually
                 </CommandItem>
               </CommandGroup>
             </CommandList>

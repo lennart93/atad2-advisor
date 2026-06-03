@@ -156,17 +156,17 @@ const SessionDetail = () => {
             value={
               session.period_start_date && session.period_end_date
                 ? `${session.period_start_date} → ${session.period_end_date}`
-                : "—"
+                : "-"
             }
           />
           <InfoCell
             label="Owner"
-            value={session.owner?.full_name ?? session.owner?.email ?? "—"}
+            value={session.owner?.full_name ?? session.owner?.email ?? "-"}
           />
           <InfoCell label="Created" value={new Date(session.created_at).toLocaleString()} />
           <InfoCell
             label="Confirmed"
-            value={session.confirmed_at ? new Date(session.confirmed_at).toLocaleString() : "—"}
+            value={session.confirmed_at ? new Date(session.confirmed_at).toLocaleString() : "-"}
           />
         </div>
       </AdminCard>
@@ -231,7 +231,7 @@ function PrefillSection({ sessionId }: { sessionId: string }) {
     <section className="mt-6">
       <h2 className="text-lg font-semibold mb-2">Document Pre-Fill</h2>
       <div className="space-y-2 text-sm">
-        <div>Job status: {job?.status ?? "—"}</div>
+        <div>Job status: {job?.status ?? "-"}</div>
         <div>Documents: {(docs ?? []).length}</div>
         <div>Suggestions: {(prefills ?? []).length}</div>
         {(prefills ?? []).length > 0 && (

@@ -40,6 +40,7 @@ dist-ssr
 test_output.txt
 TODOS.md
 supabase/.temp/
+.playwright-mcp/
 
 # Local design/preview mockups (not for production)
 sidebar-preview.html

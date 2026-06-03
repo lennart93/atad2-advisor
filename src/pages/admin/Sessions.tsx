@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Download } from "lucide-react";
+import { Download, Trash2 } from "lucide-react";
 import { Seo } from "@/components/Seo";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -12,11 +12,12 @@ import { SearchFilterBar } from "@/components/admin/SearchFilterBar";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { StatusChip } from "@/components/admin/StatChip";
 import {
-  useAdminSessionsList, AdminSessionRow,
+  useAdminSessionsList, useDeleteAdminSession, usePurgeAdminLogEntry,
+  AdminSessionRow,
 } from "@/components/admin/useAdminSessions";
 import { exportAssessmentsToExcel } from "@/lib/admin/exportAssessments";
 
-type StatusFilter = "all" | "completed" | "in_progress";
+type StatusFilter = "all" | "completed" | "in_progress" | "deleted";
 
 function statusTone(status: string, completed: boolean | null): "success" | "warning" | "neutral" {
   if (completed || status === "completed") return "success";
@@ -59,8 +60,11 @@ const Sessions = () => {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return (data ?? []).filter((s) => {
-      if (statusFilter === "completed" && !(s.completed || s.status === "completed")) return false;
-      if (statusFilter === "in_progress" && (s.completed || s.status !== "in_progress")) return false;
+      // "all" includes deleted snapshots so admins immediately see what's
+      // gone; the other status filters target live sessions only.
+      if (statusFilter === "deleted" && !s.deleted_at) return false;
+      if (statusFilter === "completed" && (s.deleted_at || !(s.completed || s.status === "completed"))) return false;
+      if (statusFilter === "in_progress" && (s.deleted_at || s.completed || s.status !== "in_progress")) return false;
       if (!q) return true;
       return (
         s.session_id.toLowerCase().includes(q) ||
@@ -69,6 +73,22 @@ const Sessions = () => {
       );
     });
   }, [data, search, statusFilter]);
+
+  const deletedCount = useMemo(
+    () => (data ?? []).filter((s) => s.deleted_at).length,
+    [data]
+  );
+
+  const deleteSession = useDeleteAdminSession();
+  const purgeLogEntry = usePurgeAdminLogEntry();
+
+  const handleDelete = (row: AdminSessionRow) => {
+    if (row.deleted_at) {
+      purgeLogEntry.mutate(row.id);
+    } else {
+      deleteSession.mutate(row.id);
+    }
+  };
 
   return (
     <main>
@@ -102,6 +122,9 @@ const Sessions = () => {
               <SelectItem value="all">All statuses</SelectItem>
               <SelectItem value="completed">Completed</SelectItem>
               <SelectItem value="in_progress">In progress</SelectItem>
+              <SelectItem value="deleted">
+                Deleted{deletedCount > 0 ? ` (${deletedCount})` : ""}
+              </SelectItem>
             </SelectContent>
           </Select>
         }
@@ -116,28 +139,55 @@ const Sessions = () => {
       ) : (
         <div className="space-y-1.5">
           {filtered.map((s) => (
-            <SessionRow key={s.id} session={s} onClick={() => navigate(`/admin/sessions/${s.session_id}`)} />
+            <SessionRow
+              key={s.id}
+              session={s}
+              onOpen={
+                s.deleted_at
+                  ? undefined
+                  : () => navigate(`/admin/sessions/${s.session_id}`)
+              }
+              onDelete={() => handleDelete(s)}
+            />
           ))}
           {filtered.length === 0 && (
             <div className="text-center text-muted-foreground py-8">No sessions found.</div>
           )}
         </div>
       )}
+
     </main>
   );
 };
 
-function SessionRow({ session, onClick }: { session: AdminSessionRow; onClick: () => void }) {
+function SessionRow({
+  session,
+  onOpen,
+  onDelete,
+}: {
+  session: AdminSessionRow;
+  onOpen?: () => void;
+  onDelete: () => void;
+}) {
   const completed = Boolean(session.completed || session.status === "completed");
+  const isDeleted = !!session.deleted_at;
   return (
     <AdminCard
-      interactive
-      onClick={onClick}
-      className="flex items-center gap-4 py-3 transition-all duration-normal ease-emphasized hover:shadow-sm hover:border-foreground/20"
+      interactive={!isDeleted}
+      onClick={onOpen}
+      className={
+        isDeleted
+          ? "flex items-center gap-4 py-3 opacity-60"
+          : "flex items-center gap-4 py-3 transition-all duration-normal ease-emphasized hover:shadow-sm hover:border-foreground/20"
+      }
     >
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className="text-[13px] font-semibold truncate">{session.taxpayer_name}</span>
+          <span className={
+            isDeleted
+              ? "text-[13px] font-semibold truncate line-through"
+              : "text-[13px] font-semibold truncate"
+          }>{session.taxpayer_name}</span>
           {session.entity_name && (
             <span className="text-[11px] text-muted-foreground truncate">· {session.entity_name}</span>
           )}
@@ -147,15 +197,34 @@ function SessionRow({ session, onClick }: { session: AdminSessionRow; onClick: (
           {session.owner && (
             <> · {session.owner.full_name ?? session.owner.email}</>
           )}
+          {isDeleted && session.deleted_at && (
+            <> · deleted {new Date(session.deleted_at).toLocaleString()}</>
+          )}
         </div>
       </div>
-      <StatusChip label={completed ? "Completed" : session.status} tone={statusTone(session.status, session.completed)} />
-      {session.final_score != null && (
+      {isDeleted ? (
+        <StatusChip label="Deleted" tone="danger" />
+      ) : (
+        <StatusChip label={completed ? "Completed" : session.status} tone={statusTone(session.status, session.completed)} />
+      )}
+      {!isDeleted && session.final_score != null && (
         <StatusChip label={`Score ${session.final_score.toFixed(1)}`} tone={scoreTone(session.final_score)} />
       )}
       <div className="font-mono text-xs text-muted-foreground whitespace-nowrap w-[120px] text-right">
         {new Date(session.created_at).toLocaleDateString()}
       </div>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+        title={isDeleted ? "Purge audit log entry" : "Delete assessment"}
+        onClick={(e) => {
+          e.stopPropagation();
+          onDelete();
+        }}
+      >
+        <Trash2 className="size-4" />
+      </Button>
     </AdminCard>
   );
 }

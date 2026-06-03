@@ -11,7 +11,7 @@ const OPUS_INPUT_PER_M = 15;
 const OPUS_OUTPUT_PER_M = 75;
 
 function estimateCostEUR(usage: { input_tokens?: number; output_tokens?: number } | null | undefined): string {
-  if (!usage) return "—";
+  if (!usage) return "-";
   const inp = ((usage.input_tokens ?? 0) / 1_000_000) * OPUS_INPUT_PER_M;
   const out = ((usage.output_tokens ?? 0) / 1_000_000) * OPUS_OUTPUT_PER_M;
   const usd = inp + out;
@@ -97,10 +97,10 @@ export default function PrefillJobs() {
                     </Link>
                   </td>
                   <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
-                    {j.started_at ? new Date(j.started_at).toLocaleString() : "—"}
+                    {j.started_at ? new Date(j.started_at).toLocaleString() : "-"}
                   </td>
                   <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
-                    {durMs != null ? `${Math.round(durMs / 1000)}s` : "—"}
+                    {durMs != null ? `${Math.round(durMs / 1000)}s` : "-"}
                   </td>
                   <td className="px-4 py-2.5 text-xs">{j.status}</td>
                   <td className="px-4 py-2.5 font-mono text-xs">

@@ -91,7 +91,7 @@ export function FloatingFeedbackButton() {
       toast.error("Couldn't send feedback", { description: error.message });
       return;
     }
-    toast.success("Thanks — your feedback has been sent.");
+    toast.success("Thanks, your feedback has been sent.");
     reset();
     setOpen(false);
   };
@@ -120,7 +120,7 @@ export function FloatingFeedbackButton() {
           <DialogHeader>
             <DialogTitle>Send feedback</DialogTitle>
             <DialogDescription>
-              Bugs, ideas, or questions — it all comes through to the team.
+              Bugs, ideas, or questions. It all comes through to the team.
             </DialogDescription>
           </DialogHeader>
 

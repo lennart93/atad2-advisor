@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
   FileText, Star, FileCheck, Users, CheckSquare, HelpCircle,
-  MessageSquare, BarChart3, Database, AlertCircle, LucideIcon,
+  MessageSquare, BarChart3, Database, AlertCircle, Compass, LucideIcon,
 } from "lucide-react";
 import { Seo } from "@/components/Seo";
 import { supabase } from "@/integrations/supabase/client";
@@ -48,6 +48,7 @@ const SHORTCUTS: Array<{ title: string; url: string; entity: EntityKey; icon: Lu
   { title: "Data Explorer",     url: "/admin/explorer",          entity: "explorer",         icon: Database,      sub: "Browse tables" },
   { title: "Analytics",         url: "/admin/analytics",         entity: "analytics",        icon: BarChart3,     sub: "Trends & insights" },
   { title: "Audit Log",         url: "/admin/audit",             entity: "audit",            icon: AlertCircle,   sub: "Security events" },
+  { title: "Guided tour",       url: "/tutorial",                entity: "settings",         icon: Compass,       sub: "Walkthrough of every screen" },
 ];
 
 const Dashboard = () => {
@@ -163,7 +164,7 @@ const Dashboard = () => {
               entity="sessions"
               icon={FileText}
               label="Sessions"
-              value={sessionStats?.total ?? "—"}
+              value={sessionStats?.total ?? "-"}
               sparkline={sparkline}
               size="lg"
             />
@@ -173,7 +174,7 @@ const Dashboard = () => {
               entity="settings"
               icon={Star}
               label="Avg. score"
-              value={scoreStats?.avg != null ? scoreStats.avg.toFixed(1) : "—"}
+              value={scoreStats?.avg != null ? scoreStats.avg.toFixed(1) : "-"}
               subLabel="of 10"
             />
           </motion.div>
@@ -182,7 +183,7 @@ const Dashboard = () => {
               entity="questions"
               icon={FileCheck}
               label="Reports"
-              value={reportStats?.total ?? "—"}
+              value={reportStats?.total ?? "-"}
               subLabel={
                 reportStats && reportStats.today > 0
                   ? `+${reportStats.today} today`

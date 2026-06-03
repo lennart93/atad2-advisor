@@ -84,7 +84,7 @@ const DataExplorer = () => {
           </SelectContent>
         </Select>
         <span className="text-[11px] text-muted-foreground">
-          {data ? `${data.total.toLocaleString()} rows` : "—"} · read-only
+          {data ? `${data.total.toLocaleString()} rows` : "-"} · read-only
         </span>
       </div>
 
@@ -190,7 +190,7 @@ const DataExplorer = () => {
 };
 
 function formatCell(v: unknown): string {
-  if (v == null) return "—";
+  if (v == null) return "-";
   if (typeof v === "object") return JSON.stringify(v).slice(0, 60);
   if (typeof v === "boolean") return v ? "true" : "false";
   const s = String(v);

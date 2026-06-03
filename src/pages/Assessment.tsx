@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useCallback, useMemo, memo, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useCallback, useMemo, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUserPreference } from "@/hooks/useUserPreference";
 import { OptionToggle } from "@/components/prefill/OptionToggle";
@@ -411,50 +411,9 @@ const Assessment = () => {
   const isWaitingForPrefill = false;
   void prefillJob; // referenced via job-status banner only
 
-  // Auto-select the AI's suggested answer the first time it lands for a
-  // given question — only if the user hasn't already picked something. The
-  // ref tracks per-question to avoid re-triggering after a manual change.
-  const autoSelectedRef = useRef<Set<string>>(new Set());
-
-  // Reset the per-session memo when the session changes so a remount (or a
-  // resume into a different session) starts with a clean slate.
-  useEffect(() => {
-    autoSelectedRef.current = new Set();
-  }, [sessionId]);
-
-  useEffect(() => {
-    if (!currentQuestion || !currentPrefill) return;
-    // Defensive identity check: react-query list-style fetches (.find on
-    // useAllPrefills) can briefly hand back the previous question's prefill
-    // during navigation. Don't fire unless the prefill belongs to THIS question.
-    if (currentPrefill.question_id !== currentQuestion.question_id) return;
-    if (autoSelectedRef.current.has(currentQuestion.question_id)) return;
-    if (!currentPrefill.suggested_answer) return;
-    if ((currentPrefill.confidence_pct ?? 0) < 40) return;
-    // Never auto-pre-select Unknown. "I don't know" must be a deliberate user
-    // choice — surfacing it as an AI-staged answer would let the model defer
-    // questions on the user's behalf, which defeats the assessment's purpose.
-    // Yes/No suggestions still auto-select normally.
-    if (currentPrefill.suggested_answer === "unknown") return;
-    if (selectedAnswer) {
-      // The user (or a stale carry-over from prior question) already has an
-      // answer set. Don't override — but warn if it doesn't match the AI
-      // suggestion so we can capture the case in browser logs.
-      if (selectedAnswer.toLowerCase() !== currentPrefill.suggested_answer) {
-        console.warn('[autoSelect] selectedAnswer mismatch with prefill suggestion', {
-          questionId: currentQuestion.question_id,
-          selectedAnswer,
-          suggestedAnswer: currentPrefill.suggested_answer,
-          confidence: currentPrefill.confidence_pct,
-        });
-      }
-      return;
-    }
-    autoSelectedRef.current.add(currentQuestion.question_id);
-    const option = currentPrefill.suggested_answer.charAt(0).toUpperCase() + currentPrefill.suggested_answer.slice(1);
-    void handleAnswerSelect(option);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentQuestion?.question_id, currentPrefill?.id, selectedAnswer]);
+  // Picking the answer is always a deliberate user action. The AI's
+  // suggestion shows up as a "Suggested" badge on the option, but we never
+  // pre-select it — the user must click Yes / No / Unknown themselves.
 
   // Resume path: /assessment?session=<id> returns here from /assessment/upload,
   // browser back from /assessment/structure/<id>, or any direct deep-link.

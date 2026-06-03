@@ -27,6 +27,7 @@ const EmailConfirmed = lazy(() => import("./pages/EmailConfirmed"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const AppLayout = lazy(() => import("./pages/AppLayout"));
 const AssessmentShell = lazy(() => import("./components/assessment/AssessmentShell"));
+const Tutorial = lazy(() => import("./pages/Tutorial"));
 
 // Admin routes
 const AdminLayout = lazy(() => import("./pages/admin/AdminLayout"));
@@ -70,6 +71,7 @@ const App = () => (
                   <Route path="/forgot-password" element={<ForgotPassword />} />
                   <Route path="/reset-password" element={<ResetPassword />} />
                   <Route path="/email-confirmed" element={<EmailConfirmed />} />
+                  <Route path="/tutorial" element={<ProtectedRoute><Tutorial /></ProtectedRoute>} />
 
                   <Route element={<AppLayout />}>
                     <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />

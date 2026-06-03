@@ -194,7 +194,7 @@ const Index = () => {
           <div className="flex flex-col gap-1">
             <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Get started</span>
             <h2 className="text-xl sm:text-2xl font-semibold tracking-tight">Start new assessment</h2>
-            <p className="text-sm text-muted-foreground">Begin a new ATAD2 risk assessment for a taxpayer.</p>
+            <p className="text-sm text-muted-foreground">Begin a new ATAD2 risk assessment for a Dutch corporate taxpayer.</p>
           </div>
           <Button
             onClick={() => navigate("/assessment")}

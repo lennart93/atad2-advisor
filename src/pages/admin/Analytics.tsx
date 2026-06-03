@@ -153,7 +153,7 @@ const Analytics = () => {
         <motion.div variants={staggerItem}>
           <AdminCard className="transition-all duration-normal ease-emphasized hover:shadow-sm hover:border-foreground/20">
             <div className="text-3xl sm:text-4xl font-semibold tracking-tight tabular-nums leading-none">
-              {loadingSessions ? "—" : (sessions?.length ?? 0)}
+              {loadingSessions ? "-" : (sessions?.length ?? 0)}
             </div>
             <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mt-2">Total sessions</div>
           </AdminCard>
@@ -161,7 +161,7 @@ const Analytics = () => {
         <motion.div variants={staggerItem}>
           <AdminCard className="transition-all duration-normal ease-emphasized hover:shadow-sm hover:border-foreground/20">
             <div className="text-3xl sm:text-4xl font-semibold tracking-tight tabular-nums leading-none">
-              {loadingSessions || completionRate == null ? "—" : `${completionRate.toFixed(0)}%`}
+              {loadingSessions || completionRate == null ? "-" : `${completionRate.toFixed(0)}%`}
             </div>
             <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mt-2">Completion rate</div>
           </AdminCard>
@@ -169,7 +169,7 @@ const Analytics = () => {
         <motion.div variants={staggerItem}>
           <AdminCard className="transition-all duration-normal ease-emphasized hover:shadow-sm hover:border-foreground/20">
             <div className="text-3xl sm:text-4xl font-semibold tracking-tight tabular-nums leading-none">
-              {loadingAnswers ? "—" : (answers?.length ?? 0)}
+              {loadingAnswers ? "-" : (answers?.length ?? 0)}
             </div>
             <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mt-2">Answers recorded</div>
           </AdminCard>

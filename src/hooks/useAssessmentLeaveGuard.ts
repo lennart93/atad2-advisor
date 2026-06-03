@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 
 const MESSAGE =
-  "Are you sure you want to leave this assessment? Your progress is saved — you can resume it from the dashboard.";
+  "Are you sure you want to leave this assessment? Your progress is saved, so you can resume it from the dashboard.";
 
 /**
  * Warns the user before they close the tab, reload, or navigate to an external

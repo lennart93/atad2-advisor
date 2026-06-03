@@ -71,7 +71,7 @@ export default function Prompts() {
                           <span>·</span>
                           <span>Active version</span>
                           <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-muted text-foreground">
-                            v{row?.version ?? "—"}
+                            v{row?.version ?? "-"}
                           </span>
                         </div>
                         <div className="text-[11px] text-muted-foreground mt-1">{d.description}</div>
@@ -96,7 +96,7 @@ export default function Prompts() {
                       </div>
                     </div>
                     <pre className="bg-muted/40 border border-border p-3 rounded-md text-xs font-mono whitespace-pre-wrap max-h-40 overflow-auto text-muted-foreground">
-                      {row?.system_prompt?.slice(0, 400) ?? "—"}
+                      {row?.system_prompt?.slice(0, 400) ?? "-"}
                       {row && row.system_prompt.length > 400 ? "…" : ""}
                     </pre>
                   </AdminCard>

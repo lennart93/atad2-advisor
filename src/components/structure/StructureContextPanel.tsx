@@ -43,7 +43,7 @@ export function StructureContextPanel({
     >
       <div>
         <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Taxpayer</p>
-        <p className="mt-0.5 text-sm font-semibold tracking-tight">{taxpayerName ?? '—'}</p>
+        <p className="mt-0.5 text-sm font-semibold tracking-tight">{taxpayerName ?? '-'}</p>
         <p className="mt-1 text-xs text-muted-foreground">
           {entityCount} {entityCount === 1 ? 'entity' : 'entities'} in this structure
         </p>

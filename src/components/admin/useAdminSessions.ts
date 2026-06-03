@@ -21,6 +21,8 @@ export interface AdminSessionRow {
   created_at: string;
   updated_at: string;
   owner: SessionOwner | null;
+  // null = live session, ISO timestamp = deleted snapshot from atad2_assessment_log
+  deleted_at: string | null;
 }
 
 export interface AdminSessionDetail extends AdminSessionRow {
@@ -68,10 +70,55 @@ export function useAdminSessionsList() {
       const userIds = Array.from(new Set((data ?? []).map((s) => s.user_id).filter((v): v is string => !!v)));
       const owners = await fetchSessionsWithOwner(userIds);
 
-      return (data ?? []).map((s) => ({
+      const liveRows: AdminSessionRow[] = (data ?? []).map((s) => ({
         ...s,
         owner: s.user_id ? owners.get(s.user_id) ?? null : null,
-      })) as AdminSessionRow[];
+        deleted_at: null,
+      }));
+
+      // Pull deleted-session snapshots from the assessment log so admins can
+      // still see WHO deleted WHAT (taxpayer + entity + FY) even after the
+      // user removed the live row. We keep only the latest 'deleted' event
+      // per session_uuid, and only for sessions that no longer exist live.
+      const liveUuids = new Set(liveRows.map((r) => r.id));
+      const { data: deletedEvents } = await supabase
+        .from("atad2_assessment_log")
+        .select(
+          "session_uuid, session_id, user_id, user_email, user_full_name, taxpayer_name, entity_name, fiscal_year, status, final_score, confirmed_at, session_created_at, session_updated_at, event_at"
+        )
+        .eq("event_type", "deleted")
+        .order("event_at", { ascending: false })
+        .limit(2000);
+
+      const seenUuids = new Set<string>();
+      const deletedRows: AdminSessionRow[] = [];
+      for (const e of deletedEvents ?? []) {
+        if (liveUuids.has(e.session_uuid)) continue;
+        if (seenUuids.has(e.session_uuid)) continue;
+        seenUuids.add(e.session_uuid);
+        deletedRows.push({
+          id: e.session_uuid,
+          session_id: e.session_id,
+          user_id: e.user_id,
+          taxpayer_name: e.taxpayer_name ?? "(unknown)",
+          entity_name: e.entity_name,
+          fiscal_year: e.fiscal_year ?? "",
+          status: e.status ?? "deleted",
+          final_score: e.final_score,
+          completed: null,
+          confirmed_at: e.confirmed_at,
+          created_at: e.session_created_at ?? e.event_at,
+          updated_at: e.session_updated_at ?? e.event_at,
+          owner: e.user_email
+            ? { full_name: e.user_full_name ?? null, email: e.user_email }
+            : null,
+          deleted_at: e.event_at,
+        });
+      }
+
+      return [...liveRows, ...deletedRows].sort((a, b) =>
+        b.created_at.localeCompare(a.created_at)
+      );
     },
     staleTime: 30_000,
   });
@@ -178,5 +225,28 @@ export function useDeleteAdminSession() {
       qc.invalidateQueries({ queryKey: ["admin-sessions"] });
     },
     onError: (e: Error) => toast.error(e.message ?? "Delete failed"),
+  });
+}
+
+// Removes EVERY assessment log event for a given session_uuid.
+// Used to clean up test noise from the audit log so the row
+// disappears from the admin overview entirely (not just the
+// 'deleted' snapshot — also the 'created' / 'completed' /
+// 'backfill' events for that same session).
+export function usePurgeAdminLogEntry() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (sessionUuid: string) => {
+      const { error } = await supabase
+        .from("atad2_assessment_log")
+        .delete()
+        .eq("session_uuid", sessionUuid);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Audit log entry purged");
+      qc.invalidateQueries({ queryKey: ["admin-sessions"] });
+    },
+    onError: (e: Error) => toast.error(e.message ?? "Purge failed"),
   });
 }
