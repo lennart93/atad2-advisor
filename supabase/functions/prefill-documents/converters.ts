@@ -31,10 +31,16 @@ export async function toAnthropicBlock(
   mimeType: string,
 ): Promise<AnthropicBlock> {
   if (mimeType === MIME.PDF) {
-    // PDFs are converted to text client-side before upload (see usePrefill.ts
-    // useUploadDocument). Receiving a raw PDF here means the client bypass
-    // failed. Reject loudly rather than risk an edge-runtime timeout.
-    throw new Error("PDF should have been converted to text in the browser before upload");
+    // Fast path: PDFs are normally converted to text in the browser (see
+    // usePrefill.ts useUploadDocument) and arrive here as text/plain. Raw
+    // PDFs only land here when browser extraction was thin/empty (scanned,
+    // image-only, signed Deloitte-style outputs). Forward to Claude as a
+    // native "document" block — Anthropic does the OCR, no server-side
+    // parsing happens here so the edge-runtime wall clock is safe.
+    return {
+      type: "document",
+      source: { type: "base64", media_type: "application/pdf", data: toBase64(bytes) },
+    };
   }
   if (mimeType === MIME.PNG || mimeType === MIME.JPG || mimeType === MIME.WEBP) {
     return { type: "image", source: { type: "base64", media_type: mimeType, data: toBase64(bytes) } };

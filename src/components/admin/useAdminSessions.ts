@@ -193,23 +193,46 @@ export interface AdminReportRow {
   model: string | null;
   generated_at: string;
   updated_at: string;
+  archived_at: string | null;
+  archived_by: string | null;
 }
 
-export function useAdminSessionReport(sessionId: string | undefined) {
+export function useAdminSessionReports(sessionId: string | undefined) {
   return useQuery({
-    queryKey: ["admin-session-report", sessionId],
+    queryKey: ["admin-session-reports", sessionId],
     enabled: !!sessionId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("atad2_reports")
         .select("*")
         .eq("session_id", sessionId!)
-        .order("generated_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .order("generated_at", { ascending: false });
       if (error) throw error;
-      return data as AdminReportRow | null;
+      return (data ?? []) as AdminReportRow[];
     },
+  });
+}
+
+export function useResetAdminSession() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (sessionId: string) => {
+      const { data, error } = await supabase.rpc("admin_reset_session", {
+        p_session_id: sessionId,
+      });
+      if (error) throw error;
+      return data as { session_id: string; archived_reports: number; reset_by: string; reset_at: string };
+    },
+    onSuccess: (result) => {
+      toast.success("Session reset", {
+        description: `${result.archived_reports} memo${result.archived_reports === 1 ? "" : "s"} archived. User can resume.`,
+      });
+      qc.invalidateQueries({ queryKey: ["admin-session"] });
+      qc.invalidateQueries({ queryKey: ["admin-session-reports"] });
+      qc.invalidateQueries({ queryKey: ["admin-session-audit"] });
+      qc.invalidateQueries({ queryKey: ["admin-sessions"] });
+    },
+    onError: (e: Error) => toast.error(e.message ?? "Reset failed"),
   });
 }
 

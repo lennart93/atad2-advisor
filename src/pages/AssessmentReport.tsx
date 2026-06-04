@@ -114,6 +114,7 @@ const AssessmentReport = () => {
         .from("atad2_reports")
         .select("id, report_title, generated_at, model, total_risk, answers_count, report_md")
         .eq("session_id", sessionId)
+        .is("archived_at", null)
         .order("generated_at", { ascending: false })
         .limit(3);
 

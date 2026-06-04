@@ -108,16 +108,25 @@ export function useUploadDocument(sessionId: string | null) {
       const userId = authData.user?.id;
       if (!userId) throw new Error("Not authenticated");
 
-      // For PDFs, parse text in the browser and upload the extracted text
-      // instead of the raw binary. The Supabase edge-runtime's wall-clock
-      // limit (60s in v1.70.3) kills server-side PDF parsing + Anthropic
-      // calls on large docs. Browser V8/WASM handles it in ~2-5s.
+      // Fast path: parse PDFs/DOCX text in the browser and upload the
+      // extracted text. The Supabase edge-runtime's wall-clock limit (60s in
+      // v1.70.3) kills server-side PDF parsing + Anthropic calls on large
+      // docs; browser V8/WASM handles it in ~2-5s.
+      //
+      // Fallback path (PDF only): when browser extraction fails or yields
+      // almost nothing (scanned, image-only, signed/encrypted-but-openable
+      // Deloitte-style docs), upload the raw PDF and let Claude read it
+      // server-side as a native document block. No server-side parsing — the
+      // Anthropic API does the OCR work.
       let uploadBlob: Blob = pending.file;
       let uploadMime = pending.file.type;
       let uploadSize = pending.file.size;
       let uploadExt = pending.file.name.split(".").pop() ?? "bin";
 
+      const MIN_PDF_TEXT_CHARS = 200;
+
       if (pending.file.type === "application/pdf") {
+        let extracted: string | null = null;
         try {
           console.log("[upload-document] step: extract PDF text in browser");
           const { getDocumentProxy, extractText } = await import("unpdf");
@@ -125,17 +134,24 @@ export function useUploadDocument(sessionId: string | null) {
           const pdf = await getDocumentProxy(new Uint8Array(buffer));
           const { text } = await extractText(pdf, { mergePages: true });
           const combined = Array.isArray(text) ? text.join("\n\n") : text;
-          if (!combined || combined.trim().length === 0) {
-            throw new Error("Could not extract any text from this PDF. It may be scanned or image-only.");
-          }
-          uploadBlob = new Blob([combined], { type: "text/plain" });
+          extracted = (combined ?? "").trim();
+        } catch (err) {
+          console.warn("[upload-document] browser PDF extract threw, will fall back to server OCR", err);
+          extracted = null;
+        }
+
+        if (extracted && extracted.length >= MIN_PDF_TEXT_CHARS) {
+          uploadBlob = new Blob([extracted], { type: "text/plain" });
           uploadMime = "text/plain";
           uploadSize = uploadBlob.size;
           uploadExt = "txt";
-          console.log("[upload-document] step: extracted PDF text", { chars: combined.length });
-        } catch (err) {
-          console.error("[upload-document] step failed: pdf-extract", err);
-          throw err;
+          console.log("[upload-document] step: extracted PDF text", { chars: extracted.length });
+        } else {
+          console.log("[upload-document] step: PDF text was thin or unreadable, uploading raw PDF for server OCR", {
+            extracted_chars: extracted?.length ?? 0,
+          });
+          // Keep the original file — uploadBlob/uploadMime/uploadSize/uploadExt
+          // already point at the raw PDF.
         }
       } else if (
         pending.file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -283,8 +299,8 @@ export function useStartAnalyze(sessionId: string | null) {
       //    docs go into the prompt as <document> XML; images travel as refs
       //    that the edge function fetches and base64-encodes as Anthropic
       //    image content blocks (Claude native vision, no OCR step).
-      const { textBlock: documentsBlock, imageRefs, taxpayerName, fiscalYear } = await buildDocumentsBlock(sessionId);
-      if (!documentsBlock && imageRefs.length === 0) throw new Error("No documents to analyze");
+      const { textBlock: documentsBlock, imageRefs, pdfRefs, taxpayerName, fiscalYear } = await buildDocumentsBlock(sessionId);
+      if (!documentsBlock && imageRefs.length === 0 && pdfRefs.length === 0) throw new Error("No documents to analyze");
 
       // 2. Atomic claim — insert prefill_jobs row.
       const { error: jobErr } = await supabase
@@ -324,6 +340,7 @@ export function useStartAnalyze(sessionId: string | null) {
             question_explanation: q.question_explanation ?? "",
             documents_block: documentsBlock,
             image_refs: imageRefs,
+            pdf_refs: pdfRefs,
             taxpayer_name: taxpayerName,
             fiscal_year: fiscalYear,
           });

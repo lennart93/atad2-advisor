@@ -78,6 +78,7 @@ export default function DownloadMemoButton({
           .from('atad2_reports')
           .select('report_md')
           .eq('session_id', sessionId)
+          .is('archived_at', null)
           .order('generated_at', { ascending: false })
           .limit(1)
           .single();

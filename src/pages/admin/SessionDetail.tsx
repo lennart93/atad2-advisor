@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Trash2 } from "lucide-react";
+import { ArrowLeft, RotateCcw, Trash2 } from "lucide-react";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { AccessRequiredDialog } from "@/components/admin/AccessRequiredDialog";
 import ReactMarkdown from "react-markdown";
@@ -17,7 +17,8 @@ import { AdminCard } from "@/components/admin/AdminCard";
 import { RiskChip, StatusChip } from "@/components/admin/StatChip";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  useAdminSession, useAdminSessionAnswers, useAdminSessionReport, useDeleteAdminSession, AdminAnswerRow,
+  useAdminSession, useAdminSessionAnswers, useAdminSessionReports, useDeleteAdminSession, useResetAdminSession,
+  AdminAnswerRow, AdminReportRow,
 } from "@/components/admin/useAdminSessions";
 
 interface AuditLogRow {
@@ -54,11 +55,13 @@ const SessionDetail = () => {
 
   const { data: session, isLoading: loadingSession } = useAdminSession(id);
   const { data: answers = [], isLoading: loadingAnswers } = useAdminSessionAnswers(id);
-  const { data: report, isLoading: loadingReport } = useAdminSessionReport(id);
+  const { data: reports = [], isLoading: loadingReport } = useAdminSessionReports(id);
   const { data: auditLogs = [] } = useSessionAuditLogs(session?.id);
   const del = useDeleteAdminSession();
+  const reset = useResetAdminSession();
   const { canEdit } = useAdminAccess();
   const [accessDialog, setAccessDialog] = useState(false);
+  const hasActiveMemo = reports.some((r) => !r.archived_at);
 
   if (loadingSession) {
     return (
@@ -92,43 +95,73 @@ const SessionDetail = () => {
         <Button variant="ghost" size="sm" onClick={() => navigate("/admin/sessions")}>
           <ArrowLeft className="mr-1 h-4 w-4" /> All sessions
         </Button>
-        {canEdit ? (
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="outline" size="sm" className="text-[#991b1b] border-[#fecaca]">
-                <Trash2 className="mr-1 h-3.5 w-3.5" /> Delete session
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete session?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  {session.taxpayer_name} ({session.session_id}) will be permanently deleted, including answers and reports. This cannot be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={async () => {
-                    await del.mutateAsync(session.id);
-                    navigate("/admin/sessions");
-                  }}
-                >
-                  Delete
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        ) : (
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-[#991b1b] border-[#fecaca] opacity-60 cursor-help"
-            onClick={() => setAccessDialog(true)}
-          >
-            <Trash2 className="mr-1 h-3.5 w-3.5" /> Delete session
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {canEdit && hasActiveMemo && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" size="sm" disabled={reset.isPending}>
+                  <RotateCcw className="mr-1 h-3.5 w-3.5" />
+                  {reset.isPending ? "Resetting..." : "Reset for re-run"}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Reset session for re-run?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    The current memo for {session.taxpayer_name} ({session.session_id}) will be archived. The user will see this session as "In progress" again and can resume to generate a new memo. Archived memos stay visible here in admin.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={async () => {
+                      await reset.mutateAsync(session.session_id);
+                    }}
+                  >
+                    Reset
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+          {canEdit ? (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" size="sm" className="text-[#991b1b] border-[#fecaca]">
+                  <Trash2 className="mr-1 h-3.5 w-3.5" /> Delete session
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete session?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {session.taxpayer_name} ({session.session_id}) will be permanently deleted, including answers and reports. This cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={async () => {
+                      await del.mutateAsync(session.id);
+                      navigate("/admin/sessions");
+                    }}
+                  >
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-[#991b1b] border-[#fecaca] opacity-60 cursor-help"
+              onClick={() => setAccessDialog(true)}
+            >
+              <Trash2 className="mr-1 h-3.5 w-3.5" /> Delete session
+            </Button>
+          )}
+        </div>
       </div>
 
       <AdminCard className="mb-6">
@@ -179,7 +212,7 @@ const SessionDetail = () => {
         </TabsList>
 
         <TabsContent value="dossier">
-          <DossierTab answers={answers} loadingAnswers={loadingAnswers} report={report} loadingReport={loadingReport} />
+          <DossierTab answers={answers} loadingAnswers={loadingAnswers} reports={reports} loadingReport={loadingReport} />
         </TabsContent>
 
         <TabsContent value="journey">
@@ -262,11 +295,11 @@ function InfoCell({ label, value }: { label: string; value: string }) {
 }
 
 function DossierTab({
-  answers, loadingAnswers, report, loadingReport,
+  answers, loadingAnswers, reports, loadingReport,
 }: {
   answers: AdminAnswerRow[];
   loadingAnswers: boolean;
-  report: ReturnType<typeof useAdminSessionReport>["data"];
+  reports: AdminReportRow[];
   loadingReport: boolean;
 }) {
   return (
@@ -314,25 +347,39 @@ function DossierTab({
         <h2 className="text-[14px] font-semibold mb-2">Report / memo</h2>
         {loadingReport ? (
           <Skeleton className="h-32 w-full" />
-        ) : !report ? (
+        ) : reports.length === 0 ? (
           <AdminCard>
             <div className="text-muted-foreground text-[13px]">No report generated yet.</div>
           </AdminCard>
         ) : (
-          <AdminCard>
-            <div className="flex items-center justify-between mb-3 text-[11px] text-muted-foreground">
-              <div className="flex items-center gap-3">
-                <span>Generated {new Date(report.generated_at).toLocaleString()}</span>
-                {report.model && <span className="font-mono">{report.model}</span>}
-              </div>
-              {report.total_risk != null && (
-                <StatusChip label={`Total risk ${report.total_risk.toFixed(1)}`} tone="neutral" />
-              )}
-            </div>
-            <article className="markdown-body text-[13px]">
-              <ReactMarkdown>{report.report_md}</ReactMarkdown>
-            </article>
-          </AdminCard>
+          <div className="space-y-3">
+            {reports.map((report) => (
+              <AdminCard key={report.id} className={report.archived_at ? "opacity-75" : ""}>
+                <div className="flex items-center justify-between mb-3 text-[11px] text-muted-foreground">
+                  <div className="flex items-center gap-3">
+                    <span>Generated {new Date(report.generated_at).toLocaleString()}</span>
+                    {report.model && <span className="font-mono">{report.model}</span>}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {report.archived_at ? (
+                      <StatusChip
+                        label={`Archived ${new Date(report.archived_at).toLocaleDateString()}`}
+                        tone="warning"
+                      />
+                    ) : (
+                      <StatusChip label="Active" tone="success" />
+                    )}
+                    {report.total_risk != null && (
+                      <StatusChip label={`Total risk ${report.total_risk.toFixed(1)}`} tone="neutral" />
+                    )}
+                  </div>
+                </div>
+                <article className="markdown-body text-[13px]">
+                  <ReactMarkdown>{report.report_md}</ReactMarkdown>
+                </article>
+              </AdminCard>
+            ))}
+          </div>
         )}
       </section>
     </div>

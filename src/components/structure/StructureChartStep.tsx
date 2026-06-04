@@ -30,6 +30,7 @@ import {
   deleteGrouping,
 } from '@/lib/structure/client';
 import { addOrMergeFiscalUnity } from '@/lib/structure/fiscalUnity';
+import { computeFrameLayouts } from '@/lib/structure/fiscalUnityLayout';
 import { startExtraction, pollUntilTerminal } from '@/lib/structure/extraction';
 import { FiscalUnityEditPopover } from './overlays/FiscalUnityEditPopover';
 import { captureChartSnapshot } from '@/lib/structure/captureChartSnapshot';
@@ -552,6 +553,14 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chart?.id, entities.length, edges.length, collapsedClusters, validation.hasBlocking, groupings.length]);
 
+  // Fiscale-eenheid kaders worden binnen de viewport gerenderd als React
+  // Flow nodes (zodat ze meegaan in de PNG-capture). De geometrie hangt af
+  // van de live member-posities + persisted bounds_override.
+  const frameLayouts = useMemo(
+    () => computeFrameLayouts(groupings, visibleEntities),
+    [groupings, visibleEntities],
+  );
+
   useEffect(() => {
     if (!chart) return;
     if (!positionsLookBroken) return;
@@ -629,6 +638,21 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
     if (!edge) return;
     const updated = await upsertEdge({ ...edge, ownership_pct: newPct });
     setEdgesState((prev) => prev.map((e) => (e.id === edgeId ? updated : e)));
+  }, [edges]);
+
+  const handleLabelTChange = useCallback(async (edgeId: string, newT: number) => {
+    const edge = edges.find((e) => e.id === edgeId);
+    if (!edge) return;
+    // Optimistisch in lokale state, dan persist. Bij DB-fout valt 'ie terug
+    // op de oude waarde via de gebruikelijke load-paden.
+    setEdgesState((prev) =>
+      prev.map((e) => (e.id === edgeId ? { ...e, label_t: newT } : e)),
+    );
+    try {
+      await upsertEdge({ ...edge, label_t: newT });
+    } catch (err) {
+      console.error('[Edge] persist label_t failed', err);
+    }
   }, [edges]);
 
   const handleConnect = async (from: string, to: string) => {
@@ -851,8 +875,9 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
                 }}
                 onConnect={handleConnect}
                 onPctChange={handlePctChange}
+                onLabelTChange={handleLabelTChange}
                 ranks={tierResult?.ranks ?? new Map()}
-                groupings={groupings}
+                frameLayouts={frameLayouts}
                 labelLineBreaks={labelLineBreaks}
                 gridVisible={gridVisible}
                 onCaptureReady={(api) => {

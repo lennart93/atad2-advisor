@@ -3,8 +3,10 @@ import {
   BaseEdge,
   EdgeLabelRenderer,
   getSmoothStepPath,
+  useStore,
   type Edge,
   type EdgeProps,
+  type ReactFlowState,
 } from '@xyflow/react';
 import { PALETTE } from '@/lib/structure/palette';
 import { NODE_WIDTH } from '@/lib/structure/labelMeasure';
@@ -149,6 +151,12 @@ export interface OwnershipEdgeData extends Record<string, unknown> {
    * out of intermediate-row entity columns. Computed in StructureChart.
    */
   intermediateXs?: number[];
+  /**
+   * Persisted label position along the source→target line, 0..1.
+   * NULL = use the default (midpoint for straight, just-above-target for jog).
+   */
+  label_t?: number | null;
+  onLabelTChange?: (edgeId: string, newT: number) => void;
 }
 
 export type OwnershipEdgeType = Edge<OwnershipEdgeData, 'ownership'>;
@@ -164,6 +172,11 @@ export function OwnershipEdge({
 }: EdgeProps<OwnershipEdgeType>) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<string>(String(data?.ownership_pct ?? ''));
+  // Lokale draft voor label_t terwijl je sleept (omgezet naar chart-coords
+  // via de viewport-zoom; pas op mouseup gaat de waarde via onLabelTChange
+  // naar de DB). NULL = geen actieve sleep, gebruik persisted of default.
+  const [tDraft, setTDraft] = useState<number | null>(null);
+  const zoom = useStore((s: ReactFlowState) => s.transform[2]);
 
   const { path } = computeOwnershipPath({
     sourceX, sourceY, targetX, targetY,
@@ -178,8 +191,17 @@ export function OwnershipEdge({
   // dezelfde hoogte uitgelijnd, en valt het % logisch bij het onderste
   // (kind-specifieke) stuk lijn — niet halverwege bij de bus.
   const isStraight = Math.abs(targetX - sourceX) < 5;
+  const range = targetY - sourceY;
+  // Default-t alleen relevant zolang label_t == null. Voor straight: midden.
+  // Voor jog: targetY-14 = even boven target, zelfde uitlijning als voorheen.
+  const defaultT = isStraight
+    ? 0.5
+    : Math.abs(range) > 1
+      ? (targetY - 14 - sourceY) / range
+      : 0.5;
+  const effectiveT = tDraft ?? data?.label_t ?? defaultT;
   const labelX = targetX;
-  const labelY = isStraight ? (sourceY + targetY) / 2 : targetY - 14;
+  const labelY = sourceY + range * effectiveT;
 
   const save = () => {
     const parsed = Number(draft);
@@ -188,6 +210,45 @@ export function OwnershipEdge({
   };
 
   const showLabel = data?.ownership_pct != null || editing;
+
+  // Click vs drag op het %-vakje: <4px beweging = klik (edit-modus), anders
+  // slepen langs de lijn. Listeners worden imperatief geattacht/gedetached
+  // per sleep-sessie zodat closures fris blijven en we geen verlaten
+  // window-listeners hebben.
+  const startDragOrEdit = (e: React.MouseEvent) => {
+    if (editing) return;
+    e.stopPropagation();
+    const startY = e.clientY;
+    const startT = effectiveT;
+    let moved = false;
+
+    const onMove = (ev: MouseEvent) => {
+      const dyScreen = ev.clientY - startY;
+      if (!moved && Math.abs(dyScreen) < 4) return;
+      moved = true;
+      if (Math.abs(range) < 1) return;
+      const dyChart = dyScreen / Math.max(0.01, zoom);
+      const newT = Math.max(0, Math.min(1, startT + dyChart / range));
+      setTDraft(newT);
+    };
+
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      if (moved) {
+        setTDraft((cur) => {
+          if (cur != null) data?.onLabelTChange?.(id, cur);
+          return null;
+        });
+      } else {
+        setDraft(String(data?.ownership_pct ?? ''));
+        setEditing(true);
+      }
+    };
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
 
   return (
     <>
@@ -235,8 +296,9 @@ export function OwnershipEdge({
               />
             ) : (
               <div
-                onClick={(e) => { e.stopPropagation(); setDraft(String(data?.ownership_pct ?? '')); setEditing(true); }}
-                style={{ cursor: 'pointer' }}
+                onMouseDown={startDragOrEdit}
+                style={{ cursor: tDraft != null ? 'ns-resize' : 'pointer', userSelect: 'none' }}
+                title="Drag to slide along the line, click to edit"
               >
                 {data?.ownership_pct != null
                   ? `${data.ownership_pct}%${data.ownership_voting_only ? ' (voting)' : ''}`

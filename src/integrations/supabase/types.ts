@@ -485,6 +485,8 @@ export type Database = {
       atad2_reports: {
         Row: {
           answers_count: number | null
+          archived_at: string | null
+          archived_by: string | null
           generated_at: string
           id: string
           model: string | null
@@ -499,6 +501,8 @@ export type Database = {
         }
         Insert: {
           answers_count?: number | null
+          archived_at?: string | null
+          archived_by?: string | null
           generated_at?: string
           id?: string
           model?: string | null
@@ -513,6 +517,8 @@ export type Database = {
         }
         Update: {
           answers_count?: number | null
+          archived_at?: string | null
+          archived_by?: string | null
           generated_at?: string
           id?: string
           model?: string | null
@@ -679,6 +685,7 @@ export type Database = {
           is_mismatch: boolean
           kind: string
           label: string | null
+          label_t: number | null
           mismatch_atad2_article: string | null
           mismatch_classification: string | null
           ownership_pct: number | null
@@ -697,6 +704,7 @@ export type Database = {
           is_mismatch?: boolean
           kind: string
           label?: string | null
+          label_t?: number | null
           mismatch_atad2_article?: string | null
           mismatch_classification?: string | null
           ownership_pct?: number | null
@@ -715,6 +723,7 @@ export type Database = {
           is_mismatch?: boolean
           kind?: string
           label?: string | null
+          label_t?: number | null
           mismatch_atad2_article?: string | null
           mismatch_classification?: string | null
           ownership_pct?: number | null
@@ -998,6 +1007,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_reset_session: {
+        Args: { p_session_id: string }
+        Returns: Json
+      }
       anonymize_old_sessions: { Args: never; Returns: undefined }
       can_modify_admin_role: {
         Args: { action: string; target_user_id: string }

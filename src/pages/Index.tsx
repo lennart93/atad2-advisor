@@ -89,6 +89,7 @@ const Index = () => {
             .from('atad2_reports')
             .select('generated_at')
             .eq('session_id', session.session_id)
+            .is('archived_at', null)
             .order('generated_at', { ascending: false })
             .limit(1);
 

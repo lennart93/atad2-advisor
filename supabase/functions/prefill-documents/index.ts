@@ -18,6 +18,12 @@ interface ImageRefPayload {
   relevance_note: string | null;
 }
 
+interface PdfRefPayload {
+  doc_label: string;
+  storage_path: string;
+  relevance_note: string | null;
+}
+
 interface PrefillRequest {
   action: "analyze_one" | "cleanup";
   session_id: string;
@@ -26,6 +32,7 @@ interface PrefillRequest {
   question_explanation?: string;
   documents_block?: string;
   image_refs?: ImageRefPayload[];
+  pdf_refs?: PdfRefPayload[];
   taxpayer_name?: string;
   fiscal_year?: string;
 }
@@ -63,6 +70,7 @@ serve(async (req) => {
           body.question_explanation ?? "",
           body.documents_block,
           body.image_refs ?? [],
+          body.pdf_refs ?? [],
           body.taxpayer_name ?? "",
           body.fiscal_year ?? "",
         );

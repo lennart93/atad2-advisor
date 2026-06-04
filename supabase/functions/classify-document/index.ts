@@ -96,11 +96,13 @@ serve(async (req) => {
       return json({ skipped: "user_override" }, 200);
     }
 
-    // 3. Pull a small chunk of content to look at.
-    const { sample, isThin } = await fetchSample(supabase, doc.storage_path, doc.mime_type);
+    // 3. Pull a small chunk of content to look at. Raw PDFs (browser
+    //    extraction failed) get loaded as bytes so we can hand them to
+    //    Claude as a native document block.
+    const { sample, isThin, pdfBytes } = await fetchSample(supabase, doc.storage_path, doc.mime_type);
 
     // 4. If we have nothing to look at, just mark thin and exit.
-    if (!sample) {
+    if (!sample && !pdfBytes) {
       await supabase
         .from("atad2_session_documents")
         .update({ is_thin: true, category_source: "ai" })
@@ -108,19 +110,26 @@ serve(async (req) => {
       return json({ category: doc.category, is_thin: true }, 200);
     }
 
-    // 5. Ask Haiku to classify. Send filename + sample.
+    // 5. Ask Haiku to classify. For raw PDFs we attach the file directly;
+    //    for everything else we send filename + sample text.
     let aiCategory: string | null = null;
     let confidence = 0;
     try {
       const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
+      const userContent = pdfBytes
+        ? [
+            {
+              type: "document" as const,
+              source: { type: "base64" as const, media_type: "application/pdf" as const, data: toBase64(pdfBytes) },
+            },
+            { type: "text" as const, text: `Filename: ${doc.filename}\n\nClassify this PDF.` },
+          ]
+        : [{ type: "text" as const, text: `Filename: ${doc.filename}\n\nContent sample:\n${sample.slice(0, 2000)}` }];
       const response = await client.messages.create({
         model: "claude-haiku-4-5-20251001",
         max_tokens: 100,
         system: SYSTEM_PROMPT,
-        messages: [{
-          role: "user",
-          content: `Filename: ${doc.filename}\n\nContent sample:\n${sample.slice(0, 2000)}`,
-        }],
+        messages: [{ role: "user", content: userContent }],
       });
       const textBlock = response.content.find((b) => b.type === "text");
       if (textBlock && textBlock.type === "text") {
@@ -164,19 +173,35 @@ async function fetchSample(
   supabase: any,
   storagePath: string,
   mimeType: string,
-): Promise<{ sample: string; isThin: boolean }> {
+): Promise<{ sample: string; isThin: boolean; pdfBytes: Uint8Array | null }> {
   // Images have no text content here — flag thin.
   if (mimeType.startsWith("image/")) {
-    return { sample: "", isThin: true };
+    return { sample: "", isThin: true, pdfBytes: null };
   }
   const { data: file, error } = await supabase.storage.from("session-documents").download(storagePath);
-  if (error || !file) return { sample: "", isThin: true };
-  // PDFs and DOCX are stored as text/plain because the client extracts text
-  // at upload time (see useUploadDocument). So we can just .text() everything
-  // text-ish that lands here.
+  if (error || !file) return { sample: "", isThin: true, pdfBytes: null };
+  // Raw PDFs reach this function when browser text extraction failed (scanned
+  // or signed PDFs). Hand the bytes back so the caller can attach them as a
+  // Claude document block; .text() on a PDF would return mangled binary.
+  if (mimeType === "application/pdf") {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    return { sample: "", isThin: false, pdfBytes: bytes };
+  }
+  // DOCX and "regular" PDFs are stored as text/plain because the client
+  // extracts text at upload time (see useUploadDocument). So we can just
+  // .text() everything text-ish that lands here.
   const text = (await file.text()).trim();
   const wordCount = text ? text.split(/\s+/).length : 0;
-  return { sample: text, isThin: wordCount < THIN_WORD_THRESHOLD };
+  return { sample: text, isThin: wordCount < THIN_WORD_THRESHOLD, pdfBytes: null };
+}
+
+function toBase64(bytes: Uint8Array): string {
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
 }
 
 function parseClassification(raw: string): { category: string; confidence: number } | null {

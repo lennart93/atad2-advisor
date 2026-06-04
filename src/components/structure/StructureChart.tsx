@@ -18,18 +18,28 @@ import '@xyflow/react/dist/style.css';
 import { EntityNode, type EntityNodeData, type EntityNodeType } from './nodes/EntityNode';
 import { ClusterNode, type ClusterNodeData, type ClusterNodeType } from './nodes/ClusterNode';
 import {
+  FiscalUnityFrameNode,
+  type FiscalUnityFrameData,
+  type FiscalUnityFrameNodeType,
+} from './nodes/FiscalUnityFrameNode';
+import {
   OwnershipEdge,
   type OwnershipEdgeData,
   type OwnershipEdgeType,
 } from './edges/OwnershipEdge';
 import { NODE_WIDTH, NODE_HEIGHT } from '@/lib/structure/labelMeasure';
 import { FiscalUnityOverlay } from './overlays/FiscalUnityOverlay';
-import type { StructureEntity, StructureEdge, StructureGroup } from '@/lib/structure/types';
+import type { FrameLayout } from '@/lib/structure/fiscalUnityLayout';
+import type { StructureEntity, StructureEdge } from '@/lib/structure/types';
 
-const nodeTypes = { entity: EntityNode, cluster: ClusterNode };
+const nodeTypes = {
+  entity: EntityNode,
+  cluster: ClusterNode,
+  fiscalUnityFrame: FiscalUnityFrameNode,
+};
 const edgeTypes = { ownership: OwnershipEdge };
 
-type ChartNodeType = EntityNodeType | ClusterNodeType;
+type ChartNodeType = EntityNodeType | ClusterNodeType | FiscalUnityFrameNodeType;
 type ChartEdgeType = OwnershipEdgeType;
 
 export interface StructureChartProps {
@@ -54,8 +64,9 @@ export interface StructureChartProps {
   onNodePositionEnd: (id: string, x: number, y: number) => void;
   onConnect: (from: string, to: string) => void;
   onPctChange?: (edgeId: string, newPct: number) => void;
+  onLabelTChange?: (edgeId: string, newT: number) => void;
   ranks: Map<string, number>;
-  groupings: StructureGroup[];
+  frameLayouts: FrameLayout[];
   labelLineBreaks: Map<string, string[]>;
   gridVisible: boolean;
   /**
@@ -115,8 +126,36 @@ function StructureChartInner(props: StructureChartProps) {
       position: c.position,
       data: c.data,
     }));
-    return [...entityNodes, ...clusters];
-  }, [props.entities, props.clusterNodes, props.labelLineBreaks]);
+    // FE-kaders staan eerst in de array (= achter de entiteiten in de DOM)
+    // en zijn niet sleep-/selecteerbaar via React Flow zelf — die rollen
+    // blijven bij onze eigen onFrameClick / sleep-handles in de overlay.
+    const frames: FiscalUnityFrameNodeType[] = props.frameLayouts.map((fl) => ({
+      id: `fe_${fl.groupingId}`,
+      type: 'fiscalUnityFrame',
+      position: { x: fl.x, y: fl.y },
+      draggable: false,
+      selectable: false,
+      data: {
+        groupId: fl.groupingId,
+        kind: fl.kind,
+        label: fl.label,
+        width: fl.width,
+        height: fl.height,
+        isSelected: props.selectedGroupingId === fl.groupingId,
+        onFrameClick: props.onGroupingFrameClick,
+        onLabelClick: props.onGroupingLabelClick,
+      } satisfies FiscalUnityFrameData,
+    }));
+    return [...frames, ...entityNodes, ...clusters];
+  }, [
+    props.entities,
+    props.clusterNodes,
+    props.labelLineBreaks,
+    props.frameLayouts,
+    props.selectedGroupingId,
+    props.onGroupingFrameClick,
+    props.onGroupingLabelClick,
+  ]);
 
   const initialEdges = useMemo<ChartEdgeType[]>(() => {
     // Index entity positions for O(1) lookup when computing per-edge
@@ -165,10 +204,12 @@ function StructureChartInner(props: StructureChartProps) {
             ownership_voting_only: e.ownership_voting_only,
             onPctChange: props.onPctChange,
             intermediateXs,
+            label_t: e.label_t,
+            onLabelTChange: props.onLabelTChange,
           } satisfies OwnershipEdgeData,
         } as OwnershipEdgeType;
       });
-  }, [props.edges, props.entities, props.onPctChange]);
+  }, [props.edges, props.entities, props.onPctChange, props.onLabelTChange]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<ChartNodeType>(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState<ChartEdgeType>(initialEdges);
@@ -261,9 +302,7 @@ function StructureChartInner(props: StructureChartProps) {
         fitView
       >
         <FiscalUnityOverlay
-          groupings={props.groupings}
-          onLabelClick={props.onGroupingLabelClick}
-          onFrameClick={props.onGroupingFrameClick}
+          frameLayouts={props.frameLayouts}
           onBoundsOverrideChange={props.onGroupingBoundsOverride}
           selectedId={props.selectedGroupingId ?? null}
         />
