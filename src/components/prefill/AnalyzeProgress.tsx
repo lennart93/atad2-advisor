@@ -55,14 +55,16 @@ export function AnalyzeProgress({ sessionId, onContinue }: Props) {
   const fullCoverage = total != null && prefillCount >= total;
   const ready = completed || fullCoverage;
 
-  // Real progress: prefill rows over expected total. If we don't yet know
-  // the total (cold cache on first ever load) fall back to a slow time-based
-  // crawl so the bar isn't frozen at 0 — but cap it at 50 so we never look
-  // "almost done" without real data.
+  // Real progress: prefill rows over expected total.
   const realPct = total != null
     ? Math.min(100, Math.round((prefillCount / total) * 100))
     : null;
 
+  // Time-based curve runs to 100% over the full WAIT_TIMEOUT window so the
+  // bar never visually hangs between prefill writes. The "honesty signal"
+  // is the X/Y count badge in the corner; the bar's job is to feel alive.
+  // Real progress can push pct higher (e.g. swarm finishes fast) but the
+  // curve keeps the floor moving so users don't think we've frozen.
   const [fallbackPct, setFallbackPct] = useState(0);
   useEffect(() => {
     if (ready) {
@@ -73,7 +75,7 @@ export function AnalyzeProgress({ sessionId, onContinue }: Props) {
       const elapsed = Date.now() - startedAtRef.current;
       const fraction = Math.min(1, elapsed / WAIT_TIMEOUT_MS);
       const eased = 1 - Math.pow(1 - fraction, 1.6);
-      setFallbackPct(Math.min(50, eased * 50));
+      setFallbackPct(Math.min(99, eased * 100));
       if (elapsed >= WAIT_TIMEOUT_MS) {
         window.clearInterval(tick);
         setTimedOut(true);
