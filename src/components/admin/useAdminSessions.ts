@@ -21,6 +21,10 @@ export interface AdminSessionRow {
   created_at: string;
   updated_at: string;
   owner: SessionOwner | null;
+  // Commercial tracking (admin-only writes). sold = engagement booked,
+  // revenue_eur = fee (quoted or booked), null = no amount entered yet.
+  sold: boolean;
+  revenue_eur: number | null;
   // null = live session, ISO timestamp = deleted snapshot from atad2_assessment_log
   deleted_at: string | null;
 }
@@ -61,7 +65,7 @@ export function useAdminSessionsList() {
       const { data, error } = await supabase
         .from("atad2_sessions")
         .select(
-          "id, session_id, user_id, taxpayer_name, entity_name, fiscal_year, status, final_score, completed, confirmed_at, created_at, updated_at"
+          "id, session_id, user_id, taxpayer_name, entity_name, fiscal_year, status, final_score, completed, confirmed_at, created_at, updated_at, sold, revenue_eur"
         )
         .order("created_at", { ascending: false })
         .limit(1000);
@@ -112,6 +116,10 @@ export function useAdminSessionsList() {
           owner: e.user_email
             ? { full_name: e.user_full_name ?? null, email: e.user_email }
             : null,
+          // The assessment log doesn't snapshot commercial fields; deleted
+          // sessions never count toward the revenue totals.
+          sold: false,
+          revenue_eur: null,
           deleted_at: e.event_at,
         });
       }
@@ -147,7 +155,9 @@ export function useAdminSession(sessionId: string | undefined) {
         if (profile) owner = { full_name: profile.full_name, email: profile.email };
       }
 
-      return { ...data, owner } as AdminSessionDetail;
+      // The detail hook always reads a live session row, so it is never a
+      // deleted snapshot.
+      return { ...data, owner, deleted_at: null } as AdminSessionDetail;
     },
   });
 }
@@ -271,5 +281,63 @@ export function usePurgeAdminLogEntry() {
       qc.invalidateQueries({ queryKey: ["admin-sessions"] });
     },
     onError: (e: Error) => toast.error(e.message ?? "Purge failed"),
+  });
+}
+
+export interface SetSessionRevenueVars {
+  // The public session_id (the RPC's lookup key), not the row UUID.
+  sessionId: string;
+  sold: boolean;
+  revenueEur: number | null;
+}
+
+// Admin-only: record whether an assessment was sold and for what fee.
+// Writes go through the admin_set_session_revenue SECURITY DEFINER RPC
+// (the table's UPDATE policy is owner-only). Optimistic so the row and the
+// booked/pipeline totals update instantly, with rollback on failure.
+export function useSetSessionRevenue() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ sessionId, sold, revenueEur }: SetSessionRevenueVars) => {
+      const { error } = await supabase.rpc("admin_set_session_revenue", {
+        p_session_id: sessionId,
+        p_sold: sold,
+        p_revenue_eur: revenueEur,
+      });
+      if (error) throw error;
+    },
+    onMutate: async (vars) => {
+      await qc.cancelQueries({ queryKey: ["admin-sessions"] });
+      const previous = qc.getQueryData<AdminSessionRow[]>(["admin-sessions"]);
+      const prevRow = previous?.find(
+        (r) => r.session_id === vars.sessionId && !r.deleted_at
+      );
+      qc.setQueryData<AdminSessionRow[]>(["admin-sessions"], (rows) =>
+        (rows ?? []).map((r) =>
+          r.session_id === vars.sessionId && !r.deleted_at
+            ? { ...r, sold: vars.sold, revenue_eur: vars.revenueEur }
+            : r
+        )
+      );
+      return { prevRow };
+    },
+    // Roll back only the row we touched (not the whole list snapshot) so a
+    // concurrent in-flight edit on a different row isn't reverted.
+    onError: (e: Error, vars, ctx) => {
+      const prev = ctx?.prevRow;
+      if (prev) {
+        qc.setQueryData<AdminSessionRow[]>(["admin-sessions"], (rows) =>
+          (rows ?? []).map((r) =>
+            r.session_id === vars.sessionId && !r.deleted_at
+              ? { ...r, sold: prev.sold, revenue_eur: prev.revenue_eur }
+              : r
+          )
+        );
+      }
+      toast.error(e.message ?? "Could not save");
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["admin-sessions"] });
+    },
   });
 }

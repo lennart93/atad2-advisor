@@ -561,7 +561,11 @@ export type Database = {
           period_end_date: string | null
           period_start_date: string | null
           preliminary_outcome: string | null
+          revenue_eur: number | null
+          revenue_updated_at: string | null
+          revenue_updated_by: string | null
           session_id: string
+          sold: boolean
           status: string
           taxpayer_name: string
           updated_at: string
@@ -586,7 +590,11 @@ export type Database = {
           period_end_date?: string | null
           period_start_date?: string | null
           preliminary_outcome?: string | null
+          revenue_eur?: number | null
+          revenue_updated_at?: string | null
+          revenue_updated_by?: string | null
           session_id: string
+          sold?: boolean
           status?: string
           taxpayer_name: string
           updated_at?: string
@@ -611,7 +619,11 @@ export type Database = {
           period_end_date?: string | null
           period_start_date?: string | null
           preliminary_outcome?: string | null
+          revenue_eur?: number | null
+          revenue_updated_at?: string | null
+          revenue_updated_by?: string | null
           session_id?: string
+          sold?: boolean
           status?: string
           taxpayer_name?: string
           updated_at?: string
@@ -1009,6 +1021,14 @@ export type Database = {
     Functions: {
       admin_reset_session: {
         Args: { p_session_id: string }
+        Returns: Json
+      }
+      admin_set_session_revenue: {
+        Args: {
+          p_revenue_eur: number | null
+          p_session_id: string
+          p_sold: boolean
+        }
         Returns: Json
       }
       anonymize_old_sessions: { Args: never; Returns: undefined }

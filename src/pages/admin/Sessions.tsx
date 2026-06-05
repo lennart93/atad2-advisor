@@ -1,19 +1,23 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Download, Trash2 } from "lucide-react";
+import { Check, Download, Euro, Trash2 } from "lucide-react";
 import { Seo } from "@/components/Seo";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "@/components/ui/sonner";
+import { cn } from "@/lib/utils";
 import { SearchFilterBar } from "@/components/admin/SearchFilterBar";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { StatusChip } from "@/components/admin/StatChip";
+import { useAdminAccess } from "@/hooks/useAdminAccess";
 import {
   useAdminSessionsList, useDeleteAdminSession, usePurgeAdminLogEntry,
-  AdminSessionRow,
+  useSetSessionRevenue, AdminSessionRow,
 } from "@/components/admin/useAdminSessions";
 import { exportAssessmentsToExcel } from "@/lib/admin/exportAssessments";
 
@@ -36,9 +40,37 @@ function scoreTone(score: number | null): "success" | "warning" | "danger" | "ne
   return "success";
 }
 
+const eur0 = new Intl.NumberFormat("en-IE", {
+  style: "currency", currency: "EUR", maximumFractionDigits: 0,
+});
+const eur2 = new Intl.NumberFormat("en-IE", {
+  style: "currency", currency: "EUR", minimumFractionDigits: 2, maximumFractionDigits: 2,
+});
+// Whole euros are the norm for advisory fees; only show cents when present.
+function formatEur(n: number): string {
+  return Number.isInteger(n) ? eur0.format(n) : eur2.format(n);
+}
+
+// revenue_eur is numeric(12,2): max 9,999,999,999.99. Reject larger amounts
+// client-side so they never reach the RPC and overflow with a raw Postgres error.
+const MAX_FEE = 9_999_999_999.99;
+
+// Parse a free-text fee field. Accepts both "1000.50" and the Dutch
+// comma-decimal "1000,50"; rejects ambiguous/garbled input (multiple
+// separators, letters, over-max) so a wrong number can never save silently.
+function parseFee(raw: string): { valid: boolean; value: number | null } {
+  const normalized = raw.trim().replace(/\s/g, "").replace(",", ".");
+  if (normalized === "") return { valid: true, value: null };
+  if (!/^\d+(\.\d{1,2})?$/.test(normalized)) return { valid: false, value: null };
+  const n = parseFloat(normalized);
+  if (!Number.isFinite(n) || n > MAX_FEE) return { valid: false, value: null };
+  return { valid: true, value: n };
+}
+
 const Sessions = () => {
   const navigate = useNavigate();
   const { data, isLoading } = useAdminSessionsList();
+  const { canEdit } = useAdminAccess();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [exporting, setExporting] = useState(false);
@@ -78,6 +110,24 @@ const Sessions = () => {
     () => (data ?? []).filter((s) => s.deleted_at).length,
     [data]
   );
+
+  // Booked = sold fees; Pipeline = fees entered but not yet sold. Computed over
+  // the currently visible (filtered) live sessions so the totals track search
+  // and status filters. Deleted snapshots carry no commercial data.
+  const totals = useMemo(() => {
+    const live = filtered.filter((s) => !s.deleted_at);
+    let booked = 0, pipeline = 0, soldCount = 0, openCount = 0;
+    for (const s of live) {
+      if (s.sold) {
+        booked += s.revenue_eur ?? 0;
+        soldCount += 1;
+      } else if (s.revenue_eur != null) {
+        pipeline += s.revenue_eur;
+        openCount += 1;
+      }
+    }
+    return { booked, pipeline, soldCount, openCount, hasLive: live.length > 0 };
+  }, [filtered]);
 
   const deleteSession = useDeleteAdminSession();
   const purgeLogEntry = usePurgeAdminLogEntry();
@@ -130,6 +180,26 @@ const Sessions = () => {
         }
       />
 
+      {!isLoading && totals.hasLive && (
+        <div className="mb-4 flex items-stretch overflow-hidden rounded-[14px] border border-[#ececec] bg-white">
+          <SummaryStat
+            label="Booked"
+            amount={totals.booked}
+            count={totals.soldCount}
+            countLabel="sold"
+            tone="booked"
+          />
+          <div className="w-px bg-[#ececec]" />
+          <SummaryStat
+            label="Pipeline"
+            amount={totals.pipeline}
+            count={totals.openCount}
+            countLabel="open"
+            tone="pipeline"
+          />
+        </div>
+      )}
+
       {isLoading ? (
         <div className="space-y-2">
           <Skeleton className="h-16 w-full" />
@@ -142,6 +212,7 @@ const Sessions = () => {
             <SessionRow
               key={s.id}
               session={s}
+              canEdit={canEdit}
               onOpen={
                 s.deleted_at
                   ? undefined
@@ -160,12 +231,46 @@ const Sessions = () => {
   );
 };
 
+function SummaryStat({
+  label, amount, count, countLabel, tone,
+}: {
+  label: string;
+  amount: number;
+  count: number;
+  countLabel: string;
+  tone: "booked" | "pipeline";
+}) {
+  return (
+    <div className="flex-1 px-5 py-3.5">
+      <div className="flex items-center gap-2">
+        <span
+          className={cn(
+            "inline-block size-1.5 rounded-full",
+            tone === "booked" ? "bg-emerald-500" : "bg-amber-400"
+          )}
+        />
+        <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground font-medium">
+          {label}
+        </span>
+      </div>
+      <div className="mt-1.5 text-2xl font-semibold tracking-tight tabular-nums text-foreground">
+        {formatEur(amount)}
+      </div>
+      <div className="mt-0.5 text-[11px] text-muted-foreground tabular-nums">
+        {count} {countLabel}
+      </div>
+    </div>
+  );
+}
+
 function SessionRow({
   session,
+  canEdit,
   onOpen,
   onDelete,
 }: {
   session: AdminSessionRow;
+  canEdit: boolean;
   onOpen?: () => void;
   onDelete: () => void;
 }) {
@@ -210,6 +315,7 @@ function SessionRow({
       {!isDeleted && session.final_score != null && (
         <StatusChip label={`Score ${session.final_score.toFixed(1)}`} tone={scoreTone(session.final_score)} />
       )}
+      {!isDeleted && <RevenueCell session={session} canEdit={canEdit} />}
       <div className="font-mono text-xs text-muted-foreground whitespace-nowrap w-[120px] text-right">
         {new Date(session.created_at).toLocaleDateString()}
       </div>
@@ -226,6 +332,184 @@ function SessionRow({
         <Trash2 className="size-4" />
       </Button>
     </AdminCard>
+  );
+}
+
+function RevenuePill({
+  sold, revenue,
+}: {
+  sold: boolean;
+  revenue: number | null;
+}) {
+  // Booked (sold): solid emerald with a check. Open (quote, not yet sold):
+  // dashed amber outline to signal "potential, not booked".
+  if (sold) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-md bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800 tabular-nums">
+        <Check className="size-3" />
+        {revenue != null ? formatEur(revenue) : "Sold"}
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center rounded-md border border-dashed border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 tabular-nums">
+      {revenue != null ? formatEur(revenue) : ""}
+    </span>
+  );
+}
+
+function RevenueCell({
+  session,
+  canEdit,
+}: {
+  session: AdminSessionRow;
+  canEdit: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [sold, setSold] = useState(session.sold);
+  const [amountStr, setAmountStr] = useState(
+    session.revenue_eur != null ? String(session.revenue_eur) : ""
+  );
+  const setRevenue = useSetSessionRevenue();
+
+  const hasValue = session.sold || session.revenue_eur != null;
+
+  const seedFromRow = () => {
+    setSold(session.sold);
+    setAmountStr(session.revenue_eur != null ? String(session.revenue_eur) : "");
+  };
+
+  const { valid: amountValid, value: parsedAmount } = useMemo(
+    () => parseFee(amountStr),
+    [amountStr]
+  );
+
+  const save = (next: { sold: boolean; revenueEur: number | null }) => {
+    setRevenue.mutate(
+      { sessionId: session.session_id, ...next },
+      { onSuccess: () => setOpen(false) }
+    );
+  };
+
+  // Read-only for moderators: show the value (if any), no editor.
+  if (!canEdit) {
+    return (
+      <div className="w-[150px] flex justify-end">
+        {hasValue ? <RevenuePill sold={session.sold} revenue={session.revenue_eur} /> : null}
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-[150px] flex justify-end" onClick={(e) => e.stopPropagation()}>
+      <Popover
+        open={open}
+        onOpenChange={(o) => {
+          if (o) seedFromRow();
+          setOpen(o);
+        }}
+      >
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            onClick={(e) => e.stopPropagation()}
+            className="rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+            title={hasValue ? "Edit revenue" : "Record revenue"}
+          >
+            {hasValue ? (
+              <RevenuePill sold={session.sold} revenue={session.revenue_eur} />
+            ) : (
+              <span className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+                <Euro className="size-3" />
+                Fee
+              </span>
+            )}
+          </button>
+        </PopoverTrigger>
+        <PopoverContent
+          align="end"
+          className="w-64"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-sm font-medium leading-none">Mark as sold</div>
+                <div className="mt-1 text-[11px] text-muted-foreground">Engagement booked with the client</div>
+              </div>
+              <Switch checked={sold} onCheckedChange={setSold} aria-label="Mark as sold" />
+            </div>
+
+            <div>
+              <label
+                htmlFor={`fee-${session.id}`}
+                className="text-[11px] font-medium text-muted-foreground"
+              >
+                Fee (EUR)
+              </label>
+              <div
+                className={cn(
+                  "mt-1 flex items-center rounded-md border focus-within:ring-1",
+                  amountValid
+                    ? "border-input focus-within:ring-ring"
+                    : "border-destructive focus-within:ring-destructive"
+                )}
+              >
+                <span className="pl-3 pr-1 text-sm text-muted-foreground">€</span>
+                <input
+                  id={`fee-${session.id}`}
+                  inputMode="decimal"
+                  value={amountStr}
+                  aria-invalid={!amountValid}
+                  onChange={(e) => setAmountStr(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && amountValid) {
+                      e.preventDefault();
+                      save({ sold, revenueEur: parsedAmount });
+                    }
+                  }}
+                  placeholder="0"
+                  autoFocus
+                  className="h-9 flex-1 bg-transparent pr-3 text-sm outline-none tabular-nums placeholder:text-muted-foreground"
+                />
+              </div>
+              <p
+                className={cn(
+                  "mt-1 text-[11px]",
+                  amountValid ? "text-muted-foreground" : "text-destructive"
+                )}
+              >
+                {amountValid
+                  ? "Enter the fee any time; flip Sold once it is booked."
+                  : "Enter a number like 1000 or 1000.50."}
+              </p>
+            </div>
+
+            <div className="flex items-center justify-between gap-2 pt-1">
+              {hasValue ? (
+                <button
+                  type="button"
+                  onClick={() => save({ sold: false, revenueEur: null })}
+                  disabled={setRevenue.isPending}
+                  className="text-xs text-muted-foreground transition-colors hover:text-destructive disabled:opacity-50"
+                >
+                  Clear
+                </button>
+              ) : (
+                <span />
+              )}
+              <Button
+                size="sm"
+                onClick={() => save({ sold, revenueEur: parsedAmount })}
+                disabled={setRevenue.isPending || !amountValid}
+              >
+                {setRevenue.isPending ? "Saving…" : "Save"}
+              </Button>
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
+    </div>
   );
 }
 

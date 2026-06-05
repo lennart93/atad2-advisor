@@ -19,6 +19,16 @@ export async function exportAssessmentsToExcel(): Promise<void> {
   if (error) throw error;
   const rows = (data ?? []) as LogRow[];
 
+  // Commercial tracking lives on the live sessions table (not the log), so
+  // pull sold/revenue and merge by session_id into the assessment export.
+  const { data: revenueRows } = await supabase
+    .from("atad2_sessions")
+    .select("session_id, sold, revenue_eur");
+  const revenueBySession = new Map<string, { sold: boolean; revenue_eur: number | null }>();
+  for (const r of revenueRows ?? []) {
+    revenueBySession.set(r.session_id, { sold: r.sold, revenue_eur: r.revenue_eur });
+  }
+
   // Latest snapshot per session_id (rows are already DESC by event_at)
   const latestPerSession = new Map<string, LogRow>();
   for (const r of rows) {
@@ -39,6 +49,8 @@ export async function exportAssessmentsToExcel(): Promise<void> {
     { header: "User email",          key: "user_email",           width: 30 },
     { header: "Status",              key: "status",               width: 14 },
     { header: "Final score",         key: "final_score",          width: 12 },
+    { header: "Sold",                key: "sold",                 width: 8 },
+    { header: "Amount (EUR)",        key: "revenue_eur",          width: 14 },
     { header: "Preliminary outcome", key: "preliminary_outcome",  width: 22 },
     { header: "Confirmed",           key: "outcome_confirmed",    width: 12 },
     { header: "Created at",          key: "session_created_at",   width: 22 },
@@ -49,6 +61,7 @@ export async function exportAssessmentsToExcel(): Promise<void> {
   for (const r of Array.from(latestPerSession.values()).sort((a, b) =>
     (a.session_created_at ?? "").localeCompare(b.session_created_at ?? "")
   )) {
+    const rev = revenueBySession.get(r.session_id);
     assessments.addRow({
       session_id: r.session_id,
       taxpayer_name: r.taxpayer_name,
@@ -58,6 +71,8 @@ export async function exportAssessmentsToExcel(): Promise<void> {
       user_email: r.user_email,
       status: r.status,
       final_score: r.final_score,
+      sold: rev?.sold ? "Yes" : "",
+      revenue_eur: rev?.revenue_eur ?? null,
       preliminary_outcome: r.preliminary_outcome,
       outcome_confirmed: r.outcome_confirmed,
       session_created_at: toExcelDate(r.session_created_at),
