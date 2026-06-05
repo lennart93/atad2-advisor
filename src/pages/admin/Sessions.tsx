@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Check, Download, Euro, Trash2 } from "lucide-react";
+import { Check, Download, Plus, Trash2 } from "lucide-react";
 import { Seo } from "@/components/Seo";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -41,10 +41,10 @@ function scoreTone(score: number | null): "success" | "warning" | "danger" | "ne
 }
 
 const eur0 = new Intl.NumberFormat("en-IE", {
-  style: "currency", currency: "EUR", maximumFractionDigits: 0,
+  style: "currency", currency: "EUR", currencyDisplay: "code", maximumFractionDigits: 0,
 });
 const eur2 = new Intl.NumberFormat("en-IE", {
-  style: "currency", currency: "EUR", minimumFractionDigits: 2, maximumFractionDigits: 2,
+  style: "currency", currency: "EUR", currencyDisplay: "code", minimumFractionDigits: 2, maximumFractionDigits: 2,
 });
 // Whole euros are the norm for advisory fees; only show cents when present.
 function formatEur(n: number): string {
@@ -420,7 +420,7 @@ function RevenueCell({
               <RevenuePill sold={session.sold} revenue={session.revenue_eur} />
             ) : (
               <span className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
-                <Euro className="size-3" />
+                <Plus className="size-3" />
                 Fee
               </span>
             )}
@@ -455,7 +455,7 @@ function RevenueCell({
                     : "border-destructive focus-within:ring-destructive"
                 )}
               >
-                <span className="pl-3 pr-1 text-sm text-muted-foreground">€</span>
+                <span className="pl-3 pr-1.5 text-sm text-muted-foreground">EUR</span>
                 <input
                   id={`fee-${session.id}`}
                   inputMode="decimal"
