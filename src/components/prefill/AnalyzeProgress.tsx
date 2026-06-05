@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
@@ -7,7 +9,11 @@ import { usePrefillJob, useAllPrefills } from "@/hooks/usePrefill";
 import { useUiBusySignal } from "@/stores/uiBusyStore";
 import { ArrowRight } from "lucide-react";
 
-const WAIT_TIMEOUT_MS = 120_000;
+// After this many ms we let the user start even if the job hasn't finished,
+// with a clear "anyway" label. Set well above the worst-case swarm time
+// (~90s with a raw PDF at concurrency 4) so the honest path almost always
+// wins.
+const WAIT_TIMEOUT_MS = 180_000;
 
 interface Props {
   sessionId: string;
@@ -18,30 +24,56 @@ export function AnalyzeProgress({ sessionId, onContinue }: Props) {
   const { data: job } = usePrefillJob(sessionId);
   const { data: prefills } = useAllPrefills(sessionId);
 
-  const [pct, setPct] = useState(0);
+  // Total distinct question count comes from the questions table. We need
+  // this to compute *real* progress; the previous time-based ease curve
+  // looked plausible but unlocked the Continue button as soon as a single
+  // prefill landed (1 of 49 = "ready"), which is why users routinely
+  // outran the swarm and saw empty suggestions on Q1-Q3.
+  const { data: totalQuestions } = useQuery({
+    queryKey: ["atad2-question-count"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("atad2_questions")
+        .select("question_id");
+      if (!data) return null;
+      return new Set(data.map((q) => q.question_id)).size;
+    },
+    staleTime: 60 * 60 * 1000,
+  });
+
   const [timedOut, setTimedOut] = useState(false);
   const startedAtRef = useRef<number>(Date.now());
 
-  // "Ready" the moment the first prefill lands. The swarm keeps running on
-  // the server side; remaining suggestions arrive via Realtime as the user
-  // works through the questionnaire.
-  const hasFirstPrefill = (prefills?.length ?? 0) > 0;
+  const prefillCount = prefills?.length ?? 0;
+  const total = totalQuestions ?? null;
+  const completed = job?.status === "completed";
   const failed = job?.status === "failed";
-  const ready = hasFirstPrefill;
 
+  // Ready means the swarm actually finished. If for some reason the job
+  // status didn't flip (browser closed mid-run, etc.) but we have a
+  // full-coverage prefill count, treat that as ready too.
+  const fullCoverage = total != null && prefillCount >= total;
+  const ready = completed || fullCoverage;
+
+  // Real progress: prefill rows over expected total. If we don't yet know
+  // the total (cold cache on first ever load) fall back to a slow time-based
+  // crawl so the bar isn't frozen at 0 — but cap it at 50 so we never look
+  // "almost done" without real data.
+  const realPct = total != null
+    ? Math.min(100, Math.round((prefillCount / total) * 100))
+    : null;
+
+  const [fallbackPct, setFallbackPct] = useState(0);
   useEffect(() => {
     if (ready) {
-      setPct(100);
+      setFallbackPct(100);
+      return;
     }
-  }, [ready]);
-
-  useEffect(() => {
-    if (ready) return;
     const tick = window.setInterval(() => {
       const elapsed = Date.now() - startedAtRef.current;
       const fraction = Math.min(1, elapsed / WAIT_TIMEOUT_MS);
       const eased = 1 - Math.pow(1 - fraction, 1.6);
-      setPct(Math.min(95, eased * 95));
+      setFallbackPct(Math.min(50, eased * 50));
       if (elapsed >= WAIT_TIMEOUT_MS) {
         window.clearInterval(tick);
         setTimedOut(true);
@@ -50,12 +82,11 @@ export function AnalyzeProgress({ sessionId, onContinue }: Props) {
     return () => window.clearInterval(tick);
   }, [ready]);
 
+  const pct = ready ? 100 : (realPct != null ? Math.max(realPct, fallbackPct) : fallbackPct);
+
   const canContinue = ready || timedOut || failed;
   const buttonLabel = !ready && (timedOut || failed) ? "Start questions anyway" : "Start questions";
 
-  // Top-left AppLayout logo spins while we're actively reading documents. The
-  // signal turns off as soon as the first suggestion lands (ready) or the job
-  // gives up — the card itself stays on screen showing the result state.
   useUiBusySignal(!ready && !failed && !timedOut);
 
   const statusLabel = failed
@@ -66,13 +97,19 @@ export function AnalyzeProgress({ sessionId, onContinue }: Props) {
     ? "Still working in the background"
     : "Reading your documents…";
 
+  const countLabel = total != null
+    ? `${prefillCount} of ${total} suggestions ready`
+    : prefillCount > 0
+    ? `${prefillCount} suggestions ready`
+    : "Drafting suggestions…";
+
   const statusDetail = failed
     ? "You can start the questions now; suggestions may still appear inline if the analysis recovers in the background."
     : ready
-    ? "The questionnaire is unlocked. More suggestions will keep arriving as the analysis finishes."
+    ? "All suggestions are in. You can start the questions now."
     : timedOut
-    ? "We didn't finish in time. You can start the questions now; suggestions will appear inline as we finish."
-    : "We're reading your documents and drafting suggested answers.";
+    ? "We didn't finish in time. You can start the questions now; remaining suggestions will appear inline as they arrive."
+    : `${countLabel}. Please wait for the analysis to finish so suggestions are ready when you reach each question.`;
 
   return (
     <>
