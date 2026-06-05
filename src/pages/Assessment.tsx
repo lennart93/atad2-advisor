@@ -33,7 +33,7 @@ import { AutoGrowTextarea } from "@/components/ui/AutoGrowTextarea";
 import { ContextSkeleton, ContextEmptyState, ContextErrorState } from "@/components/ContextPanelStates";
 import { ContextPanelFallback } from "@/components/ContextPanelFallback";
 import { SuggestionCard } from "@/components/prefill/SuggestionCard";
-import { useQuestionPrefill, usePrefillJob, useSessionDocuments } from "@/hooks/usePrefill";
+import { useAllPrefills, useQuestionPrefill, usePrefillJob, useSessionDocuments } from "@/hooks/usePrefill";
 import { seededIndex } from "@/utils/random";
 import { motion } from "framer-motion";
 import { startExtraction } from "@/lib/structure/extraction";
@@ -406,10 +406,21 @@ const Assessment = () => {
   // Reuse the prefill we already fetched above for the panel controller.
   const currentPrefill = currentPrefillForGate;
   const { data: prefillJob } = usePrefillJob(sessionId || null);
+  const { data: allPrefills } = useAllPrefills(sessionId || null);
   // Background pipeline: never block Next on AI progress. Suggestions
   // arrive via Realtime when ready; user can answer at their own pace.
   const isWaitingForPrefill = false;
   void prefillJob; // referenced via job-status banner only
+
+  // Surface analyze-progress at the top of the assessment so users don't
+  // outrun the swarm and end up on Q5 wondering why the AI never spoke up.
+  // Observed: user blasted through Q1-Q3 in 4 seconds, Q1's prefill landed
+  // 35 seconds later, and the SuggestionCard's strict answer-match gate
+  // meant they never saw it. Banner stays up until job completes; clicking
+  // back to an earlier question still shows the late-arrived suggestion
+  // (the prefill query is realtime-subscribed).
+  const prefillCount = allPrefills?.length ?? 0;
+  const showAnalyzeBanner = prefillJob?.status === "stage2_running";
 
   // Picking the answer is always a deliberate user action. The AI's
   // suggestion shows up as a "Suggested" badge on the option, but we never
@@ -2072,6 +2083,20 @@ const Assessment = () => {
 
   return (
     <div>
+        {showAnalyzeBanner && (
+          <div className="mb-4 rounded-md border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm text-blue-900 flex items-center gap-3">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-500"></span>
+            </span>
+            <span>
+              AI is reading your documents. {prefillCount > 0
+                ? `${prefillCount} suggestion${prefillCount === 1 ? "" : "s"} ready so far.`
+                : "Suggestions will appear shortly."}
+              {" "}You can answer at your own pace, but expect the first suggestions to land within about a minute. If you have already moved past a question, click it in the sidebar to see any late-arriving suggestion.
+            </span>
+          </div>
+        )}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           <div className="lg:col-span-1">
             <AssessmentSidebar

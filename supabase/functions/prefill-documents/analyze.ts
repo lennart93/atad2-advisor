@@ -166,18 +166,29 @@ export async function runAnalyzeOne(
       }
     }
 
+    // Truncate fields that have CHECK length constraints. The model is
+    // instructed to stay within limits, but Opus occasionally overshoots
+    // (answer_rationale > 200 chars was observed dropping ~1/30 rows with a
+    // hard atad2_question_prefills_answer_rationale_check failure).
+    // Keeping the row with a truncated rationale is better than losing the
+    // whole prefill and showing the user "no suggestion".
+    const truncate = (s: string | null | undefined, max: number): string | null => {
+      if (!s) return s ?? null;
+      return s.length <= max ? s : s.slice(0, max - 1) + "…";
+    };
+
     const { error: upsertErr } = await serviceClient
       .from("atad2_question_prefills")
       .upsert({
         session_id: sessionId,
         question_id: questionId,
-        suggested_toelichting: parsed.suggested_toelichting,
+        suggested_toelichting: truncate(parsed.suggested_toelichting, 1000),
         source_refs: parsed.source_refs,
         suggested_answer: parsed.suggested_answer,
         confidence_pct: parsed.confidence_pct,
-        answer_rationale: parsed.answer_rationale,
-        contextual_hint: parsed.contextual_hint,
-        suggested_toelichting_unknown: unknownToelichting,
+        answer_rationale: truncate(parsed.answer_rationale, 200),
+        contextual_hint: truncate(parsed.contextual_hint, 1000),
+        suggested_toelichting_unknown: truncate(unknownToelichting, 1000),
         user_action: "pending",
       }, { onConflict: "session_id,question_id" });
 
