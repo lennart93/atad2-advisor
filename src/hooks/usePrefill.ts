@@ -136,6 +136,22 @@ export function useUploadDocument(sessionId: string | null) {
           const combined = Array.isArray(text) ? text.join("\n\n") : text;
           extracted = (combined ?? "").trim();
         } catch (err) {
+          // pdf.js throws PasswordException for password-protected PDFs.
+          // Claude can't read encrypted PDFs either, so fail fast with a
+          // clear instruction instead of silently uploading bytes the
+          // server-side fallback won't be able to OCR.
+          const msg = (err as { message?: string })?.message ?? "";
+          const name = (err as { name?: string })?.name ?? "";
+          const isPwd =
+            name === "PasswordException" ||
+            /password/i.test(msg) ||
+            /encrypted/i.test(msg);
+          if (isPwd) {
+            console.warn("[upload-document] PDF is password-protected, rejecting", { name, msg });
+            throw new Error(
+              "This PDF is password-protected. Open it in Preview or Acrobat, save it without a password, and upload again.",
+            );
+          }
           console.warn("[upload-document] browser PDF extract threw, will fall back to server OCR", err);
           extracted = null;
         }

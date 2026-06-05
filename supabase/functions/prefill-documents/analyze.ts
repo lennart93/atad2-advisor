@@ -81,28 +81,34 @@ export async function runAnalyzeOne(
     const imageBlocks = await fetchImageBlocks(serviceClient, sessionId, questionId, imageRefs);
     const pdfBlocks = await fetchPdfBlocks(serviceClient, sessionId, questionId, pdfRefs);
 
-    // Layout: [textPrefix, pdf header (if any), pdf blocks…, image header
-    // (if any), image blocks…, questionSuffix]. The cache marker sits on the
-    // LAST prefix block (or on the lone text prefix when there are no
-    // attachments) so the whole document + image + pdf context is cached
-    // together — written once per session, read by every other question
-    // call in the swarm.
-    const pdfHeaderBlock: AnthropicBlock | null = pdfBlocks.length > 0
-      ? { type: "text", text: buildPdfHeader(pdfRefs) }
-      : null;
-    const imageHeaderBlock: AnthropicBlock | null = imageBlocks.length > 0
-      ? { type: "text", text: buildImageHeader(imageRefs) }
-      : null;
+    // Layout per Anthropic best practice for PDFs/images: attachments FIRST,
+    // then text. Order: [pdf blocks…, image blocks…, text(docPrefix +
+    // attachment list), text(questionSuffix)]. The cache marker sits on the
+    // text-prefix block so everything before the question is cached, written
+    // once per session and read by every other question call in the swarm.
+    const attachmentList = buildAttachmentList(pdfRefs, imageRefs);
+    const cachedTextPrefix = docPrefix + attachmentList;
 
     type CacheableBlock = AnthropicBlock & { cache_control?: { type: "ephemeral" } };
-    const prefix: CacheableBlock[] = [{ type: "text", text: docPrefix }];
-    if (pdfHeaderBlock) prefix.push(pdfHeaderBlock);
+    const prefix: CacheableBlock[] = [];
     for (const pb of pdfBlocks) prefix.push(pb);
-    if (imageHeaderBlock) prefix.push(imageHeaderBlock);
     for (const ib of imageBlocks) prefix.push(ib);
+    prefix.push({ type: "text", text: cachedTextPrefix });
     prefix[prefix.length - 1].cache_control = { type: "ephemeral" };
 
     const userContent: CacheableBlock[] = [...prefix, { type: "text", text: questionSuffix }];
+
+    // Diagnostic: log what we actually shipped to Anthropic. Critical for
+    // debugging "PDF was uploaded but model returned no info" cases — proves
+    // whether the PDF made it into the request payload at all.
+    console.log(JSON.stringify({
+      level: "info", event: "swarm_one_request_built",
+      session_id: sessionId, question_id: questionId,
+      pdf_refs_in: pdfRefs.length, pdf_blocks_attached: pdfBlocks.length,
+      image_refs_in: imageRefs.length, image_blocks_attached: imageBlocks.length,
+      doc_prefix_chars: docPrefix.length,
+      block_types: userContent.map((b) => b.type),
+    }));
 
     const { text, usage } = await callOpus({
       model: prompt.model,
@@ -234,20 +240,35 @@ async function synthesizeUnknownToelichting(hint: string): Promise<string | null
   return cleaned;
 }
 
-function buildImageHeader(refs: ImageRef[]): string {
-  const lines = refs.map((r, i) => {
-    const note = r.relevance_note ? ` — ${r.relevance_note}` : "";
-    return `  [${i + 1}] ${r.doc_label}${note}`;
-  });
-  return `\n\nThe following ${refs.length} image document${refs.length === 1 ? " is" : "s are"} attached for visual reference:\n${lines.join("\n")}\n`;
-}
-
-function buildPdfHeader(refs: PdfRef[]): string {
-  const lines = refs.map((r, i) => {
-    const note = r.relevance_note ? ` — ${r.relevance_note}` : "";
-    return `  [${i + 1}] ${r.doc_label}${note}`;
-  });
-  return `\n\nThe following ${refs.length} PDF document${refs.length === 1 ? " is" : "s are"} attached as native PDF (browser-side text extraction was unavailable, read them directly):\n${lines.join("\n")}\n`;
+/**
+ * Build a short text appendix listing PDF + image attachments. The PDF / image
+ * content blocks themselves come FIRST in the user message (Anthropic best
+ * practice); this appendix lives in the text prefix to label which attachment
+ * is which, so the model can cite them by doc_label in source_refs.
+ */
+function buildAttachmentList(pdfRefs: PdfRef[], imageRefs: ImageRef[]): string {
+  if (pdfRefs.length === 0 && imageRefs.length === 0) return "";
+  const parts: string[] = [];
+  let n = 1;
+  if (pdfRefs.length > 0) {
+    const lines = pdfRefs.map((r) => {
+      const note = r.relevance_note ? `, ${r.relevance_note}` : "";
+      return `  [PDF ${n++}] ${r.doc_label}${note}`;
+    });
+    parts.push(
+      `${pdfRefs.length} PDF document${pdfRefs.length === 1 ? " is" : "s are"} attached above as native PDF blocks (read them directly, they are the primary source for this question):\n${lines.join("\n")}`,
+    );
+  }
+  if (imageRefs.length > 0) {
+    const lines = imageRefs.map((r) => {
+      const note = r.relevance_note ? `, ${r.relevance_note}` : "";
+      return `  [Image ${n++}] ${r.doc_label}${note}`;
+    });
+    parts.push(
+      `${imageRefs.length} image document${imageRefs.length === 1 ? " is" : "s are"} attached above for visual reference:\n${lines.join("\n")}`,
+    );
+  }
+  return `\n\n## Attachments\n\n${parts.join("\n\n")}\n`;
 }
 
 export async function fetchImageBlocks(
