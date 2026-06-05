@@ -97,19 +97,20 @@ export function AnalyzeProgress({ sessionId, onContinue }: Props) {
     ? "Still working in the background"
     : "Reading your documents…";
 
-  const countLabel = total != null
-    ? `${prefillCount} of ${total} suggestions ready`
-    : prefillCount > 0
-    ? `${prefillCount} suggestions ready`
-    : "Drafting suggestions…";
+  const countBadge = total != null && prefillCount > 0
+    ? `${prefillCount} / ${total}`
+    : null;
 
+  // Only render a detail line for terminal states. While we're actively
+  // reading the bar + status label + count badge already say everything,
+  // so we keep that area quiet.
   const statusDetail = failed
     ? "You can start the questions now; suggestions may still appear inline if the analysis recovers in the background."
     : ready
     ? "All suggestions are in. You can start the questions now."
     : timedOut
     ? "We didn't finish in time. You can start the questions now; remaining suggestions will appear inline as they arrive."
-    : `${countLabel}. Please wait for the analysis to finish so suggestions are ready when you reach each question.`;
+    : null;
 
   return (
     <>
@@ -118,11 +119,11 @@ export function AnalyzeProgress({ sessionId, onContinue }: Props) {
           <div className="flex items-baseline justify-between gap-3">
             <p className="text-sm font-medium tracking-tight">{statusLabel}</p>
             <span className="text-xs tabular-nums text-muted-foreground">
-              {Math.round(pct)}%
+              {countBadge ? `${countBadge}  ·  ` : ""}{Math.round(pct)}%
             </span>
           </div>
           <Progress value={pct} className="h-1.5" />
-          <p className="text-xs text-muted-foreground">{statusDetail}</p>
+          {statusDetail && <p className="text-xs text-muted-foreground">{statusDetail}</p>}
         </div>
       </Card>
 
