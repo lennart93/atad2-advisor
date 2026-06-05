@@ -5,6 +5,10 @@ import type { PendingFile } from "@/stores/prefillStore";
 import type { PrefillJob, QuestionPrefill, SessionDocument, SourceRef } from "@/lib/prefill/types";
 import { buildDocumentsBlock } from "@/lib/prefill/buildDocumentsBlock";
 import { categorizeFromFilename } from "@/lib/prefill/categorize";
+import { isRtfFile, isExcelFile, isPptxFile } from "@/lib/prefill/types";
+import { rtfToText, looksLikeRtf } from "@/lib/prefill/rtfToText";
+import { excelToText } from "@/lib/prefill/excelToText";
+import { pptxToText } from "@/lib/prefill/pptxToText";
 
 export function useSessionDocuments(sessionId: string | null) {
   return useQuery({
@@ -188,6 +192,85 @@ export function useUploadDocument(sessionId: string | null) {
           console.log("[upload-document] step: extracted DOCX text", { chars: combined.length });
         } catch (err) {
           console.error("[upload-document] step failed: docx-extract", err);
+          throw err;
+        }
+      } else if (isRtfFile(pending.file)) {
+        // RTF is detected by extension (its MIME is unreliable). Strip the RTF
+        // control words to plain text in the browser and upload as text/plain,
+        // same as DOCX. Decode bytes as latin1 so \'xx escapes stay byte-exact.
+        try {
+          console.log("[upload-document] step: extract RTF text in browser");
+          const buffer = await pending.file.arrayBuffer();
+          const raw = new TextDecoder("latin1").decode(new Uint8Array(buffer));
+          if (!looksLikeRtf(raw)) {
+            // Named .rtf but not actually RTF (e.g. a renamed .txt or a UTF-8
+            // file). Reject rather than feed control-word-stripped garbage or
+            // mojibake to the model.
+            throw new Error(
+              "This file is named .rtf but is not a valid RTF document. Re-save it as RTF, or upload the original .txt, .pdf, or .docx file.",
+            );
+          }
+          const combined = rtfToText(raw);
+          if (!combined) {
+            throw new Error("Could not extract any text from this RTF document.");
+          }
+          uploadBlob = new Blob([combined], { type: "text/plain" });
+          uploadMime = "text/plain";
+          uploadSize = uploadBlob.size;
+          uploadExt = "txt";
+          console.log("[upload-document] step: extracted RTF text", { chars: combined.length });
+        } catch (err) {
+          console.error("[upload-document] step failed: rtf-extract", err);
+          throw err;
+        }
+      } else if (isExcelFile(pending.file)) {
+        // .xlsx and .xlsm (macro-enabled) share the OOXML format. Extract each
+        // sheet to CSV text in the browser via exceljs and upload as text/plain
+        // so the workbook flows through the text pipeline (macros are ignored).
+        try {
+          console.log("[upload-document] step: extract Excel text in browser");
+          const buffer = await pending.file.arrayBuffer();
+          const combined = await excelToText(buffer);
+          if (!combined) {
+            throw new Error("Could not extract any text from this Excel workbook.");
+          }
+          uploadBlob = new Blob([combined], { type: "text/plain" });
+          uploadMime = "text/plain";
+          uploadSize = uploadBlob.size;
+          uploadExt = "txt";
+          console.log("[upload-document] step: extracted Excel text", { chars: combined.length });
+        } catch (err) {
+          console.error("[upload-document] step failed: excel-extract", err);
+          // exceljs/jszip throw an opaque "end of central directory" error for
+          // password-protected or corrupt workbooks. Give a clear instruction,
+          // mirroring the PDF password path.
+          const msg = (err as { message?: string })?.message ?? "";
+          if (/central directory|is this a zip|corrupted zip|not a zip|encrypted/i.test(msg)) {
+            throw new Error(
+              "This Excel file is password-protected or corrupt. Remove the password (or re-save it as .xlsx) and upload again.",
+            );
+          }
+          throw err;
+        }
+      } else if (isPptxFile(pending.file)) {
+        // PowerPoint .pptx is a zip of slide XML. Extract the slide text in the
+        // browser and upload as text/plain, like the other office formats.
+        try {
+          console.log("[upload-document] step: extract PPTX text in browser");
+          const buffer = await pending.file.arrayBuffer();
+          const combined = await pptxToText(buffer);
+          if (!combined) {
+            throw new Error(
+              "Could not extract any text from this PowerPoint. Export the slides to PDF and upload that instead.",
+            );
+          }
+          uploadBlob = new Blob([combined], { type: "text/plain" });
+          uploadMime = "text/plain";
+          uploadSize = uploadBlob.size;
+          uploadExt = "txt";
+          console.log("[upload-document] step: extracted PPTX text", { chars: combined.length });
+        } catch (err) {
+          console.error("[upload-document] step failed: pptx-extract", err);
           throw err;
         }
       }

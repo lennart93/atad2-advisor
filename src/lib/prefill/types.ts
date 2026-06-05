@@ -23,8 +23,55 @@ export const ACCEPTED_MIME_TYPES = [
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "application/vnd.openxmlformats-officedocument.presentationml.presentation",
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-excel.sheet.macroEnabled.12",
   "text/plain", "text/csv", "text/markdown",
+  "application/rtf", "text/rtf",
 ] as const;
+
+// Browsers report .rtf inconsistently: application/rtf, text/rtf, sometimes
+// application/msword, and sometimes an empty string. We therefore detect RTF by
+// file extension and never trust the MIME alone. RTF is text-extracted in the
+// browser at upload time (see useUploadDocument), so it travels through the rest
+// of the pipeline as text/plain.
+export function isRtfFile(file: { name: string; type: string }): boolean {
+  return /\.rtf$/i.test(file.name)
+    || file.type === "application/rtf"
+    || file.type === "text/rtf";
+}
+
+// Browsers report .xlsm (macro-enabled Excel) inconsistently: the proper
+// application/vnd.ms-excel.sheet.macroEnabled.12, the legacy
+// application/vnd.ms-excel, application/octet-stream, or "". Detect Excel by
+// extension. .xlsx and .xlsm share the OOXML format and are both extracted to
+// text in the browser (see useUploadDocument), travelling onward as text/plain.
+export function isExcelFile(file: { name: string; type: string }): boolean {
+  return /\.xls[xm]$/i.test(file.name)
+    || file.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    || file.type === "application/vnd.ms-excel.sheet.macroEnabled.12";
+}
+
+// PowerPoint .pptx detection (extension or the presentationml MIME). Extracted
+// to text in the browser (see useUploadDocument) and travels onward as text/plain.
+export function isPptxFile(file: { name: string; type: string }): boolean {
+  return /\.pptx$/i.test(file.name)
+    || file.type === "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+}
+
+// A dropped/selected file is accepted if its MIME is on the allow-list OR it is
+// a .rtf / Excel / PowerPoint file (whose MIME is unreliable). Use this, not a
+// bare MIME check.
+export function isAcceptedUpload(file: { name: string; type: string }): boolean {
+  return (ACCEPTED_MIME_TYPES as readonly string[]).includes(file.type)
+    || isRtfFile(file)
+    || isExcelFile(file)
+    || isPptxFile(file);
+}
+
+// Value for the <input accept> attribute. Includes the office extensions so the
+// OS file picker surfaces them even on systems that map them to an unlisted MIME.
+export const FILE_INPUT_ACCEPT = [
+  ...ACCEPTED_MIME_TYPES, ".rtf", ".docx", ".xlsx", ".xlsm", ".pptx",
+].join(",");
 
 export const MAX_FILE_BYTES = 15 * 1024 * 1024;
 export const MAX_SESSION_BYTES = 100 * 1024 * 1024;

@@ -21,8 +21,8 @@ export function DocumentUploadStep({
       </div>
       {!locked && (
         <Card className="bg-muted/40 p-4 text-sm text-muted-foreground">
-          Supported: PDF, images (PNG/JPG/WEBP), Word (.docx), PowerPoint (.pptx),
-          Excel (.xlsx), text/CSV/Markdown. Max 15 MB per file, 100 MB per session.
+          Supported: PDF, images (PNG/JPG/WEBP), Word (.docx, .rtf), PowerPoint (.pptx),
+          Excel (.xlsx, .xlsm), text/CSV/Markdown. Max 15 MB per file, 100 MB per session.
         </Card>
       )}
       <DocumentUploader sessionId={sessionId} locked={locked} />

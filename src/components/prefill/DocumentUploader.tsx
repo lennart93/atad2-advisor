@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { usePrefillStore, type PendingFile } from "@/stores/prefillStore";
 import { useUploadDocument, useSessionDocuments, useClassifyDocument, useUpdateDocumentCategory, useDeleteDocument } from "@/hooks/usePrefill";
 import {
-  ACCEPTED_MIME_TYPES, MAX_FILE_BYTES, MAX_SESSION_BYTES,
+  FILE_INPUT_ACCEPT, MAX_FILE_BYTES, MAX_SESSION_BYTES, isAcceptedUpload,
 } from "@/lib/prefill/types";
 import type { DocumentCategory } from "@/lib/prefill/types";
 import { CategoryDropdown } from "./CategoryDropdown";
@@ -33,7 +33,7 @@ export function DocumentUploader({ sessionId, locked }: Props) {
     const rejected: string[] = [];
     const accepted: File[] = [];
     for (const f of incoming) {
-      if (!(ACCEPTED_MIME_TYPES as readonly string[]).includes(f.type)) {
+      if (!isAcceptedUpload(f)) {
         rejected.push(`${f.name}: unsupported format`);
         continue;
       }
@@ -61,15 +61,22 @@ export function DocumentUploader({ sessionId, locked }: Props) {
     for (const p of store.pendingFiles) {
       if (p.status !== "queued") continue;
       store.setStatus(p.localId, "uploading");
-      upload.mutate({ pending: p }, {
-        onSuccess: (doc) => {
+      // mutateAsync (not mutate + callbacks): one shared mutation hook serves
+      // every file, and react-query keeps only the LAST mutate() call's
+      // onSuccess/onError. Dropping two files at once would overwrite the first
+      // file's onSuccess, leaving its card stuck on "Uploading…" and the
+      // server-side card un-deduped (a phantom third card). The promise
+      // returned by mutateAsync is scoped to this exact call, so concurrent
+      // uploads each resolve to their own result.
+      upload
+        .mutateAsync({ pending: p })
+        .then((doc) => {
           store.setStatus(p.localId, "uploaded", { remoteDocumentId: doc?.id });
           if (doc?.id) {
             classify.mutate({ documentId: doc.id });
           }
-        },
-        onError: (err) => store.setStatus(p.localId, "failed", { errorMessage: (err as Error).message }),
-      });
+        })
+        .catch((err) => store.setStatus(p.localId, "failed", { errorMessage: (err as Error).message }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [store.pendingFiles, locked]);
@@ -89,7 +96,7 @@ export function DocumentUploader({ sessionId, locked }: Props) {
               ref={inputRef}
               type="file"
               multiple
-              accept={ACCEPTED_MIME_TYPES.join(",")}
+              accept={FILE_INPUT_ACCEPT}
               className="hidden"
               onChange={(e) => onFilesSelected(e.target.files)}
             />
