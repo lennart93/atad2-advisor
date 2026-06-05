@@ -371,7 +371,13 @@ export function useStartAnalyze(sessionId: string | null) {
       // 5. Fan out with concurrency cap. Each call is ~5-15s and fits the
       //    edge-runtime wall-clock budget on its own; the browser owns the
       //    overall coordination, so total time = max single-call latency.
-      const CONCURRENCY = 12;
+      //
+      //    When PDFs are attached, each call ships the PDF base64 (3-5 MB)
+      //    and the edge isolate has to encode + serialize it. Twelve parallel
+      //    calls overran the Deno CPU soft limit and supervisors started
+      //    cancelling requests mid-flight (observed: ~45 500s, only 4 calls
+      //    completed). Cap concurrency much lower when raw PDFs are in play.
+      const CONCURRENCY = pdfRefs.length > 0 ? 4 : 12;
       const workers: Promise<void>[] = [];
       for (let i = 0; i < Math.min(CONCURRENCY, queue.length); i++) {
         workers.push((async () => {

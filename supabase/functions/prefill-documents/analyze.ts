@@ -166,18 +166,35 @@ export async function runAnalyzeOne(
       }
     }
 
-    await serviceClient.from("atad2_question_prefills").upsert({
-      session_id: sessionId,
-      question_id: questionId,
-      suggested_toelichting: parsed.suggested_toelichting,
-      source_refs: parsed.source_refs,
-      suggested_answer: parsed.suggested_answer,
-      confidence_pct: parsed.confidence_pct,
-      answer_rationale: parsed.answer_rationale,
-      contextual_hint: parsed.contextual_hint,
-      suggested_toelichting_unknown: unknownToelichting,
-      user_action: "pending",
-    }, { onConflict: "session_id,question_id" });
+    const { error: upsertErr } = await serviceClient
+      .from("atad2_question_prefills")
+      .upsert({
+        session_id: sessionId,
+        question_id: questionId,
+        suggested_toelichting: parsed.suggested_toelichting,
+        source_refs: parsed.source_refs,
+        suggested_answer: parsed.suggested_answer,
+        confidence_pct: parsed.confidence_pct,
+        answer_rationale: parsed.answer_rationale,
+        contextual_hint: parsed.contextual_hint,
+        suggested_toelichting_unknown: unknownToelichting,
+        user_action: "pending",
+      }, { onConflict: "session_id,question_id" });
+
+    if (upsertErr) {
+      // Surface DB write failures explicitly. Without this, a connection-pool
+      // overload silently dropped the row while swarm_one_completed still
+      // logged success, making it look like the model worked but the UI was
+      // mysteriously empty (observed during the OCR flood: ~30 calls fired
+      // in parallel, edge isolate CPU soft limit + PostgREST pool both went
+      // into degraded state).
+      console.error(JSON.stringify({
+        level: "error", event: "prefill_upsert_failed",
+        session_id: sessionId, question_id: questionId,
+        error: upsertErr.message ?? String(upsertErr),
+      }));
+      return { ok: false, error: `upsert failed: ${upsertErr.message ?? upsertErr}` };
+    }
 
     console.log(JSON.stringify({
       level: "info", event: "swarm_one_completed",
