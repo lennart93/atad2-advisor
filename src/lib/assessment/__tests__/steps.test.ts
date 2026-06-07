@@ -3,9 +3,9 @@ import { describe, it, expect } from 'vitest';
 import { ASSESSMENT_STEPS, stepIndexForPath } from '../steps';
 
 describe('assessment steps', () => {
-  it('exposes the six ordered steps (confirmation gates structure)', () => {
+  it('exposes the seven ordered steps (confirmation gates structure; appendix before report)', () => {
     expect(ASSESSMENT_STEPS.map((s) => s.key)).toEqual([
-      'intake', 'documents', 'questions', 'confirmation', 'structure', 'report',
+      'intake', 'documents', 'questions', 'confirmation', 'structure', 'appendix', 'report',
     ]);
   });
 
@@ -20,6 +20,8 @@ describe('assessment steps', () => {
     expect(byKey.confirmation.wide).toBe(false);
     expect(byKey.confirmation.fullBleed).toBe(false);
     expect(byKey.report.fullBleed).toBe(false);
+    expect(byKey.appendix.wide).toBe(true);
+    expect(byKey.appendix.fullBleed).toBe(false);
   });
 
   it('maps the intake route to step 0', () => {
@@ -42,8 +44,12 @@ describe('assessment steps', () => {
     expect(stepIndexForPath('/assessment/structure/abc-123')).toBe(4);
   });
 
-  it('maps the report route to step 5', () => {
-    expect(stepIndexForPath('/assessment-report/abc-123')).toBe(5);
+  it('maps the appendix route to step 5', () => {
+    expect(stepIndexForPath('/assessment-appendix/abc-123')).toBe(5);
+  });
+
+  it('maps the report route to step 6', () => {
+    expect(stepIndexForPath('/assessment-report/abc-123')).toBe(6);
   });
 
   it('returns -1 for non-assessment routes', () => {

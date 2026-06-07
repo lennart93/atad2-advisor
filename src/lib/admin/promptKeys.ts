@@ -66,7 +66,7 @@ export const PROMPT_DESCRIPTORS: PromptDescriptor[] = [
     group: "Memo",
     label: "Final memorandum (n8n)",
     placeholders:
-      "{{TAXPAYER_NAME}}, {{FISCAL_YEAR}}, {{SESSION_ID}}, {{TOTAL_RISK}}, {{ANSWERS_COUNT}}, {{UNKNOWN_COUNT}}, {{RISK_CATEGORY}}, {{CORE_LOGIC_BLOCK}}, {{OVERRIDE_BLOCK}}, {{OVERRIDE_INFO_BLOCK}}, {{DOCUMENTS_BLOCK_FORMATTED}}, {{QA_LIST}}, {{ADDITIONAL_CONTEXT_BLOCK}}",
+      "{{TAXPAYER_NAME}}, {{FISCAL_YEAR}}, {{SESSION_ID}}, {{TOTAL_RISK}}, {{ANSWERS_COUNT}}, {{UNKNOWN_COUNT}}, {{RISK_CATEGORY}}, {{CORE_LOGIC_BLOCK}}, {{OVERRIDE_BLOCK}}, {{OVERRIDE_INFO_BLOCK}}, {{DOCUMENTS_BLOCK_FORMATTED}}, {{CONFIRMED_APPENDIX_BLOCK}}, {{QA_LIST}}, {{ADDITIONAL_CONTEXT_BLOCK}}",
     description:
       "System prompt the AI Agent uses to draft the final ATAD2 memorandum. The n8n 'ATAD2' workflow fetches the active version at runtime; edits here go live on the next memo generation.",
   },

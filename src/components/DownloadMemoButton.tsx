@@ -41,6 +41,8 @@ const dotParser = (tag: string) => ({
   },
 });
 import { supabase } from '@/integrations/supabase/client';
+import { loadAppendix } from '@/lib/appendix/client';
+import { toAppendixSections } from '@/lib/appendix/appendixDocxSections';
 import { Button } from '@/components/ui/button';
 import { Download, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -350,10 +352,23 @@ export default function DownloadMemoButton({
         // structure overview-sectie weg (heading + image-placeholder + lege
         // paragraaf), zodat een memo zonder chart geen lege chart-regel toont.
         const hasStructureChart = !!structureChartBase64;
+
+        // Confirmed technical appendix -> native Word tables (Reference column dropped).
+        let appendixSections: ReturnType<typeof toAppendixSections> = [];
+        try {
+          const appendix = await loadAppendix(sessionId);
+          if (appendix && appendix.review_status === 'confirmed') {
+            appendixSections = toAppendixSections(appendix.rows);
+          }
+        } catch (e) {
+          console.warn('[DownloadMemoButton] loadAppendix failed, exporting without appendix', e);
+        }
+
         doc.render({
           ...docxData,
           structureChart: structureChartBase64 ?? '',
           hasStructureChart,
+          appendixSections,
         });
         console.log('Render OK, hasStructureChart:', hasStructureChart);
       } catch (err: any) {
