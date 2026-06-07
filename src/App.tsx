@@ -22,6 +22,7 @@ const AssessmentUpload = lazy(() => import("./pages/AssessmentUpload"));
 const AssessmentConfirmation = lazy(() => import("./pages/AssessmentConfirmation"));
 const AssessmentStructure = lazy(() => import("./pages/AssessmentStructure"));
 const AssessmentReport = lazy(() => import("./pages/AssessmentReport"));
+const AssessmentAppendix = lazy(() => import("./pages/AssessmentAppendix"));
 const ReportDetail = lazy(() => import("./pages/ReportDetail"));
 const EmailConfirmed = lazy(() => import("./pages/EmailConfirmed"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -80,6 +81,7 @@ const App = () => (
                       <Route path="/assessment/upload" element={<ProtectedRoute><AssessmentUpload /></ProtectedRoute>} />
                       <Route path="/assessment/structure/:sessionId" element={<ProtectedRoute><AssessmentStructure /></ProtectedRoute>} />
                       <Route path="/assessment-confirmation/:sessionId" element={<ProtectedRoute><AssessmentConfirmation /></ProtectedRoute>} />
+                      <Route path="/assessment-appendix/:sessionId" element={<ProtectedRoute><AssessmentAppendix /></ProtectedRoute>} />
                       <Route path="/assessment-report/:sessionId" element={<ProtectedRoute><AssessmentReport /></ProtectedRoute>} />
                     </Route>
                     <Route path="/report/:reportId" element={<ProtectedRoute><ReportDetail /></ProtectedRoute>} />

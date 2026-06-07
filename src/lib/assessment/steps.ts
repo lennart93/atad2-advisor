@@ -1,7 +1,7 @@
 // src/lib/assessment/steps.ts
 
 export interface AssessmentStep {
-  key: 'intake' | 'documents' | 'questions' | 'confirmation' | 'structure' | 'report';
+  key: 'intake' | 'documents' | 'questions' | 'confirmation' | 'structure' | 'appendix' | 'report';
   label: string;
   /** Wide steps use max-w-7xl instead of max-w-4xl in the shell body. */
   wide: boolean;
@@ -16,6 +16,7 @@ export const ASSESSMENT_STEPS: readonly AssessmentStep[] = [
   { key: 'questions',    label: 'Questions',    wide: true,  fullBleed: false },
   { key: 'confirmation', label: 'Confirmation', wide: false, fullBleed: false },
   { key: 'structure',    label: 'Structure',    wide: true,  fullBleed: true  },
+  { key: 'appendix',     label: 'Appendix',     wide: true,  fullBleed: false },
   { key: 'report',       label: 'Overview',     wide: false, fullBleed: false },
 ] as const;
 
@@ -41,6 +42,7 @@ export function stepIndexForPath(
   if (pathname.startsWith('/assessment/upload')) return 1;
   if (pathname.startsWith('/assessment-confirmation/')) return 3;
   if (pathname.startsWith('/assessment/structure/')) return 4;
-  if (pathname.startsWith('/assessment-report/')) return 5;
+  if (pathname.startsWith('/assessment-appendix/')) return 5;
+  if (pathname.startsWith('/assessment-report/')) return 6;
   return -1;
 }

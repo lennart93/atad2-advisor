@@ -1,0 +1,93 @@
+import { supabase } from '@/integrations/supabase/client';
+import type { StoredAppendix, AppendixRow, GenerationStatus } from './types';
+
+const POLL_INTERVAL_MS = 2000;
+const POLL_TIMEOUT_MS = 360_000;
+const TERMINAL: GenerationStatus[] = ['ready', 'error'];
+
+export async function loadAppendix(sessionId: string): Promise<StoredAppendix | null> {
+  const { data } = await supabase
+    .from('atad2_appendix')
+    .select('*')
+    .eq('session_id', sessionId)
+    .maybeSingle();
+  if (!data) return null;
+  return {
+    id: data.id,
+    session_id: data.session_id,
+    review_status: data.review_status as StoredAppendix['review_status'],
+    generation_status: data.generation_status as GenerationStatus,
+    rows: (data.rows ?? []) as AppendixRow[],
+    model: data.model,
+    prompt_version: data.prompt_version,
+    error_message: data.error_message,
+    generated_at: data.generated_at,
+    confirmed_at: data.confirmed_at,
+    confirmed_by: data.confirmed_by,
+  };
+}
+
+export async function startAppendixGeneration(sessionId: string): Promise<void> {
+  const { error } = await supabase.functions.invoke('generate-appendix', {
+    body: { session_id: sessionId },
+  });
+  if (error) throw error;
+}
+
+export async function pollAppendixUntilReady(
+  sessionId: string,
+  onUpdate: (a: StoredAppendix) => void,
+  signal?: AbortSignal,
+): Promise<GenerationStatus> {
+  const deadline = Date.now() + POLL_TIMEOUT_MS;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    if (signal?.aborted) throw new Error('aborted');
+    if (Date.now() > deadline) throw new Error('appendix generation timed out');
+    const a = await loadAppendix(sessionId);
+    if (a) {
+      onUpdate(a);
+      if (TERMINAL.includes(a.generation_status)) return a.generation_status;
+    }
+    await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+  }
+}
+
+/** Persist the full rows array + append one change-log entry. */
+export async function saveRowEdit(
+  appendixId: string,
+  rows: AppendixRow[],
+  rowId: string,
+  field: 'decision' | 'reasoning' | 'reference',
+  oldValue: string | null,
+  newValue: string | null,
+  userId: string,
+): Promise<void> {
+  const { error: upErr } = await supabase
+    .from('atad2_appendix')
+    .update({ rows: rows as unknown as never, updated_at: new Date().toISOString() })
+    .eq('id', appendixId);
+  if (upErr) throw upErr;
+  const { error: logErr } = await supabase.from('atad2_appendix_edits').insert({
+    appendix_id: appendixId,
+    row_id: rowId,
+    field,
+    old_value: oldValue,
+    new_value: newValue,
+    edited_by: userId,
+  });
+  if (logErr) throw logErr;
+}
+
+export async function confirmAppendix(appendixId: string, userId: string): Promise<void> {
+  const { error } = await supabase
+    .from('atad2_appendix')
+    .update({
+      review_status: 'confirmed',
+      confirmed_at: new Date().toISOString(),
+      confirmed_by: userId,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', appendixId);
+  if (error) throw error;
+}

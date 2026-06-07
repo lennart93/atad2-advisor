@@ -725,7 +725,7 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
       }
       await finalizeChart(chart.id);
     }
-    navigate(`/assessment-report/${sessionId}`);
+    navigate(`/assessment-appendix/${sessionId}`);
   };
 
   const skipNext = async () => {
@@ -736,7 +736,7 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
         console.warn('[StructureChartStep] unfinalize failed', err);
       }
     }
-    navigate(`/assessment-report/${sessionId}`);
+    navigate(`/assessment-appendix/${sessionId}`);
   };
 
   const isExtracting = typeof status === 'string' && status.startsWith('extracting:');
