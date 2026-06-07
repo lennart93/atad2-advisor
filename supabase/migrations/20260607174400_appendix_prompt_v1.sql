@@ -6,6 +6,7 @@
 alter table public.atad2_prompts drop constraint if exists atad2_prompts_key_check;
 alter table public.atad2_prompts add constraint atad2_prompts_key_check
   check (key in (
+    'prefill_stage1_system','prefill_stage2_system',
     'prefill_swarm_system',
     'structure_stage1_initial','structure_stage1_refine',
     'structure_stage2_initial','structure_stage2_refine',
