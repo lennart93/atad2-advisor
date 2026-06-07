@@ -71,6 +71,103 @@ export type Database = {
           },
         ]
       }
+      atad2_appendix: {
+        Row: {
+          id: string
+          session_id: string
+          review_status: string
+          generation_status: string
+          rows: Json
+          model: string | null
+          prompt_version: number | null
+          error_message: string | null
+          generated_at: string | null
+          confirmed_at: string | null
+          confirmed_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          session_id: string
+          review_status?: string
+          generation_status?: string
+          rows?: Json
+          model?: string | null
+          prompt_version?: number | null
+          error_message?: string | null
+          generated_at?: string | null
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          session_id?: string
+          review_status?: string
+          generation_status?: string
+          rows?: Json
+          model?: string | null
+          prompt_version?: number | null
+          error_message?: string | null
+          generated_at?: string | null
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "atad2_appendix_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "atad2_sessions"
+            referencedColumns: ["session_id"]
+          },
+        ]
+      }
+      atad2_appendix_edits: {
+        Row: {
+          id: string
+          appendix_id: string
+          row_id: string
+          field: string
+          old_value: string | null
+          new_value: string | null
+          edited_by: string | null
+          edited_at: string
+        }
+        Insert: {
+          id?: string
+          appendix_id: string
+          row_id: string
+          field: string
+          old_value?: string | null
+          new_value?: string | null
+          edited_by?: string | null
+          edited_at?: string
+        }
+        Update: {
+          id?: string
+          appendix_id?: string
+          row_id?: string
+          field?: string
+          old_value?: string | null
+          new_value?: string | null
+          edited_by?: string | null
+          edited_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "atad2_appendix_edits_appendix_id_fkey"
+            columns: ["appendix_id"]
+            isOneToOne: false
+            referencedRelation: "atad2_appendix"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       atad2_assessment_log: {
         Row: {
           id: string
