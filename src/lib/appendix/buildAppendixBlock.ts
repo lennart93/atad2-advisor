@@ -10,7 +10,8 @@ function buildFactsSummary(facts: AppendixFacts): string {
   const ents = f.entities
     .map((e) => `- ${esc(e.name)} (${e.jurisdiction ?? '?'}, ${e.role}${e.ownershipPct != null ? `, ${e.ownershipPct}%` : ''}${e.related ? ', related' : ''}${e.nlTaxStatus ? `, ${esc(e.nlTaxStatus)}` : ''})`)
     .join('\n');
-  const cls = f.classifications
+  const cls = [...f.classifications]
+    .sort((a, b) => Number(b.hybrid) - Number(a.hybrid)) // hybrids first
     .map((c) => `- ${esc(nameOf(c.entityId))}: home ${esc(c.homeState)} ${esc(c.homeClass)} vs source ${esc(c.sourceState ?? '?')} ${esc(c.sourceClass ?? '?')}${c.hybrid ? ' (hybrid mismatch)' : ''}`)
     .join('\n');
   const tx = f.transactions
