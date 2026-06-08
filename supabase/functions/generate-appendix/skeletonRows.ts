@@ -33,7 +33,6 @@ export const SKELETON_ROWS: ServerSkeletonRow[] = [
 
   { rowId: "3.1", legalFramework: "Article 12ac Wet Vpb 1969, associated-enterprise / related-party test met (broad: holdings up/down/sister, consolidated group, significant influence, acting together; 25%, raised to 50% for hybrid-entity cases)", allowedStates: ["Yes", "No", "Further information needed"], drivenByQuestionIds: ["Q28"] },
   { rowId: "3.2", legalFramework: "Article 12ac Wet Vpb 1969, structured arrangement", allowedStates: ["Yes", "No", "Further information needed"], drivenByQuestionIds: ["Q28"] },
-  { rowId: "3.3", legalFramework: "Qualification under Dutch standards (FKR comparison method, from 1 Jan 2025)", allowedStates: STANDARD, drivenByQuestionIds: [] },
   { rowId: "3.4", legalFramework: "Dual-inclusion income present", allowedStates: ["Yes", "No", "Further information needed"], drivenByQuestionIds: ["Q4d", "Q11", "Q25"] },
 
   { rowId: "4.1", legalFramework: "Article 12ad Wet Vpb 1969, NL payment to a related party or under a structured arrangement", allowedStates: STANDARD, drivenByQuestionIds: ["Q5", "Q28"] },
@@ -57,10 +56,4 @@ export const SKELETON_ROWS: ServerSkeletonRow[] = [
   { rowId: "6.1", legalFramework: "Article 12af Wet Vpb 1969, earlier-year denial under 12aa(1)(e)/(f)/(g), 12ae, or inclusion under 12ab(1)", allowedStates: STANDARD, drivenByQuestionIds: [] },
   { rowId: "6.2", legalFramework: "Article 12af Wet Vpb 1969, dual-inclusion income in a later year than the denial", allowedStates: STANDARD, drivenByQuestionIds: [] },
 
-  { rowId: "7.1", legalFramework: "Article 12ag(1) Wet Vpb 1969, within Section 2.2a, financial year from 1 Jan 2020", allowedStates: ["Yes", "No"], drivenByQuestionIds: ["Q1", "Q2"] },
-  { rowId: "7.2", legalFramework: "Article 12ag Wet Vpb 1969, inventory per remuneration, payment, deemed payment, charge or loss", allowedStates: ["Further information needed", "Not applicable"], drivenByQuestionIds: [] },
-  { rowId: "7.3", legalFramework: "Article 12ag Wet Vpb 1969, records show, per item, to what extent and how Section 2.2a applies", allowedStates: STANDARD, drivenByQuestionIds: [] },
-  { rowId: "7.4", legalFramework: "Article 12ag Wet Vpb 1969, where a correction is applied, its computation is in the file", allowedStates: STANDARD, drivenByQuestionIds: [] },
-  { rowId: "7.5", legalFramework: "Article 12ag Wet Vpb 1969, file producible on request", allowedStates: ["Yes", "Further information needed"], drivenByQuestionIds: [] },
-  { rowId: "7.6", legalFramework: "Article 12ag(3) Wet Vpb 1969, checked for a ministerial regulation with extra data fields", allowedStates: ["Yes", "Further information needed"], drivenByQuestionIds: [] },
 ];

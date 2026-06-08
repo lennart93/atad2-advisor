@@ -30,7 +30,6 @@ export const APPENDIX_SKELETON: SkeletonRow[] = [
   // Section 3 - Definitions and scope, art. 12ac
   { rowId: '3.1', sectionId: '3', sectionTitle: 'Definitions and scope, art. 12ac', legalFramework: 'Article 12ac Wet Vpb 1969, associated-enterprise / related-party test met (broad: holdings up/down/sister, consolidated group, significant influence, acting together; 25%, raised to 50% for hybrid-entity cases)', effect: null, allowedStates: ['Yes', 'No', 'Further information needed'], drivenByQuestionIds: ['Q28'] },
   { rowId: '3.2', sectionId: '3', sectionTitle: 'Definitions and scope, art. 12ac', legalFramework: 'Article 12ac Wet Vpb 1969, structured arrangement', effect: null, allowedStates: ['Yes', 'No', 'Further information needed'], drivenByQuestionIds: ['Q28'] },
-  { rowId: '3.3', sectionId: '3', sectionTitle: 'Definitions and scope, art. 12ac', legalFramework: 'Qualification under Dutch standards (FKR comparison method, from 1 Jan 2025)', effect: null, allowedStates: STANDARD, drivenByQuestionIds: [] },
   { rowId: '3.4', sectionId: '3', sectionTitle: 'Definitions and scope, art. 12ac', legalFramework: 'Dual-inclusion income present', effect: null, allowedStates: ['Yes', 'No', 'Further information needed'], drivenByQuestionIds: ['Q4d', 'Q11', 'Q25'] },
 
   // Section 4 - Imported mismatches, art. 12ad
@@ -58,11 +57,4 @@ export const APPENDIX_SKELETON: SkeletonRow[] = [
   { rowId: '6.1', sectionId: '6', sectionTitle: 'Carry-forward of denied deductions, art. 12af', legalFramework: 'Article 12af Wet Vpb 1969, earlier-year denial under 12aa(1)(e)/(f)/(g), 12ae, or inclusion under 12ab(1)', effect: null, allowedStates: STANDARD, drivenByQuestionIds: [], flags: ['unverified'] },
   { rowId: '6.2', sectionId: '6', sectionTitle: 'Carry-forward of denied deductions, art. 12af', legalFramework: 'Article 12af Wet Vpb 1969, dual-inclusion income in a later year than the denial', effect: null, allowedStates: STANDARD, drivenByQuestionIds: [] },
 
-  // Section 7 - Documentation obligation, art. 12ag
-  { rowId: '7.1', sectionId: '7', sectionTitle: 'Documentation obligation, art. 12ag', legalFramework: 'Article 12ag(1) Wet Vpb 1969, within Section 2.2a, financial year from 1 Jan 2020', effect: null, allowedStates: ['Yes', 'No'], drivenByQuestionIds: ['Q1', 'Q2'] },
-  { rowId: '7.2', sectionId: '7', sectionTitle: 'Documentation obligation, art. 12ag', legalFramework: 'Article 12ag Wet Vpb 1969, inventory per remuneration, payment, deemed payment, charge or loss', effect: null, allowedStates: ['Further information needed', 'Not applicable'], drivenByQuestionIds: [] },
-  { rowId: '7.3', sectionId: '7', sectionTitle: 'Documentation obligation, art. 12ag', legalFramework: 'Article 12ag Wet Vpb 1969, records show, per item, to what extent and how Section 2.2a applies', effect: null, allowedStates: STANDARD, drivenByQuestionIds: [] },
-  { rowId: '7.4', sectionId: '7', sectionTitle: 'Documentation obligation, art. 12ag', legalFramework: 'Article 12ag Wet Vpb 1969, where a correction is applied, its computation is in the file', effect: null, allowedStates: STANDARD, drivenByQuestionIds: [] },
-  { rowId: '7.5', sectionId: '7', sectionTitle: 'Documentation obligation, art. 12ag', legalFramework: 'Article 12ag Wet Vpb 1969, file producible on request', effect: null, allowedStates: ['Yes', 'Further information needed'], drivenByQuestionIds: [] },
-  { rowId: '7.6', sectionId: '7', sectionTitle: 'Documentation obligation, art. 12ag', legalFramework: 'Article 12ag(3) Wet Vpb 1969, checked for a ministerial regulation with extra data fields', effect: null, allowedStates: ['Yes', 'Further information needed'], drivenByQuestionIds: [], flags: ['unverified'] },
 ];
