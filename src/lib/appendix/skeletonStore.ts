@@ -10,6 +10,8 @@ interface DbSkeletonRow {
   legal_basis: string;
   condition_tested: string;
   effect: string | null;
+  kind: string | null;
+  related_parties_view: boolean | null;
   allowed_states: unknown;
   driven_by_question_ids: unknown;
   render_if: unknown;
@@ -24,9 +26,11 @@ function mapDbRow(r: DbSkeletonRow): SkeletonRow {
     legalBasis: r.legal_basis,
     conditionTested: r.condition_tested,
     effect: (r.effect as SkeletonRow['effect']) ?? null,
+    kind: r.kind === 'operative' ? 'operative' : 'gate',
     allowedStates: (Array.isArray(r.allowed_states) ? r.allowed_states : []) as Status[],
     drivenByQuestionIds: (Array.isArray(r.driven_by_question_ids) ? r.driven_by_question_ids : []) as string[],
     renderIfQuestionEquals: (r.render_if as SkeletonRow['renderIfQuestionEquals']) ?? undefined,
+    relatedPartiesView: r.related_parties_view === true,
   };
 }
 
@@ -38,7 +42,7 @@ function mapDbRow(r: DbSkeletonRow): SkeletonRow {
 export async function loadAppendixSkeleton(): Promise<SkeletonRow[]> {
   const { data, error } = await supabase
     .from('atad2_appendix_skeleton')
-    .select('row_id, section_id, section_title, legal_basis, condition_tested, effect, allowed_states, driven_by_question_ids, render_if, sort_order')
+    .select('row_id, section_id, section_title, legal_basis, condition_tested, effect, kind, related_parties_view, allowed_states, driven_by_question_ids, render_if, sort_order')
     .eq('is_active', true)
     .order('sort_order', { ascending: true });
   if (error || !data || data.length === 0) return APPENDIX_SKELETON;

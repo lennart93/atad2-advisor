@@ -1,6 +1,6 @@
 import { APPENDIX_SKELETON } from './skeleton';
 import { statusPrintColor } from './status';
-import type { AppendixRow, SkeletonRow, Status } from './types';
+import type { AppendixRow, RowKind, SkeletonRow, Status } from './types';
 
 const esc = (s: string | null) => (s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
@@ -36,8 +36,8 @@ export function buildAppendixPrintHtml(
     s.rows.push(row);
   }
 
-  const statusCell = (status: Status | null, flag: string) => {
-    const { bg, fg } = statusPrintColor(status);
+  const statusCell = (status: Status | null, kind: RowKind, flag: string) => {
+    const { bg, fg } = statusPrintColor(status, kind);
     return `<td class="c-status" style="background:${bg};color:${fg};">${esc(status)}${flag}</td>`;
   };
 
@@ -58,7 +58,7 @@ export function buildAppendixPrintHtml(
             `<tr><td class="c-num">${esc(r.rowId)}</td>` +
             `<td class="c-basis">${esc(sk?.legalBasis ?? r.rowId)}</td>` +
             `<td>${esc(sk?.conditionTested ?? '')}</td>` +
-            statusCell(r.status, flag) +
+            statusCell(r.status, sk?.kind ?? 'gate', flag) +
             `<td class="c-reason">${esc(r.reasoning)}</td>${prov}</tr>`
           );
         })

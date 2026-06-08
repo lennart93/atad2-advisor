@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
@@ -21,6 +22,8 @@ interface SkeletonDbRow {
   legal_basis: string;
   condition_tested: string;
   effect: string | null;
+  kind: string | null;
+  related_parties_view: boolean | null;
   allowed_states: unknown;
   sort_order: number;
 }
@@ -33,6 +36,8 @@ interface EditRow {
   legalBasis: string;
   conditionTested: string;
   effect: string; // '', 'D/NI', 'DD'
+  kind: string; // 'gate' | 'operative'
+  relatedPartiesView: boolean;
   allowedStates: string; // comma-separated while editing
 }
 
@@ -47,6 +52,8 @@ function toEdit(r: SkeletonDbRow): EditRow {
     legalBasis: r.legal_basis,
     conditionTested: r.condition_tested,
     effect: r.effect ?? "",
+    kind: r.kind ?? "gate",
+    relatedPartiesView: r.related_parties_view === true,
     allowedStates: (Array.isArray(r.allowed_states) ? (r.allowed_states as string[]) : []).join(", "),
   };
 }
@@ -66,7 +73,7 @@ export default function AppendixSkeleton() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("atad2_appendix_skeleton")
-        .select("id, row_id, section_id, section_title, legal_basis, condition_tested, effect, allowed_states, sort_order")
+        .select("id, row_id, section_id, section_title, legal_basis, condition_tested, effect, kind, related_parties_view, allowed_states, sort_order")
         .order("sort_order", { ascending: true });
       if (error) throw error;
       return (data ?? []) as SkeletonDbRow[];
@@ -102,6 +109,8 @@ export default function AppendixSkeleton() {
         legalBasis: "",
         conditionTested: "",
         effect: "",
+        kind: "gate",
+        relatedPartiesView: false,
         allowedStates: DEFAULT_STATES,
       },
     ]);
@@ -133,6 +142,8 @@ export default function AppendixSkeleton() {
           legal_basis: r.legalBasis.trim(),
           condition_tested: r.conditionTested.trim(),
           effect: r.effect || null,
+          kind: r.kind || "gate",
+          related_parties_view: r.relatedPartiesView,
           allowed_states: parseStates(r.allowedStates),
           sort_order: i,
           updated_at: new Date().toISOString(),
@@ -222,7 +233,7 @@ export default function AppendixSkeleton() {
                   <Textarea value={r.conditionTested} onChange={(e) => update(i, { conditionTested: e.target.value })} rows={2} className="text-sm" />
                 </div>
 
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-[140px_1fr]">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-[120px_200px_1fr]">
                   <div className="space-y-1">
                     <Label className="text-xs">Effect</Label>
                     <Select value={r.effect || "none"} onValueChange={(v) => update(i, { effect: v === "none" ? "" : v })}>
@@ -235,9 +246,26 @@ export default function AppendixSkeleton() {
                     </Select>
                   </div>
                   <div className="space-y-1">
+                    <Label className="text-xs">Colour kind</Label>
+                    <Select value={r.kind || "gate"} onValueChange={(v) => update(i, { kind: v })}>
+                      <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="gate">Gate (neutral)</SelectItem>
+                        <SelectItem value="operative">Operative (red/green)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
                     <Label className="text-xs">Status options (comma-separated)</Label>
                     <Input value={r.allowedStates} onChange={(e) => update(i, { allowedStates: e.target.value })} className="text-sm" />
                   </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Switch id={`rp-${i}`} checked={r.relatedPartiesView} onCheckedChange={(v) => update(i, { relatedPartiesView: v })} />
+                  <Label htmlFor={`rp-${i}`} className="cursor-pointer text-xs text-muted-foreground">
+                    Show the related-parties overview (from the structure chart) on this row
+                  </Label>
                 </div>
               </CardContent>
             </Card>

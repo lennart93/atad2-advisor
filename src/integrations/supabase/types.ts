@@ -176,6 +176,8 @@ export type Database = {
           section_title: string
           legal_basis: string
           condition_tested: string
+          kind: string | null
+          related_parties_view: boolean | null
           legal_framework: string | null
           effect: string | null
           allowed_states: Json
@@ -194,6 +196,8 @@ export type Database = {
           section_title: string
           legal_basis: string
           condition_tested: string
+          kind?: string | null
+          related_parties_view?: boolean | null
           legal_framework?: string | null
           effect?: string | null
           allowed_states?: Json
@@ -212,6 +216,8 @@ export type Database = {
           section_title?: string
           legal_basis?: string
           condition_tested?: string
+          kind?: string | null
+          related_parties_view?: boolean | null
           legal_framework?: string | null
           effect?: string | null
           allowed_states?: Json

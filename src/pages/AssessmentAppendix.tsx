@@ -15,6 +15,8 @@ import {
 import type { StoredAppendix, AppendixRow, EditableField } from '@/lib/appendix/types';
 import { buildAppendixPrintHtml, type PrintMode } from '@/lib/appendix/printAppendix';
 import { useAppendixSkeleton } from '@/lib/appendix/skeletonStore';
+import { loadChart } from '@/lib/structure/client';
+import { buildRelatedParties, type RelatedPartiesResult } from '@/lib/appendix/relatedParties';
 import { useUiBusySignal } from '@/stores/uiBusyStore';
 
 type Phase = 'loading' | 'generating' | 'ready' | 'error';
@@ -32,11 +34,22 @@ export default function AssessmentAppendix() {
   const { data: skeleton } = useAppendixSkeleton();
   const [appendix, setAppendix] = useState<StoredAppendix | null>(null);
   const [phase, setPhase] = useState<Phase>('loading');
-  const [showInternal, setShowInternal] = useState(true);
+  const [showSources, setShowSources] = useState(true);
   const [confirming, setConfirming] = useState(false);
+  const [relatedParties, setRelatedParties] = useState<RelatedPartiesResult | null>(null);
 
   // While generating, spin the top-left app logo instead of a local spinner.
   useUiBusySignal(phase === 'loading' || phase === 'generating');
+
+  // Best-effort related-parties overview, built from the structure chart.
+  useEffect(() => {
+    if (!sessionId) return;
+    let cancelled = false;
+    loadChart(sessionId)
+      .then((c) => { if (!cancelled && c) setRelatedParties(buildRelatedParties(c.entities, c.edges)); })
+      .catch(() => { /* the overview is optional */ });
+    return () => { cancelled = true; };
+  }, [sessionId]);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -199,9 +212,9 @@ export default function AssessmentAppendix() {
         </span>
         <span className="flex-1" />
         <div className="flex items-center gap-2">
-          <Switch id="show-internal" checked={showInternal} onCheckedChange={setShowInternal} />
-          <Label htmlFor="show-internal" className="cursor-pointer text-muted-foreground">
-            Show internal column
+          <Switch id="show-sources" checked={showSources} onCheckedChange={setShowSources} />
+          <Label htmlFor="show-sources" className="cursor-pointer text-muted-foreground">
+            Show sources
           </Label>
         </div>
         <Button variant="outline" size="sm" className="gap-2" onClick={() => handlePrint('dossier')}>
@@ -218,7 +231,7 @@ export default function AssessmentAppendix() {
         </Button>
       </div>
 
-      <AppendixTable rows={appendix.rows} skeleton={skeleton} showInternal={showInternal} onEdit={handleEdit} />
+      <AppendixTable rows={appendix.rows} skeleton={skeleton} showSources={showSources} relatedParties={relatedParties} onEdit={handleEdit} />
 
       <AssessmentFooterSlot
         left={

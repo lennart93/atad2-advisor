@@ -7,18 +7,29 @@
  */
 export type Status = 'Not triggered' | 'Triggered' | 'Insufficient information';
 
+/**
+ * Whether a triggered row is a real ATAD2 adjustment ('operative': a deduction is
+ * denied, income included, double deduction) or just an informational
+ * condition/threshold ('gate': scope, definitions, classification). Only operative
+ * rows get the red/green traffic light; gate rows stay neutral.
+ */
+export type RowKind = 'gate' | 'operative';
+
 /** A fixed row in the legal framework. Never generated; lives in skeleton.ts / the DB. */
 export interface SkeletonRow {
   rowId: string;            // e.g. "3.2"
   sectionId: string;        // e.g. "3"
   sectionTitle: string;     // e.g. "Primary rule: hybrid mismatches (art. 12aa)"
-  legalBasis: string;       // the citation only, e.g. "Article 12aa(1)(b) Wet Vpb 1969"
+  legalBasis: string;       // the citation only, e.g. "Article 12aa(1)(b) CIT Act 1969"
   conditionTested: string;  // the test, phrased as a condition, in plain English
   effect: 'D/NI' | 'DD' | null;
+  kind: RowKind;
   allowedStates: Status[];
   drivenByQuestionIds: string[]; // question_ids that, if changed, flag this row stale
   /** Render only when this answer matches. Undefined = always render. */
   renderIfQuestionEquals?: { questionId: string; equals: string };
+  /** Show a structured related-parties overview (from the structure chart) for this row. */
+  relatedPartiesView?: boolean;
 }
 
 /**

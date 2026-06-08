@@ -1,20 +1,24 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Info } from 'lucide-react';
 import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
 } from '@/components/ui/table';
 import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from '@/components/ui/select';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { statusTone } from '@/lib/appendix/status';
+import type { RelatedPartiesResult } from '@/lib/appendix/relatedParties';
 import type { AppendixRow, EditableField, SkeletonRow, Status } from '@/lib/appendix/types';
 
 interface Props {
   rows: AppendixRow[];
   skeleton: SkeletonRow[];
-  showInternal: boolean;
+  showSources: boolean;
+  relatedParties: RelatedPartiesResult | null;
   onEdit: (rowId: string, field: EditableField, value: string) => void;
 }
 
@@ -45,14 +49,99 @@ function EditableCell({
       onBlur={() => {
         if (draft !== value) onCommit(draft);
       }}
-      rows={2}
+      rows={3}
       className="min-h-0 resize-y text-sm"
       aria-label={label}
     />
   );
 }
 
-export function AppendixTable({ rows, skeleton, showInternal, onEdit }: Props) {
+function pct(n: number | null): string {
+  return n == null ? '?' : `${Number.isInteger(n) ? n : n.toFixed(2)}%`;
+}
+
+/** The related-parties overview, built from the structure chart. */
+function RelatedPartiesPanel({ data }: { data: RelatedPartiesResult }) {
+  if (!data.parties.length) {
+    return <p className="text-xs text-muted-foreground">No related parties found in the structure chart.</p>;
+  }
+  return (
+    <div>
+      <p className="mb-1.5 text-xs font-medium text-foreground">
+        Related parties{data.taxpayerName ? ` of ${data.taxpayerName}` : ''}{' '}
+        <span className="font-normal text-muted-foreground">(from the structure chart)</span>
+      </p>
+      <div className="overflow-hidden rounded border border-[hsl(var(--border-subtle))]">
+        <table className="w-full text-xs">
+          <thead className="bg-muted/50 text-muted-foreground">
+            <tr>
+              <th className="px-2 py-1 text-left font-medium">Entity</th>
+              <th className="px-2 py-1 text-left font-medium">Relationship</th>
+              <th className="px-2 py-1 text-right font-medium">Interest</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.parties.map((p) => (
+              <tr key={p.id} className="border-t border-[hsl(var(--border-subtle))]">
+                <td className="px-2 py-1">
+                  <span className="font-medium text-foreground">{p.name}</span>
+                  {p.jurisdiction && <span className="text-muted-foreground"> · {p.jurisdiction}</span>}
+                </td>
+                <td className="px-2 py-1 text-muted-foreground">{p.relationship}</td>
+                <td className="px-2 py-1 text-right tabular-nums">
+                  <span className={cn(p.meetsRelated && 'font-semibold text-foreground')}>{pct(p.ownershipPct)}</span>
+                  {p.meetsReverse && <span className="ml-1 text-[10px] text-sky-700 dark:text-sky-300">≥50%</span>}
+                  {p.meetsRelated && !p.meetsReverse && <span className="ml-1 text-[10px] text-sky-700 dark:text-sky-300">&gt;25%</span>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="mt-1 text-[10px] text-muted-foreground">
+        Direct holdings only. A reviewer aid, not the legal relatedness test.
+      </p>
+    </div>
+  );
+}
+
+/** Per-row internal sources: the structured related-parties overview (where relevant) plus the raw provenance. */
+function SourcesPopover({
+  rowId,
+  provenance,
+  showRelated,
+  relatedParties,
+}: {
+  rowId: string;
+  provenance: string | null;
+  showRelated: boolean;
+  relatedParties: RelatedPartiesResult | null;
+}) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex h-7 w-7 items-center justify-center rounded text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
+          aria-label={`Sources for ${rowId}`}
+        >
+          <Info className="h-4 w-4" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-96 space-y-3 text-sm">
+        {showRelated && relatedParties && <RelatedPartiesPanel data={relatedParties} />}
+        <div>
+          <p className="mb-1 text-xs font-medium text-foreground">Provenance <span className="font-normal text-muted-foreground">(internal)</span></p>
+          <p className="whitespace-pre-wrap text-xs text-muted-foreground">
+            {provenance || 'No provenance recorded.'}
+          </p>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+export function AppendixTable({ rows, skeleton, showSources, relatedParties, onEdit }: Props) {
   const byId = useMemo(() => new Map(rows.map((r) => [r.rowId, r])), [rows]);
 
   const sections = useMemo<Section[]>(() => {
@@ -82,20 +171,16 @@ export function AppendixTable({ rows, skeleton, showInternal, onEdit }: Props) {
                 <TableRow>
                   <TableHead className="w-12">#</TableHead>
                   <TableHead className="w-[15%]">Legal basis</TableHead>
-                  <TableHead className="w-[22%]">Condition tested</TableHead>
-                  <TableHead className="w-44">Status</TableHead>
+                  <TableHead className="w-[24%]">Condition tested</TableHead>
+                  <TableHead className="w-40">Status</TableHead>
                   <TableHead>Reasoning</TableHead>
-                  {showInternal && (
-                    <TableHead className="w-44 bg-muted/40">
-                      Provenance <span className="font-normal text-muted-foreground">(internal)</span>
-                    </TableHead>
-                  )}
+                  {showSources && <TableHead className="w-10" aria-label="Sources" />}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {sec.items.map((sk) => {
                   const row = byId.get(sk.rowId)!;
-                  const tone = statusTone(row.status);
+                  const tone = statusTone(row.status, sk.kind);
                   return (
                     <TableRow
                       key={sk.rowId}
@@ -145,9 +230,14 @@ export function AppendixTable({ rows, skeleton, showInternal, onEdit }: Props) {
                           onCommit={(v) => onEdit(sk.rowId, 'reasoning', v)}
                         />
                       </TableCell>
-                      {showInternal && (
-                        <TableCell className="bg-muted/20 text-xs text-muted-foreground">
-                          {row.provenance}
+                      {showSources && (
+                        <TableCell className="px-1">
+                          <SourcesPopover
+                            rowId={sk.rowId}
+                            provenance={row.provenance}
+                            showRelated={!!sk.relatedPartiesView}
+                            relatedParties={relatedParties}
+                          />
                         </TableCell>
                       )}
                     </TableRow>
