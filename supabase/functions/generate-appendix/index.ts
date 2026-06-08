@@ -126,6 +126,7 @@ async function runGeneration(c: SupabaseClient, appendixId: string, sessionId: s
     const factsToStore = factEntities.length
       ? mergeFacts((priorFacts?.facts as AppendixFacts | null) ?? null, factsFresh)
       : null;
+    const factsBlock = buildFactsBlock(factsToStore);
 
     // Fill everything except the per-section skeleton, then swarm: one parallel
     // Claude call per section so the whole appendix comes back fast (wall-clock
@@ -134,6 +135,7 @@ async function runGeneration(c: SupabaseClient, appendixId: string, sessionId: s
       .replace("{{TAXPAYER_NAME}}", session?.taxpayer_name ?? "")
       .replace("{{FISCAL_YEAR}}", session?.fiscal_year ?? "")
       .replace("{{SESSION_ID}}", sessionId)
+      .replace("{{FACTS_BLOCK}}", factsBlock)
       .replace("{{ANSWERS_BLOCK}}", answersBlock || "(no answers recorded)")
       .replace("{{STRUCTURE_BLOCK}}", structureBlock || "(no structure chart available)");
 
@@ -312,6 +314,31 @@ function mergeFacts(existing: AppendixFacts | null, fresh: AppendixFacts): Appen
     return { ...f, excludedFromClient: prev?.excludedFromClient ?? false };
   });
   return renumberFacts({ entities: fresh.entities, classifications, transactions, actingTogether });
+}
+
+/** Compact text summary of Part A, fed to the article generation as grounding. */
+function buildFactsBlock(facts: AppendixFacts | null): string {
+  if (!facts || !facts.entities.length) return "(no established facts)";
+  const nameOf = (id: string) => facts.entities.find((e) => e.id === id)?.name ?? id;
+  const ents = facts.entities
+    .map((e) => `${e.id} ${e.name} [${e.jurisdiction ?? "?"}, ${e.role}${e.ownershipPct != null ? `, ${e.ownershipPct}%` : ""}${e.nlTaxStatus ? `, ${e.nlTaxStatus}` : ""}]`)
+    .join("\n");
+  const cls = facts.classifications
+    .map((c) => `${c.entityId} ${nameOf(c.entityId)}: home ${c.homeState} ${c.homeClass} vs source ${c.sourceState ?? "?"} ${c.sourceClass ?? "?"}${c.hybrid ? " (HYBRID mismatch)" : ""}`)
+    .join("\n");
+  const tx = facts.transactions
+    .map((t) => `${t.id} ${nameOf(t.fromEntityId)} -> ${nameOf(t.toEntityId)}: ${t.kind}${t.instrument ? ` (${t.instrument})` : ""} [${t.articlesTested.join(", ")}]`)
+    .join("\n");
+  const at = facts.actingTogether
+    .filter((a) => a.status !== "dismissed")
+    .map((a) => `${a.memberEntityIds.map(nameOf).join(" + ")} ~ ${a.combinedPct ?? "?"}%: ${a.rationale}`)
+    .join("\n");
+  return [
+    `Entities:\n${ents}`,
+    cls ? `Classification (home vs source):\n${cls}` : "",
+    tx ? `Intra-group transactions:\n${tx}` : "",
+    at ? `Possible acting-together groups:\n${at}` : "",
+  ].filter(Boolean).join("\n\n");
 }
 
 /** Keep T#/A# labels contiguous after a merge. */
