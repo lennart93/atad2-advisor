@@ -2,7 +2,7 @@ import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard, ListChecks, HelpCircle, FileText, Users,
   BarChart3, Database, AlertCircle, ArrowLeft, Sparkles, Activity,
-  MessageSquare, LucideIcon,
+  MessageSquare, Scale, LucideIcon,
 } from "lucide-react";
 import { IconChip } from "@/components/admin/IconChip";
 import { cn } from "@/lib/utils";
@@ -21,6 +21,7 @@ const ITEMS: Item[] = [
   { title: "Analytics",         url: "/admin/analytics",         icon: BarChart3 },
   { title: "Data Explorer",     url: "/admin/explorer",          icon: Database },
   { title: "Prompts",           url: "/admin/prompts",           icon: Sparkles },
+  { title: "Appendix framework", url: "/admin/appendix-skeleton", icon: Scale },
   { title: "Pre-Fill Jobs",     url: "/admin/prefill-jobs",      icon: Activity },
   { title: "Audit Log",         url: "/admin/audit",             icon: AlertCircle },
 ];

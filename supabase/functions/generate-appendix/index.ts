@@ -98,8 +98,10 @@ async function runGeneration(c: SupabaseClient, appendixId: string, sessionId: s
     const answers = (answersRaw ?? []) as Answer[];
     const answersByQ = new Map(answers.map((a) => [a.question_id, a]));
 
+    // Load the legal-framework rows from the DB (falls back to the static seed).
+    const allRows = await loadSkeletonRows(c);
     // Which rows render (1bis only if Q2=Yes)
-    const rows = SKELETON_ROWS.filter((r) => {
+    const rows = allRows.filter((r) => {
       if (!r.renderIfQuestionEquals) return true;
       return answersByQ.get(r.renderIfQuestionEquals.questionId)?.answer === r.renderIfQuestionEquals.equals;
     });
@@ -186,6 +188,22 @@ async function callWithRetry(call: () => Promise<{ text: string }>): Promise<App
       throw first;
     }
   }
+}
+
+async function loadSkeletonRows(c: SupabaseClient): Promise<ServerSkeletonRow[]> {
+  const { data, error } = await c
+    .from("atad2_appendix_skeleton")
+    .select("row_id, legal_framework, allowed_states, render_if")
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true });
+  if (error || !data || data.length === 0) return SKELETON_ROWS;
+  return data.map((r) => ({
+    rowId: r.row_id as string,
+    legalFramework: r.legal_framework as string,
+    allowedStates: (Array.isArray(r.allowed_states) ? r.allowed_states : []) as string[],
+    drivenByQuestionIds: [],
+    renderIfQuestionEquals: (r.render_if as ServerSkeletonRow["renderIfQuestionEquals"]) ?? undefined,
+  }));
 }
 
 async function loadStructureBlock(c: SupabaseClient, sessionId: string): Promise<string> {

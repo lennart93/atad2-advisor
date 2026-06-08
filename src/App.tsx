@@ -42,6 +42,7 @@ const AdminAuditLogs = lazy(() => import("./pages/admin/AuditLogs"));
 const AdminAnalytics = lazy(() => import("./pages/admin/Analytics"));
 const AdminDataExplorer = lazy(() => import("./pages/admin/DataExplorer"));
 const AdminPrompts = lazy(() => import("./pages/admin/Prompts"));
+const AdminAppendixSkeleton = lazy(() => import("./pages/admin/AppendixSkeleton"));
 const AdminPrefillJobs = lazy(() => import("./pages/admin/PrefillJobs"));
 const AdminFeedback = lazy(() => import("./pages/admin/Feedback"));
 const NotAuthorized = lazy(() => import("./pages/NotAuthorized"));
@@ -100,6 +101,7 @@ const App = () => (
                       <Route path="analytics" element={<AdminAnalytics />} />
                       <Route path="explorer" element={<AdminDataExplorer />} />
                       <Route path="prompts" element={<AdminPrompts />} />
+                      <Route path="appendix-skeleton" element={<AdminAppendixSkeleton />} />
                       <Route path="prefill-jobs" element={<AdminPrefillJobs />} />
                       <Route path="feedback" element={<AdminFeedback />} />
                       <Route path="*" element={<NotAuthorized />} />
