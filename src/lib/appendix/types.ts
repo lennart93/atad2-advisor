@@ -15,12 +15,20 @@ export type Status = 'Not triggered' | 'Triggered' | 'Insufficient information';
  */
 export type RowKind = 'gate' | 'operative';
 
+/**
+ * How the related-parties / associated-enterprise data is surfaced on a row:
+ * 'none' = nothing, 'popover' = a compact list in the sources popover,
+ * 'inline' = a full-width annotated association panel under the row (the
+ * associated-enterprise showcase on the art. 12ac relatedness row).
+ */
+export type RelatedView = 'none' | 'popover' | 'inline';
+
 /** A fixed row in the legal framework. Never generated; lives in skeleton.ts / the DB. */
 export interface SkeletonRow {
   rowId: string;            // e.g. "3.2"
   sectionId: string;        // e.g. "3"
   sectionTitle: string;     // e.g. "Primary rule: hybrid mismatches (art. 12aa)"
-  legalBasis: string;       // the citation only, e.g. "Article 12aa(1)(b) CIT Act 1969"
+  legalBasis: string;       // the citation only, e.g. "Article 12aa(1)(b) CIT Act"
   conditionTested: string;  // the test, phrased as a condition, in plain English
   effect: 'D/NI' | 'DD' | null;
   kind: RowKind;
@@ -28,8 +36,7 @@ export interface SkeletonRow {
   drivenByQuestionIds: string[]; // question_ids that, if changed, flag this row stale
   /** Render only when this answer matches. Undefined = always render. */
   renderIfQuestionEquals?: { questionId: string; equals: string };
-  /** Show a structured related-parties overview (from the structure chart) for this row. */
-  relatedPartiesView?: boolean;
+  relatedView: RelatedView;
 }
 
 /**
@@ -46,6 +53,7 @@ export interface AppendixRow {
   status: Status | null;          // current; equals ai* until edited
   reasoning: string | null;       // fact + legal consequence in one, export-safe
   provenance: string | null;      // internal-only raw trail, excluded from export
+  excludedFromClient: boolean;    // advisor hid this row; dropped + renumbered in the client export
   source: 'ai' | 'edited';
   stale: boolean;
   staleReason: string | null;

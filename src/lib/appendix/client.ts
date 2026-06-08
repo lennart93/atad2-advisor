@@ -59,7 +59,7 @@ export async function saveRowEdit(
   appendixId: string,
   rows: AppendixRow[],
   rowId: string,
-  field: EditableField,
+  field: EditableField | 'excludedFromClient',
   oldValue: string | null,
   newValue: string | null,
   userId: string,

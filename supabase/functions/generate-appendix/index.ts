@@ -153,6 +153,7 @@ async function runGeneration(c: SupabaseClient, appendixId: string, sessionId: s
         rowId: sk.rowId,
         aiStatus: status, aiReasoning: reasoning, aiProvenance: provenance,
         status, reasoning, provenance,
+        excludedFromClient: false,
         source: "ai", stale: false, staleReason: null, editedBy: null, editedAt: null,
       };
     });
@@ -163,7 +164,9 @@ async function runGeneration(c: SupabaseClient, appendixId: string, sessionId: s
     const existingById = new Map(existingRows.map((r) => [r.rowId as string, r]));
     const merged = stored.map((fresh) => {
       const prev = existingById.get(fresh.rowId);
-      if (!prev || prev.source === "ai") return fresh;
+      // Exclusion is a scope flag, preserved across regeneration regardless of source.
+      const excludedFromClient = (prev?.excludedFromClient as boolean | undefined) ?? false;
+      if (!prev || prev.source === "ai") return { ...fresh, excludedFromClient };
       return { ...prev, aiStatus: fresh.aiStatus, aiReasoning: fresh.aiReasoning, aiProvenance: fresh.aiProvenance };
     });
 

@@ -124,6 +124,22 @@ export default function AssessmentAppendix() {
     }
   };
 
+  const handleToggleExclude = async (rowId: string, excluded: boolean) => {
+    if (!appendix || !user) return;
+    const idx = appendix.rows.findIndex((r) => r.rowId === rowId);
+    if (idx < 0) return;
+    const old = appendix.rows[idx];
+    // Exclusion is a scope flag, not a content edit, so we do not touch `source`.
+    const updated: AppendixRow = { ...old, excludedFromClient: excluded };
+    const rows = appendix.rows.map((r, i) => (i === idx ? updated : r));
+    setAppendix({ ...appendix, rows }); // optimistic
+    try {
+      await saveRowEdit(appendix.id, rows, rowId, 'excludedFromClient', String(!!old.excludedFromClient), String(excluded), user.id);
+    } catch (e) {
+      toast.error('Could not update exclusion', { description: String(e) });
+    }
+  };
+
   const handleRetry = async () => {
     if (!sessionId) return;
     setPhase('generating');
@@ -231,7 +247,7 @@ export default function AssessmentAppendix() {
         </Button>
       </div>
 
-      <AppendixTable rows={appendix.rows} skeleton={skeleton} showSources={showSources} relatedParties={relatedParties} onEdit={handleEdit} />
+      <AppendixTable rows={appendix.rows} skeleton={skeleton} showSources={showSources} relatedParties={relatedParties} onEdit={handleEdit} onToggleExclude={handleToggleExclude} />
 
       <AssessmentFooterSlot
         left={

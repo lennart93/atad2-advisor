@@ -9,8 +9,11 @@ export function mergeOnRegenerate(existing: AppendixRow[], fresh: AppendixRow[])
   const existingById = new Map(existing.map((r) => [r.rowId, r]));
   return fresh.map((f) => {
     const prev = existingById.get(f.rowId);
+    // Exclusion is a scope decision, not a content edit: it survives regeneration
+    // regardless of source, and does not freeze the AI content.
+    const excludedFromClient = prev?.excludedFromClient ?? f.excludedFromClient;
     if (!prev || prev.source === 'ai') {
-      return { ...f, source: 'ai' as const };
+      return { ...f, excludedFromClient, source: 'ai' as const };
     }
     // edited row: keep current value, refresh ai shadow
     return {
@@ -18,6 +21,7 @@ export function mergeOnRegenerate(existing: AppendixRow[], fresh: AppendixRow[])
       aiStatus: f.aiStatus,
       aiReasoning: f.aiReasoning,
       aiProvenance: f.aiProvenance,
+      excludedFromClient: prev.excludedFromClient,
     };
   });
 }

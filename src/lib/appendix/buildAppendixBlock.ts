@@ -10,10 +10,12 @@ const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
  */
 export function buildAppendixBlock(rows: AppendixRow[], skeleton: SkeletonRow[] = APPENDIX_SKELETON): string {
   const byId = new Map(skeleton.map((r) => [r.rowId, r]));
-  const lines = rows.map((r) => {
-    const sk = byId.get(r.rowId);
-    const basis = sk ? `${sk.legalBasis} - ${sk.conditionTested}` : r.rowId;
-    return `- [${r.rowId}] ${esc(basis)} :: ${esc(r.status ?? '')} :: ${esc(r.reasoning ?? '')}`;
-  });
+  const lines = rows
+    .filter((r) => !r.excludedFromClient)
+    .map((r) => {
+      const sk = byId.get(r.rowId);
+      const basis = sk ? `${sk.legalBasis} - ${sk.conditionTested}` : r.rowId;
+      return `- [${r.rowId}] ${esc(basis)} :: ${esc(r.status ?? '')} :: ${esc(r.reasoning ?? '')}`;
+    });
   return `<confirmed_appendix>\n${lines.join('\n')}\n</confirmed_appendix>`;
 }

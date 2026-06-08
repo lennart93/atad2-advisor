@@ -178,6 +178,7 @@ export type Database = {
           condition_tested: string
           kind: string | null
           related_parties_view: boolean | null
+          related_view: string | null
           legal_framework: string | null
           effect: string | null
           allowed_states: Json
@@ -198,6 +199,7 @@ export type Database = {
           condition_tested: string
           kind?: string | null
           related_parties_view?: boolean | null
+          related_view?: string | null
           legal_framework?: string | null
           effect?: string | null
           allowed_states?: Json
@@ -218,6 +220,7 @@ export type Database = {
           condition_tested?: string
           kind?: string | null
           related_parties_view?: boolean | null
+          related_view?: string | null
           legal_framework?: string | null
           effect?: string | null
           allowed_states?: Json

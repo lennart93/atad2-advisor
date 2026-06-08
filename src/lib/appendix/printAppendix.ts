@@ -1,4 +1,5 @@
 import { APPENDIX_SKELETON } from './skeleton';
+import { buildClientSections } from './clientExport';
 import { statusPrintColor } from './status';
 import type { AppendixRow, RowKind, SkeletonRow, Status } from './types';
 
@@ -7,13 +8,16 @@ const esc = (s: string | null) => (s ?? '').replace(/&/g, '&amp;').replace(/</g,
 /** Which artifact to render. */
 export type PrintMode = 'internal' | 'dossier';
 
+interface PrintRow { code: string; legalBasis: string; conditionTested: string; status: Status | null; kind: RowKind; reasoning: string | null; provenance: string | null; stale: boolean; excluded: boolean; }
+interface PrintSection { heading: string; rows: PrintRow[] }
+
 /**
- * Full, print-friendly HTML for the whole appendix: every section and row,
- * grouped like the on-screen table, with nothing clipped by a scroll container.
+ * Full, print-friendly HTML for the whole appendix.
  *
- * 'internal' is the working copy: it keeps the raw provenance column.
- * 'dossier' is the clean client/file version: legal basis + condition + status +
- * reasoning (the fact and the legal consequence in one), with no internal ids.
+ * 'internal' is the working copy: every row in its original numbering, with the
+ * provenance column, and excluded rows marked. 'dossier' is the clean client/file
+ * version: excluded rows are dropped and the rest renumbered contiguously, no
+ * provenance, no internal ids.
  */
 export function buildAppendixPrintHtml(
   rows: AppendixRow[],
@@ -21,19 +25,32 @@ export function buildAppendixPrintHtml(
   skeleton: SkeletonRow[] = APPENDIX_SKELETON,
 ): string {
   const internal = mode === 'internal';
-  const byId = new Map(rows.map((r) => [r.rowId, r]));
-  const skById = new Map(skeleton.map((s) => [s.rowId, s]));
+  const sections: PrintSection[] = [];
 
-  const sections: { id: string; title: string; rows: AppendixRow[] }[] = [];
-  for (const sk of skeleton) {
-    const row = byId.get(sk.rowId);
-    if (!row) continue;
-    let s = sections.find((x) => x.id === sk.sectionId);
-    if (!s) {
-      s = { id: sk.sectionId, title: sk.sectionTitle, rows: [] };
-      sections.push(s);
+  if (internal) {
+    const byId = new Map(rows.map((r) => [r.rowId, r]));
+    for (const sk of skeleton) {
+      const row = byId.get(sk.rowId);
+      if (!row) continue;
+      let s = sections.find((x) => x.heading === `Section ${sk.sectionId}. ${sk.sectionTitle}`);
+      if (!s) { s = { heading: `Section ${sk.sectionId}. ${sk.sectionTitle}`, rows: [] }; sections.push(s); }
+      s.rows.push({
+        code: sk.rowId, legalBasis: sk.legalBasis, conditionTested: sk.conditionTested,
+        status: row.status, kind: sk.kind, reasoning: row.reasoning, provenance: row.provenance,
+        stale: row.stale, excluded: row.excludedFromClient,
+      });
     }
-    s.rows.push(row);
+  } else {
+    for (const cs of buildClientSections(rows, skeleton)) {
+      sections.push({
+        heading: `Section ${cs.displayNum}. ${cs.sectionTitle}`,
+        rows: cs.rows.map((cr) => ({
+          code: cr.displayCode, legalBasis: cr.sk.legalBasis, conditionTested: cr.sk.conditionTested,
+          status: cr.row.status, kind: cr.sk.kind, reasoning: cr.row.reasoning, provenance: cr.row.provenance,
+          stale: cr.row.stale, excluded: false,
+        })),
+      });
+    }
   }
 
   const statusCell = (status: Status | null, kind: RowKind, flag: string) => {
@@ -51,24 +68,24 @@ export function buildAppendixPrintHtml(
     .map((s) => {
       const rowsHtml = s.rows
         .map((r) => {
-          const sk = skById.get(r.rowId);
-          const flag = r.stale ? ` <span class="flag">review again</span>` : '';
+          const flags = (r.stale ? ` <span class="flag">review again</span>` : '')
+            + (r.excluded ? ` <span class="flag">excluded</span>` : '');
           const prov = internal ? `<td class="c-prov">${esc(r.provenance)}</td>` : '';
           return (
-            `<tr><td class="c-num">${esc(r.rowId)}</td>` +
-            `<td class="c-basis">${esc(sk?.legalBasis ?? r.rowId)}</td>` +
-            `<td>${esc(sk?.conditionTested ?? '')}</td>` +
-            statusCell(r.status, sk?.kind ?? 'gate', flag) +
+            `<tr class="${r.excluded ? 'excluded' : ''}"><td class="c-num">${esc(r.code)}</td>` +
+            `<td class="c-basis">${esc(r.legalBasis)}</td>` +
+            `<td>${esc(r.conditionTested)}</td>` +
+            statusCell(r.status, r.kind, flags) +
             `<td class="c-reason">${esc(r.reasoning)}</td>${prov}</tr>`
           );
         })
         .join('');
-      return `<h2>Section ${esc(s.id)}. ${esc(s.title)}</h2><table>${header}${rowsHtml}</table>`;
+      return `<h2>${esc(s.heading)}</h2><table>${header}${rowsHtml}</table>`;
     })
     .join('\n');
 
   const banner = internal
-    ? `<div class="banner"><strong>Draft, pending tax review.</strong> Internal working copy, includes internal references. Do not share this version externally.</div>`
+    ? `<div class="banner"><strong>Draft, pending tax review.</strong> Internal working copy, includes internal references and excluded rows. Do not share this version externally.</div>`
     : '';
 
   return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>ATAD2 technical appendix</title>
@@ -83,6 +100,7 @@ export function buildAppendixPrintHtml(
   th, td { border: 1px solid #aaa; padding: 4px 6px; text-align: left; vertical-align: top; }
   th { background: #eee; font-weight: 600; }
   tr { break-inside: avoid; }
+  tr.excluded { opacity: 0.55; }
   .c-num { width: 34px; white-space: nowrap; }
   .c-basis { width: 16%; }
   .c-status { width: 92px; font-weight: 600; }

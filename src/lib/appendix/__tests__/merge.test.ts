@@ -11,6 +11,7 @@ function row(partial: Partial<AppendixRow> & { rowId: string }): AppendixRow {
     status: partial.status ?? partial.aiStatus ?? 'Not triggered',
     reasoning: partial.reasoning ?? partial.aiReasoning ?? 'No adjustment, the BV is the only group entity.',
     provenance: partial.provenance ?? partial.aiProvenance ?? 'Q1 answer: Yes',
+    excludedFromClient: partial.excludedFromClient ?? false,
     source: partial.source ?? 'ai',
     stale: partial.stale ?? false,
     staleReason: partial.staleReason ?? null,
@@ -33,12 +34,19 @@ describe('mergeOnRegenerate', () => {
     const existing = [row({ rowId: '3.7', source: 'edited', status: 'Triggered', reasoning: 'human edit', editedBy: 'u1', editedAt: 't1' })];
     const fresh = [row({ rowId: '3.7', aiStatus: 'Not triggered', aiReasoning: 'fresh ai', aiProvenance: 'Q19=No' })];
     const merged = mergeOnRegenerate(existing, fresh);
-    expect(merged[0].status).toBe('Triggered');         // human value kept
+    expect(merged[0].status).toBe('Triggered');
     expect(merged[0].reasoning).toBe('human edit');
-    expect(merged[0].aiStatus).toBe('Not triggered');   // ai shadow refreshed
-    expect(merged[0].aiReasoning).toBe('fresh ai');
+    expect(merged[0].aiStatus).toBe('Not triggered');
     expect(merged[0].source).toBe('edited');
     expect(merged[0].editedBy).toBe('u1');
+  });
+
+  it('preserves the client-exclusion flag across regeneration, without freezing content', () => {
+    const existing = [row({ rowId: '3.2', source: 'ai', excludedFromClient: true })];
+    const fresh = [row({ rowId: '3.2', aiStatus: 'Triggered', aiReasoning: 'fresh' })];
+    const merged = mergeOnRegenerate(existing, fresh);
+    expect(merged[0].excludedFromClient).toBe(true); // exclusion survives
+    expect(merged[0].status).toBe('Triggered');       // content still refreshed
   });
 
   it('adds brand-new fresh rows not present in existing', () => {

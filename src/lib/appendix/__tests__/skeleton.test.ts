@@ -32,12 +32,17 @@ describe('APPENDIX_SKELETON (v3)', () => {
     expect(conditional.every((r) => r.renderIfQuestionEquals?.questionId === 'Q2')).toBe(true);
   });
 
-  it('uses English citations only (CIT Act, par.), never Dutch (Wet Vpb, lid)', () => {
+  it('uses English citations without the year, never Dutch terms', () => {
     for (const r of APPENDIX_SKELETON) {
-      expect(r.legalBasis).toContain('CIT Act 1969');
+      expect(r.legalBasis.includes('1969')).toBe(false);
       expect(r.legalBasis.includes('Wet Vpb')).toBe(false);
       expect(/\blid\b/.test(r.legalBasis)).toBe(false);
+      expect(r.legalBasis === 'N/A' || r.legalBasis.includes('CIT Act')).toBe(true);
     }
+  });
+
+  it('row 1.2 (cross-border element) has no statutory citation', () => {
+    expect(byId['1.2'].legalBasis).toBe('N/A');
   });
 
   it('grounds relatedness in art. 12ac par. 2, never in art. 10a(6)', () => {
@@ -61,9 +66,12 @@ describe('APPENDIX_SKELETON (v3)', () => {
     for (const r of APPENDIX_SKELETON) expect(['gate', 'operative']).toContain(r.kind);
   });
 
-  it('shows the related-parties overview on the relatedness and reverse-hybrid threshold rows', () => {
-    const flagged = APPENDIX_SKELETON.filter((r) => r.relatedPartiesView).map((r) => r.rowId);
-    expect(flagged.sort()).toEqual(['2.1', '6.1', '8.2']);
+  it('surfaces related parties: inline on 2.1, popover on 6.1 and 8.2', () => {
+    expect(byId['2.1'].relatedView).toBe('inline');
+    expect(byId['6.1'].relatedView).toBe('popover');
+    expect(byId['8.2'].relatedView).toBe('popover');
+    const withView = APPENDIX_SKELETON.filter((r) => r.relatedView !== 'none').map((r) => r.rowId);
+    expect(withView.sort()).toEqual(['2.1', '6.1', '8.2']);
   });
 
   it('contains no FKR remnants and no art. 12ag documentation section', () => {
