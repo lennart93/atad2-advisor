@@ -78,6 +78,7 @@ export type Database = {
           review_status: string
           generation_status: string
           rows: Json
+          facts: Json | null
           model: string | null
           prompt_version: number | null
           error_message: string | null
@@ -93,6 +94,7 @@ export type Database = {
           review_status?: string
           generation_status?: string
           rows?: Json
+          facts?: Json | null
           model?: string | null
           prompt_version?: number | null
           error_message?: string | null
@@ -108,6 +110,7 @@ export type Database = {
           review_status?: string
           generation_status?: string
           rows?: Json
+          facts?: Json | null
           model?: string | null
           prompt_version?: number | null
           error_message?: string | null
