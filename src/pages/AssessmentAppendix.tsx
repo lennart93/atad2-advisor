@@ -157,7 +157,7 @@ export default function AssessmentAppendix() {
     return (
       <div className="flex flex-col items-center justify-center gap-3 py-24 text-center">
         <p className="text-muted-foreground">
-          Generating the technical appendix. This runs in the background and can take a minute.
+          Generating the technical appendix. This can take a few minutes.
         </p>
       </div>
     );
