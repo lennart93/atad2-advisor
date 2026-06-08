@@ -188,7 +188,7 @@ export default function AssessmentAppendix() {
 
   const handlePrint = (mode: PrintMode) => {
     if (!appendix) return;
-    const html = buildAppendixPrintHtml(appendix.rows, mode, skeleton);
+    const html = buildAppendixPrintHtml(appendix.rows, mode, skeleton, appendix.facts);
     const w = window.open('', '_blank');
     if (!w) {
       toast.error('Pop-up blocked', { description: 'Allow pop-ups for this site to print the appendix.' });

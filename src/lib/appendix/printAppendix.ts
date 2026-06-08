@@ -1,7 +1,8 @@
 import { APPENDIX_SKELETON } from './skeleton';
 import { buildClientSections } from './clientExport';
 import { statusPrintColor } from './status';
-import type { AppendixRow, RowKind, SkeletonRow, Status } from './types';
+import type { AppendixFacts, AppendixRow, RowKind, SkeletonRow, Status } from './types';
+import { factsForClient } from './factsExport';
 
 const esc = (s: string | null) => (s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
@@ -23,6 +24,7 @@ export function buildAppendixPrintHtml(
   rows: AppendixRow[],
   mode: PrintMode,
   skeleton: SkeletonRow[] = APPENDIX_SKELETON,
+  facts: AppendixFacts | null = null,
 ): string {
   const internal = mode === 'internal';
   const sections: PrintSection[] = [];
@@ -88,6 +90,99 @@ export function buildAppendixPrintHtml(
     ? `<div class="banner"><strong>Draft, pending tax review.</strong> Internal working copy, includes internal references and excluded rows. Do not share this version externally.</div>`
     : '';
 
+  // ---- Part A: Facts & relationships ----------------------------------------
+  const partA = (() => {
+    if (!facts || facts.entities.length === 0) return '';
+    const f = internal ? facts : factsForClient(facts);
+
+    // Entity register
+    const entityById = new Map(f.entities.map((e) => [e.id, e]));
+    const entityName = (id: string) => {
+      const e = entityById.get(id);
+      return e ? e.name : id;
+    };
+
+    const entityRows = f.entities.map((e) => {
+      const flagCols = internal
+        ? `<td class="c-num">${esc(e.id)}</td>`
+        : '';
+      return (
+        `<tr><td>${esc(e.name)}</td>` +
+        flagCols +
+        `<td>${esc(e.jurisdiction)}</td>` +
+        `<td>${esc(e.entityType)}</td>` +
+        `<td>${esc(e.role)}</td>` +
+        `<td>${e.ownershipPct != null ? `${e.ownershipPct}%` : ''}</td>` +
+        `<td>${e.related ? 'Yes' : 'No'}</td>` +
+        `<td>${esc(e.nlTaxStatus)}</td></tr>`
+      );
+    }).join('');
+    const entityIdHeader = internal ? `<th class="c-num">Ref</th>` : '';
+    const entityTable = entityRows
+      ? `<h2>Part A.1 · Entity register</h2>` +
+        `<table><tr>${entityIdHeader}<th>Entity</th><th>Jurisdiction</th><th>Type</th><th>Role</th><th>Ownership</th><th>Related (&gt;25%)</th><th>NL tax status</th></tr>${entityRows}</table>`
+      : '';
+
+    // Classification matrix
+    const classRows = f.classifications.map((c) => {
+      const e = entityById.get(c.entityId);
+      const name = e ? e.name : c.entityId;
+      const hybridFlag = c.hybrid ? ` <span class="flag">hybrid mismatch</span>` : '';
+      const excludedFlag = (internal && c.excludedFromClient) ? ` <span class="flag">excluded</span>` : '';
+      const proposedFlag = (internal && c.status === 'proposed') ? ` <span class="flag">proposed</span>` : '';
+      return (
+        `<tr class="${(internal && c.excludedFromClient) ? 'excluded' : ''}">` +
+        `<td>${esc(name)}</td>` +
+        `<td>${esc(c.homeState)}</td>` +
+        `<td>${esc(c.homeClass)}</td>` +
+        `<td>${esc(c.sourceState)}</td>` +
+        `<td>${esc(c.sourceClass)}${hybridFlag}</td>` +
+        `<td>${c.hybrid ? 'Yes' : 'No'}${excludedFlag}${proposedFlag}</td></tr>`
+      );
+    }).join('');
+    const classTable = classRows
+      ? `<h2>Part A.2 · Classification matrix</h2>` +
+        `<table><tr><th>Entity</th><th>Home state</th><th>Home class</th><th>Source state</th><th>Source class</th><th>Hybrid</th></tr>${classRows}</table>`
+      : '';
+
+    // Transaction map
+    const txRows = f.transactions.map((t) => {
+      const fromName = entityName(t.fromEntityId);
+      const toName = entityName(t.toEntityId);
+      const excludedFlag = (internal && t.excludedFromClient) ? ` <span class="flag">excluded</span>` : '';
+      const proposedFlag = (internal && t.status === 'proposed') ? ` <span class="flag">proposed</span>` : '';
+      const idCol = internal ? `<td class="c-num">${esc(t.id)}</td>` : '';
+      return (
+        `<tr class="${(internal && t.excludedFromClient) ? 'excluded' : ''}">` +
+        idCol +
+        `<td>${esc(fromName)} &rarr; ${esc(toName)}</td>` +
+        `<td>${esc(t.kind)}</td>` +
+        `<td>${esc(t.instrument)}</td>` +
+        `<td>${t.articlesTested.map(esc).join(', ')}${excludedFlag}${proposedFlag}</td></tr>`
+      );
+    }).join('');
+    const txIdHeader = internal ? `<th class="c-num">Ref</th>` : '';
+    const txTable = txRows
+      ? `<h2>Part A.3 · Transaction map</h2>` +
+        `<table><tr>${txIdHeader}<th>Flow</th><th>Type</th><th>Instrument</th><th>Article(s)</th></tr>${txRows}</table>`
+      : '';
+
+    // Acting together
+    const atItems = f.actingTogether.map((a) => {
+      const members = a.memberEntityIds.map((mid) => entityName(mid)).join(', ');
+      const pct = a.combinedPct != null ? ` ≈ ${a.combinedPct}%` : '';
+      const excludedFlag = (internal && a.excludedFromClient) ? ` <span class="flag">excluded</span>` : '';
+      const proposedFlag = (internal && a.status === 'proposed') ? ` <span class="flag">proposed</span>` : '';
+      return `<li>${esc(members)}${pct}${excludedFlag}${proposedFlag} — ${esc(a.rationale)}</li>`;
+    }).join('');
+    const atBlock = atItems
+      ? `<h2>Part A.4 · Acting together</h2><ul>${atItems}</ul>`
+      : '';
+
+    if (!entityTable && !classTable && !txTable && !atBlock) return '';
+    return `<h2 style="font-size:13px;margin-top:0;">Part A &middot; Facts &amp; relationships</h2>${entityTable}${classTable}${txTable}${atBlock}<hr style="margin:14px 0;border:none;border-top:1px solid #ccc;">`;
+  })();
+
   return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>ATAD2 technical appendix</title>
 <style>
   @page { margin: 16mm; }
@@ -110,6 +205,7 @@ export function buildAppendixPrintHtml(
 </style></head><body>
 <h1>ATAD2 technical appendix</h1>
 ${banner}
+${partA}
 ${body}
 </body></html>`;
 }
