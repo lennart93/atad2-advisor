@@ -15,6 +15,7 @@ import {
 import type { StoredAppendix, AppendixRow } from '@/lib/appendix/types';
 import { buildAppendixPrintHtml } from '@/lib/appendix/printAppendix';
 import { useAppendixSkeleton } from '@/lib/appendix/skeletonStore';
+import { useUiBusySignal } from '@/stores/uiBusyStore';
 
 type Phase = 'loading' | 'generating' | 'ready' | 'error';
 
@@ -33,6 +34,9 @@ export default function AssessmentAppendix() {
   const [phase, setPhase] = useState<Phase>('loading');
   const [showRefs, setShowRefs] = useState(true);
   const [confirming, setConfirming] = useState(false);
+
+  // While generating, spin the top-left app logo instead of a local spinner.
+  useUiBusySignal(phase === 'loading' || phase === 'generating');
 
   useEffect(() => {
     if (!sessionId) return;
@@ -152,7 +156,6 @@ export default function AssessmentAppendix() {
   if (phase === 'loading' || phase === 'generating') {
     return (
       <div className="flex flex-col items-center justify-center gap-3 py-24 text-center">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         <p className="text-muted-foreground">
           Generating the technical appendix. This runs in the background and can take a minute.
         </p>
