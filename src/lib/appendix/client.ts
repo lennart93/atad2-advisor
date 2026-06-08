@@ -1,5 +1,11 @@
 import { supabase } from '@/integrations/supabase/client';
-import type { StoredAppendix, AppendixRow, EditableField, GenerationStatus } from './types';
+import type { StoredAppendix, AppendixRow, EditableField, GenerationStatus, AppendixFacts } from './types';
+import { normalizeFacts } from './facts/emptyFacts';
+
+export function coerceFacts(raw: unknown): AppendixFacts | null {
+  if (raw == null || typeof raw !== 'object') return null;
+  return normalizeFacts(raw as Partial<AppendixFacts>);
+}
 
 const POLL_INTERVAL_MS = 2000;
 const POLL_TIMEOUT_MS = 360_000;
@@ -18,7 +24,7 @@ export async function loadAppendix(sessionId: string): Promise<StoredAppendix | 
     review_status: data.review_status as StoredAppendix['review_status'],
     generation_status: data.generation_status as GenerationStatus,
     rows: (data.rows ?? []) as AppendixRow[],
-    facts: null,
+    facts: coerceFacts((data as { facts?: unknown }).facts),
     model: data.model,
     prompt_version: data.prompt_version,
     error_message: data.error_message,
