@@ -1,4 +1,4 @@
-import { Trash2 } from 'lucide-react';
+import { Trash2, RotateCcw } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import type { StructureEdge } from '@/lib/structure/types';
@@ -31,14 +31,25 @@ export function EdgeInspector({ edge, onChange, onDelete }: Props) {
 
       <label className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-md border border-stone-200/80 bg-stone-50/40 hover:bg-stone-50/80 transition-colors cursor-pointer">
         <div className="flex flex-col">
-          <span className="text-[13px] font-medium text-stone-800 leading-tight">Voting rights only</span>
-          <span className="text-[11px] text-stone-500 leading-tight">No economic stake</span>
+          <span className="text-[13px] font-medium text-stone-800 leading-tight">Show % on chart</span>
+          <span className="text-[11px] text-stone-500 leading-tight">Value still feeds the memo</span>
         </div>
         <Switch
-          checked={Boolean(edge.ownership_voting_only)}
-          onCheckedChange={(c) => onChange({ ownership_voting_only: Boolean(c) })}
+          checked={!edge.label_hidden}
+          onCheckedChange={(c) => onChange({ label_hidden: !c })}
         />
       </label>
+
+      {(edge.label_dx != null || edge.label_dy != null || edge.label_t != null) && (
+        <button
+          type="button"
+          onClick={() => onChange({ label_dx: null, label_dy: null, label_t: null })}
+          className="inline-flex items-center gap-1.5 text-[12px] text-stone-500 hover:text-stone-800 transition-colors font-medium"
+        >
+          <RotateCcw className="h-3.5 w-3.5" />
+          Reset label position
+        </button>
+      )}
 
       <div className="pt-1 border-t border-stone-100/80 -mx-4 px-4 mt-4">
         <button
