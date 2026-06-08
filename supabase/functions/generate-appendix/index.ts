@@ -131,7 +131,7 @@ async function runGeneration(c: SupabaseClient, appendixId: string, sessionId: s
     }
 
     const perSection = await Promise.all([...sectionGroups.values()].map(async (secRows) => {
-      const skeletonJson = JSON.stringify(secRows.map((r) => ({ rowId: r.rowId, legalFramework: r.legalFramework, allowedStates: r.allowedStates })));
+      const skeletonJson = JSON.stringify(secRows.map((r) => ({ rowId: r.rowId, legalBasis: r.legalBasis, conditionTested: r.conditionTested, allowedStates: r.allowedStates })));
       const user = baseFilled.replace("{{SKELETON_ROWS}}", skeletonJson);
       try {
         const parsed = await callWithRetry(() => callClaude({ user }));
@@ -145,14 +145,15 @@ async function runGeneration(c: SupabaseClient, appendixId: string, sessionId: s
     const byId = new Map(perSection.flat().map((r) => [r.rowId, r]));
     const stored = rows.map((sk) => {
       const m = byId.get(sk.rowId);
-      const decisionRaw = m?.decision ?? "Further information needed";
-      const decision = sk.allowedStates.includes(decisionRaw) ? decisionRaw : "Further information needed";
-      const reasoning = m?.reasoning ?? "The model did not return a grounded answer for this row; confirm manually.";
-      const reference = m?.reference ?? "";
+      const statusRaw = m?.status ?? "Insufficient information";
+      const status = sk.allowedStates.includes(statusRaw) ? statusRaw : "Insufficient information";
+      const consequence = m?.consequence ?? "The model did not return a grounded answer for this row; confirm manually.";
+      const factualBasis = m?.factualBasis ?? "";
+      const provenance = m?.provenance ?? "";
       return {
         rowId: sk.rowId,
-        aiDecision: decision, aiReasoning: reasoning, aiReference: reference,
-        decision, reasoning, reference,
+        aiStatus: status, aiConsequence: consequence, aiFactualBasis: factualBasis, aiProvenance: provenance,
+        status, consequence, factualBasis, provenance,
         source: "ai", stale: false, staleReason: null, editedBy: null, editedAt: null,
       };
     });
@@ -164,7 +165,7 @@ async function runGeneration(c: SupabaseClient, appendixId: string, sessionId: s
     const merged = stored.map((fresh) => {
       const prev = existingById.get(fresh.rowId);
       if (!prev || prev.source === "ai") return fresh;
-      return { ...prev, aiDecision: fresh.aiDecision, aiReasoning: fresh.aiReasoning, aiReference: fresh.aiReference };
+      return { ...prev, aiStatus: fresh.aiStatus, aiConsequence: fresh.aiConsequence, aiFactualBasis: fresh.aiFactualBasis, aiProvenance: fresh.aiProvenance };
     });
 
     await c.from("atad2_appendix").update({
@@ -193,13 +194,14 @@ async function callWithRetry(call: () => Promise<{ text: string }>): Promise<App
 async function loadSkeletonRows(c: SupabaseClient): Promise<ServerSkeletonRow[]> {
   const { data, error } = await c
     .from("atad2_appendix_skeleton")
-    .select("row_id, legal_framework, allowed_states, render_if")
+    .select("row_id, legal_basis, condition_tested, allowed_states, render_if")
     .eq("is_active", true)
     .order("sort_order", { ascending: true });
   if (error || !data || data.length === 0) return SKELETON_ROWS;
   return data.map((r) => ({
     rowId: r.row_id as string,
-    legalFramework: r.legal_framework as string,
+    legalBasis: r.legal_basis as string,
+    conditionTested: r.condition_tested as string,
     allowedStates: (Array.isArray(r.allowed_states) ? r.allowed_states : []) as string[],
     drivenByQuestionIds: [],
     renderIfQuestionEquals: (r.render_if as ServerSkeletonRow["renderIfQuestionEquals"]) ?? undefined,

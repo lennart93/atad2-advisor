@@ -1,59 +1,55 @@
-// Server-side mirror of src/lib/appendix/skeleton.ts.
-// Keep in sync (rowId, legalFramework, allowedStates, drivenByQuestionIds, renderIfQuestionEquals).
+// Server-side mirror of src/lib/appendix/skeleton.ts (v2).
+// Keep in sync (rowId, legalBasis, conditionTested, allowedStates, drivenByQuestionIds, renderIfQuestionEquals).
+// This is a fallback only: the live rows are read from atad2_appendix_skeleton.
 export interface ServerSkeletonRow {
   rowId: string;
-  legalFramework: string;
+  legalBasis: string;
+  conditionTested: string;
   allowedStates: string[];
   drivenByQuestionIds: string[];
   renderIfQuestionEquals?: { questionId: string; equals: string };
 }
 
-const STANDARD = ["Not applicable", "Potentially applicable", "Further information needed"];
+const S = ["Not triggered", "Triggered", "Insufficient information"];
+const inbound = { questionId: "Q2", equals: "Yes" };
 
 export const SKELETON_ROWS: ServerSkeletonRow[] = [
-  { rowId: "0.1", legalFramework: "Article 2(1) / Article 3 Wet Vpb 1969, subject to Dutch CIT (resident, or non-resident with a Dutch permanent establishment)", allowedStates: ["Yes", "No", "Further information needed"], drivenByQuestionIds: ["Q1", "Q2"] },
-  { rowId: "0.2", legalFramework: "Cross-border element present", allowedStates: ["Yes", "No", "Further information needed"], drivenByQuestionIds: ["Q3"] },
-  { rowId: "0.3", legalFramework: "Article 12ac jo. Article 10a(6) Wet Vpb 1969, related party (broad associated-enterprise test) or structured arrangement", allowedStates: ["Yes", "No", "Further information needed"], drivenByQuestionIds: ["Q28"] },
-  { rowId: "0.4", legalFramework: "Financial year starting on or after 1 Jan 2020 (Article 12ag in force)", allowedStates: ["Yes", "No"], drivenByQuestionIds: [] },
+  { rowId: "1.1", legalBasis: "Article 2(1) / Article 3 Wet Vpb 1969", conditionTested: "The taxpayer is subject to Dutch corporate income tax, as a resident or as a non-resident with a Dutch permanent establishment", allowedStates: S, drivenByQuestionIds: ["Q1", "Q2"] },
+  { rowId: "1.2", legalBasis: "Anti-hybrid regime (Afdeling 2.2a Wet Vpb 1969)", conditionTested: "A cross-border element is present", allowedStates: S, drivenByQuestionIds: ["Q3"] },
+  { rowId: "1.3", legalBasis: "Article 12ac lid 2 Wet Vpb 1969", conditionTested: "A related party (an interest above 25%, raised to 50% for hybrid-entity cases, aggregated with an acting-together group) or a structured arrangement is involved", allowedStates: S, drivenByQuestionIds: ["Q28"] },
+  { rowId: "1.4", legalBasis: "Article 2 Wet Vpb 1969", conditionTested: "A related participant treats the Dutch partnership as transparent while it is regarded as non-transparent in the Netherlands or another state (reverse-hybrid classification conflict)", allowedStates: S, drivenByQuestionIds: ["Q4"] },
+  { rowId: "1.5", legalBasis: "Article 2 lid 11 Wet Vpb 1969", conditionTested: "50% or more of the voting rights, capital or profit is held, directly or indirectly, by related entities in a state that regards the partnership as taxable", allowedStates: S, drivenByQuestionIds: ["Q4"] },
+  { rowId: "1.6", legalBasis: "Article 2 lid 12 Wet Vpb 1969", conditionTested: "The collective-investment exception applies (a UCITS or AIF holding tradable securities with a diversified portfolio)", allowedStates: S, drivenByQuestionIds: [] },
 
-  { rowId: "1.a", legalFramework: "Article 12aa(1)(a) Wet Vpb 1969, hybrid financial instrument or hybrid transfer", allowedStates: STANDARD, drivenByQuestionIds: ["Q30", "Q8", "Q11"] },
-  { rowId: "1.b", legalFramework: "Article 12aa(1)(b) Wet Vpb 1969, payment to a hybrid entity", allowedStates: STANDARD, drivenByQuestionIds: ["Q26", "Q27"] },
-  { rowId: "1.c", legalFramework: "Article 12aa(1)(c) Wet Vpb 1969, payment to an entity with permanent establishment(s), allocation conflict", allowedStates: STANDARD, drivenByQuestionIds: ["Q12", "Q13", "Q14"] },
-  { rowId: "1.d", legalFramework: "Article 12aa(1)(d) Wet Vpb 1969, disregarded permanent establishment", allowedStates: STANDARD, drivenByQuestionIds: ["Q14", "Q18b"] },
-  { rowId: "1.e", legalFramework: "Article 12aa(1)(e) Wet Vpb 1969, payment by a hybrid entity (disregarded payment)", allowedStates: STANDARD, drivenByQuestionIds: ["Q26", "Q27"] },
-  { rowId: "1.f", legalFramework: "Article 12aa(1)(f) Wet Vpb 1969, deemed payment between head office and PE", allowedStates: STANDARD, drivenByQuestionIds: ["Q20b", "Q21b"] },
-  { rowId: "1.g", legalFramework: "Article 12aa(1)(g) Wet Vpb 1969, double deduction", allowedStates: STANDARD, drivenByQuestionIds: ["Q19", "Q4c", "Q4d"] },
+  { rowId: "2.1", legalBasis: "Article 12ac lid 2 Wet Vpb 1969", conditionTested: "Associated enterprise / related party: an interest of more than 25% (raised to 50% for hybrid-entity cases), aggregated across an acting-together group", allowedStates: S, drivenByQuestionIds: ["Q28"] },
+  { rowId: "2.2", legalBasis: "Article 12ac Wet Vpb 1969", conditionTested: "A structured arrangement is present (the mismatch is priced into the terms, or the arrangement is designed to produce it)", allowedStates: S, drivenByQuestionIds: ["Q28"] },
+  { rowId: "2.3", legalBasis: "Article 12ac Wet Vpb 1969", conditionTested: "Dual-inclusion income is present (income included in the tax base of both states that can absorb a mismatch)", allowedStates: S, drivenByQuestionIds: ["Q4d", "Q11", "Q25"] },
 
-  { rowId: "1bis.1", legalFramework: "Foreign head office inside or outside the EU", allowedStates: ["Yes", "No", "Further information needed"], drivenByQuestionIds: ["Q31"], renderIfQuestionEquals: { questionId: "Q2", equals: "Yes" } },
-  { rowId: "1bis.2", legalFramework: "Article 12aa(1)(g) Wet Vpb 1969, double deduction at head office and Dutch PE", allowedStates: STANDARD, drivenByQuestionIds: ["Q32"], renderIfQuestionEquals: { questionId: "Q2", equals: "Yes" } },
-  { rowId: "1bis.3", legalFramework: "Article 12aa(1)(f) Wet Vpb 1969, deemed payment to the Dutch PE, included abroad or not", allowedStates: STANDARD, drivenByQuestionIds: ["Q33", "Q34"], renderIfQuestionEquals: { questionId: "Q2", equals: "Yes" } },
-  { rowId: "1bis.4", legalFramework: "Article 12aa(1)(f) Wet Vpb 1969, non-EU PE makes a deemed payment to the Dutch PE", allowedStates: STANDARD, drivenByQuestionIds: ["Q35"], renderIfQuestionEquals: { questionId: "Q2", equals: "Yes" } },
+  { rowId: "3.1", legalBasis: "Article 12aa(1)(a) Wet Vpb 1969", conditionTested: "A hybrid financial instrument or hybrid transfer gives a deduction without a corresponding inclusion", allowedStates: S, drivenByQuestionIds: ["Q30", "Q8", "Q11"] },
+  { rowId: "3.2", legalBasis: "Article 12aa(1)(b) Wet Vpb 1969", conditionTested: "A payment to a hybrid entity gives a deduction without a corresponding inclusion", allowedStates: S, drivenByQuestionIds: ["Q26", "Q27"] },
+  { rowId: "3.3", legalBasis: "Article 12aa(1)(c) Wet Vpb 1969", conditionTested: "A payment to an entity with one or more permanent establishments gives a deduction without inclusion through an allocation conflict", allowedStates: S, drivenByQuestionIds: ["Q12", "Q13", "Q14"] },
+  { rowId: "3.4", legalBasis: "Article 12aa(1)(d) jo. Article 15e lid 9 Wet Vpb 1969", conditionTested: "A disregarded permanent establishment gives a deduction without inclusion; for such a PE the object exemption is set aside (art. 15e lid 9)", allowedStates: S, drivenByQuestionIds: ["Q14", "Q18b"] },
+  { rowId: "3.5", legalBasis: "Article 12aa(1)(e) jo. lid 3 Wet Vpb 1969", conditionTested: "A payment by a hybrid entity (a disregarded payment) gives a deduction without inclusion; denied only to the extent it is not set off against dual-inclusion income (lid 3)", allowedStates: S, drivenByQuestionIds: ["Q26", "Q27"] },
+  { rowId: "3.6", legalBasis: "Article 12aa(1)(f) jo. lid 3 Wet Vpb 1969", conditionTested: "A deemed payment between head office and permanent establishment gives a deduction without inclusion; denied only to the extent it is not set off against dual-inclusion income (lid 3)", allowedStates: S, drivenByQuestionIds: ["Q20b", "Q21b"] },
+  { rowId: "3.7", legalBasis: "Article 12aa(1)(g) jo. lid 3 Wet Vpb 1969", conditionTested: "The same charge is deducted twice (double deduction); denied only to the extent it is not set off against dual-inclusion income (lid 3), with later-year recapture under art. 12af", allowedStates: S, drivenByQuestionIds: ["Q19", "Q4c", "Q4d"] },
+  { rowId: "3.8", legalBasis: "Article 3 Wet Vpb 1969", conditionTested: "The foreign head office of the Dutch permanent establishment is located outside the EU", allowedStates: S, drivenByQuestionIds: ["Q31"], renderIfQuestionEquals: inbound },
+  { rowId: "3.9", legalBasis: "Article 12aa(1)(g) Wet Vpb 1969", conditionTested: "The same charge is deducted at the foreign head office and at the Dutch permanent establishment (double deduction)", allowedStates: S, drivenByQuestionIds: ["Q32"], renderIfQuestionEquals: inbound },
+  { rowId: "3.10", legalBasis: "Article 12aa(1)(f) Wet Vpb 1969", conditionTested: "A deemed payment to the Dutch permanent establishment is not included at the head office (deduction without inclusion)", allowedStates: S, drivenByQuestionIds: ["Q33", "Q34"], renderIfQuestionEquals: inbound },
+  { rowId: "3.11", legalBasis: "Article 12aa(1)(f) Wet Vpb 1969", conditionTested: "A non-EU permanent establishment makes a deemed payment to the Dutch permanent establishment that is deductible abroad", allowedStates: S, drivenByQuestionIds: ["Q35"], renderIfQuestionEquals: inbound },
 
-  { rowId: "2.1", legalFramework: "Article 12ab(1) jo. (3) Wet Vpb 1969, NL as recipient state includes income where the payer state does not deny the deduction, only for an art. 12aa(1)(a), (b), (c), (e) or (f) mismatch (never d, never g)", allowedStates: STANDARD, drivenByQuestionIds: [] },
+  { rowId: "4.1", legalBasis: "Article 12ab(1) jo. (3) Wet Vpb 1969", conditionTested: "As the recipient state, the Netherlands includes the income where the payer state does not deny the deduction; this applies only to sub-paragraphs (a), (b), (c), (e) and (f), never (d) or (g)", allowedStates: S, drivenByQuestionIds: [] },
 
-  { rowId: "3.1", legalFramework: "Article 12ac Wet Vpb 1969, associated-enterprise / related-party test met (broad: holdings up/down/sister, consolidated group, significant influence, acting together; 25%, raised to 50% for hybrid-entity cases)", allowedStates: ["Yes", "No", "Further information needed"], drivenByQuestionIds: ["Q28"] },
-  { rowId: "3.2", legalFramework: "Article 12ac Wet Vpb 1969, structured arrangement", allowedStates: ["Yes", "No", "Further information needed"], drivenByQuestionIds: ["Q28"] },
-  { rowId: "3.4", legalFramework: "Dual-inclusion income present", allowedStates: ["Yes", "No", "Further information needed"], drivenByQuestionIds: ["Q4d", "Q11", "Q25"] },
+  { rowId: "5.1", legalBasis: "Article 12ae Wet Vpb 1969", conditionTested: "The taxpayer is a tax resident of two states (dual residence)", allowedStates: S, drivenByQuestionIds: ["Q29"] },
+  { rowId: "5.2", legalBasis: "Article 12ae Wet Vpb 1969", conditionTested: "The same remunerations, payments, charges or losses are deducted in both states", allowedStates: S, drivenByQuestionIds: ["Q29"] },
+  { rowId: "5.3", legalBasis: "Article 12ae Wet Vpb 1969", conditionTested: "The double deduction is set off against dual-inclusion income", allowedStates: S, drivenByQuestionIds: [] },
+  { rowId: "5.4", legalBasis: "Article 12ae(2) Wet Vpb 1969", conditionTested: "Where the other state is an EU Member State, the deduction is denied only if a tax treaty makes the taxpayer a resident of that other Member State", allowedStates: S, drivenByQuestionIds: [] },
 
-  { rowId: "4.1", legalFramework: "Article 12ad Wet Vpb 1969, NL payment to a related party or under a structured arrangement", allowedStates: STANDARD, drivenByQuestionIds: ["Q5", "Q28"] },
-  { rowId: "4.2", legalFramework: "Article 12ad Wet Vpb 1969, hybrid mismatch (DD or D/NI) elsewhere in the financing chain", allowedStates: STANDARD, drivenByQuestionIds: ["Q9", "Q10"] },
-  { rowId: "4.3", legalFramework: "Article 12ad Wet Vpb 1969, the NL payment funds that foreign cost (direct/indirect, back-to-back)", allowedStates: STANDARD, drivenByQuestionIds: ["Q9", "Q10"] },
-  { rowId: "4.4", legalFramework: "Article 12ad(2) Wet Vpb 1969, mismatch not neutralised in any foreign state (carve-out)", allowedStates: STANDARD, drivenByQuestionIds: ["Q11"] },
-  { rowId: "4.5", legalFramework: "Article 12aa/12ab Wet Vpb 1969, already neutralised in NL on the same payment", allowedStates: STANDARD, drivenByQuestionIds: [] },
+  { rowId: "6.1", legalBasis: "Article 12ad Wet Vpb 1969", conditionTested: "The Dutch payment is made to a related party or under a structured arrangement", allowedStates: S, drivenByQuestionIds: ["Q5", "Q28"] },
+  { rowId: "6.2", legalBasis: "Article 12ad Wet Vpb 1969", conditionTested: "There is a hybrid mismatch (double deduction or deduction without inclusion) elsewhere in the financing chain", allowedStates: S, drivenByQuestionIds: ["Q9", "Q10"] },
+  { rowId: "6.3", legalBasis: "Article 12ad Wet Vpb 1969", conditionTested: "The Dutch payment funds that foreign cost, directly or indirectly (including back-to-back arrangements)", allowedStates: S, drivenByQuestionIds: ["Q9", "Q10"] },
+  { rowId: "6.4", legalBasis: "Article 12ad(2) Wet Vpb 1969", conditionTested: "The mismatch is not neutralised in any other state (the carve-out does not apply)", allowedStates: S, drivenByQuestionIds: ["Q11"] },
+  { rowId: "6.5", legalBasis: "Article 12aa / 12ab Wet Vpb 1969", conditionTested: "The mismatch is already neutralised in the Netherlands on the same payment, so the imported-mismatch backstop is not reached", allowedStates: S, drivenByQuestionIds: [] },
 
-  { rowId: "5A.1", legalFramework: "Article 2 Wet Vpb 1969 (verify live lid), a related participant treats the NL taxpayer as transparent (classification conflict)", allowedStates: STANDARD, drivenByQuestionIds: ["Q4"] },
-  { rowId: "5A.2", legalFramework: "Article 2 Wet Vpb 1969 (verify live lid), deductible payment to that holder, not in its tax base", allowedStates: STANDARD, drivenByQuestionIds: ["Q4b"] },
-  { rowId: "5A.3", legalFramework: "Article 2 Wet Vpb 1969 (verify live lid), costs, charges or losses also deducted in the holder state", allowedStates: STANDARD, drivenByQuestionIds: ["Q4c"] },
-  { rowId: "5A.4", legalFramework: "Article 2 Wet Vpb 1969 (verify live lid), set off against dual-inclusion income", allowedStates: ["Yes", "No", "Further information needed"], drivenByQuestionIds: ["Q4d"] },
-  { rowId: "5A.5", legalFramework: "Article 2 Wet Vpb 1969 (verify live lid), 50% or more of votes, capital or profit held, directly or indirectly, by related parties (the reverse-hybrid test)", allowedStates: STANDARD, drivenByQuestionIds: ["Q4"] },
-  { rowId: "5A.6", legalFramework: "Article 2 Wet Vpb 1969 (verify live lid), UCITS/AIF exception, or former open CV whose CIT liability lapsed on 1 Jan 2025 (Wet FKR)", allowedStates: STANDARD, drivenByQuestionIds: [] },
-
-  { rowId: "5B.1", legalFramework: "Article 12ae Wet Vpb 1969, dual tax residence (the NL taxpayer is also resident elsewhere)", allowedStates: STANDARD, drivenByQuestionIds: ["Q29"] },
-  { rowId: "5B.2", legalFramework: "Article 12ae Wet Vpb 1969, same remunerations, payments, charges or losses deducted in both states", allowedStates: STANDARD, drivenByQuestionIds: ["Q29"] },
-  { rowId: "5B.3", legalFramework: "Article 12ae Wet Vpb 1969, set off against dual-inclusion income", allowedStates: ["Yes", "No", "Further information needed"], drivenByQuestionIds: [] },
-  { rowId: "5B.4", legalFramework: "Article 12ae(2) Wet Vpb 1969, for an EU Member State the deduction is denied only if a treaty makes the taxpayer a resident of that other Member State", allowedStates: STANDARD, drivenByQuestionIds: [] },
-
-  { rowId: "6.1", legalFramework: "Article 12af Wet Vpb 1969, earlier-year denial under 12aa(1)(e)/(f)/(g), 12ae, or inclusion under 12ab(1)", allowedStates: STANDARD, drivenByQuestionIds: [] },
-  { rowId: "6.2", legalFramework: "Article 12af Wet Vpb 1969, dual-inclusion income in a later year than the denial", allowedStates: STANDARD, drivenByQuestionIds: [] },
-
+  { rowId: "7.1", legalBasis: "Article 12af Wet Vpb 1969", conditionTested: "A deduction was denied in an earlier year under art. 12aa(1)(e), (f) or (g), or art. 12ae, or income was included under art. 12ab(1)", allowedStates: S, drivenByQuestionIds: [] },
+  { rowId: "7.2", legalBasis: "Article 12af Wet Vpb 1969", conditionTested: "Dual-inclusion income arises in a later year than the denial, allowing the earlier deduction to be taken (recapture)", allowedStates: S, drivenByQuestionIds: [] },
 ];

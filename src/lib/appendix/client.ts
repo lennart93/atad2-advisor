@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import type { StoredAppendix, AppendixRow, GenerationStatus } from './types';
+import type { StoredAppendix, AppendixRow, EditableField, GenerationStatus } from './types';
 
 const POLL_INTERVAL_MS = 2000;
 const POLL_TIMEOUT_MS = 360_000;
@@ -59,7 +59,7 @@ export async function saveRowEdit(
   appendixId: string,
   rows: AppendixRow[],
   rowId: string,
-  field: 'decision' | 'reasoning' | 'reference',
+  field: EditableField,
   oldValue: string | null,
   newValue: string | null,
   userId: string,

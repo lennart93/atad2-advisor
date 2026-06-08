@@ -8,13 +8,14 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
-import type { AppendixRow, SkeletonRow } from '@/lib/appendix/types';
+import { statusTone } from '@/lib/appendix/status';
+import type { AppendixRow, EditableField, SkeletonRow, Status } from '@/lib/appendix/types';
 
 interface Props {
   rows: AppendixRow[];
   skeleton: SkeletonRow[];
-  showReferences: boolean;
-  onEdit: (rowId: string, field: 'decision' | 'reasoning', value: string) => void;
+  showInternal: boolean;
+  onEdit: (rowId: string, field: EditableField, value: string) => void;
 }
 
 interface Section {
@@ -23,12 +24,14 @@ interface Section {
   items: SkeletonRow[];
 }
 
-/** Reasoning cell keeps a local draft and commits on blur (no per-keystroke DB writes). */
-function ReasoningCell({
+/** Text cell that keeps a local draft and commits on blur (no per-keystroke DB writes). */
+function EditableCell({
   value,
+  label,
   onCommit,
 }: {
   value: string;
+  label: string;
   onCommit: (v: string) => void;
 }) {
   const [draft, setDraft] = useState(value);
@@ -44,12 +47,12 @@ function ReasoningCell({
       }}
       rows={2}
       className="min-h-0 resize-y text-sm"
-      aria-label="Reasoning"
+      aria-label={label}
     />
   );
 }
 
-export function AppendixTable({ rows, skeleton, showReferences, onEdit }: Props) {
+export function AppendixTable({ rows, skeleton, showInternal, onEdit }: Props) {
   const byId = useMemo(() => new Map(rows.map((r) => [r.rowId, r])), [rows]);
 
   const sections = useMemo<Section[]>(() => {
@@ -77,13 +80,15 @@ export function AppendixTable({ rows, skeleton, showReferences, onEdit }: Props)
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-14">#</TableHead>
-                  <TableHead className="w-[28%]">Legal framework</TableHead>
-                  <TableHead className="w-48">Decision</TableHead>
-                  <TableHead>Reasoning</TableHead>
-                  {showReferences && (
-                    <TableHead className="w-48 bg-muted/40">
-                      Reference <span className="font-normal text-muted-foreground">(internal)</span>
+                  <TableHead className="w-12">#</TableHead>
+                  <TableHead className="w-[15%]">Legal basis</TableHead>
+                  <TableHead className="w-[22%]">Condition tested</TableHead>
+                  <TableHead className="w-44">Status</TableHead>
+                  <TableHead>Legal consequence</TableHead>
+                  <TableHead>Factual basis</TableHead>
+                  {showInternal && (
+                    <TableHead className="w-44 bg-muted/40">
+                      Provenance <span className="font-normal text-muted-foreground">(internal)</span>
                     </TableHead>
                   )}
                 </TableRow>
@@ -91,18 +96,22 @@ export function AppendixTable({ rows, skeleton, showReferences, onEdit }: Props)
               <TableBody>
                 {sec.items.map((sk) => {
                   const row = byId.get(sk.rowId)!;
+                  const tone = statusTone(row.status);
                   return (
                     <TableRow
                       key={sk.rowId}
-                      className={cn('align-top', row.stale && 'border-l-2 border-l-amber-500')}
+                      className={cn('align-top border-l-2', tone.rowAccent)}
                     >
                       <TableCell className="font-medium tabular-nums text-muted-foreground">
                         {sk.rowId}
                       </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {sk.legalBasis}
+                      </TableCell>
                       <TableCell className="text-sm">
-                        {sk.legalFramework}
+                        {sk.conditionTested}
                         {row.stale && (
-                          <div className="mt-1.5 flex flex-wrap gap-1">
+                          <div className="mt-1.5">
                             <Badge variant="outline" className="text-[10px] font-normal text-amber-700 dark:text-amber-300 border-amber-400/50">
                               review again
                             </Badge>
@@ -111,28 +120,42 @@ export function AppendixTable({ rows, skeleton, showReferences, onEdit }: Props)
                       </TableCell>
                       <TableCell>
                         <Select
-                          value={row.decision ?? undefined}
-                          onValueChange={(v) => onEdit(sk.rowId, 'decision', v)}
+                          value={row.status ?? undefined}
+                          onValueChange={(v) => onEdit(sk.rowId, 'status', v)}
                         >
-                          <SelectTrigger className="h-8 text-sm" aria-label={`Decision for ${sk.rowId}`}>
-                            <SelectValue placeholder="Choose" />
+                          <SelectTrigger
+                            className={cn('h-8 text-sm', tone.cell)}
+                            aria-label={`Status for ${sk.rowId}`}
+                          >
+                            <span className="flex items-center gap-2">
+                              <span className={cn('h-2 w-2 shrink-0 rounded-full', tone.dot)} />
+                              <SelectValue placeholder="Choose" />
+                            </span>
                           </SelectTrigger>
                           <SelectContent>
-                            {sk.allowedStates.map((s) => (
+                            {sk.allowedStates.map((s: Status) => (
                               <SelectItem key={s} value={s} className="text-sm">{s}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </TableCell>
                       <TableCell>
-                        <ReasoningCell
-                          value={row.reasoning ?? ''}
-                          onCommit={(v) => onEdit(sk.rowId, 'reasoning', v)}
+                        <EditableCell
+                          value={row.consequence ?? ''}
+                          label={`Legal consequence for ${sk.rowId}`}
+                          onCommit={(v) => onEdit(sk.rowId, 'consequence', v)}
                         />
                       </TableCell>
-                      {showReferences && (
+                      <TableCell>
+                        <EditableCell
+                          value={row.factualBasis ?? ''}
+                          label={`Factual basis for ${sk.rowId}`}
+                          onCommit={(v) => onEdit(sk.rowId, 'factualBasis', v)}
+                        />
+                      </TableCell>
+                      {showInternal && (
                         <TableCell className="bg-muted/20 text-xs text-muted-foreground">
-                          {row.reference}
+                          {row.provenance}
                         </TableCell>
                       )}
                     </TableRow>

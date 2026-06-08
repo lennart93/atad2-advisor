@@ -15,9 +15,10 @@ export function mergeOnRegenerate(existing: AppendixRow[], fresh: AppendixRow[])
     // edited row: keep current value, refresh ai shadow
     return {
       ...prev,
-      aiDecision: f.aiDecision,
-      aiReasoning: f.aiReasoning,
-      aiReference: f.aiReference,
+      aiStatus: f.aiStatus,
+      aiConsequence: f.aiConsequence,
+      aiFactualBasis: f.aiFactualBasis,
+      aiProvenance: f.aiProvenance,
     };
   });
 }

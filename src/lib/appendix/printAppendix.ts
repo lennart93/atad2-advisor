@@ -1,16 +1,29 @@
 import { APPENDIX_SKELETON } from './skeleton';
-import type { AppendixRow, SkeletonRow } from './types';
+import { statusPrintColor } from './status';
+import type { AppendixRow, SkeletonRow, Status } from './types';
 
 const esc = (s: string | null) => (s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+/** Which artifact to render. */
+export type PrintMode = 'internal' | 'dossier';
 
 /**
  * Full, print-friendly HTML for the whole appendix: every section and row,
  * grouped like the on-screen table, with nothing clipped by a scroll container.
- * The internal Reference column is included only when showRefs is true.
+ *
+ * 'internal' is the working copy: it keeps the raw provenance column.
+ * 'dossier' is the clean client/file version: legal basis + condition + status +
+ * legal consequence + the verifiable factual basis, with no internal ids.
  */
-export function buildAppendixPrintHtml(rows: AppendixRow[], showRefs: boolean, skeleton: SkeletonRow[] = APPENDIX_SKELETON): string {
-  const label = new Map(skeleton.map((r) => [r.rowId, r.legalFramework]));
+export function buildAppendixPrintHtml(
+  rows: AppendixRow[],
+  mode: PrintMode,
+  skeleton: SkeletonRow[] = APPENDIX_SKELETON,
+): string {
+  const internal = mode === 'internal';
   const byId = new Map(rows.map((r) => [r.rowId, r]));
+  const skById = new Map(skeleton.map((s) => [s.rowId, s]));
+
   const sections: { id: string; title: string; rows: AppendixRow[] }[] = [];
   for (const sk of skeleton) {
     const row = byId.get(sk.rowId);
@@ -23,27 +36,41 @@ export function buildAppendixPrintHtml(rows: AppendixRow[], showRefs: boolean, s
     s.rows.push(row);
   }
 
+  const statusCell = (status: Status | null, flag: string) => {
+    const { bg, fg } = statusPrintColor(status);
+    return `<td class="c-status" style="background:${bg};color:${fg};">${esc(status)}${flag}</td>`;
+  };
+
   const header =
-    `<tr><th class="c-num">#</th><th>Legal framework</th><th class="c-dec">Decision</th><th>Reasoning</th>` +
-    (showRefs ? `<th class="c-ref">Reference (internal)</th>` : '') +
+    `<tr><th class="c-num">#</th><th class="c-basis">Legal basis</th><th>Condition tested</th>` +
+    `<th class="c-status">Status</th><th class="c-cons">Legal consequence</th><th class="c-fact">Factual basis</th>` +
+    (internal ? `<th class="c-prov">Provenance (internal)</th>` : '') +
     `</tr>`;
 
   const body = sections
     .map((s) => {
       const rowsHtml = s.rows
         .map((r) => {
-          const fw = esc(label.get(r.rowId) ?? r.rowId);
+          const sk = skById.get(r.rowId);
           const flag = r.stale ? ` <span class="flag">review again</span>` : '';
-          const ref = showRefs ? `<td class="c-ref">${esc(r.reference)}</td>` : '';
+          const prov = internal ? `<td class="c-prov">${esc(r.provenance)}</td>` : '';
           return (
-            `<tr><td class="c-num">${esc(r.rowId)}</td><td>${fw}</td>` +
-            `<td>${esc(r.decision)}${flag}</td><td>${esc(r.reasoning)}</td>${ref}</tr>`
+            `<tr><td class="c-num">${esc(r.rowId)}</td>` +
+            `<td class="c-basis">${esc(sk?.legalBasis ?? r.rowId)}</td>` +
+            `<td>${esc(sk?.conditionTested ?? '')}</td>` +
+            statusCell(r.status, flag) +
+            `<td>${esc(r.consequence)}</td>` +
+            `<td class="c-fact">${esc(r.factualBasis)}</td>${prov}</tr>`
           );
         })
         .join('');
       return `<h2>Section ${esc(s.id)}. ${esc(s.title)}</h2><table>${header}${rowsHtml}</table>`;
     })
     .join('\n');
+
+  const banner = internal
+    ? `<div class="banner"><strong>Draft, pending tax review.</strong> Internal working copy, includes internal references. Do not share this version externally.</div>`
+    : '';
 
   return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>ATAD2 technical appendix</title>
 <style>
@@ -57,13 +84,16 @@ export function buildAppendixPrintHtml(rows: AppendixRow[], showRefs: boolean, s
   th, td { border: 1px solid #aaa; padding: 4px 6px; text-align: left; vertical-align: top; }
   th { background: #eee; font-weight: 600; }
   tr { break-inside: avoid; }
-  .c-num { width: 40px; white-space: nowrap; }
-  .c-dec { width: 130px; }
-  .c-ref { width: 22%; color: #555; font-size: 10px; background: #fafafa; }
-  .flag { color: #b45309; font-size: 9px; white-space: nowrap; }
+  .c-num { width: 34px; white-space: nowrap; }
+  .c-basis { width: 16%; }
+  .c-status { width: 92px; font-weight: 600; }
+  .c-cons { width: 20%; }
+  .c-fact { width: 20%; }
+  .c-prov { width: 16%; color: #555; font-size: 10px; background: #fafafa; }
+  .flag { color: #b45309; font-size: 9px; white-space: nowrap; font-weight: 400; }
 </style></head><body>
-<h1>ATAD2 technical appendix (technische bijlage)</h1>
-<div class="banner"><strong>Draft, pending tax review.</strong> Internal working copy${showRefs ? ', includes internal references' : ''}. This banner also appears on the export.</div>
+<h1>ATAD2 technical appendix</h1>
+${banner}
 ${body}
 </body></html>`;
 }

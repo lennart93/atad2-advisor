@@ -18,7 +18,8 @@ interface SkeletonDbRow {
   row_id: string;
   section_id: string;
   section_title: string;
-  legal_framework: string;
+  legal_basis: string;
+  condition_tested: string;
   effect: string | null;
   allowed_states: unknown;
   sort_order: number;
@@ -29,12 +30,13 @@ interface EditRow {
   rowId: string;
   sectionId: string;
   sectionTitle: string;
-  legalFramework: string;
+  legalBasis: string;
+  conditionTested: string;
   effect: string; // '', 'D/NI', 'DD'
   allowedStates: string; // comma-separated while editing
 }
 
-const DEFAULT_STATES = "Not applicable, Potentially applicable, Further information needed";
+const DEFAULT_STATES = "Not triggered, Triggered, Insufficient information";
 
 function toEdit(r: SkeletonDbRow): EditRow {
   return {
@@ -42,7 +44,8 @@ function toEdit(r: SkeletonDbRow): EditRow {
     rowId: r.row_id,
     sectionId: r.section_id,
     sectionTitle: r.section_title,
-    legalFramework: r.legal_framework,
+    legalBasis: r.legal_basis,
+    conditionTested: r.condition_tested,
     effect: r.effect ?? "",
     allowedStates: (Array.isArray(r.allowed_states) ? (r.allowed_states as string[]) : []).join(", "),
   };
@@ -63,7 +66,7 @@ export default function AppendixSkeleton() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("atad2_appendix_skeleton")
-        .select("id, row_id, section_id, section_title, legal_framework, effect, allowed_states, sort_order")
+        .select("id, row_id, section_id, section_title, legal_basis, condition_tested, effect, allowed_states, sort_order")
         .order("sort_order", { ascending: true });
       if (error) throw error;
       return (data ?? []) as SkeletonDbRow[];
@@ -96,7 +99,8 @@ export default function AppendixSkeleton() {
         rowId: "",
         sectionId: prev[prev.length - 1]?.sectionId ?? "",
         sectionTitle: prev[prev.length - 1]?.sectionTitle ?? "",
-        legalFramework: "",
+        legalBasis: "",
+        conditionTested: "",
         effect: "",
         allowedStates: DEFAULT_STATES,
       },
@@ -104,10 +108,11 @@ export default function AppendixSkeleton() {
 
   const save = async () => {
     const ids = rows.map((r) => r.rowId.trim());
-    if (ids.some((x) => !x)) { toast.error("Every row needs a row id (e.g. 1.a)"); return; }
+    if (ids.some((x) => !x)) { toast.error("Every row needs a row id (e.g. 3.2)"); return; }
     if (new Set(ids).size !== ids.length) { toast.error("Row ids must be unique"); return; }
-    if (rows.some((r) => !r.legalFramework.trim())) { toast.error("Every row needs a legal-framework text"); return; }
-    if (rows.some((r) => parseStates(r.allowedStates).length === 0)) { toast.error("Every row needs at least one decision option"); return; }
+    if (rows.some((r) => !r.legalBasis.trim())) { toast.error("Every row needs a legal basis"); return; }
+    if (rows.some((r) => !r.conditionTested.trim())) { toast.error("Every row needs a condition tested"); return; }
+    if (rows.some((r) => parseStates(r.allowedStates).length === 0)) { toast.error("Every row needs at least one status option"); return; }
 
     setSaving(true);
     try {
@@ -120,12 +125,13 @@ export default function AppendixSkeleton() {
       for (let i = 0; i < rows.length; i++) {
         const r = rows[i];
         // Only the editable columns are touched; the wiring fields
-        // (driven_by_question_ids, render_if, flags) are preserved.
+        // (driven_by_question_ids, render_if) are preserved.
         const payload = {
           row_id: r.rowId.trim(),
           section_id: r.sectionId.trim(),
           section_title: r.sectionTitle.trim(),
-          legal_framework: r.legalFramework.trim(),
+          legal_basis: r.legalBasis.trim(),
+          condition_tested: r.conditionTested.trim(),
           effect: r.effect || null,
           allowed_states: parseStates(r.allowedStates),
           sort_order: i,
@@ -157,7 +163,7 @@ export default function AppendixSkeleton() {
           <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-1">Admin</div>
           <h1 className="text-2xl font-semibold tracking-tight">Appendix legal framework</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            The fixed rows of the technical appendix (art. 2 + 12aa-12ag). Editing the text or structure here changes
+            The fixed rows of the technical appendix (art. 2 + 12aa-12af). Editing the text or structure here changes
             what every new and regenerated appendix shows. The question wiring stays in code.
           </p>
         </div>
@@ -181,7 +187,7 @@ export default function AppendixSkeleton() {
                     placeholder="row id"
                     className="w-28 font-mono text-xs"
                     disabled={!!r.id}
-                    title={r.id ? "Row id is fixed for existing rows" : "Choose a unique id, e.g. 4.6"}
+                    title={r.id ? "Row id is fixed for existing rows" : "Choose a unique id, e.g. 3.12"}
                   />
                   <span className="flex-1" />
                   <Button variant="ghost" size="icon" onClick={() => move(i, -1)} disabled={i === 0} aria-label="Move up">
@@ -207,8 +213,13 @@ export default function AppendixSkeleton() {
                 </div>
 
                 <div className="space-y-1">
-                  <Label className="text-xs">Legal framework</Label>
-                  <Textarea value={r.legalFramework} onChange={(e) => update(i, { legalFramework: e.target.value })} rows={2} className="text-sm" />
+                  <Label className="text-xs">Legal basis (citation)</Label>
+                  <Input value={r.legalBasis} onChange={(e) => update(i, { legalBasis: e.target.value })} className="text-sm" placeholder="Article 12aa(1)(b) Wet Vpb 1969" />
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs">Condition tested</Label>
+                  <Textarea value={r.conditionTested} onChange={(e) => update(i, { conditionTested: e.target.value })} rows={2} className="text-sm" />
                 </div>
 
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-[140px_1fr]">
@@ -224,7 +235,7 @@ export default function AppendixSkeleton() {
                     </Select>
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">Decision options (comma-separated)</Label>
+                    <Label className="text-xs">Status options (comma-separated)</Label>
                     <Input value={r.allowedStates} onChange={(e) => update(i, { allowedStates: e.target.value })} className="text-sm" />
                   </div>
                 </div>

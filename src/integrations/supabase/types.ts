@@ -174,7 +174,9 @@ export type Database = {
           row_id: string
           section_id: string
           section_title: string
-          legal_framework: string
+          legal_basis: string
+          condition_tested: string
+          legal_framework: string | null
           effect: string | null
           allowed_states: Json
           driven_by_question_ids: Json
@@ -190,7 +192,9 @@ export type Database = {
           row_id: string
           section_id: string
           section_title: string
-          legal_framework: string
+          legal_basis: string
+          condition_tested: string
+          legal_framework?: string | null
           effect?: string | null
           allowed_states?: Json
           driven_by_question_ids?: Json
@@ -206,7 +210,9 @@ export type Database = {
           row_id?: string
           section_id?: string
           section_title?: string
-          legal_framework?: string
+          legal_basis?: string
+          condition_tested?: string
+          legal_framework?: string | null
           effect?: string | null
           allowed_states?: Json
           driven_by_question_ids?: Json

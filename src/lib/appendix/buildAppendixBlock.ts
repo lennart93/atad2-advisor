@@ -3,12 +3,18 @@ import type { AppendixRow, SkeletonRow } from './types';
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-/** Confirmed rows as a grounded block for the memo prompt. Reference is intentionally omitted. */
+/**
+ * Confirmed rows as a grounded block for the memo prompt. Internal provenance is
+ * intentionally omitted; only the legal basis, condition, status, consequence and
+ * the clean factual basis are fed in.
+ */
 export function buildAppendixBlock(rows: AppendixRow[], skeleton: SkeletonRow[] = APPENDIX_SKELETON): string {
-  const label = new Map(skeleton.map((r) => [r.rowId, r.legalFramework]));
+  const byId = new Map(skeleton.map((r) => [r.rowId, r]));
   const lines = rows.map((r) => {
-    const fw = label.get(r.rowId) ?? r.rowId;
-    return `- [${r.rowId}] ${esc(fw)} :: ${esc(r.decision ?? '')} :: ${esc(r.reasoning ?? '')}`;
+    const sk = byId.get(r.rowId);
+    const basis = sk ? `${sk.legalBasis} - ${sk.conditionTested}` : r.rowId;
+    const fact = r.factualBasis ? ` :: ${esc(r.factualBasis)}` : '';
+    return `- [${r.rowId}] ${esc(basis)} :: ${esc(r.status ?? '')} :: ${esc(r.consequence ?? '')}${fact}`;
   });
   return `<confirmed_appendix>\n${lines.join('\n')}\n</confirmed_appendix>`;
 }

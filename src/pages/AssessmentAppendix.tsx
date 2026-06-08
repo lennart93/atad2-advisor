@@ -12,8 +12,8 @@ import { AppendixTable } from '@/components/appendix/AppendixTable';
 import {
   loadAppendix, startAppendixGeneration, pollAppendixUntilReady, saveRowEdit, confirmAppendix,
 } from '@/lib/appendix/client';
-import type { StoredAppendix, AppendixRow } from '@/lib/appendix/types';
-import { buildAppendixPrintHtml } from '@/lib/appendix/printAppendix';
+import type { StoredAppendix, AppendixRow, EditableField } from '@/lib/appendix/types';
+import { buildAppendixPrintHtml, type PrintMode } from '@/lib/appendix/printAppendix';
 import { useAppendixSkeleton } from '@/lib/appendix/skeletonStore';
 import { useUiBusySignal } from '@/stores/uiBusyStore';
 
@@ -32,7 +32,7 @@ export default function AssessmentAppendix() {
   const { data: skeleton } = useAppendixSkeleton();
   const [appendix, setAppendix] = useState<StoredAppendix | null>(null);
   const [phase, setPhase] = useState<Phase>('loading');
-  const [showRefs, setShowRefs] = useState(true);
+  const [showInternal, setShowInternal] = useState(true);
   const [confirming, setConfirming] = useState(false);
 
   // While generating, spin the top-left app logo instead of a local spinner.
@@ -88,7 +88,7 @@ export default function AssessmentAppendix() {
     };
   }, [sessionId]);
 
-  const handleEdit = async (rowId: string, field: 'decision' | 'reasoning', value: string) => {
+  const handleEdit = async (rowId: string, field: EditableField, value: string) => {
     if (!appendix || !user) return;
     const idx = appendix.rows.findIndex((r) => r.rowId === rowId);
     if (idx < 0) return;
@@ -138,9 +138,9 @@ export default function AssessmentAppendix() {
     }
   };
 
-  const handlePrint = () => {
+  const handlePrint = (mode: PrintMode) => {
     if (!appendix) return;
-    const html = buildAppendixPrintHtml(appendix.rows, showRefs, skeleton);
+    const html = buildAppendixPrintHtml(appendix.rows, mode, skeleton);
     const w = window.open('', '_blank');
     if (!w) {
       toast.error('Pop-up blocked', { description: 'Allow pop-ups for this site to print the appendix.' });
@@ -185,7 +185,7 @@ export default function AssessmentAppendix() {
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
           <p className="text-amber-800 dark:text-amber-200">
             <span className="font-semibold">Draft, pending tax review.</span>{' '}
-            Legal points (related-party threshold, post-FKR article numbers) are not yet signed off. This banner also appears on the export.
+            Generated from the assessment answers and structure chart. Review each row before confirming. The internal column and the working-copy export are for internal use only.
           </p>
         </CardContent>
       </Card>
@@ -199,14 +199,18 @@ export default function AssessmentAppendix() {
         </span>
         <span className="flex-1" />
         <div className="flex items-center gap-2">
-          <Switch id="show-refs" checked={showRefs} onCheckedChange={setShowRefs} />
-          <Label htmlFor="show-refs" className="cursor-pointer text-muted-foreground">
-            Show references (internal)
+          <Switch id="show-internal" checked={showInternal} onCheckedChange={setShowInternal} />
+          <Label htmlFor="show-internal" className="cursor-pointer text-muted-foreground">
+            Show internal column
           </Label>
         </div>
-        <Button variant="outline" size="sm" className="gap-2" onClick={handlePrint}>
+        <Button variant="outline" size="sm" className="gap-2" onClick={() => handlePrint('dossier')}>
           <Printer className="h-3.5 w-3.5" />
-          Print
+          Export dossier
+        </Button>
+        <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground" onClick={() => handlePrint('internal')}>
+          <Printer className="h-3.5 w-3.5" />
+          Working copy
         </Button>
         <Button variant="outline" size="sm" className="gap-2" onClick={handleRetry}>
           <RefreshCw className="h-3.5 w-3.5" />
@@ -214,7 +218,7 @@ export default function AssessmentAppendix() {
         </Button>
       </div>
 
-      <AppendixTable rows={appendix.rows} skeleton={skeleton} showReferences={showRefs} onEdit={handleEdit} />
+      <AppendixTable rows={appendix.rows} skeleton={skeleton} showInternal={showInternal} onEdit={handleEdit} />
 
       <AssessmentFooterSlot
         left={
