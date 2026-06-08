@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, Loader2, AlertTriangle, RefreshCw } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Loader2, AlertTriangle, RefreshCw, Printer } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -13,6 +13,7 @@ import {
   loadAppendix, startAppendixGeneration, pollAppendixUntilReady, saveRowEdit, confirmAppendix,
 } from '@/lib/appendix/client';
 import type { StoredAppendix, AppendixRow } from '@/lib/appendix/types';
+import { buildAppendixPrintHtml } from '@/lib/appendix/printAppendix';
 
 type Phase = 'loading' | 'generating' | 'ready' | 'error';
 
@@ -131,6 +132,21 @@ export default function AssessmentAppendix() {
     }
   };
 
+  const handlePrint = () => {
+    if (!appendix) return;
+    const html = buildAppendixPrintHtml(appendix.rows, showRefs);
+    const w = window.open('', '_blank');
+    if (!w) {
+      toast.error('Pop-up blocked', { description: 'Allow pop-ups for this site to print the appendix.' });
+      return;
+    }
+    w.document.write(html);
+    w.document.close();
+    w.focus();
+    w.onafterprint = () => w.close();
+    setTimeout(() => w.print(), 250);
+  };
+
   if (phase === 'loading' || phase === 'generating') {
     return (
       <div className="flex flex-col items-center justify-center gap-3 py-24 text-center">
@@ -183,6 +199,10 @@ export default function AssessmentAppendix() {
             Show references (internal)
           </Label>
         </div>
+        <Button variant="outline" size="sm" className="gap-2" onClick={handlePrint}>
+          <Printer className="h-3.5 w-3.5" />
+          Print
+        </Button>
         <Button variant="outline" size="sm" className="gap-2" onClick={handleRetry}>
           <RefreshCw className="h-3.5 w-3.5" />
           Regenerate
