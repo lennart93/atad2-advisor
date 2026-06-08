@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Loader2, AlertTriangle, RefreshCw, Printer } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
@@ -18,6 +18,9 @@ import { useAppendixSkeleton } from '@/lib/appendix/skeletonStore';
 import { loadChart } from '@/lib/structure/client';
 import { buildRelatedParties, type RelatedPartiesResult } from '@/lib/appendix/relatedParties';
 import { useUiBusySignal } from '@/stores/uiBusyStore';
+import { FactsPanel } from '@/components/appendix/FactsPanel';
+import { buildEntityRegister } from '@/lib/appendix/facts/entityRegister';
+import { emptyFacts } from '@/lib/appendix/facts/emptyFacts';
 
 type Phase = 'loading' | 'generating' | 'ready' | 'error';
 
@@ -37,6 +40,7 @@ export default function AssessmentAppendix() {
   const [showSources, setShowSources] = useState(true);
   const [confirming, setConfirming] = useState(false);
   const [relatedParties, setRelatedParties] = useState<RelatedPartiesResult | null>(null);
+  const [chart, setChart] = useState<{ entities: Parameters<typeof buildEntityRegister>[0]; edges: Parameters<typeof buildEntityRegister>[1] } | null>(null);
 
   // While generating, spin the top-left app logo instead of a local spinner.
   useUiBusySignal(phase === 'loading' || phase === 'generating');
@@ -46,7 +50,12 @@ export default function AssessmentAppendix() {
     if (!sessionId) return;
     let cancelled = false;
     loadChart(sessionId)
-      .then((c) => { if (!cancelled && c) setRelatedParties(buildRelatedParties(c.entities, c.edges)); })
+      .then((c) => {
+        if (!cancelled && c) {
+          setRelatedParties(buildRelatedParties(c.entities, c.edges));
+          setChart({ entities: c.entities, edges: c.edges });
+        }
+      })
       .catch(() => { /* the overview is optional */ });
     return () => { cancelled = true; };
   }, [sessionId]);
@@ -182,6 +191,13 @@ export default function AssessmentAppendix() {
     setTimeout(() => w.print(), 250);
   };
 
+  const factsToShow = useMemo(() => {
+    const stored = appendix?.facts;
+    if (stored && stored.entities.length) return stored;
+    if (chart) return { ...emptyFacts(), entities: buildEntityRegister(chart.entities, chart.edges) };
+    return emptyFacts();
+  }, [appendix?.facts, chart]);
+
   if (phase === 'loading' || phase === 'generating') {
     return (
       <div className="flex flex-col items-center justify-center gap-3 py-24 text-center">
@@ -246,6 +262,8 @@ export default function AssessmentAppendix() {
           Regenerate
         </Button>
       </div>
+
+      <FactsPanel facts={factsToShow} />
 
       <AppendixTable rows={appendix.rows} skeleton={skeleton} showSources={showSources} relatedParties={relatedParties} onEdit={handleEdit} onToggleExclude={handleToggleExclude} />
 
