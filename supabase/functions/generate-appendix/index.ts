@@ -3,7 +3,7 @@ import type { SupabaseClient } from "supabase";
 import { createServiceClient, verifyJwtAndSessionOwnership } from "./verifyAuth.ts";
 import { callClaude, extractJson } from "./claude.ts";
 import { AppendixModelOutput, type AppendixModelOutputT } from "./schemas.ts";
-import { SKELETON_ROWS } from "./skeletonRows.ts";
+import { SKELETON_ROWS, type ServerSkeletonRow } from "./skeletonRows.ts";
 import { loadAppendixPrompt } from "./promptsLoader.ts";
 
 const corsHeaders: Record<string, string> = {
@@ -108,19 +108,39 @@ async function runGeneration(c: SupabaseClient, appendixId: string, sessionId: s
     const answersBlock = answers
       .map((a) => `Q${a.question_id} answer: ${a.answer}${a.explanation ? `\n  Explanation: ${a.explanation}` : ""}`)
       .join("\n");
-    const skeletonJson = JSON.stringify(rows.map((r) => ({ rowId: r.rowId, legalFramework: r.legalFramework, allowedStates: r.allowedStates })));
 
-    const user = prompt.systemPrompt
+    // Fill everything except the per-section skeleton, then swarm: one parallel
+    // Claude call per section so the whole appendix comes back fast (wall-clock
+    // is the slowest single section, not the sum of all rows).
+    const baseFilled = prompt.systemPrompt
       .replace("{{TAXPAYER_NAME}}", session?.taxpayer_name ?? "")
       .replace("{{FISCAL_YEAR}}", session?.fiscal_year ?? "")
       .replace("{{SESSION_ID}}", sessionId)
-      .replace("{{SKELETON_ROWS}}", skeletonJson)
       .replace("{{ANSWERS_BLOCK}}", answersBlock || "(no answers recorded)")
       .replace("{{STRUCTURE_BLOCK}}", structureBlock || "(no structure chart available)");
 
-    const parsed = await callWithRetry(() => callClaude({ user }));
+    const sectionOf = (rowId: string) => rowId.slice(0, rowId.lastIndexOf("."));
+    const sectionGroups = new Map<string, ServerSkeletonRow[]>();
+    for (const r of rows) {
+      const key = sectionOf(r.rowId);
+      const arr = sectionGroups.get(key) ?? [];
+      arr.push(r);
+      sectionGroups.set(key, arr);
+    }
 
-    const byId = new Map(parsed.rows.map((r) => [r.rowId, r]));
+    const perSection = await Promise.all([...sectionGroups.values()].map(async (secRows) => {
+      const skeletonJson = JSON.stringify(secRows.map((r) => ({ rowId: r.rowId, legalFramework: r.legalFramework, allowedStates: r.allowedStates })));
+      const user = baseFilled.replace("{{SKELETON_ROWS}}", skeletonJson);
+      try {
+        const parsed = await callWithRetry(() => callClaude({ user }));
+        return parsed.rows;
+      } catch (err) {
+        console.warn(JSON.stringify({ level: "warn", event: "appendix_section_failed", message: String(err).slice(0, 300) }));
+        return [] as AppendixModelOutputT["rows"];
+      }
+    }));
+
+    const byId = new Map(perSection.flat().map((r) => [r.rowId, r]));
     const stored = rows.map((sk) => {
       const m = byId.get(sk.rowId);
       const decisionRaw = m?.decision ?? "Further information needed";

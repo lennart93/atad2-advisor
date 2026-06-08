@@ -11,7 +11,7 @@ export interface ServerSkeletonRow {
 const STANDARD = ["Not applicable", "Potentially applicable", "Further information needed"];
 
 export const SKELETON_ROWS: ServerSkeletonRow[] = [
-  { rowId: "0.1", legalFramework: "Article 2(1) / Article 3 Wet Vpb 1969, subject to Dutch CIT (resident, or non-resident with a Dutch permanent establishment)", allowedStates: ["In scope", "Out of scope", "Further information needed"], drivenByQuestionIds: ["Q1", "Q2"] },
+  { rowId: "0.1", legalFramework: "Article 2(1) / Article 3 Wet Vpb 1969, subject to Dutch CIT (resident, or non-resident with a Dutch permanent establishment)", allowedStates: ["Yes", "No", "Further information needed"], drivenByQuestionIds: ["Q1", "Q2"] },
   { rowId: "0.2", legalFramework: "Cross-border element present", allowedStates: ["Yes", "No", "Further information needed"], drivenByQuestionIds: ["Q3"] },
   { rowId: "0.3", legalFramework: "Article 12ac jo. Article 10a(6) Wet Vpb 1969, related party (broad associated-enterprise test) or structured arrangement", allowedStates: ["Yes", "No", "Further information needed"], drivenByQuestionIds: ["Q28"] },
   { rowId: "0.4", legalFramework: "Financial year starting on or after 1 Jan 2020 (Article 12ag in force)", allowedStates: ["Yes", "No"], drivenByQuestionIds: [] },
@@ -29,9 +29,9 @@ export const SKELETON_ROWS: ServerSkeletonRow[] = [
   { rowId: "1bis.3", legalFramework: "Article 12aa(1)(f) Wet Vpb 1969, deemed payment to the Dutch PE, included abroad or not", allowedStates: STANDARD, drivenByQuestionIds: ["Q33", "Q34"], renderIfQuestionEquals: { questionId: "Q2", equals: "Yes" } },
   { rowId: "1bis.4", legalFramework: "Article 12aa(1)(f) Wet Vpb 1969, non-EU PE makes a deemed payment to the Dutch PE", allowedStates: STANDARD, drivenByQuestionIds: ["Q35"], renderIfQuestionEquals: { questionId: "Q2", equals: "Yes" } },
 
-  { rowId: "2.1", legalFramework: "Article 12ab(1) jo. (3) Wet Vpb 1969, NL as recipient state includes income where the payer state does not deny the deduction, only for a limb a/b/c/e/f mismatch (never d, never g)", allowedStates: STANDARD, drivenByQuestionIds: [] },
+  { rowId: "2.1", legalFramework: "Article 12ab(1) jo. (3) Wet Vpb 1969, NL as recipient state includes income where the payer state does not deny the deduction, only for an art. 12aa(1)(a), (b), (c), (e) or (f) mismatch (never d, never g)", allowedStates: STANDARD, drivenByQuestionIds: [] },
 
-  { rowId: "3.1", legalFramework: "Article 12ac Wet Vpb 1969, associated-enterprise / related-party test met (broad: holdings up/down/sister, consolidated group, significant influence, acting together; 25%, raised to 50% for hybrid-entity limbs)", allowedStates: ["Yes", "No", "Further information needed"], drivenByQuestionIds: ["Q28"] },
+  { rowId: "3.1", legalFramework: "Article 12ac Wet Vpb 1969, associated-enterprise / related-party test met (broad: holdings up/down/sister, consolidated group, significant influence, acting together; 25%, raised to 50% for hybrid-entity cases)", allowedStates: ["Yes", "No", "Further information needed"], drivenByQuestionIds: ["Q28"] },
   { rowId: "3.2", legalFramework: "Article 12ac Wet Vpb 1969, structured arrangement", allowedStates: ["Yes", "No", "Further information needed"], drivenByQuestionIds: ["Q28"] },
   { rowId: "3.3", legalFramework: "Qualification under Dutch standards (FKR comparison method, from 1 Jan 2025)", allowedStates: STANDARD, drivenByQuestionIds: [] },
   { rowId: "3.4", legalFramework: "Dual-inclusion income present", allowedStates: ["Yes", "No", "Further information needed"], drivenByQuestionIds: ["Q4d", "Q11", "Q25"] },

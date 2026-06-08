@@ -86,7 +86,6 @@ export function AppendixTable({ rows, showReferences, onEdit }: Props) {
                       Reference <span className="font-normal text-muted-foreground">(internal)</span>
                     </TableHead>
                   )}
-                  <TableHead className="w-20">Source</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -144,13 +143,6 @@ export function AppendixTable({ rows, showReferences, onEdit }: Props) {
                           {row.reference}
                         </TableCell>
                       )}
-                      <TableCell>
-                        {row.source === 'edited' ? (
-                          <Badge variant="secondary" className="text-[10px]">edited</Badge>
-                        ) : (
-                          <span className="text-[10px] uppercase tracking-wide text-muted-foreground">AI</span>
-                        )}
-                      </TableCell>
                     </TableRow>
                   );
                 })}

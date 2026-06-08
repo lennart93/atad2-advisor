@@ -32,6 +32,7 @@ import {
 import { addOrMergeFiscalUnity } from '@/lib/structure/fiscalUnity';
 import { computeFrameLayouts } from '@/lib/structure/fiscalUnityLayout';
 import { startExtraction, pollUntilTerminal } from '@/lib/structure/extraction';
+import { startAppendixGeneration } from '@/lib/appendix/client';
 import { FiscalUnityEditPopover } from './overlays/FiscalUnityEditPopover';
 import { captureChartSnapshot } from '@/lib/structure/captureChartSnapshot';
 import type { Node } from '@xyflow/react';
@@ -177,6 +178,19 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
     return () => window.removeEventListener('keydown', handler);
   }, [selection]);
   const [status, setStatus] = useState<ChartStatus | 'loading'>('loading');
+
+  // Prewarm the technical appendix once the chart has been extracted, so it is
+  // usually ready by the time the advisor reaches the appendix step. Fires once.
+  const appendixPrewarmedRef = useRef(false);
+  useEffect(() => {
+    if (appendixPrewarmedRef.current) return;
+    const chartReady = status === 'draft_ready' || status === 'user_edited' || status === 'finalized';
+    if (!chartReady) return;
+    appendixPrewarmedRef.current = true;
+    startAppendixGeneration(sessionId).catch((err) => {
+      console.warn('[StructureChartStep] appendix prewarm failed', err);
+    });
+  }, [status, sessionId]);
   const [busy, setBusy] = useState(false);
   // Tracks which clusters the user has explicitly COLLAPSED. Default empty =
   // nothing collapsed = the chart opens fully expanded. New entities from

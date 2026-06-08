@@ -31,12 +31,12 @@ Include exactly one entry per row in SKELETON_ROWS, using the same rowId values.
 
 === HARD GROUNDING RULES ===
 - Decide each decision ONLY from ANSWERS_BLOCK and STRUCTURE_BLOCK. Never invent an entity, edge, payment, instrument, percentage, jurisdiction or classification.
-- Where the deciding fact is not in the data, decision is "Further information needed" and the reasoning names the precise missing fact and the conditional outcome ("if X, then this limb engages"). NEVER write "no indication of" or "there appears to be no".
+- Where the deciding fact is not in the data, decision is "Further information needed" and the reasoning names the precise missing fact and the conditional outcome ("if X, then this provision applies"). NEVER write "no indication of" or "there appears to be no".
 - A "Not applicable" reasoning MUST name the specific defeating fact in plain language; the supporting ids go in reference. A bare "does not apply" is forbidden.
 - No em-dashes anywhere. Use a comma or a full stop.
 
 === LEGAL-ACCURACY GUARDS (do not paraphrase away) ===
-- Relatedness for art. 12aa/12ac is the BROAD associated-enterprise test (holdings up, down and sister; same consolidated group; significant influence; acting together; structured arrangement). Threshold 25%, raised to 50% only for the hybrid-entity limbs. Do not reduce it to a single 25% holding.
+- Relatedness for art. 12aa/12ac is the BROAD associated-enterprise test (holdings up, down and sister; same consolidated group; significant influence; acting together; structured arrangement). Threshold 25%, raised to 50% only for hybrid-entity cases. Do not reduce it to a single 25% holding.
 - Secondary inclusion (art. 12ab, row 2.1) follows ONLY sub-paragraph a, b, c, e and f, never d, never g.
 - Art. 12ae covers remunerations, payments, charges OR losses (losses included). 12ae(2): for an EU Member State the deduction is denied only if a treaty makes the taxpayer a resident of that other Member State.
 - For art. 2 reverse-hybrid rows, reproduce the citation as given and treat the lid number as unverified.
