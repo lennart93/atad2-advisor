@@ -18,6 +18,7 @@ export async function loadAppendix(sessionId: string): Promise<StoredAppendix | 
     review_status: data.review_status as StoredAppendix['review_status'],
     generation_status: data.generation_status as GenerationStatus,
     rows: (data.rows ?? []) as AppendixRow[],
+    facts: null,
     model: data.model,
     prompt_version: data.prompt_version,
     error_message: data.error_message,

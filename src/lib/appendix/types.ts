@@ -67,6 +67,64 @@ export type EditableField = 'status' | 'reasoning';
 export type ReviewStatus = 'draft' | 'confirmed';
 export type GenerationStatus = 'generating' | 'ready' | 'error';
 
+export type FactStatus = 'proposed' | 'confirmed';
+export type FactSource = 'chart' | 'ai' | 'edited';
+
+/** One entity in the register; the anchor every other exhibit references by `id`. */
+export interface FactEntity {
+  id: string;                // stable cross-ref label, e.g. "E1"
+  chartEntityId: string;     // atad2_structure_entities.id
+  name: string;
+  jurisdiction: string | null;
+  entityType: string | null;
+  role: 'Taxpayer' | 'Parent' | 'Subsidiary' | 'Group entity';
+  ownershipPct: number | null; // parent: of the taxpayer; subsidiary: of that entity
+  related: boolean;            // meets the >25% related-party test
+  nlTaxStatus: string | null;  // AI/advisor filled; null until proposed
+}
+
+export interface ActingTogetherCluster {
+  id: string;                  // "A1"
+  memberEntityIds: string[];   // ["E3","E4"]
+  combinedPct: number | null;
+  rationale: string;
+  status: 'proposed' | 'confirmed' | 'dismissed';
+  excludedFromClient: boolean;
+  source: 'ai' | 'edited';
+}
+
+export interface ClassificationItem {
+  entityId: string;            // "E4"
+  homeState: string;
+  homeClass: string;           // transparent | opaque | disregarded | ...
+  sourceState: string | null;
+  sourceClass: string | null;
+  hybrid: boolean;             // homeClass != sourceClass
+  status: FactStatus;
+  excludedFromClient: boolean;
+  source: 'ai' | 'edited';
+}
+
+export interface TransactionItem {
+  id: string;                  // "T1"
+  fromEntityId: string;
+  toEntityId: string;
+  kind: string;                // financing | service | royalty | dividend | ...
+  instrument: string | null;
+  note: string | null;
+  articlesTested: string[];    // ["12aa(1)(a)","12ad"]
+  status: FactStatus;
+  excludedFromClient: boolean;
+  source: 'ai' | 'edited';
+}
+
+export interface AppendixFacts {
+  entities: FactEntity[];
+  actingTogether: ActingTogetherCluster[];
+  classifications: ClassificationItem[];
+  transactions: TransactionItem[];
+}
+
 /** The atad2_appendix row shape (rows stored as JSONB). */
 export interface StoredAppendix {
   id: string;
@@ -74,6 +132,7 @@ export interface StoredAppendix {
   review_status: ReviewStatus;
   generation_status: GenerationStatus;
   rows: AppendixRow[];
+  facts: AppendixFacts | null;
   model: string | null;
   prompt_version: number | null;
   error_message: string | null;
