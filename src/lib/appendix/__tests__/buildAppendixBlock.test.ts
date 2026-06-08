@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildAppendixBlock } from '@/lib/appendix/buildAppendixBlock';
-import type { AppendixRow } from '@/lib/appendix/types';
+import type { AppendixRow, AppendixFacts } from '@/lib/appendix/types';
 
 const row = (rowId: string, status: AppendixRow['status'], reasoning: string, excluded = false): AppendixRow => ({
   rowId,
@@ -32,5 +32,23 @@ describe('buildAppendixBlock', () => {
     const out = buildAppendixBlock([row('3.2', 'Not triggered', 'x')]);
     expect(out.startsWith('<confirmed_appendix>')).toBe(true);
     expect(out.trim().endsWith('</confirmed_appendix>')).toBe(true);
+  });
+
+  it('prepends a clean <facts> block from confirmed facts only', () => {
+    const facts: AppendixFacts = {
+      entities: [{ id: 'E1', chartEntityId: 'c1', name: 'Acme BV', jurisdiction: 'NL', entityType: 'BV', role: 'Taxpayer', ownershipPct: null, related: false, nlTaxStatus: null }],
+      actingTogether: [],
+      classifications: [
+        { entityId: 'E1', homeState: 'NL', homeClass: 'opaque', sourceState: 'US', sourceClass: 'transparent', hybrid: true, status: 'confirmed', excludedFromClient: false, source: 'ai' },
+        { entityId: 'E9', homeState: 'NL', homeClass: 'x', sourceState: null, sourceClass: null, hybrid: false, status: 'proposed', excludedFromClient: false, source: 'ai' },
+      ],
+      transactions: [],
+    };
+    const out = buildAppendixBlock([row('3.2', 'Triggered', 'x')], undefined, facts);
+    expect(out).toContain('<facts>');
+    expect(out).toContain('Acme BV');
+    expect(out).toContain('hybrid mismatch');
+    expect(out).toContain('<confirmed_appendix>');
+    expect(out).not.toContain('E9');
   });
 });

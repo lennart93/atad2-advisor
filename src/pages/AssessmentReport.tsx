@@ -434,7 +434,7 @@ const AssessmentReport = () => {
       try {
         const [appendix, appendixSkeleton] = await Promise.all([loadAppendix(sessionId), loadAppendixSkeleton()]);
         if (appendix && appendix.review_status === 'confirmed') {
-          confirmedAppendix = buildAppendixBlock(appendix.rows, appendixSkeleton);
+          confirmedAppendix = buildAppendixBlock(appendix.rows, appendixSkeleton, appendix.facts);
         }
       } catch (e) {
         console.warn('[generate-report] loadAppendix failed, continuing without appendix', e);
