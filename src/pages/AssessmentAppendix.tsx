@@ -10,9 +10,9 @@ import { useAuth } from '@/hooks/useAuth';
 import { AssessmentFooterSlot } from '@/components/assessment/AssessmentFooterSlot';
 import { AppendixTable } from '@/components/appendix/AppendixTable';
 import {
-  loadAppendix, startAppendixGeneration, pollAppendixUntilReady, saveRowEdit, confirmAppendix,
+  loadAppendix, startAppendixGeneration, pollAppendixUntilReady, saveRowEdit, confirmAppendix, saveFacts,
 } from '@/lib/appendix/client';
-import type { StoredAppendix, AppendixRow, EditableField } from '@/lib/appendix/types';
+import type { StoredAppendix, AppendixRow, EditableField, AppendixFacts } from '@/lib/appendix/types';
 import { buildAppendixPrintHtml, type PrintMode } from '@/lib/appendix/printAppendix';
 import { useAppendixSkeleton } from '@/lib/appendix/skeletonStore';
 import { loadChart } from '@/lib/structure/client';
@@ -176,6 +176,16 @@ export default function AssessmentAppendix() {
     }
   };
 
+  const handleFactsChange = async (next: AppendixFacts) => {
+    if (!appendix) return;
+    setAppendix({ ...appendix, facts: next }); // optimistic
+    try {
+      await saveFacts(appendix.id, next);
+    } catch (e) {
+      toast.error('Could not save facts', { description: String(e) });
+    }
+  };
+
   const handlePrint = (mode: PrintMode) => {
     if (!appendix) return;
     const html = buildAppendixPrintHtml(appendix.rows, mode, skeleton);
@@ -263,7 +273,10 @@ export default function AssessmentAppendix() {
         </Button>
       </div>
 
-      <FactsPanel facts={factsToShow} />
+      <FactsPanel
+        facts={factsToShow}
+        onChange={appendix?.facts ? handleFactsChange : undefined}
+      />
 
       <AppendixTable rows={appendix.rows} skeleton={skeleton} showSources={showSources} relatedParties={relatedParties} onEdit={handleEdit} onToggleExclude={handleToggleExclude} />
 

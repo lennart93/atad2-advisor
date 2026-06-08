@@ -1,10 +1,60 @@
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { ChevronDown, ChevronRight, Users, Network, Layers, ArrowLeftRight } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, Eye, EyeOff, Users, Network, Layers, ArrowLeftRight, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { AppendixFacts, FactEntity } from '@/lib/appendix/types';
 
-interface Props { facts: AppendixFacts; }
+interface Props {
+  facts: AppendixFacts;
+  onChange?: (next: AppendixFacts) => void;
+}
+
+// ---------------------------------------------------------------------------
+// Immutable patch helpers
+// ---------------------------------------------------------------------------
+
+function withClassification(
+  facts: AppendixFacts,
+  entityId: string,
+  patch: Partial<AppendixFacts['classifications'][number]>,
+): AppendixFacts {
+  return {
+    ...facts,
+    classifications: facts.classifications.map((c) =>
+      c.entityId === entityId ? { ...c, ...patch } : c,
+    ),
+  };
+}
+
+function withTransaction(
+  facts: AppendixFacts,
+  id: string,
+  patch: Partial<AppendixFacts['transactions'][number]>,
+): AppendixFacts {
+  return {
+    ...facts,
+    transactions: facts.transactions.map((t) =>
+      t.id === id ? { ...t, ...patch } : t,
+    ),
+  };
+}
+
+function withActing(
+  facts: AppendixFacts,
+  id: string,
+  patch: Partial<AppendixFacts['actingTogether'][number]>,
+): AppendixFacts {
+  return {
+    ...facts,
+    actingTogether: facts.actingTogether.map((a) =>
+      a.id === id ? { ...a, ...patch } : a,
+    ),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
 function pct(n: number | null): string {
   return n == null ? '—' : `${Number.isInteger(n) ? n : n.toFixed(2)}%`;
@@ -13,6 +63,56 @@ function pct(n: number | null): string {
 function nameOf(facts: AppendixFacts, id: string): string {
   return facts.entities.find((e) => e.id === id)?.name ?? id;
 }
+
+// ---------------------------------------------------------------------------
+// Small reusable control buttons
+// ---------------------------------------------------------------------------
+
+function ConfirmBtn({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-label="Confirm"
+      title="Mark as confirmed"
+      onClick={onClick}
+      className="inline-flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+    >
+      <Check className="h-3 w-3" />
+    </button>
+  );
+}
+
+function ExcludeBtn({ excluded, onClick }: { excluded: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-label={excluded ? 'Include in client export' : 'Exclude from client export'}
+      title={excluded ? 'Excluded from client export' : 'Visible to client'}
+      onClick={onClick}
+      className="inline-flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+    >
+      {excluded ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+    </button>
+  );
+}
+
+function DismissBtn({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-label="Dismiss"
+      title="Dismiss this acting-together cluster"
+      onClick={onClick}
+      className="inline-flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+    >
+      <X className="h-3 w-3" />
+    </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Exhibit collapsible wrapper
+// ---------------------------------------------------------------------------
 
 function Exhibit({ tag, icon, title, defaultOpen = true, children }: {
   tag: string; icon: ReactNode; title: string; defaultOpen?: boolean; children: ReactNode;
@@ -35,9 +135,14 @@ function Exhibit({ tag, icon, title, defaultOpen = true, children }: {
   );
 }
 
-export function FactsPanel({ facts }: Props) {
+// ---------------------------------------------------------------------------
+// FactsPanel
+// ---------------------------------------------------------------------------
+
+export function FactsPanel({ facts, onChange }: Props) {
   const entities = facts.entities;
   const related = useMemo(() => entities.filter((e) => e.role !== 'Taxpayer'), [entities]);
+  const editable = !!onChange;
 
   if (!entities.length) return null;
 
@@ -45,6 +150,9 @@ export function FactsPanel({ facts }: Props) {
     <div className="space-y-3">
       <h3 className="text-sm font-semibold text-foreground">Part A · Facts &amp; relationships</h3>
 
+      {/* ------------------------------------------------------------------ */}
+      {/* E — Entity register (read-only; entities are not status-controlled) */}
+      {/* ------------------------------------------------------------------ */}
       <Exhibit tag="E" icon={<Users className="h-4 w-4 text-muted-foreground" />} title="Entity register">
         <table className="w-full text-xs">
           <thead className="text-muted-foreground">
@@ -68,6 +176,9 @@ export function FactsPanel({ facts }: Props) {
         </table>
       </Exhibit>
 
+      {/* ------------------------------------------------------------------ */}
+      {/* REL — Relatedness & acting-together                                  */}
+      {/* ------------------------------------------------------------------ */}
       <Exhibit tag="REL" icon={<Network className="h-4 w-4 text-muted-foreground" />} title="Relatedness & acting-together">
         <div className="space-y-1 text-xs">
           {related.map((e: FactEntity) => (
@@ -82,52 +193,169 @@ export function FactsPanel({ facts }: Props) {
         </div>
         {facts.actingTogether.length > 0 && (
           <div className="mt-2 space-y-1.5">
-            {facts.actingTogether.filter((a) => a.status !== 'dismissed').map((a) => (
-              <div key={a.id} className="rounded border-l-2 border-l-amber-500 bg-amber-50/60 px-2 py-1.5 text-[11px] text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
-                <span className="font-medium">Acting-together {a.status === 'confirmed' ? '(confirmed)' : '(proposed)'}:</span>{' '}
-                {a.memberEntityIds.map((id) => nameOf(facts, id)).join(' + ')} ≈ {pct(a.combinedPct)}. {a.rationale}
-              </div>
-            ))}
+            {facts.actingTogether.filter((a) => a.status !== 'dismissed').map((a) => {
+              const confirmed = a.status === 'confirmed';
+              return (
+                <div
+                  key={a.id}
+                  className={cn(
+                    'rounded border-l-2 border-l-amber-500 bg-amber-50/60 px-2 py-1.5 text-[11px] text-amber-900 dark:bg-amber-950/30 dark:text-amber-200',
+                    a.excludedFromClient && 'opacity-60',
+                  )}
+                >
+                  <div className="flex items-start gap-1.5">
+                    <div className="flex-1">
+                      <span className="font-medium">
+                        Acting-together {confirmed ? '(confirmed)' : '(proposed)'}:
+                      </span>{' '}
+                      {a.memberEntityIds.map((id) => nameOf(facts, id)).join(' + ')} ≈ {pct(a.combinedPct)}. {a.rationale}
+                    </div>
+                    {editable && (
+                      <div className="flex shrink-0 items-center gap-0.5 pl-1">
+                        {!confirmed && (
+                          <>
+                            <ConfirmBtn onClick={() => onChange!(withActing(facts, a.id, { status: 'confirmed', source: 'edited' }))} />
+                            <DismissBtn onClick={() => onChange!(withActing(facts, a.id, { status: 'dismissed', source: 'edited' }))} />
+                          </>
+                        )}
+                        {confirmed && (
+                          <ExcludeBtn
+                            excluded={a.excludedFromClient}
+                            onClick={() => onChange!(withActing(facts, a.id, { excludedFromClient: !a.excludedFromClient }))}
+                          />
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </Exhibit>
 
+      {/* ------------------------------------------------------------------ */}
+      {/* CLS — Classification matrix                                          */}
+      {/* ------------------------------------------------------------------ */}
       <Exhibit tag="CLS" icon={<Layers className="h-4 w-4 text-muted-foreground" />} title="Classification matrix (home vs source)" defaultOpen={false}>
         {facts.classifications.length === 0
           ? <p className="text-xs text-muted-foreground">Not proposed yet.</p>
           : (
           <table className="w-full text-xs">
-            <thead className="text-muted-foreground"><tr className="text-left"><th className="py-1 pr-2">Entity</th><th className="pr-2">Home</th><th className="pr-2">Source</th><th>Hybrid?</th></tr></thead>
+            <thead className="text-muted-foreground">
+              <tr className="text-left">
+                <th className="py-1 pr-2">Entity</th>
+                <th className="pr-2">Home</th>
+                <th className="pr-2">Source</th>
+                <th>Hybrid?</th>
+                {editable && <th className="w-10" aria-label="Controls" />}
+              </tr>
+            </thead>
             <tbody>
-              {facts.classifications.map((c) => (
-                <tr key={c.entityId} className="border-t border-[hsl(var(--border-subtle))]">
-                  <td className="py-1 pr-2"><span className="font-mono text-sky-700 dark:text-sky-300">{c.entityId}</span> {nameOf(facts, c.entityId)}</td>
-                  <td className="pr-2 text-muted-foreground">{c.homeState}: {c.homeClass}</td>
-                  <td className="pr-2 text-muted-foreground">{c.sourceState ? `${c.sourceState}: ${c.sourceClass}` : '—'}</td>
-                  <td>{c.hybrid ? <span className="rounded bg-rose-100 px-1 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200">mismatch</span> : <span className="text-muted-foreground">aligned</span>}</td>
-                </tr>
-              ))}
+              {facts.classifications.map((c) => {
+                const confirmed = c.status === 'confirmed';
+                return (
+                  <tr
+                    key={c.entityId}
+                    className={cn('border-t border-[hsl(var(--border-subtle))]', c.excludedFromClient && 'opacity-60')}
+                  >
+                    <td className="py-1 pr-2">
+                      <span className="font-mono text-sky-700 dark:text-sky-300">{c.entityId}</span>{' '}
+                      {nameOf(facts, c.entityId)}
+                    </td>
+                    <td className="pr-2 text-muted-foreground">{c.homeState}: {c.homeClass}</td>
+                    <td className="pr-2 text-muted-foreground">{c.sourceState ? `${c.sourceState}: ${c.sourceClass}` : '—'}</td>
+                    <td>
+                      {c.hybrid
+                        ? <span className="rounded bg-rose-100 px-1 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200">mismatch</span>
+                        : <span className="text-muted-foreground">aligned</span>}
+                      {confirmed && (
+                        <span className="ml-1 text-muted-foreground/60" title="Confirmed">
+                          <Check className="inline h-2.5 w-2.5" />
+                        </span>
+                      )}
+                    </td>
+                    {editable && (
+                      <td className="pl-1">
+                        <div className="flex items-center gap-0.5">
+                          {!confirmed && (
+                            <ConfirmBtn
+                              onClick={() => onChange!(withClassification(facts, c.entityId, { status: 'confirmed', source: 'edited' }))}
+                            />
+                          )}
+                          <ExcludeBtn
+                            excluded={c.excludedFromClient}
+                            onClick={() => onChange!(withClassification(facts, c.entityId, { excludedFromClient: !c.excludedFromClient }))}
+                          />
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
       </Exhibit>
 
+      {/* ------------------------------------------------------------------ */}
+      {/* T — Transaction map                                                  */}
+      {/* ------------------------------------------------------------------ */}
       <Exhibit tag="T" icon={<ArrowLeftRight className="h-4 w-4 text-muted-foreground" />} title="Transaction map" defaultOpen={false}>
         {facts.transactions.length === 0
           ? <p className="text-xs text-muted-foreground">Not proposed yet.</p>
           : (
           <table className="w-full text-xs">
-            <thead className="text-muted-foreground"><tr className="text-left"><th className="py-1 pr-2">#</th><th className="pr-2">Flow</th><th className="pr-2">Type</th><th className="pr-2">Instrument</th><th>Article(s)</th></tr></thead>
+            <thead className="text-muted-foreground">
+              <tr className="text-left">
+                <th className="py-1 pr-2">#</th>
+                <th className="pr-2">Flow</th>
+                <th className="pr-2">Type</th>
+                <th className="pr-2">Instrument</th>
+                <th>Article(s)</th>
+                {editable && <th className="w-10" aria-label="Controls" />}
+              </tr>
+            </thead>
             <tbody>
-              {facts.transactions.map((t) => (
-                <tr key={t.id} className="border-t border-[hsl(var(--border-subtle))]">
-                  <td className="py-1 pr-2 font-mono text-sky-700 dark:text-sky-300">{t.id}</td>
-                  <td className="pr-2">{nameOf(facts, t.fromEntityId)} → {nameOf(facts, t.toEntityId)}</td>
-                  <td className="pr-2 text-muted-foreground">{t.kind}</td>
-                  <td className="pr-2 text-muted-foreground">{t.instrument ?? '—'}</td>
-                  <td className="text-muted-foreground">{t.articlesTested.join(' · ')}</td>
-                </tr>
-              ))}
+              {facts.transactions.map((t) => {
+                const confirmed = t.status === 'confirmed';
+                return (
+                  <tr
+                    key={t.id}
+                    className={cn('border-t border-[hsl(var(--border-subtle))]', t.excludedFromClient && 'opacity-60')}
+                  >
+                    <td className="py-1 pr-2 font-mono text-sky-700 dark:text-sky-300">{t.id}</td>
+                    <td className="pr-2">
+                      {nameOf(facts, t.fromEntityId)} → {nameOf(facts, t.toEntityId)}
+                    </td>
+                    <td className="pr-2 text-muted-foreground">{t.kind}</td>
+                    <td className="pr-2 text-muted-foreground">{t.instrument ?? '—'}</td>
+                    <td className="text-muted-foreground">
+                      {t.articlesTested.join(' · ')}
+                      {confirmed && (
+                        <span className="ml-1 text-muted-foreground/60" title="Confirmed">
+                          <Check className="inline h-2.5 w-2.5" />
+                        </span>
+                      )}
+                    </td>
+                    {editable && (
+                      <td className="pl-1">
+                        <div className="flex items-center gap-0.5">
+                          {!confirmed && (
+                            <ConfirmBtn
+                              onClick={() => onChange!(withTransaction(facts, t.id, { status: 'confirmed', source: 'edited' }))}
+                            />
+                          )}
+                          <ExcludeBtn
+                            excluded={t.excludedFromClient}
+                            onClick={() => onChange!(withTransaction(facts, t.id, { excludedFromClient: !t.excludedFromClient }))}
+                          />
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}

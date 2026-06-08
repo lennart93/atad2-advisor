@@ -87,6 +87,14 @@ export async function saveRowEdit(
   if (logErr) throw logErr;
 }
 
+export async function saveFacts(appendixId: string, facts: AppendixFacts): Promise<void> {
+  const { error } = await supabase
+    .from('atad2_appendix')
+    .update({ facts: facts as unknown as never, updated_at: new Date().toISOString() })
+    .eq('id', appendixId);
+  if (error) throw error;
+}
+
 export async function confirmAppendix(appendixId: string, userId: string): Promise<void> {
   const { error } = await supabase
     .from('atad2_appendix')
