@@ -3,8 +3,13 @@ import type { SupabaseClient } from "supabase";
 import { createServiceClient, verifyJwtAndSessionOwnership } from "./verifyAuth.ts";
 import { callClaude, extractJson } from "./claude.ts";
 import { AppendixModelOutput, type AppendixModelOutputT } from "./schemas.ts";
+import { FactsModelOutput } from "./factsSchemas.ts";
 import { SKELETON_ROWS, type ServerSkeletonRow } from "./skeletonRows.ts";
-import { loadAppendixPrompt } from "./promptsLoader.ts";
+import { loadAppendixPrompt, loadPrompt } from "./promptsLoader.ts";
+import {
+  buildEntityRegister,
+  type RawEntity, type RawEdge, type AppendixFacts, type FactEntity,
+} from "./factsBuild.ts";
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -111,6 +116,17 @@ async function runGeneration(c: SupabaseClient, appendixId: string, sessionId: s
       .map((a) => `Q${a.question_id} answer: ${a.answer}${a.explanation ? `\n  Explanation: ${a.explanation}` : ""}`)
       .join("\n");
 
+    // Part A — deterministic entity register, then ask the model to propose the
+    // classification matrix, transactions and acting-together clusters. Built
+    // before the article swarm so the articles can later be grounded on it.
+    const rawChart = await loadChartRaw(c, sessionId);
+    const factEntities = buildEntityRegister(rawChart.entities, rawChart.edges);
+    const factsFresh = await buildFacts(c, factEntities, session ?? null, answersBlock, structureBlock);
+    const { data: priorFacts } = await c.from("atad2_appendix").select("facts").eq("id", appendixId).maybeSingle();
+    const factsToStore = factEntities.length
+      ? mergeFacts((priorFacts?.facts as AppendixFacts | null) ?? null, factsFresh)
+      : null;
+
     // Fill everything except the per-section skeleton, then swarm: one parallel
     // Claude call per section so the whole appendix comes back fast (wall-clock
     // is the slowest single section, not the sum of all rows).
@@ -171,7 +187,7 @@ async function runGeneration(c: SupabaseClient, appendixId: string, sessionId: s
     });
 
     await c.from("atad2_appendix").update({
-      rows: merged, generation_status: "ready",
+      rows: merged, facts: factsToStore, generation_status: "ready",
       model: prompt.model, prompt_version: prompt.version,
       generated_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     }).eq("id", appendixId);
@@ -210,16 +226,100 @@ async function loadSkeletonRows(c: SupabaseClient): Promise<ServerSkeletonRow[]>
   }));
 }
 
-async function loadStructureBlock(c: SupabaseClient, sessionId: string): Promise<string> {
+async function loadChartRaw(
+  c: SupabaseClient,
+  sessionId: string,
+): Promise<{ entities: RawEntity[]; edges: Array<RawEdge & { kind: string | null }> }> {
   const { data: chart } = await c.from("atad2_structure_charts").select("id").eq("session_id", sessionId).maybeSingle();
-  if (!chart?.id) return "";
+  if (!chart?.id) return { entities: [], edges: [] };
   const { data: ents } = await c
     .from("atad2_structure_entities")
     .select("id, name, entity_type, jurisdiction_iso, is_taxpayer").eq("chart_id", chart.id);
   const { data: edges } = await c
     .from("atad2_structure_edges")
     .select("from_entity_id, to_entity_id, ownership_pct, kind").eq("chart_id", chart.id);
-  const e = (ents ?? []).map((x) => `- ${x.name} [${x.entity_type}, ${x.jurisdiction_iso}${x.is_taxpayer ? ", taxpayer" : ""}]`).join("\n");
-  const o = (edges ?? []).map((x) => `- ${x.from_entity_id} -> ${x.to_entity_id} (${x.ownership_pct ?? "?"}%, ${x.kind})`).join("\n");
+  return {
+    entities: (ents ?? []) as RawEntity[],
+    edges: (edges ?? []) as Array<RawEdge & { kind: string | null }>,
+  };
+}
+
+async function loadStructureBlock(c: SupabaseClient, sessionId: string): Promise<string> {
+  const { entities, edges } = await loadChartRaw(c, sessionId);
+  if (!entities.length) return "";
+  const e = entities.map((x) => `- ${x.name} [${x.entity_type}, ${x.jurisdiction_iso}${x.is_taxpayer ? ", taxpayer" : ""}]`).join("\n");
+  const o = edges.map((x) => `- ${x.from_entity_id} -> ${x.to_entity_id} (${x.ownership_pct ?? "?"}%, ${x.kind})`).join("\n");
   return `Entities:\n${e}\nEdges:\n${o}`;
+}
+
+/** Build Part A: deterministic entities are passed in; the model proposes the rest. */
+async function buildFacts(
+  c: SupabaseClient,
+  entities: FactEntity[],
+  session: { taxpayer_name?: string | null; fiscal_year?: string | null } | null,
+  answersBlock: string,
+  structureBlock: string,
+): Promise<AppendixFacts> {
+  const base: AppendixFacts = { entities, actingTogether: [], classifications: [], transactions: [] };
+  if (!entities.length) return base;
+  try {
+    const fp = await loadPrompt(c, "appendix_facts_system");
+    const registerJson = JSON.stringify(entities.map((e) => ({
+      id: e.id, name: e.name, jurisdiction: e.jurisdiction, entityType: e.entityType,
+      role: e.role, ownershipPct: e.ownershipPct, related: e.related,
+    })));
+    const user = fp.systemPrompt
+      .replace("{{TAXPAYER_NAME}}", session?.taxpayer_name ?? "")
+      .replace("{{FISCAL_YEAR}}", session?.fiscal_year ?? "")
+      .replace("{{ENTITY_REGISTER}}", registerJson)
+      .replace("{{ANSWERS_BLOCK}}", answersBlock || "(no answers recorded)")
+      .replace("{{STRUCTURE_BLOCK}}", structureBlock || "(no structure chart available)");
+    const proposed = FactsModelOutput.parse(JSON.parse(extractJson((await callClaude({ user })).text)));
+    const nl = proposed.nlTaxStatusByEntityId ?? {};
+    return {
+      entities: entities.map((e) => ({ ...e, nlTaxStatus: nl[e.id] ?? e.nlTaxStatus })),
+      classifications: proposed.classifications.map((cl) => ({ ...cl, status: "proposed" as const, excludedFromClient: false, source: "ai" as const })),
+      transactions: proposed.transactions.map((t, i) => ({ id: `T${i + 1}`, ...t, status: "proposed" as const, excludedFromClient: false, source: "ai" as const })),
+      actingTogether: proposed.actingTogether.map((a, i) => ({ id: `A${i + 1}`, ...a, status: "proposed" as const, excludedFromClient: false, source: "ai" as const })),
+    };
+  } catch (err) {
+    console.warn(JSON.stringify({ level: "warn", event: "appendix_facts_failed", message: String(err).slice(0, 300) }));
+    return base;
+  }
+}
+
+/** On regenerate, keep advisor decisions (confirmed/dismissed/edited/excluded); refresh the rest. */
+function mergeFacts(existing: AppendixFacts | null, fresh: AppendixFacts): AppendixFacts {
+  if (!existing) return renumberFacts(fresh);
+  const exCls = new Map(existing.classifications.map((c) => [c.entityId, c]));
+  const classifications = fresh.classifications.map((f) => {
+    const prev = exCls.get(f.entityId);
+    if (prev && (prev.status === "confirmed" || prev.source === "edited")) return prev;
+    return { ...f, excludedFromClient: prev?.excludedFromClient ?? false };
+  });
+  const txKey = (t: { fromEntityId: string; toEntityId: string; kind: string }) => `${t.fromEntityId}|${t.toEntityId}|${t.kind}`;
+  const exTx = new Map(existing.transactions.map((t) => [txKey(t), t]));
+  const transactions = fresh.transactions.map((f) => {
+    const prev = exTx.get(txKey(f));
+    if (prev && (prev.status === "confirmed" || prev.source === "edited")) return prev;
+    return { ...f, excludedFromClient: prev?.excludedFromClient ?? false };
+  });
+  const atKey = (a: { memberEntityIds: string[] }) => [...a.memberEntityIds].sort().join("|");
+  const exAt = new Map(existing.actingTogether.map((a) => [atKey(a), a]));
+  const actingTogether = fresh.actingTogether.map((f) => {
+    const prev = exAt.get(atKey(f));
+    if (prev && (prev.status === "confirmed" || prev.status === "dismissed" || prev.source === "edited")) return prev;
+    return { ...f, excludedFromClient: prev?.excludedFromClient ?? false };
+  });
+  return renumberFacts({ entities: fresh.entities, classifications, transactions, actingTogether });
+}
+
+/** Keep T#/A# labels contiguous after a merge. */
+function renumberFacts(f: AppendixFacts): AppendixFacts {
+  return {
+    entities: f.entities,
+    classifications: f.classifications,
+    transactions: f.transactions.map((t, i) => ({ ...t, id: `T${i + 1}` })),
+    actingTogether: f.actingTogether.map((a, i) => ({ ...a, id: `A${i + 1}` })),
+  };
 }
