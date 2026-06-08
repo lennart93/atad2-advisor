@@ -101,19 +101,11 @@ export function AppendixTable({ rows, showReferences, onEdit }: Props) {
                       </TableCell>
                       <TableCell className="text-sm">
                         {sk.legalFramework}
-                        {(sk.flags?.length || row.stale) && (
+                        {row.stale && (
                           <div className="mt-1.5 flex flex-wrap gap-1">
-                            {sk.flags?.includes('contested') && (
-                              <Badge variant="outline" className="text-[10px] font-normal text-purple-700 dark:text-purple-300">contested</Badge>
-                            )}
-                            {sk.flags?.includes('unverified') && (
-                              <Badge variant="outline" className="text-[10px] font-normal text-purple-700 dark:text-purple-300">unverified</Badge>
-                            )}
-                            {row.stale && (
-                              <Badge variant="outline" className="text-[10px] font-normal text-amber-700 dark:text-amber-300 border-amber-400/50">
-                                review again
-                              </Badge>
-                            )}
+                            <Badge variant="outline" className="text-[10px] font-normal text-amber-700 dark:text-amber-300 border-amber-400/50">
+                              review again
+                            </Badge>
                           </div>
                         )}
                       </TableCell>
