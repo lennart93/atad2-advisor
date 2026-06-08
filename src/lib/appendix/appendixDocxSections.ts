@@ -6,20 +6,18 @@ export interface AppendixDocxRow {
   legalBasis: string;
   conditionTested: string;
   status: string;
-  consequence: string;
-  factualBasis: string;
+  reasoning: string;
   // Legacy aliases so the current 3-column .docx template (legalFramework /
   // decision / reasoning) keeps rendering until it is updated to the new columns.
   legalFramework: string;
   decision: string;
-  reasoning: string;
 }
 export interface AppendixDocxSection { sectionId: string; sectionTitle: string; rows: AppendixDocxRow[]; }
 
 /**
  * Group confirmed rows by section for docxtemplater. This is the clean dossier
- * version: legal basis, condition, status, legal consequence and the verifiable
- * factual basis. Internal provenance is excluded.
+ * version: legal basis, condition, status and the reasoning (fact + legal
+ * consequence in one). Internal provenance is excluded.
  */
 export function toAppendixSections(rows: AppendixRow[], skeleton: SkeletonRow[] = APPENDIX_SKELETON): AppendixDocxSection[] {
   const out: AppendixDocxSection[] = [];
@@ -29,18 +27,15 @@ export function toAppendixSections(rows: AppendixRow[], skeleton: SkeletonRow[] 
     let s = out.find((x) => x.sectionId === sk.sectionId);
     if (!s) { s = { sectionId: sk.sectionId, sectionTitle: sk.sectionTitle, rows: [] }; out.push(s); }
     const status = r.status ?? '';
-    const consequence = r.consequence ?? '';
-    const factualBasis = r.factualBasis ?? '';
+    const reasoning = r.reasoning ?? '';
     s.rows.push({
       code: sk.rowId,
       legalBasis: sk.legalBasis,
       conditionTested: sk.conditionTested,
       status,
-      consequence,
-      factualBasis,
+      reasoning,
       legalFramework: `${sk.legalBasis}. ${sk.conditionTested}`,
       decision: status,
-      reasoning: factualBasis ? `${consequence} (${factualBasis})` : consequence,
     });
   }
   return out;

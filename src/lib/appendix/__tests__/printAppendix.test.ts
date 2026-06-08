@@ -5,25 +5,26 @@ import type { AppendixRow } from '@/lib/appendix/types';
 const row = (
   rowId: string,
   status: AppendixRow['status'],
-  consequence: string,
+  reasoning: string,
   provenance = 'Q1 answer: Yes',
 ): AppendixRow => ({
   rowId,
-  aiStatus: status, aiConsequence: consequence, aiFactualBasis: 'fact', aiProvenance: provenance,
-  status, consequence, factualBasis: 'fact', provenance,
+  aiStatus: status, aiReasoning: reasoning, aiProvenance: provenance,
+  status, reasoning, provenance,
   source: 'ai', stale: false, staleReason: null, editedBy: null, editedAt: null,
 });
 
 describe('buildAppendixPrintHtml', () => {
-  it('renders every present row with its legal basis, condition, status and consequence', () => {
+  it('renders every present row with its legal basis, condition, status and reasoning', () => {
     const html = buildAppendixPrintHtml(
-      [row('3.2', 'Triggered', 'Deduction denied.'), row('4.1', 'Not triggered', 'No inclusion.')],
+      [row('3.2', 'Triggered', 'Deduction denied at the Dutch level.'), row('4.1', 'Not triggered', 'No inclusion required.')],
       'dossier',
     );
     expect(html).toContain('3.2');
     expect(html).toContain('4.1');
-    expect(html).toContain('Deduction denied.');
+    expect(html).toContain('Deduction denied at the Dutch level.');
     expect(html).toContain('payment to a hybrid entity'); // condition tested, from the skeleton
+    expect(html).toContain('Reasoning');
     expect(html.startsWith('<!DOCTYPE html>')).toBe(true);
   });
 

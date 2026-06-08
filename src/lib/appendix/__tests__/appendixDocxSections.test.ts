@@ -4,8 +4,8 @@ import type { AppendixRow } from '@/lib/appendix/types';
 
 const row = (rowId: string): AppendixRow => ({
   rowId,
-  aiStatus: 'Not triggered', aiConsequence: 'No adjustment.', aiFactualBasis: '100% per cap table', aiProvenance: 'Q1 answer: Yes',
-  status: 'Not triggered', consequence: 'No adjustment.', factualBasis: '100% per cap table', provenance: 'Q1 answer: Yes',
+  aiStatus: 'Not triggered', aiReasoning: 'No adjustment.', aiProvenance: 'Q1 answer: Yes',
+  status: 'Not triggered', reasoning: 'No adjustment.', provenance: 'Q1 answer: Yes',
   source: 'ai', stale: false, staleReason: null, editedBy: null, editedAt: null,
 });
 
@@ -19,8 +19,8 @@ describe('toAppendixSections', () => {
     expect(s3.rows[0]).toHaveProperty('legalBasis');
     expect(s3.rows[0]).toHaveProperty('conditionTested');
     expect(s3.rows[0]).toHaveProperty('status');
-    expect(s3.rows[0]).toHaveProperty('consequence');
-    expect(s3.rows[0]).toHaveProperty('factualBasis');
+    expect(s3.rows[0]).toHaveProperty('reasoning');
     expect(s3.rows[0]).not.toHaveProperty('provenance');
+    expect(s3.rows[0]).not.toHaveProperty('factualBasis');
   });
 });

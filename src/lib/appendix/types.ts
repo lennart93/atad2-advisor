@@ -23,19 +23,17 @@ export interface SkeletonRow {
 
 /**
  * One stored row: the AI output plus the current (possibly edited) value and audit
- * state. Two reference tracks are kept on purpose: factualBasis is the clean,
- * verifiable fact that goes into the client/dossier export, while provenance holds
- * the raw internal trail (answer ids, edge ids) and never leaves the internal view.
+ * state. reasoning is the clean, export-safe narrative (the supporting fact and the
+ * legal consequence in one), while provenance holds the raw internal trail (answer
+ * ids, edge ids) and never leaves the internal view.
  */
 export interface AppendixRow {
   rowId: string;
   aiStatus: Status | null;
-  aiConsequence: string | null;
-  aiFactualBasis: string | null;
+  aiReasoning: string | null;
   aiProvenance: string | null;
   status: Status | null;          // current; equals ai* until edited
-  consequence: string | null;     // the legal consequence that follows from the status
-  factualBasis: string | null;    // clean, verifiable fact (export-safe)
+  reasoning: string | null;       // fact + legal consequence in one, export-safe
   provenance: string | null;      // internal-only raw trail, excluded from export
   source: 'ai' | 'edited';
   stale: boolean;
@@ -45,7 +43,7 @@ export interface AppendixRow {
 }
 
 /** The editable fields on a row (provenance is internal, read-only). */
-export type EditableField = 'status' | 'consequence' | 'factualBasis';
+export type EditableField = 'status' | 'reasoning';
 
 export type ReviewStatus = 'draft' | 'confirmed';
 export type GenerationStatus = 'generating' | 'ready' | 'error';

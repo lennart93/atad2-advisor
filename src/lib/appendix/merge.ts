@@ -16,8 +16,7 @@ export function mergeOnRegenerate(existing: AppendixRow[], fresh: AppendixRow[])
     return {
       ...prev,
       aiStatus: f.aiStatus,
-      aiConsequence: f.aiConsequence,
-      aiFactualBasis: f.aiFactualBasis,
+      aiReasoning: f.aiReasoning,
       aiProvenance: f.aiProvenance,
     };
   });

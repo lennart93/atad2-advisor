@@ -84,8 +84,7 @@ export function AppendixTable({ rows, skeleton, showInternal, onEdit }: Props) {
                   <TableHead className="w-[15%]">Legal basis</TableHead>
                   <TableHead className="w-[22%]">Condition tested</TableHead>
                   <TableHead className="w-44">Status</TableHead>
-                  <TableHead>Legal consequence</TableHead>
-                  <TableHead>Factual basis</TableHead>
+                  <TableHead>Reasoning</TableHead>
                   {showInternal && (
                     <TableHead className="w-44 bg-muted/40">
                       Provenance <span className="font-normal text-muted-foreground">(internal)</span>
@@ -141,16 +140,9 @@ export function AppendixTable({ rows, skeleton, showInternal, onEdit }: Props) {
                       </TableCell>
                       <TableCell>
                         <EditableCell
-                          value={row.consequence ?? ''}
-                          label={`Legal consequence for ${sk.rowId}`}
-                          onCommit={(v) => onEdit(sk.rowId, 'consequence', v)}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <EditableCell
-                          value={row.factualBasis ?? ''}
-                          label={`Factual basis for ${sk.rowId}`}
-                          onCommit={(v) => onEdit(sk.rowId, 'factualBasis', v)}
+                          value={row.reasoning ?? ''}
+                          label={`Reasoning for ${sk.rowId}`}
+                          onCommit={(v) => onEdit(sk.rowId, 'reasoning', v)}
                         />
                       </TableCell>
                       {showInternal && (

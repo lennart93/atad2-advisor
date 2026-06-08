@@ -13,7 +13,7 @@ export type PrintMode = 'internal' | 'dossier';
  *
  * 'internal' is the working copy: it keeps the raw provenance column.
  * 'dossier' is the clean client/file version: legal basis + condition + status +
- * legal consequence + the verifiable factual basis, with no internal ids.
+ * reasoning (the fact and the legal consequence in one), with no internal ids.
  */
 export function buildAppendixPrintHtml(
   rows: AppendixRow[],
@@ -43,7 +43,7 @@ export function buildAppendixPrintHtml(
 
   const header =
     `<tr><th class="c-num">#</th><th class="c-basis">Legal basis</th><th>Condition tested</th>` +
-    `<th class="c-status">Status</th><th class="c-cons">Legal consequence</th><th class="c-fact">Factual basis</th>` +
+    `<th class="c-status">Status</th><th class="c-reason">Reasoning</th>` +
     (internal ? `<th class="c-prov">Provenance (internal)</th>` : '') +
     `</tr>`;
 
@@ -59,8 +59,7 @@ export function buildAppendixPrintHtml(
             `<td class="c-basis">${esc(sk?.legalBasis ?? r.rowId)}</td>` +
             `<td>${esc(sk?.conditionTested ?? '')}</td>` +
             statusCell(r.status, flag) +
-            `<td>${esc(r.consequence)}</td>` +
-            `<td class="c-fact">${esc(r.factualBasis)}</td>${prov}</tr>`
+            `<td class="c-reason">${esc(r.reasoning)}</td>${prov}</tr>`
           );
         })
         .join('');
@@ -87,8 +86,7 @@ export function buildAppendixPrintHtml(
   .c-num { width: 34px; white-space: nowrap; }
   .c-basis { width: 16%; }
   .c-status { width: 92px; font-weight: 600; }
-  .c-cons { width: 20%; }
-  .c-fact { width: 20%; }
+  .c-reason { width: 34%; }
   .c-prov { width: 16%; color: #555; font-size: 10px; background: #fafafa; }
   .flag { color: #b45309; font-size: 9px; white-space: nowrap; font-weight: 400; }
 </style></head><body>

@@ -5,16 +5,15 @@ const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 
 /**
  * Confirmed rows as a grounded block for the memo prompt. Internal provenance is
- * intentionally omitted; only the legal basis, condition, status, consequence and
- * the clean factual basis are fed in.
+ * intentionally omitted; only the legal basis, condition, status and the clean
+ * reasoning are fed in.
  */
 export function buildAppendixBlock(rows: AppendixRow[], skeleton: SkeletonRow[] = APPENDIX_SKELETON): string {
   const byId = new Map(skeleton.map((r) => [r.rowId, r]));
   const lines = rows.map((r) => {
     const sk = byId.get(r.rowId);
     const basis = sk ? `${sk.legalBasis} - ${sk.conditionTested}` : r.rowId;
-    const fact = r.factualBasis ? ` :: ${esc(r.factualBasis)}` : '';
-    return `- [${r.rowId}] ${esc(basis)} :: ${esc(r.status ?? '')} :: ${esc(r.consequence ?? '')}${fact}`;
+    return `- [${r.rowId}] ${esc(basis)} :: ${esc(r.status ?? '')} :: ${esc(r.reasoning ?? '')}`;
   });
   return `<confirmed_appendix>\n${lines.join('\n')}\n</confirmed_appendix>`;
 }

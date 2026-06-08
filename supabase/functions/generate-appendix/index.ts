@@ -147,13 +147,12 @@ async function runGeneration(c: SupabaseClient, appendixId: string, sessionId: s
       const m = byId.get(sk.rowId);
       const statusRaw = m?.status ?? "Insufficient information";
       const status = sk.allowedStates.includes(statusRaw) ? statusRaw : "Insufficient information";
-      const consequence = m?.consequence ?? "The model did not return a grounded answer for this row; confirm manually.";
-      const factualBasis = m?.factualBasis ?? "";
+      const reasoning = m?.reasoning ?? "The model did not return a grounded answer for this row; confirm manually.";
       const provenance = m?.provenance ?? "";
       return {
         rowId: sk.rowId,
-        aiStatus: status, aiConsequence: consequence, aiFactualBasis: factualBasis, aiProvenance: provenance,
-        status, consequence, factualBasis, provenance,
+        aiStatus: status, aiReasoning: reasoning, aiProvenance: provenance,
+        status, reasoning, provenance,
         source: "ai", stale: false, staleReason: null, editedBy: null, editedAt: null,
       };
     });
@@ -165,7 +164,7 @@ async function runGeneration(c: SupabaseClient, appendixId: string, sessionId: s
     const merged = stored.map((fresh) => {
       const prev = existingById.get(fresh.rowId);
       if (!prev || prev.source === "ai") return fresh;
-      return { ...prev, aiStatus: fresh.aiStatus, aiConsequence: fresh.aiConsequence, aiFactualBasis: fresh.aiFactualBasis, aiProvenance: fresh.aiProvenance };
+      return { ...prev, aiStatus: fresh.aiStatus, aiReasoning: fresh.aiReasoning, aiProvenance: fresh.aiProvenance };
     });
 
     await c.from("atad2_appendix").update({

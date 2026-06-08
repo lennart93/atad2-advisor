@@ -6,12 +6,10 @@ function row(partial: Partial<AppendixRow> & { rowId: string }): AppendixRow {
   return {
     rowId: partial.rowId,
     aiStatus: partial.aiStatus ?? 'Not triggered',
-    aiConsequence: partial.aiConsequence ?? 'No adjustment.',
-    aiFactualBasis: partial.aiFactualBasis ?? '100% per cap table',
+    aiReasoning: partial.aiReasoning ?? 'No adjustment, the BV is the only group entity.',
     aiProvenance: partial.aiProvenance ?? 'Q1 answer: Yes',
     status: partial.status ?? partial.aiStatus ?? 'Not triggered',
-    consequence: partial.consequence ?? partial.aiConsequence ?? 'No adjustment.',
-    factualBasis: partial.factualBasis ?? partial.aiFactualBasis ?? '100% per cap table',
+    reasoning: partial.reasoning ?? partial.aiReasoning ?? 'No adjustment, the BV is the only group entity.',
     provenance: partial.provenance ?? partial.aiProvenance ?? 'Q1 answer: Yes',
     source: partial.source ?? 'ai',
     stale: partial.stale ?? false,
@@ -24,20 +22,21 @@ function row(partial: Partial<AppendixRow> & { rowId: string }): AppendixRow {
 describe('mergeOnRegenerate', () => {
   it('overwrites ai-source rows with fresh AI values', () => {
     const existing = [row({ rowId: '3.2', source: 'ai', status: 'Not triggered' })];
-    const fresh = [row({ rowId: '3.2', aiStatus: 'Triggered', aiConsequence: 'Deduction denied.', aiProvenance: 'Q26=Yes' })];
+    const fresh = [row({ rowId: '3.2', aiStatus: 'Triggered', aiReasoning: 'Deduction denied at the Dutch level.', aiProvenance: 'Q26=Yes' })];
     const merged = mergeOnRegenerate(existing, fresh);
     expect(merged[0].status).toBe('Triggered');
-    expect(merged[0].consequence).toBe('Deduction denied.');
+    expect(merged[0].reasoning).toBe('Deduction denied at the Dutch level.');
     expect(merged[0].source).toBe('ai');
   });
 
   it('keeps the edited current value but refreshes the ai shadow so drift is visible', () => {
-    const existing = [row({ rowId: '3.7', source: 'edited', status: 'Triggered', consequence: 'human edit', editedBy: 'u1', editedAt: 't1' })];
-    const fresh = [row({ rowId: '3.7', aiStatus: 'Not triggered', aiConsequence: 'fresh ai', aiProvenance: 'Q19=No' })];
+    const existing = [row({ rowId: '3.7', source: 'edited', status: 'Triggered', reasoning: 'human edit', editedBy: 'u1', editedAt: 't1' })];
+    const fresh = [row({ rowId: '3.7', aiStatus: 'Not triggered', aiReasoning: 'fresh ai', aiProvenance: 'Q19=No' })];
     const merged = mergeOnRegenerate(existing, fresh);
     expect(merged[0].status).toBe('Triggered');         // human value kept
-    expect(merged[0].consequence).toBe('human edit');
+    expect(merged[0].reasoning).toBe('human edit');
     expect(merged[0].aiStatus).toBe('Not triggered');   // ai shadow refreshed
+    expect(merged[0].aiReasoning).toBe('fresh ai');
     expect(merged[0].source).toBe('edited');
     expect(merged[0].editedBy).toBe('u1');
   });
