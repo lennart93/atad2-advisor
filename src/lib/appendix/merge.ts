@@ -1,9 +1,5 @@
-import type { AppendixRow } from './types';
+import type { AppendixRow, SkeletonRow } from './types';
 import { APPENDIX_SKELETON } from './skeleton';
-
-const DRIVERS: Record<string, string[]> = Object.fromEntries(
-  APPENDIX_SKELETON.map((r) => [r.rowId, r.drivenByQuestionIds]),
-);
 
 /**
  * Regeneration rule: ai-source rows take the fresh AI values; edited rows keep their
@@ -30,11 +26,16 @@ export function mergeOnRegenerate(existing: AppendixRow[], fresh: AppendixRow[])
  * Mark rows stale when any of their driving questions appears in changedQuestionIds.
  * Never clears an already-stale flag.
  */
-export function computeStaleRows(rows: AppendixRow[], changedQuestionIds: string[]): AppendixRow[] {
+export function computeStaleRows(
+  rows: AppendixRow[],
+  changedQuestionIds: string[],
+  skeleton: SkeletonRow[] = APPENDIX_SKELETON,
+): AppendixRow[] {
+  const driverMap = new Map(skeleton.map((r) => [r.rowId, r.drivenByQuestionIds]));
   const changed = new Set(changedQuestionIds);
   return rows.map((r) => {
     if (r.stale) return r;
-    const drivers = DRIVERS[r.rowId] ?? [];
+    const drivers = driverMap.get(r.rowId) ?? [];
     const hit = drivers.filter((q) => changed.has(q));
     if (hit.length === 0) return r;
     return { ...r, stale: true, staleReason: `Answer(s) ${hit.join(', ')} changed since this row was generated.` };

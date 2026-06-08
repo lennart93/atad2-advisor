@@ -8,11 +8,11 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
-import { APPENDIX_SKELETON } from '@/lib/appendix/skeleton';
 import type { AppendixRow, SkeletonRow } from '@/lib/appendix/types';
 
 interface Props {
   rows: AppendixRow[];
+  skeleton: SkeletonRow[];
   showReferences: boolean;
   onEdit: (rowId: string, field: 'decision' | 'reasoning', value: string) => void;
 }
@@ -49,12 +49,12 @@ function ReasoningCell({
   );
 }
 
-export function AppendixTable({ rows, showReferences, onEdit }: Props) {
+export function AppendixTable({ rows, skeleton, showReferences, onEdit }: Props) {
   const byId = useMemo(() => new Map(rows.map((r) => [r.rowId, r])), [rows]);
 
   const sections = useMemo<Section[]>(() => {
     const out: Section[] = [];
-    for (const sk of APPENDIX_SKELETON) {
+    for (const sk of skeleton) {
       if (!byId.has(sk.rowId)) continue;
       let s = out.find((x) => x.sectionId === sk.sectionId);
       if (!s) {
@@ -64,7 +64,7 @@ export function AppendixTable({ rows, showReferences, onEdit }: Props) {
       s.items.push(sk);
     }
     return out;
-  }, [byId]);
+  }, [byId, skeleton]);
 
   return (
     <div className="space-y-8">

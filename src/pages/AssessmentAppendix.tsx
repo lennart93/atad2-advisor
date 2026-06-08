@@ -14,6 +14,7 @@ import {
 } from '@/lib/appendix/client';
 import type { StoredAppendix, AppendixRow } from '@/lib/appendix/types';
 import { buildAppendixPrintHtml } from '@/lib/appendix/printAppendix';
+import { useAppendixSkeleton } from '@/lib/appendix/skeletonStore';
 
 type Phase = 'loading' | 'generating' | 'ready' | 'error';
 
@@ -27,6 +28,7 @@ export default function AssessmentAppendix() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { data: skeleton } = useAppendixSkeleton();
   const [appendix, setAppendix] = useState<StoredAppendix | null>(null);
   const [phase, setPhase] = useState<Phase>('loading');
   const [showRefs, setShowRefs] = useState(true);
@@ -134,7 +136,7 @@ export default function AssessmentAppendix() {
 
   const handlePrint = () => {
     if (!appendix) return;
-    const html = buildAppendixPrintHtml(appendix.rows, showRefs);
+    const html = buildAppendixPrintHtml(appendix.rows, showRefs, skeleton);
     const w = window.open('', '_blank');
     if (!w) {
       toast.error('Pop-up blocked', { description: 'Allow pop-ups for this site to print the appendix.' });
@@ -209,7 +211,7 @@ export default function AssessmentAppendix() {
         </Button>
       </div>
 
-      <AppendixTable rows={appendix.rows} showReferences={showRefs} onEdit={handleEdit} />
+      <AppendixTable rows={appendix.rows} skeleton={skeleton} showReferences={showRefs} onEdit={handleEdit} />
 
       <AssessmentFooterSlot
         left={

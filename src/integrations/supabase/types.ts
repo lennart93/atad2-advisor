@@ -168,6 +168,57 @@ export type Database = {
           },
         ]
       }
+      atad2_appendix_skeleton: {
+        Row: {
+          id: string
+          row_id: string
+          section_id: string
+          section_title: string
+          legal_framework: string
+          effect: string | null
+          allowed_states: Json
+          driven_by_question_ids: Json
+          render_if: Json | null
+          flags: Json | null
+          sort_order: number
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          row_id: string
+          section_id: string
+          section_title: string
+          legal_framework: string
+          effect?: string | null
+          allowed_states?: Json
+          driven_by_question_ids?: Json
+          render_if?: Json | null
+          flags?: Json | null
+          sort_order: number
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          row_id?: string
+          section_id?: string
+          section_title?: string
+          legal_framework?: string
+          effect?: string | null
+          allowed_states?: Json
+          driven_by_question_ids?: Json
+          render_if?: Json | null
+          flags?: Json | null
+          sort_order?: number
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       atad2_assessment_log: {
         Row: {
           id: string
@@ -794,6 +845,9 @@ export type Database = {
           is_mismatch: boolean
           kind: string
           label: string | null
+          label_dx: number | null
+          label_dy: number | null
+          label_hidden: boolean
           label_t: number | null
           mismatch_atad2_article: string | null
           mismatch_classification: string | null
@@ -813,6 +867,9 @@ export type Database = {
           is_mismatch?: boolean
           kind: string
           label?: string | null
+          label_dx?: number | null
+          label_dy?: number | null
+          label_hidden?: boolean
           label_t?: number | null
           mismatch_atad2_article?: string | null
           mismatch_classification?: string | null
@@ -832,6 +889,9 @@ export type Database = {
           is_mismatch?: boolean
           kind?: string
           label?: string | null
+          label_dx?: number | null
+          label_dy?: number | null
+          label_hidden?: boolean
           label_t?: number | null
           mismatch_atad2_article?: string | null
           mismatch_classification?: string | null

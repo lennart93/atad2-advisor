@@ -26,6 +26,7 @@ import { AssessmentFooterSlot } from "@/components/assessment/AssessmentFooterSl
 import { loadChartSnapshot } from "@/lib/structure/client";
 import { loadAppendix } from "@/lib/appendix/client";
 import { buildAppendixBlock } from "@/lib/appendix/buildAppendixBlock";
+import { loadAppendixSkeleton } from "@/lib/appendix/skeletonStore";
 interface SessionData {
   session_id: string;
   taxpayer_name: string;
@@ -431,9 +432,9 @@ const AssessmentReport = () => {
       // agrees with the article-by-article analysis. Reference column is excluded.
       let confirmedAppendix: string | null = null;
       try {
-        const appendix = await loadAppendix(sessionId);
+        const [appendix, appendixSkeleton] = await Promise.all([loadAppendix(sessionId), loadAppendixSkeleton()]);
         if (appendix && appendix.review_status === 'confirmed') {
-          confirmedAppendix = buildAppendixBlock(appendix.rows);
+          confirmedAppendix = buildAppendixBlock(appendix.rows, appendixSkeleton);
         }
       } catch (e) {
         console.warn('[generate-report] loadAppendix failed, continuing without appendix', e);

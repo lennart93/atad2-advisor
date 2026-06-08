@@ -1,18 +1,18 @@
 import { APPENDIX_SKELETON } from './skeleton';
-import type { AppendixRow } from './types';
+import type { AppendixRow, SkeletonRow } from './types';
 
 const esc = (s: string | null) => (s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-const LABEL = new Map(APPENDIX_SKELETON.map((r) => [r.rowId, r.legalFramework]));
 
 /**
  * Full, print-friendly HTML for the whole appendix: every section and row,
  * grouped like the on-screen table, with nothing clipped by a scroll container.
  * The internal Reference column is included only when showRefs is true.
  */
-export function buildAppendixPrintHtml(rows: AppendixRow[], showRefs: boolean): string {
+export function buildAppendixPrintHtml(rows: AppendixRow[], showRefs: boolean, skeleton: SkeletonRow[] = APPENDIX_SKELETON): string {
+  const label = new Map(skeleton.map((r) => [r.rowId, r.legalFramework]));
   const byId = new Map(rows.map((r) => [r.rowId, r]));
   const sections: { id: string; title: string; rows: AppendixRow[] }[] = [];
-  for (const sk of APPENDIX_SKELETON) {
+  for (const sk of skeleton) {
     const row = byId.get(sk.rowId);
     if (!row) continue;
     let s = sections.find((x) => x.id === sk.sectionId);
@@ -32,7 +32,7 @@ export function buildAppendixPrintHtml(rows: AppendixRow[], showRefs: boolean): 
     .map((s) => {
       const rowsHtml = s.rows
         .map((r) => {
-          const fw = esc(LABEL.get(r.rowId) ?? r.rowId);
+          const fw = esc(label.get(r.rowId) ?? r.rowId);
           const flag = r.stale ? ` <span class="flag">review again</span>` : '';
           const ref = showRefs ? `<td class="c-ref">${esc(r.reference)}</td>` : '';
           return (
