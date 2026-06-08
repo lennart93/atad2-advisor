@@ -34,12 +34,18 @@ serve(async (req) => {
   const userId = await verifyJwtAndSessionOwnership(authHeader, body.session_id, service);
   if (!userId) return json({ error: "Forbidden" }, 403);
 
-  const appendixId = await ensureAppendix(service, body.session_id);
+  const { id: appendixId, created } = await ensureAppendix(service, body.session_id);
 
-  const { data: cur } = await service
-    .from("atad2_appendix").select("generation_status, updated_at").eq("id", appendixId).maybeSingle();
-  if (cur?.generation_status === "generating" && isFresh(cur.updated_at as string | null)) {
-    return json({ ok: true, appendix_id: appendixId, status: "generating" }, 200);
+  // Only skip when a PRE-EXISTING run is genuinely still in progress. A freshly
+  // created row is always 'generating' with a fresh timestamp, so without the
+  // `created` guard the very first request would short-circuit here and never
+  // start the background work (the row would stay 'generating' forever).
+  if (!created) {
+    const { data: cur } = await service
+      .from("atad2_appendix").select("generation_status, updated_at").eq("id", appendixId).maybeSingle();
+    if (cur?.generation_status === "generating" && isFresh(cur.updated_at as string | null)) {
+      return json({ ok: true, appendix_id: appendixId, status: "generating" }, 200);
+    }
   }
 
   await setGenStatus(service, appendixId, "generating", { error_message: null });
@@ -52,15 +58,20 @@ serve(async (req) => {
   return json({ ok: true, appendix_id: appendixId, status: "generating" }, 200);
 });
 
-async function ensureAppendix(c: SupabaseClient, sessionId: string): Promise<string> {
+async function ensureAppendix(c: SupabaseClient, sessionId: string): Promise<{ id: string; created: boolean }> {
   const { data } = await c.from("atad2_appendix").select("id").eq("session_id", sessionId).maybeSingle();
-  if (data?.id) return data.id as string;
+  if (data?.id) return { id: data.id as string, created: false };
   const { data: ins, error } = await c
     .from("atad2_appendix")
     .insert({ session_id: sessionId, generation_status: "generating", review_status: "draft", rows: [] })
     .select("id").single();
-  if (error) throw error;
-  return ins.id as string;
+  if (error) {
+    // Concurrent-insert race: another request created the row. Treat as existing.
+    const { data: again } = await c.from("atad2_appendix").select("id").eq("session_id", sessionId).maybeSingle();
+    if (again?.id) return { id: again.id as string, created: false };
+    throw error;
+  }
+  return { id: ins.id as string, created: true };
 }
 
 function isFresh(updatedAt: string | null): boolean {

@@ -16,6 +16,12 @@ import type { StoredAppendix, AppendixRow } from '@/lib/appendix/types';
 
 type Phase = 'loading' | 'generating' | 'ready' | 'error';
 
+const STALE_GENERATING_MS = 90_000;
+function isStaleGenerating(updatedAt: string | null): boolean {
+  if (!updatedAt) return true;
+  return Date.now() - new Date(updatedAt).getTime() > STALE_GENERATING_MS;
+}
+
 export default function AssessmentAppendix() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
@@ -33,7 +39,13 @@ export default function AssessmentAppendix() {
     (async () => {
       try {
         let a = await loadAppendix(sessionId);
-        if (!a) {
+        // Re-trigger generation when there is no row yet, a prior run errored,
+        // or a 'generating' row has gone stale (its background work never ran).
+        const needsStart =
+          !a ||
+          a.generation_status === 'error' ||
+          (a.generation_status === 'generating' && isStaleGenerating(a.updated_at));
+        if (needsStart) {
           await startAppendixGeneration(sessionId);
           a = await loadAppendix(sessionId);
         }

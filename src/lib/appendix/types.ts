@@ -54,4 +54,5 @@ export interface StoredAppendix {
   generated_at: string | null;
   confirmed_at: string | null;
   confirmed_by: string | null;
+  updated_at: string | null;
 }

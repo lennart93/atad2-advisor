@@ -24,6 +24,7 @@ export async function loadAppendix(sessionId: string): Promise<StoredAppendix | 
     generated_at: data.generated_at,
     confirmed_at: data.confirmed_at,
     confirmed_by: data.confirmed_by,
+    updated_at: data.updated_at,
   };
 }
 
