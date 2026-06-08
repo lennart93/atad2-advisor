@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, Loader2, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Loader2, AlertTriangle, RefreshCw } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -183,6 +183,10 @@ export default function AssessmentAppendix() {
             Show references (internal)
           </Label>
         </div>
+        <Button variant="outline" size="sm" className="gap-2" onClick={handleRetry}>
+          <RefreshCw className="h-3.5 w-3.5" />
+          Regenerate
+        </Button>
       </div>
 
       <AppendixTable rows={appendix.rows} showReferences={showRefs} onEdit={handleEdit} />
