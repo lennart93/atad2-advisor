@@ -49,66 +49,73 @@ function pct(n: number | null): string {
   return n == null ? '?' : `${Number.isInteger(n) ? n : n.toFixed(2)}%`;
 }
 
-/** One associated-enterprise card; highlighted when it meets the >25% test. */
-function AssociationCard({ p }: { p: RelatedParty }) {
+/** One dense, single-line associated-enterprise row. */
+function AssociationRow({ p }: { p: RelatedParty }) {
+  const reverse = p.meetsReverse === true;
   const associated = p.meetsRelated === true;
+  const dot = reverse ? 'bg-indigo-500' : associated ? 'bg-sky-500' : 'bg-muted-foreground/30';
   return (
-    <div className={cn(
-      'rounded border px-2 py-1.5 text-xs',
-      associated
-        ? 'border-[hsl(var(--border-subtle))] border-l-2 border-l-sky-500 bg-background'
-        : 'border-[hsl(var(--border-subtle))] bg-muted/30 opacity-70',
-    )}>
-      <div className="flex items-center justify-between gap-2">
-        <span className="font-medium text-foreground">{p.name}</span>
-        <span className="tabular-nums text-muted-foreground">{pct(p.ownershipPct)}</span>
-      </div>
-      <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
-        {p.jurisdiction && <span>{p.jurisdiction}</span>}
-        {associated && <span className="rounded bg-sky-100 px-1 text-sky-800 dark:bg-sky-900/50 dark:text-sky-200">Associated</span>}
-        {p.meetsReverse && <span className="rounded bg-indigo-100 px-1 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200">&ge;50%</span>}
-        {p.meetsRelated === false && <span>below 25%</span>}
-      </div>
+    <div className="flex items-center gap-1.5 py-1 text-xs leading-tight">
+      <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', dot)} aria-hidden />
+      <span className={cn('truncate', associated ? 'font-medium text-foreground' : 'text-muted-foreground')} title={p.name}>
+        {p.name}
+      </span>
+      {p.jurisdiction && <span className="shrink-0 text-[10px] uppercase text-muted-foreground/70">{p.jurisdiction}</span>}
+      <span className="flex-1" />
+      <span className="shrink-0 tabular-nums text-muted-foreground">{pct(p.ownershipPct)}</span>
+      {reverse && <span className="shrink-0 text-[10px] font-medium text-indigo-600 dark:text-indigo-300">&ge;50%</span>}
     </div>
   );
 }
 
 const GROUPS: { key: Relationship; label: string }[] = [
-  { key: 'Parent', label: 'Shareholders / parents' },
-  { key: 'Subsidiary', label: 'Participations / subsidiaries' },
-  { key: 'Group entity', label: 'Other group entities' },
+  { key: 'Parent', label: 'Shareholders' },
+  { key: 'Subsidiary', label: 'Subsidiaries' },
+  { key: 'Group entity', label: 'Other group' },
 ];
 
-/** Full-width annotated association panel, shown under the relatedness row. */
+function LegendDot({ dot, label }: { dot: string; label: string }) {
+  return (
+    <span className="flex items-center gap-1">
+      <span className={cn('h-1.5 w-1.5 rounded-full', dot)} aria-hidden />
+      {label}
+    </span>
+  );
+}
+
+/** Full-width, dense association panel shown under the relatedness row. */
 function AssociationPanel({ data }: { data: RelatedPartiesResult | null }) {
   if (!data) return <p className="text-xs text-muted-foreground">Structure chart not available.</p>;
   if (!data.parties.length) return <p className="text-xs text-muted-foreground">No related parties found in the structure chart.</p>;
   return (
-    <div className="rounded-md border border-sky-200/70 bg-sky-50/40 p-3 dark:border-sky-900/40 dark:bg-sky-950/20">
-      <div className="mb-2 flex flex-wrap items-center gap-2">
-        <Network className="h-4 w-4 text-sky-700 dark:text-sky-300" />
-        <span className="text-xs font-semibold text-foreground">
+    <div className="rounded-md border border-sky-200/70 bg-sky-50/40 p-2.5 dark:border-sky-900/40 dark:bg-sky-950/20">
+      <div className="mb-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+          <Network className="h-3.5 w-3.5 text-sky-700 dark:text-sky-300" />
           Associated enterprises{data.taxpayerName ? ` of ${data.taxpayerName}` : ''}
         </span>
-        <span className="text-[11px] text-muted-foreground">art. 12ac, more than 25% test</span>
+        <span className="text-[10px] text-muted-foreground">art. 12ac, &gt;25% test</span>
+        <span className="flex-1" />
+        <span className="flex items-center gap-2.5 text-[10px] text-muted-foreground">
+          <LegendDot dot="bg-indigo-500" label="≥50%" />
+          <LegendDot dot="bg-sky-500" label=">25% associated" />
+          <LegendDot dot="bg-muted-foreground/30" label="below" />
+        </span>
       </div>
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-x-5 gap-y-2 sm:grid-cols-3">
         {GROUPS.map((g) => {
           const items = data.parties.filter((p) => p.relationship === g.key);
           if (!items.length) return null;
           return (
             <div key={g.key}>
-              <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{g.label}</p>
-              <div className="space-y-1.5">
-                {items.map((p) => <AssociationCard key={p.id} p={p} />)}
+              <p className="mb-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/80">{g.label}</p>
+              <div className="divide-y divide-[hsl(var(--border-subtle))]">
+                {items.map((p) => <AssociationRow key={p.id} p={p} />)}
               </div>
             </div>
           );
         })}
       </div>
-      <p className="mt-2 text-[10px] text-muted-foreground">
-        Direct holdings from the structure chart. A reviewer aid, not the legal relatedness test.
-      </p>
     </div>
   );
 }
