@@ -1,5 +1,5 @@
 import { APPENDIX_SKELETON } from './skeleton';
-import type { AppendixFacts, AppendixRow, SkeletonRow } from './types';
+import type { AppendixFacts, AppendixRow, SkeletonRow, StoredAppendix } from './types';
 import { factsForClient } from './factsExport';
 import { isSectionExcluded } from './facts/sections';
 import { effJurisdiction, effNlTaxStatus } from './facts/entityFields';
@@ -62,5 +62,22 @@ export function buildAppendixBlock(rows: AppendixRow[], skeleton: SkeletonRow[] 
       return `- [${r.rowId}] ${esc(basis)} :: ${esc(r.status ?? '')} :: ${esc(r.reasoning ?? '')}`;
     });
   const factsBlock = facts && facts.entities.length ? `${buildFactsSummary(facts)}\n` : '';
-  return `${factsBlock}<confirmed_appendix>\n${lines.join('\n')}\n</confirmed_appendix>`;
+  const rowsBlock = lines.length ? `<confirmed_appendix>\n${lines.join('\n')}\n</confirmed_appendix>` : '';
+  return `${factsBlock}${rowsBlock}`;
+}
+
+/**
+ * The memo appendix block with the advisor's per-page skip applied: a skipped
+ * Facts page drops the <facts> block, a skipped Checklist page drops the rows.
+ * Returns null when both are skipped (no appendix block is sent).
+ */
+export function appendixMemoBlock(
+  appendix: Pick<StoredAppendix, 'rows' | 'facts' | 'facts_skipped' | 'checklist_skipped'>,
+  skeleton: SkeletonRow[] = APPENDIX_SKELETON,
+): string | null {
+  const facts = appendix.facts_skipped ? null : appendix.facts;
+  const rows = appendix.checklist_skipped ? [] : appendix.rows;
+  const hasFacts = !!facts && facts.entities.length > 0;
+  if (!hasFacts && rows.length === 0) return null;
+  return buildAppendixBlock(rows, skeleton, facts);
 }

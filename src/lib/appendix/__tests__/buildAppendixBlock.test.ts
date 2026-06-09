@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildAppendixBlock } from '@/lib/appendix/buildAppendixBlock';
+import { buildAppendixBlock, appendixMemoBlock } from '@/lib/appendix/buildAppendixBlock';
 import type { AppendixRow, AppendixFacts } from '@/lib/appendix/types';
 
 const row = (rowId: string, status: AppendixRow['status'], reasoning: string, excluded = false): AppendixRow => ({
@@ -50,5 +50,44 @@ describe('buildAppendixBlock', () => {
     expect(out).toContain('hybrid mismatch');
     expect(out).toContain('<confirmed_appendix>');
     expect(out).not.toContain('E9');
+  });
+});
+
+const row2 = (rowId: string): AppendixRow => ({
+  rowId, aiStatus: 'Triggered', aiReasoning: 'r', aiProvenance: '',
+  status: 'Triggered', reasoning: 'r', provenance: '',
+  excludedFromClient: false, source: 'ai', stale: false, staleReason: null, editedBy: null, editedAt: null,
+});
+
+describe('appendixMemoBlock skip handling', () => {
+  const base = {
+    rows: [row2('3.1')],
+    facts: { entities: [{ id: 'E1', chartEntityId: 'c1', name: 'Acme BV', jurisdiction: 'NL', entityType: 'corporation', role: 'Taxpayer', ownershipPct: null, related: false, nlTaxStatus: 'resident' }], actingTogether: [], classifications: [], transactions: [] },
+    facts_skipped: false, checklist_skipped: false,
+  } as never;
+
+  it('includes both blocks when nothing is skipped', () => {
+    const out = appendixMemoBlock(base, [])!;
+    expect(out).toContain('<facts>');
+    expect(out).toContain('<confirmed_appendix>');
+  });
+  it('drops the facts block when facts is skipped', () => {
+    const out = appendixMemoBlock({ ...base, facts_skipped: true } as never, [])!;
+    expect(out).not.toContain('<facts>');
+    expect(out).toContain('<confirmed_appendix>');
+  });
+  it('drops the confirmed_appendix block when the checklist is skipped', () => {
+    const out = appendixMemoBlock({ ...base, checklist_skipped: true } as never, [])!;
+    expect(out).toContain('<facts>');
+    expect(out).not.toContain('<confirmed_appendix>');
+  });
+  it('returns null when both are skipped', () => {
+    expect(appendixMemoBlock({ ...base, facts_skipped: true, checklist_skipped: true } as never, [])).toBeNull();
+  });
+});
+
+describe('buildAppendixBlock empty rows', () => {
+  it('omits the confirmed_appendix block when there are no rows', () => {
+    expect(buildAppendixBlock([], [])).not.toContain('<confirmed_appendix>');
   });
 });
