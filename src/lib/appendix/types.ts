@@ -1,3 +1,5 @@
+import type { ActingLikelihood } from './facts/actingLikelihood';
+
 /**
  * The status an advisor (or the AI) records per row. One controlled vocabulary
  * for every section: each skeleton row is phrased as a testable condition, and
@@ -81,6 +83,12 @@ export interface FactEntity {
   ownershipPct: number | null; // parent: of the taxpayer; subsidiary: of that entity
   related: boolean;            // meets the >25% related-party test
   nlTaxStatus: string | null;  // AI/advisor filled; null until proposed
+  /**
+   * Advisor overrides for the editable register fields. The base fields above are
+   * rebuilt from the chart/AI on every regeneration; anything set here wins and is
+   * preserved across regeneration (keyed by chartEntityId, like `hidden`).
+   */
+  edits?: { jurisdiction?: string | null; entityType?: string | null; nlTaxStatus?: string | null };
   /** Advisor has marked this entity irrelevant; dropped from all client-facing exports. */
   hidden?: boolean;
   /** True on the synthetic taxpayer that represents a fiscal unity. */
@@ -95,8 +103,10 @@ export interface ActingTogetherCluster {
   id: string;                  // "A1"
   memberEntityIds: string[];   // ["E3","E4"]
   combinedPct: number | null;
-  rationale: string;
-  status: 'proposed' | 'confirmed' | 'dismissed';
+  likelihood: ActingLikelihood;   // current (advisor may change); init = aiLikelihood
+  aiLikelihood: ActingLikelihood; // AI's proposed default
+  rationales: Record<ActingLikelihood, string>; // one pre-generated rationale per level
+  reasoning: string;           // live displayed text; init = rationales[likelihood]; editable
   excludedFromClient: boolean;
   source: 'ai' | 'edited';
 }

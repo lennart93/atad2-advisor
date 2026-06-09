@@ -9,7 +9,7 @@ export function factsForClient(facts: AppendixFacts): AppendixFacts {
   const f = visibleFacts(facts);
   return {
     entities: f.entities,
-    actingTogether: f.actingTogether.filter((a) => a.status === 'confirmed' && !a.excludedFromClient),
+    actingTogether: f.actingTogether.filter((a) => !a.excludedFromClient),
     classifications: keep(f.classifications),
     transactions: keep(f.transactions),
   };
