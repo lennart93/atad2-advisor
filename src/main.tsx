@@ -2,6 +2,7 @@ import { createRoot } from 'react-dom/client'
 import { ThemeProvider } from 'next-themes'
 import App from './App.tsx'
 import './index.css'
+import 'flag-icons/css/flag-icons.min.css'
 
 // TEMPORARY: Runtime fix for cached validation functions
 // This patches any old cached bundles that might still be calling validation during typing

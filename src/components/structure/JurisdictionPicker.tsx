@@ -8,12 +8,15 @@ import {
 } from '@/components/ui/command';
 import { cn } from '@/lib/utils';
 import { COUNTRY_CODES, countryName, isKnownCountryIso } from '@/lib/structure/countries';
+import { CountryFlag } from '@/components/CountryFlag';
 
 interface Props {
   id?: string;
   value: string;
   onChange: (iso: string) => void;
   placeholder?: string;
+  /** Extra classes for the trigger button, e.g. a compact height in a dense table. */
+  className?: string;
 }
 
 /**
@@ -22,7 +25,7 @@ interface Props {
  * the UI into a free-text input for non-standard codes (e.g. legacy alpha-3 or
  * sub-national designators the AI extractor produced).
  */
-export function JurisdictionPicker({ id, value, onChange, placeholder = 'Select a country…' }: Props) {
+export function JurisdictionPicker({ id, value, onChange, placeholder = 'Select a country…', className }: Props) {
   const [customMode, setCustomMode] = useState(() => value !== '' && !isKnownCountryIso(value));
   const [open, setOpen] = useState(false);
 
@@ -75,9 +78,10 @@ export function JurisdictionPicker({ id, value, onChange, placeholder = 'Select 
             variant="outline"
             role="combobox"
             aria-expanded={open}
-            className="w-full justify-between font-normal"
+            className={cn('w-full justify-between font-normal', className)}
           >
-            <span className={cn('truncate', !value && 'text-muted-foreground')}>
+            <span className={cn('flex items-center gap-2 truncate', !value && 'text-muted-foreground')}>
+              {value && <CountryFlag iso={value} />}
               {value ? `${countryName(value)} (${value})` : placeholder}
             </span>
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -101,6 +105,7 @@ export function JurisdictionPicker({ id, value, onChange, placeholder = 'Select 
                     <Check
                       className={cn('mr-2 h-4 w-4', value === iso ? 'opacity-100' : 'opacity-0')}
                     />
+                    <CountryFlag iso={iso} className="mr-2" />
                     <span className="flex-1 truncate">{name}</span>
                     <span className="ml-2 text-xs text-muted-foreground tabular-nums">{iso}</span>
                   </CommandItem>

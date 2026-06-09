@@ -3,12 +3,9 @@ import { buildAppendixPrintHtml } from '@/lib/appendix/printAppendix';
 import type { AppendixRow, AppendixFacts } from '@/lib/appendix/types';
 
 const facts = (): AppendixFacts => ({
-  entities: [{ id: 'E1', chartEntityId: 'c1', name: 'Acme BV', jurisdiction: 'NL', entityType: 'BV', role: 'Taxpayer', ownershipPct: null, related: false, nlTaxStatus: null }],
+  entities: [{ id: 'E1', chartEntityId: 'c1', name: 'Acme BV', jurisdiction: 'NL', entityType: 'corporation', role: 'Taxpayer', ownershipPct: null, related: false, nlTaxStatus: 'resident' }],
   actingTogether: [],
-  classifications: [
-    { entityId: 'E1', homeState: 'NL', homeClass: 'opaque', sourceState: 'US', sourceClass: 'transparent', hybrid: true, status: 'confirmed', excludedFromClient: false, source: 'ai' },
-    { entityId: 'E1', homeState: 'NL', homeClass: 'opaque', sourceState: 'JP', sourceClass: 'opaque', hybrid: false, status: 'proposed', excludedFromClient: false, source: 'ai' },
-  ],
+  classifications: [],
   transactions: [],
 });
 
@@ -65,15 +62,14 @@ describe('buildAppendixPrintHtml', () => {
     expect(html).not.toContain('a < b & c');
   });
 
-  it('renders Part A: dossier shows names + drops proposed/internal codes; internal shows E# codes', () => {
+  it('renders Part A: dossier shows the NL-perspective classification + names, hides internal codes; internal shows E# codes', () => {
     const dossier = buildAppendixPrintHtml([row('3.2', 'Triggered', 'x')], 'dossier', undefined, facts());
     const internal = buildAppendixPrintHtml([row('3.2', 'Triggered', 'x')], 'internal', undefined, facts());
     expect(dossier).toContain('Part A');
     expect(dossier).toContain('Acme BV');
-    expect(dossier).toContain('hybrid mismatch');
-    expect(dossier).not.toContain('JP');   // proposed classification dropped from the dossier
-    expect(dossier).not.toContain('E1');    // internal code hidden in the dossier
-    expect(internal).toContain('E1');       // Ref column in the internal entity register
-    expect(internal).toContain('JP');       // internal shows proposed items
+    expect(dossier).toContain('Classification (NL perspective)');
+    expect(dossier).toContain('Non-transparent');  // derived from the 'resident' tax status
+    expect(dossier).not.toContain('E1');            // internal code hidden in the dossier
+    expect(internal).toContain('E1');               // Ref column in the internal entity register
   });
 });

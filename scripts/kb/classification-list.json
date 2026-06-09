@@ -1,0 +1,266 @@
+[
+  {
+    "category": "rechtsvorm_lijst",
+    "source": "Methode-toelichting (Besluit vergelijking buitenlandse rechtsvormen, Stb. 2025/425; Belastingdienst-lijst gekwalificeerde buitenlandse samenwerkingsverbanden)",
+    "period": "timeless",
+    "article_refs": ["2"],
+    "section": "Hoe de classificatie te lezen",
+    "content": "[Methode] Of een buitenlands lichaam naar Nederlandse maatstaven transparant of niet-transparant is, hangt af van het boekjaar. PRE-2025 (toestemmingsvereiste): de Belastingdienst-lijst geeft per vorm 'transparant', 'niet-transparant' of 'CV-achtige'. Een CV-achtige is niet-transparant TENZIJ aan het toestemmingsvereiste is voldaan (vraag D: unanieme toestemming voor toetreding/vervanging van commanditaire vennoten); buitenlandse CV-achtigen voldoen daar zelden aan en zijn dus meestal niet-transparant. POST-2025 (Wet FKR): de rechtsvormvergelijkingsmethode van het Besluit vergelijking buitenlandse rechtsvormen koppelt de vorm aan een NL-rechtsvorm: vergelijkbaar met NV/BV = niet-transparant; met maatschap/VOF = transparant; met de CV = transparant (door de FKR is de CV transparant, het open/besloten-onderscheid is vervallen); 'niet vergelijkbaar met een NL rechtsvorm' = vaste/symmetrische methode (restcategorie)."
+  },
+  {
+    "category": "rechtsvorm_lijst",
+    "source": "Besluit vergelijking buitenlandse rechtsvormen, Stb. 2025/425; Belastingdienst-lijst",
+    "period": "timeless",
+    "article_refs": ["2", "12aa"],
+    "section": "De FKR-flip voor CV-achtigen",
+    "content": "[Kernpunt] De belangrijkste verschuiving: een buitenlandse CV-achtige (LP, KG, SCS, SCSp e.d.) was PRE-2025 naar Nederlandse maatstaven in de regel niet-transparant (CV-achtige zonder toestemmingsvereiste), terwijl het in het buitenland transparant is, wat een klassieke hybride mismatch oplevert. POST-2025 is diezelfde vorm via het Besluit vergelijkbaar met de Nederlandse CV en dus transparant, waardoor de mismatch in veel gevallen juist verdwijnt. Bepaal daarom altijd eerst het boekjaar voordat je de NL-kwalificatie van een CV-achtige vaststelt."
+  },
+  {
+    "category": "rechtsvorm_lijst",
+    "source": "Belastingdienst-lijst (pre-FKR) + Besluit Stb. 2025/425 (post-FKR)",
+    "period": "timeless",
+    "article_refs": ["2"],
+    "section": "Luxemburg",
+    "content": "[Bron: NL classificatielijsten] Luxemburg. SCS (Societe en Commandite Simple) en SCSp (Societe en Commandite Speciale): pre-FKR 'CV-achtige' (niet-transparant tenzij toestemmingsvereiste), post-FKR vergelijkbaar met de CV -> transparant. SCA (Societe en Commandite par Actions): pre-FKR niet-transparant, post-FKR 'niet vergelijkbaar' (X). SENC (Societe en Nom Collectif): maatschap/VOF -> transparant. SA en SARL: niet-transparant (NV/BV). GIE: transparant."
+  },
+  {
+    "category": "rechtsvorm_lijst",
+    "source": "Belastingdienst-lijst (pre-FKR) + Besluit Stb. 2025/425 (post-FKR)",
+    "period": "timeless",
+    "article_refs": ["2"],
+    "section": "Duitsland",
+    "content": "[Bron: NL classificatielijsten] Duitsland. KG (Kommanditgesellschaft), GmbH & Co KG, AG & Co KG en UG & Co KG: pre-FKR 'CV-achtige' (niet-transparant tenzij toestemmingsvereiste), post-FKR vergelijkbaar met de CV -> transparant. KGaA (KG auf Aktien): pre-FKR niet-transparant, post-FKR 'niet vergelijkbaar' (X). GbR en OHG: maatschap/VOF -> transparant. GmbH en AG: niet-transparant (NV/BV). Genossenschaft: cooperatie."
+  },
+  {
+    "category": "rechtsvorm_lijst",
+    "source": "Belastingdienst-lijst (pre-FKR) + Besluit Stb. 2025/425 (post-FKR)",
+    "period": "timeless",
+    "article_refs": ["2"],
+    "section": "Frankrijk",
+    "content": "[Bron: NL classificatielijsten] Frankrijk. SCS (Societe en Commandite Simple): pre-FKR 'CV-achtige' (niet-transparant tenzij toestemmingsvereiste), post-FKR vergelijkbaar met de CV -> transparant. SC, SCI, SCEA, SCPI en SNC (Societe en Nom Collectif): maatschap/VOF -> transparant. SA, SARL, SAS, SASU: niet-transparant (NV/BV)."
+  },
+  {
+    "category": "rechtsvorm_lijst",
+    "source": "Belastingdienst-lijst (pre-FKR) + Besluit Stb. 2025/425 (post-FKR)",
+    "period": "timeless",
+    "article_refs": ["2"],
+    "section": "Verenigd Koninkrijk",
+    "content": "[Bron: NL classificatielijsten] Verenigd Koninkrijk. LP (Limited Partnership): pre-FKR 'CV-achtige' (niet-transparant tenzij toestemmingsvereiste), post-FKR vergelijkbaar met de CV -> transparant. Schotland PFLP (Private Fund Limited Partnership): post-FKR vergelijkbaar met de CV -> transparant. LLP (Limited Liability Partnership) en ULC (Unlimited Company): 'niet vergelijkbaar' (X). Ltd / PLC / ICVC: niet-transparant (NV/BV)."
+  },
+  {
+    "category": "rechtsvorm_lijst",
+    "source": "Belastingdienst-lijst (pre-FKR) + Besluit Stb. 2025/425 (post-FKR)",
+    "period": "timeless",
+    "article_refs": ["2"],
+    "section": "Verenigde Staten",
+    "content": "[Bron: NL classificatielijsten] Verenigde Staten (per staat). LP (Limited Partnership): pre-FKR 'CV-achtige' (niet-transparant tenzij toestemmingsvereiste), post-FKR vergelijkbaar met de CV -> transparant. Let op: Wisconsin LP is pre-FKR niet-transparant (uitzondering). LLC (Limited Liability Company): niet-transparant (NV/BV). GP (General Partnership): maatschap/VOF -> transparant. LLP en LLLP: 'niet vergelijkbaar' (X) post-FKR (LLLP pre-FKR niet-transparant). Corporation/Inc: niet-transparant. Trust en nonprofit nonstock corporation: 'niet vergelijkbaar' (X)."
+  },
+  {
+    "category": "rechtsvorm_lijst",
+    "source": "Belastingdienst-lijst (pre-FKR) + Besluit Stb. 2025/425 (post-FKR)",
+    "period": "timeless",
+    "article_refs": ["2"],
+    "section": "Kaaimaneilanden",
+    "content": "[Bron: NL classificatielijsten] Kaaimaneilanden. (E)LP ((Exempted) Limited Partnership): pre-FKR 'CV-achtige' (niet-transparant tenzij toestemmingsvereiste; vraag A/B/C nee), post-FKR vergelijkbaar met de CV -> transparant. Veelgebruikt in fondsstructuren."
+  },
+  {
+    "category": "rechtsvorm_lijst",
+    "source": "Belastingdienst-lijst (pre-FKR) + Besluit Stb. 2025/425 (post-FKR)",
+    "period": "timeless",
+    "article_refs": ["2"],
+    "section": "Bermuda",
+    "content": "[Bron: NL classificatielijsten] Bermuda. LP (Limited Partnership): pre-FKR 'CV-achtige' (niet-transparant tenzij toestemmingsvereiste), post-FKR vergelijkbaar met de CV -> transparant."
+  },
+  {
+    "category": "rechtsvorm_lijst",
+    "source": "Belastingdienst-lijst (pre-FKR) + Besluit Stb. 2025/425 (post-FKR)",
+    "period": "timeless",
+    "article_refs": ["2"],
+    "section": "Belgie",
+    "content": "[Bron: NL classificatielijsten] Belgie. Comm.V / CommV (Commanditaire Vennootschap): pre-FKR 'CV-achtige', post-FKR vergelijkbaar met de CV -> transparant. Comm.VA / SCA (Commanditaire Vennootschap op Aandelen): niet-transparant. VOF/SNC en Maatschap/SS: maatschap/VOF -> transparant. BV/SRL en NV/SA: niet-transparant. CV/SC (Cooperatieve Vennootschap): post-FKR 'niet vergelijkbaar' (X)."
+  },
+  {
+    "category": "rechtsvorm_lijst",
+    "source": "Belastingdienst-lijst (pre-FKR) + Besluit Stb. 2025/425 (post-FKR)",
+    "period": "timeless",
+    "article_refs": ["2"],
+    "section": "Spanje",
+    "content": "[Bron: NL classificatielijsten] Spanje. SCom (Sociedad en Comandita Simple): pre-FKR 'CV-achtige', post-FKR vergelijkbaar met de CV -> transparant. SCA (Sociedad Comanditaria por Acciones): pre-FKR niet-transparant, post-FKR 'niet vergelijkbaar' (X). SC (Sociedad Colectiva) en UTE: maatschap/VOF -> transparant. SA en SL/SRL: niet-transparant (NV/BV)."
+  },
+  {
+    "category": "rechtsvorm_lijst",
+    "source": "Belastingdienst-lijst (pre-FKR) + Besluit Stb. 2025/425 (post-FKR)",
+    "period": "timeless",
+    "article_refs": ["2"],
+    "section": "Italie",
+    "content": "[Bron: NL classificatielijsten] Italie. SAS (Societa in Accomandita Semplice): pre-FKR 'CV-achtige' (vraag A/B/C nee), post-FKR vergelijkbaar met de CV -> transparant. SAA (Societa in Accomandita per Azioni): pre-FKR niet-transparant, post-FKR 'niet vergelijkbaar' (X). SS (Societa Semplice): maatschap/VOF -> transparant. SpA en SARL/SRL: niet-transparant (NV/BV)."
+  },
+  {
+    "category": "rechtsvorm_lijst",
+    "source": "Belastingdienst-lijst (pre-FKR) + Besluit Stb. 2025/425 (post-FKR)",
+    "period": "timeless",
+    "article_refs": ["2"],
+    "section": "Zweden",
+    "content": "[Bron: NL classificatielijsten] Zweden. KB (Kommanditbolag): pre-FKR 'CV-achtige', post-FKR vergelijkbaar met de CV -> transparant. HB (Handelsbolag): maatschap/VOF -> transparant. AB (Aktiebolag): niet-transparant (NV/BV)."
+  },
+  {
+    "category": "rechtsvorm_lijst",
+    "source": "Besluit Stb. 2025/425 (post-FKR)",
+    "period": "timeless",
+    "article_refs": ["2"],
+    "section": "Finland",
+    "content": "[Bron: NL classificatielijsten] Finland. KY/KB (Kommandiittiyhtio / Kommanditbolag): post-FKR vergelijkbaar met de CV -> transparant (pre-FKR CV-achtige). OY/AB (Osakeyhtio / Aktiebolag): niet-transparant (NV/BV)."
+  },
+  {
+    "category": "rechtsvorm_lijst",
+    "source": "Belastingdienst-lijst (pre-FKR) + Besluit Stb. 2025/425 (post-FKR)",
+    "period": "timeless",
+    "article_refs": ["2"],
+    "section": "Denemarken",
+    "content": "[Bron: NL classificatielijsten] Denemarken. I/S (Interessentskab): maatschap/VOF -> transparant. K/S (Kommanditselskab): CV-achtige -> post-FKR vergelijkbaar met de CV (transparant). A/S (Aktieselskab) en ApS (Anpartsselskab): niet-transparant (NV/BV)."
+  },
+  {
+    "category": "rechtsvorm_lijst",
+    "source": "Belastingdienst-lijst (pre-FKR) + Besluit Stb. 2025/425 (post-FKR)",
+    "period": "timeless",
+    "article_refs": ["2"],
+    "section": "Polen",
+    "content": "[Bron: NL classificatielijsten] Polen. SpK (Spolka Komandytowa): post-FKR vergelijkbaar met de CV -> transparant. SpzOOSpK (Spolka z o.o. Spolka Komandytowa): pre-FKR 'CV-achtige'. SpKA (Spolka Komandytowo-Akcyjna): post-FKR 'niet vergelijkbaar' (X). SpJ (Spolka Jawna): maatschap/VOF -> transparant. SA en SpzOO: niet-transparant (NV/BV)."
+  },
+  {
+    "category": "rechtsvorm_lijst",
+    "source": "Belastingdienst-lijst (pre-FKR) + Besluit Stb. 2025/425 (post-FKR)",
+    "period": "timeless",
+    "article_refs": ["2"],
+    "section": "Tsjechie en Slowakije",
+    "content": "[Bron: NL classificatielijsten] Tsjechie en Slowakije. KS (Komanditni Spolecnost / Komanditna Spolocnost): pre-FKR 'CV-achtige', post-FKR vergelijkbaar met de CV -> transparant. AS en SRO: niet-transparant (NV/BV)."
+  },
+  {
+    "category": "rechtsvorm_lijst",
+    "source": "Belastingdienst-lijst (pre-FKR) + Besluit Stb. 2025/425 (post-FKR)",
+    "period": "timeless",
+    "article_refs": ["2"],
+    "section": "Hongarije",
+    "content": "[Bron: NL classificatielijsten] Hongarije, let op een periode-verschil. Bt (Beteti tarsasag): pre-FKR TRANSPARANT (vraag D nee), maar post-FKR vergelijkbaar met de CV -> transparant blijft transparant. Kkt (Kozkereseti tarsasag): maatschap/VOF -> transparant. Kft, Zrt, Nyrt: niet-transparant (NV/BV)."
+  },
+  {
+    "category": "rechtsvorm_lijst",
+    "source": "Besluit Stb. 2025/425 (post-FKR)",
+    "period": "timeless",
+    "article_refs": ["2"],
+    "section": "Oostenrijk",
+    "content": "[Bron: NL classificatielijsten] Oostenrijk. KG (Kommanditgesellschaft): post-FKR vergelijkbaar met de CV -> transparant (kwalificatiejaar 2024). OG (Offene Gesellschaft): maatschap/VOF -> transparant (pre-FKR transparant). AG en GmbH: niet-transparant (NV/BV). Privatstiftung: 'niet vergelijkbaar' (X)."
+  },
+  {
+    "category": "rechtsvorm_lijst",
+    "source": "Belastingdienst-lijst (pre-FKR) + Besluit Stb. 2025/425 (post-FKR)",
+    "period": "timeless",
+    "article_refs": ["2"],
+    "section": "Canada",
+    "content": "[Bron: NL classificatielijsten] Canada. LP (Limited Partnership, o.a. Alberta, British Columbia, Ontario): pre-FKR 'CV-achtige', post-FKR vergelijkbaar met de CV -> transparant. ULC (Unlimited Company / Unlimited Liability Company, o.a. Nova Scotia): pre-FKR niet-transparant, post-FKR 'niet vergelijkbaar' (X). Corporation/Inc: niet-transparant (NV/BV)."
+  },
+  {
+    "category": "rechtsvorm_lijst",
+    "source": "Besluit Stb. 2025/425 (post-FKR)",
+    "period": "timeless",
+    "article_refs": ["2"],
+    "section": "Japan",
+    "content": "[Bron: NL classificatielijsten] Japan. Goshi Kaisha: post-FKR vergelijkbaar met de CV -> transparant. Gomei Kaisha en Nin'i Kumiai (NK): maatschap/VOF -> transparant. Godo Kaisha (GK) en Kabushiki Kaisha (KK): niet-transparant (NV/BV)."
+  },
+  {
+    "category": "rechtsvorm_lijst",
+    "source": "Belastingdienst-lijst (pre-FKR) + Besluit Stb. 2025/425 (post-FKR)",
+    "period": "timeless",
+    "article_refs": ["2"],
+    "section": "Curacao",
+    "content": "[Bron: NL classificatielijsten] Curacao. CV (Commanditaire Vennootschap): pre-FKR 'CV-achtige', post-FKR vergelijkbaar met de CV -> transparant. BV: niet-transparant (NV/BV). Cooperatie (U.A.): cooperatie. Stichting Particulier Fonds (SPF): 'niet vergelijkbaar' (X)."
+  },
+  {
+    "category": "rechtsvorm_lijst",
+    "source": "Belastingdienst-lijst (pre-FKR) + Besluit Stb. 2025/425 (post-FKR)",
+    "period": "timeless",
+    "article_refs": ["2"],
+    "section": "IJsland",
+    "content": "[Bron: NL classificatielijsten] IJsland. Slf (Samlagsfelag): pre-FKR 'CV-achtige', post-FKR vergelijkbaar met de CV -> transparant. Sf (Sameignarfelag): maatschap/VOF -> transparant. Shlf (Samlagshlutafelag): 'niet vergelijkbaar' (X). Ehf en Hf: niet-transparant (NV/BV)."
+  },
+  {
+    "category": "rechtsvorm_lijst",
+    "source": "Besluit Stb. 2025/425 (post-FKR)",
+    "period": "timeless",
+    "article_refs": ["2"],
+    "section": "Estland",
+    "content": "[Bron: NL classificatielijsten] Estland. UU (Usaldusuhing): post-FKR vergelijkbaar met de CV -> transparant. TU (Taisuhing): maatschap/VOF -> transparant. AS en OU: niet-transparant (NV/BV)."
+  },
+  {
+    "category": "rechtsvorm_lijst",
+    "source": "Besluit Stb. 2025/425 (post-FKR)",
+    "period": "timeless",
+    "article_refs": ["2"],
+    "section": "Roemenie",
+    "content": "[Bron: NL classificatielijsten] Roemenie. SCS (Societati in Comandita Simpla): post-FKR vergelijkbaar met de CV -> transparant. SCA (in Comandita pe Actiuni): 'niet vergelijkbaar' (X). SNC: maatschap/VOF -> transparant. SA en SRL: niet-transparant (NV/BV)."
+  },
+  {
+    "category": "rechtsvorm_lijst",
+    "source": "Besluit Stb. 2025/425 (post-FKR)",
+    "period": "timeless",
+    "article_refs": ["2"],
+    "section": "Slovenie",
+    "content": "[Bron: NL classificatielijsten] Slovenie. KD (Komanditna Druzba): post-FKR vergelijkbaar met de CV -> transparant. KDD (Komanditna Delniska Druzba): 'niet vergelijkbaar' (X). DD en DOO: niet-transparant (NV/BV)."
+  },
+  {
+    "category": "rechtsvorm_lijst",
+    "source": "Belastingdienst-lijst (pre-FKR) + Besluit Stb. 2025/425 (post-FKR)",
+    "period": "timeless",
+    "article_refs": ["2"],
+    "section": "Malta",
+    "content": "[Bron: NL classificatielijsten] Malta. SA/SL (Socjeta in Akkomandita / Socjeta Limitata): post-FKR vergelijkbaar met de CV -> transparant. SLA (Socjeta Limitata b'kapital maqsum f'azzjonijiet): 'niet vergelijkbaar' (X). KRL/Ltd: niet-transparant (NV/BV)."
+  },
+  {
+    "category": "rechtsvorm_lijst",
+    "source": "Belastingdienst-lijst (pre-FKR) + Besluit Stb. 2025/425 (post-FKR)",
+    "period": "timeless",
+    "article_refs": ["2"],
+    "section": "Mozambique",
+    "content": "[Bron: NL classificatielijsten] Mozambique. SCS (Sociedades em Comandita Simples): pre-FKR 'CV-achtige' (vraag A/B/C nee), post-FKR vergelijkbaar met de CV -> transparant."
+  },
+  {
+    "category": "rechtsvorm_lijst",
+    "source": "Belastingdienst-lijst (pre-FKR) + Besluit Stb. 2025/425 (post-FKR)",
+    "period": "timeless",
+    "article_refs": ["2"],
+    "section": "Thailand",
+    "content": "[Bron: NL classificatielijsten] Thailand. LP (Hang Hoen Sohn Chamkad, Limited Partnership): pre-FKR 'CV-achtige', post-FKR vergelijkbaar met de CV -> transparant. BMC (Borisat Mahachon Chamkad): niet-transparant (NV/BV)."
+  },
+  {
+    "category": "rechtsvorm_lijst",
+    "source": "Besluit Stb. 2025/425 (post-FKR)",
+    "period": "timeless",
+    "article_refs": ["2"],
+    "section": "Zuid-Korea",
+    "content": "[Bron: NL classificatielijsten] Zuid-Korea. Hapja Hoesa (HH): post-FKR vergelijkbaar met de CV -> transparant. Chusik Hoesa (CH) en Yuhan Hoesa (YH): niet-transparant (NV/BV)."
+  },
+  {
+    "category": "rechtsvorm_lijst",
+    "source": "Belastingdienst-lijst (pre-FKR) + Besluit Stb. 2025/425 (post-FKR)",
+    "period": "timeless",
+    "article_refs": ["2"],
+    "section": "Ierland",
+    "content": "[Bron: NL classificatielijsten] Ierland. ULC (Unlimited Company): pre-FKR niet-transparant, post-FKR 'niet vergelijkbaar' (X). Ltd by shares en PLC: niet-transparant (NV/BV). (De Irish Investment Limited Partnership/ILP staat niet op deze lijsten; beoordeel een ILP naar analogie van een CV-achtige.)"
+  },
+  {
+    "category": "rechtsvorm_lijst",
+    "source": "Belastingdienst-lijst (pre-FKR) + Besluit Stb. 2025/425 (post-FKR)",
+    "period": "timeless",
+    "article_refs": ["2"],
+    "section": "Australie en overige transparante partnerships",
+    "content": "[Bron: NL classificatielijsten] Australie: Partnership -> maatschap/VOF -> transparant; Pty.Ltd -> niet-transparant. Vergelijkbaar (maatschap/VOF, transparant) zijn o.a. de Duitse GbR/OHG, Franse SNC/SC, Belgische VOF, Zweedse HB, Deense I/S, US General Partnership en de Japanse Nin'i Kumiai."
+  },
+  {
+    "category": "rechtsvorm_lijst",
+    "source": "Belastingdienst-lijst (pre-FKR) + Besluit Stb. 2025/425 (post-FKR)",
+    "period": "timeless",
+    "article_refs": ["2"],
+    "section": "Niet-vergelijkbare vormen (restcategorie)",
+    "content": "[Bron: NL classificatielijsten] Vormen die post-FKR 'niet vergelijkbaar met een NL rechtsvorm' (X) zijn, vallen onder de vaste/symmetrische methode (art. 2 lid 1 onderdeel h resp. art. 3 lid 2 Wet Vpb 1969): o.a. de commandite-op-aandelen (Luxemburg SCA, Duitse KGaA, Belgische Comm.VA, Spaanse SCA, Italiaanse SAA, Poolse SpKA, Roemeense SCA, Sloveense KDD), de US LLP/LLLP/Trust/nonprofit nonstock corporation, de UK LLP en ULC, de Canadese ULC, en stichtingachtigen zoals de Curacaose SPF en de Oostenrijkse Privatstiftung."
+  }
+]
