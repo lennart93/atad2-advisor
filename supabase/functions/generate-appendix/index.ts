@@ -13,6 +13,8 @@ import {
   type RawEntity, type RawEdge, type RawGroup, type AppendixFacts, type FactEntity, type ActingLikelihood,
 } from "./factsBuild.ts";
 
+const VALID_LIKELIHOODS = ["highly_unlikely", "unlikely", "unclear", "likely", "highly_likely"] as const;
+
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -331,7 +333,7 @@ async function buildFacts(
         status: "proposed" as const, excludedFromClient: false, source: "ai" as const,
       })),
       actingTogether: proposed.actingTogether.map((a, i) => {
-        const aiLikelihood = (a.likelihood ?? "unclear") as ActingLikelihood;
+        const aiLikelihood = (a.likelihood && VALID_LIKELIHOODS.includes(a.likelihood as typeof VALID_LIKELIHOODS[number]) ? a.likelihood : "unclear") as ActingLikelihood;
         const r = a.rationales ?? {};
         const fallback = "No specific assessment for this level.";
         const rationales: Record<ActingLikelihood, string> = {
