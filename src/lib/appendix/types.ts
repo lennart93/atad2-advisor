@@ -81,6 +81,8 @@ export interface FactEntity {
   ownershipPct: number | null; // parent: of the taxpayer; subsidiary: of that entity
   related: boolean;            // meets the >25% related-party test
   nlTaxStatus: string | null;  // AI/advisor filled; null until proposed
+  /** Advisor has marked this entity irrelevant; dropped from all client-facing exports. */
+  hidden?: boolean;
   /** True on the synthetic taxpayer that represents a fiscal unity. */
   isFiscalUnity?: boolean;
   /** On the fiscal-unity entity: the chart entity ids of its members. */
