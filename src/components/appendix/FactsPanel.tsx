@@ -159,7 +159,7 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
   const hiddenEntities = useMemo(() => facts.entities.filter((e) => e.hidden), [facts.entities]);
 
   const related = useMemo(
-    () => shown.entities.filter((e) => e.role !== 'Taxpayer' && !e.memberOfUnityId),
+    () => shown.entities.filter((e) => e.role !== 'Taxpayer' && !e.memberOfUnityId && !e.inTaxpayerFiscalUnity),
     [shown.entities],
   );
 
@@ -197,6 +197,14 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
                     {e.isFiscalUnity && (
                       <span className="ml-1.5 rounded bg-sky-100 px-1 text-[10px] font-normal text-sky-700 dark:bg-sky-900/40 dark:text-sky-300">
                         fiscal unity
+                      </span>
+                    )}
+                    {e.inTaxpayerFiscalUnity && (
+                      <span
+                        className="ml-1.5 rounded bg-sky-100 px-1 text-[10px] font-normal text-sky-700 dark:bg-sky-900/40 dark:text-sky-300"
+                        title="Forms a Dutch fiscal unity (fiscale eenheid) with E1; part of the same NL taxpayer"
+                      >
+                        fiscal unity · taxpayer
                       </span>
                     )}
                   </td>
@@ -295,15 +303,21 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
           <p className="text-xs text-muted-foreground">No related parties outside the taxpayer.</p>
         ) : (
           <div className="space-y-1 text-xs">
-            {related.map((e: FactEntity) => (
-              <div key={e.id} className="flex items-center gap-2">
-                <span className={cn('h-1.5 w-1.5 rounded-full', e.related ? 'bg-sky-500' : 'bg-muted-foreground/30')} />
-                <span className="font-mono text-sky-700 dark:text-sky-300">{e.id}</span>
-                <span className={cn(e.related ? 'font-medium text-foreground' : 'text-muted-foreground')}>{e.name}</span>
-                <span className="flex-1" />
-                <span className="tabular-nums text-muted-foreground">{pct(e.ownershipPct)}</span>
-              </div>
-            ))}
+            {related.map((e: FactEntity) => {
+              const viaName = e.relatedVia ? nameOf(facts, e.relatedVia) : null;
+              const shownPct = e.ownershipPct ?? e.relatedViaPct ?? null;
+              return (
+                <div key={e.id} className="flex items-center gap-2">
+                  <span className={cn('h-1.5 w-1.5 rounded-full', e.related ? 'bg-sky-500' : 'bg-muted-foreground/30')} />
+                  <span className="font-mono text-sky-700 dark:text-sky-300">{e.id}</span>
+                  <span className={cn(e.related ? 'font-medium text-foreground' : 'text-muted-foreground')}>{e.name}</span>
+                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70">{e.role}</span>
+                  {viaName && <span className="text-[11px] text-muted-foreground">via {viaName}</span>}
+                  <span className="flex-1" />
+                  <span className="tabular-nums text-muted-foreground">{pct(shownPct)}</span>
+                </div>
+              );
+            })}
           </div>
         )}
       </Exhibit>

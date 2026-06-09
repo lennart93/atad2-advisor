@@ -114,13 +114,19 @@ export function buildAppendixPrintHtml(
       const flagCols = internal
         ? `<td class="c-num">${esc(e.id)}</td>`
         : '';
+      const roleText = e.role + (e.inTaxpayerFiscalUnity ? ' (fiscal unity)' : '');
+      const ownText = e.ownershipPct != null
+        ? `${e.ownershipPct}%`
+        : (e.relatedVia && e.relatedViaPct != null)
+          ? `via ${esc(entityName(e.relatedVia))} (${e.relatedViaPct}%)`
+          : '';
       return (
         `<tr><td>${esc(e.name)}</td>` +
         flagCols +
         `<td>${esc(jurLabel(effJurisdiction(e)))}</td>` +
         `<td>${esc(e.isFiscalUnity ? 'Fiscal unity' : typeLabel(effEntityType(e)))}</td>` +
-        `<td>${esc(e.role)}</td>` +
-        `<td>${e.ownershipPct != null ? `${e.ownershipPct}%` : ''}</td>` +
+        `<td>${esc(roleText)}</td>` +
+        `<td>${ownText}</td>` +
         `<td>${e.related ? 'Yes' : 'No'}</td>` +
         `<td>${esc(nlTaxStatusLabel(effNlTaxStatus(e)))}</td></tr>`
       );

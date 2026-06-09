@@ -311,8 +311,21 @@ async function buildFacts(
       .replace("{{STRUCTURE_BLOCK}}", structureBlock || "(no structure chart available)");
     const proposed = FactsModelOutput.parse(JSON.parse(extractJson((await callClaude({ user })).text)));
     const nl = proposed.nlTaxStatusByEntityId ?? {};
+    // Fiscal unity from the documents: flag the AI-identified members as part of the
+    // same NL taxpayer as E1. Skip entirely when an explicit fiscal-unity grouping is
+    // already drawn (that path collapses into a synthetic E1 instead).
+    const hasExplicitFu = entities.some((e) => e.isFiscalUnity || e.memberOfUnityId);
+    const fuMembers = new Set((proposed.fiscalUnityMemberEntityIds ?? []).filter((id) => id !== "E1"));
     return {
-      entities: entities.map((e) => ({ ...e, nlTaxStatus: nl[e.id] ?? e.nlTaxStatus })),
+      entities: entities.map((e) => {
+        const next = { ...e, nlTaxStatus: nl[e.id] ?? e.nlTaxStatus };
+        if (!hasExplicitFu && e.id !== "E1" && fuMembers.has(e.id)) {
+          // Inside the taxpayer's fiscal unity: part of the same taxpayer, so not a
+          // separate related party (mirrors how explicit FE members are treated).
+          return { ...next, inTaxpayerFiscalUnity: true, related: false };
+        }
+        return next;
+      }),
       classifications: proposed.classifications.filter((cl) => !!cl.entityId).map((cl) => ({
         entityId: cl.entityId as string,
         homeState: cl.homeState ?? "",
@@ -421,8 +434,12 @@ function buildFactsBlock(facts: AppendixFacts | null): string {
     s === "transparent" ? "transparent for NL"
       : (s === "resident" || s === "nonresident_pe" || s === "outside_cit") ? "non-transparent for NL"
       : "NL qualification undetermined";
+  const relNote = (e: FactEntity) =>
+    e.inTaxpayerFiscalUnity ? ", fiscal unity with E1"
+      : (e.related && e.relatedVia) ? `, related via ${e.relatedVia} (${e.relatedViaPct ?? "?"}%)`
+      : e.related ? ", related (>25%)" : "";
   const ents = entities
-    .map((e) => `${e.id} ${e.name} [${effJur(e) ?? "?"}, ${e.role}${e.ownershipPct != null ? `, ${e.ownershipPct}%` : ""}, ${nlQual(effStatus(e))}]`)
+    .map((e) => `${e.id} ${e.name} [${effJur(e) ?? "?"}, ${e.role}${e.ownershipPct != null ? `, ${e.ownershipPct}%` : ""}${relNote(e)}, ${nlQual(effStatus(e))}]`)
     .join("\n");
   const cls = classifications
     .map((c) => `${c.entityId} ${nameOf(c.entityId)}: home ${c.homeState} ${c.homeClass} vs source ${c.sourceState ?? "?"} ${c.sourceClass ?? "?"}${c.hybrid ? " (HYBRID mismatch)" : ""}`)

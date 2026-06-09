@@ -34,5 +34,9 @@ export const FactsModelOutput = z.object({
     }).partial().nullish(),
   })).optional().default([]),
   nlTaxStatusByEntityId: z.record(z.string(), z.string()).optional(),
+  // Register ids (E2, E3 ...) that form a Dutch fiscal unity (fiscale eenheid) with
+  // the taxpayer E1, derived from the documents. E1 itself is implied and need not
+  // be listed. Empty/omitted when there is no fiscal unity.
+  fiscalUnityMemberEntityIds: z.array(z.string()).optional().default([]),
 });
 export type FactsModelOutputT = z.infer<typeof FactsModelOutput>;

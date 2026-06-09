@@ -80,8 +80,15 @@ export interface FactEntity {
   jurisdiction: string | null;
   entityType: string | null;
   role: 'Taxpayer' | 'Parent' | 'Subsidiary' | 'Group entity';
-  ownershipPct: number | null; // parent: of the taxpayer; subsidiary: of that entity
-  related: boolean;            // meets the >25% related-party test
+  ownershipPct: number | null; // parent: effective stake in the taxpayer; subsidiary: taxpayer's effective stake (chain-multiplied)
+  related: boolean;            // meets the >25% related-party (associated enterprise) test
+  /**
+   * For a Group entity that is associated only through a common parent: the
+   * register id (e.g. "E3") of that common parent, and its effective stake in this
+   * entity. Null for parents/subsidiaries (their link to the taxpayer is direct).
+   */
+  relatedVia?: string | null;
+  relatedViaPct?: number | null;
   nlTaxStatus: string | null;  // AI/advisor filled; null until proposed
   /**
    * Advisor overrides for the editable register fields. The base fields above are
@@ -97,6 +104,12 @@ export interface FactEntity {
   memberEntityIds?: string[];
   /** On a member row: the register id (e.g. "E1") of the fiscal unity it belongs to. */
   memberOfUnityId?: string;
+  /**
+   * AI-derived (from the documents): this entity forms a Dutch fiscal unity
+   * (fiscale eenheid) with the taxpayer E1, so it is part of the same NL taxpayer.
+   * Set by the facts step when there is no explicitly drawn fiscal-unity grouping.
+   */
+  inTaxpayerFiscalUnity?: boolean;
 }
 
 export interface ActingTogetherCluster {

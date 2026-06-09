@@ -22,4 +22,19 @@ describe('visibleFacts', () => {
     expect(out.classifications.map((c) => c.entityId)).toEqual(['E1']);
     expect(out.transactions).toEqual([]); // T1 referenced hidden E2
   });
+
+  it('clears a relatedVia pointer that dangles to a hidden common parent', () => {
+    const f = { ...emptyFacts(),
+      entities: [
+        fe('E1'),
+        { ...fe('E2', true), role: 'Parent' }, // common parent, hidden by the advisor
+        { ...fe('E3'), related: true, relatedVia: 'E2', relatedViaPct: 40 }, // sibling related via E2
+      ],
+    } as never;
+    const out = visibleFacts(f);
+    const e3 = out.entities.find((e) => e.id === 'E3')!;
+    expect(e3.related).toBe(true);       // still a structural associated enterprise
+    expect(e3.relatedVia).toBeNull();    // but the dangling id is cleared, never leaked
+    expect(e3.relatedViaPct).toBeNull();
+  });
 });

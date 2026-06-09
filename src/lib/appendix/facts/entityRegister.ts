@@ -1,11 +1,26 @@
 import type { StructureEntity, StructureEdge, StructureGroup } from '@/lib/structure/types';
 import type { FactEntity } from '@/lib/appendix/types';
+import {
+  buildOwnershipGraph,
+  toOwnershipEdges,
+  reaches,
+  effectivePctToSet,
+  effectivePctFromSet,
+  type OwnershipGraph,
+} from '@/lib/structure/ownershipGraph';
 
 const RELATED_THRESHOLD = 25;
 const FISCAL_UNITY_KIND = 'fiscal_unity';
 
 /**
  * Deterministic entity register from the structure chart.
+ *
+ * Roles are read from the FULL ownership graph, not just direct edges: an entity
+ * that owns the taxpayer directly or indirectly is a Parent, an entity the taxpayer
+ * owns directly or indirectly is a Subsidiary, and the percentage shown is the
+ * effective (chain-multiplied) holding. A remaining group entity is flagged related
+ * when it shares a common parent that holds >25% in both it and the taxpayer
+ * (the ATAD2 associated-enterprise test), recorded as `relatedVia`.
  *
  * A fiscal unity (an atad2_structure_groupings row of kind 'fiscal_unity' that
  * contains the taxpayer) is collapsed into one synthetic taxpayer E1; its members
@@ -30,39 +45,20 @@ export function buildEntityRegister(
   const memberIds: string[] = fu ? (fu.member_ids as string[]).filter(present) : [];
   const memberSet = new Set<string>(fu ? memberIds : [taxpayer.id]);
 
-  type Pre = { ent: StructureEntity; role: FactEntity['role']; pct: number | null };
-  const ext = new Map<string, Pre>();
-  for (const ed of edges) {
-    const pct = (ed.ownership_pct as number | null) ?? null;
-    const from = ed.from_entity_id as string;
-    const to = ed.to_entity_id as string;
-    if (memberSet.has(to) && !memberSet.has(from) && byId.has(from) && !ext.has(from)) {
-      ext.set(from, { ent: byId.get(from)!, role: 'Parent', pct });
-    } else if (memberSet.has(from) && !memberSet.has(to) && byId.has(to) && !ext.has(to)) {
-      ext.set(to, { ent: byId.get(to)!, role: 'Subsidiary', pct });
-    }
-  }
-  for (const e of entities) {
-    if (memberSet.has(e.id) || ext.has(e.id)) continue;
-    ext.set(e.id, { ent: e, role: 'Group entity', pct: null });
-  }
+  const graph = buildOwnershipGraph(toOwnershipEdges(edges));
+  const cls = classifyExternals(entities, memberSet, graph);
 
-  const order = { Parent: 1, Subsidiary: 2, 'Group entity': 3 } as const;
-  const sortedExt = [...ext.values()].sort((a, b) => {
-    if (order[a.role] !== order[b.role]) return order[a.role] - order[b.role];
-    if ((b.pct ?? -1) !== (a.pct ?? -1)) return (b.pct ?? -1) - (a.pct ?? -1);
-    return a.ent.name.localeCompare(b.ent.name);
-  });
-
-  const toFact = (id: string, ent: StructureEntity, role: FactEntity['role'], pct: number | null): FactEntity => ({
+  const toFact = (id: string, c: Pre): FactEntity => ({
     id,
-    chartEntityId: ent.id,
-    name: ent.name,
-    jurisdiction: (ent.jurisdiction_iso as string | null) ?? null,
-    entityType: (ent.entity_type as string | null) ?? null,
-    role,
-    ownershipPct: pct,
-    related: pct != null && pct > RELATED_THRESHOLD,
+    chartEntityId: c.ent.id,
+    name: c.ent.name,
+    jurisdiction: (c.ent.jurisdiction_iso as string | null) ?? null,
+    entityType: (c.ent.entity_type as string | null) ?? null,
+    role: c.role,
+    ownershipPct: c.pct,
+    related: c.related,
+    relatedVia: c.relatedViaChartId ?? null,
+    relatedViaPct: c.relatedViaPct,
     nlTaxStatus: null,
   });
 
@@ -82,18 +78,117 @@ export function buildEntityRegister(
       memberEntityIds: memberIds,
     });
   } else {
-    out.push(toFact('E1', taxpayer, 'Taxpayer', null));
+    out.push({
+      id: 'E1',
+      chartEntityId: taxpayer.id,
+      name: taxpayer.name,
+      jurisdiction: (taxpayer.jurisdiction_iso as string | null) ?? null,
+      entityType: (taxpayer.entity_type as string | null) ?? null,
+      role: 'Taxpayer',
+      ownershipPct: null,
+      related: false,
+      nlTaxStatus: null,
+    });
   }
 
+  // chart-entity-id -> register id, so a Group entity's `relatedVia` (a chart id at
+  // classification time) can be resolved to the parent's register label.
+  const chartToRegister = new Map<string, string>();
   let n = out.length;
-  for (const p of sortedExt) out.push(toFact(`E${++n}`, p.ent, p.role, p.pct));
+  const extFacts: FactEntity[] = [];
+  for (const c of cls) {
+    const id = `E${++n}`;
+    chartToRegister.set(c.ent.id, id);
+    extFacts.push(toFact(id, c));
+  }
+  for (const f of extFacts) {
+    f.relatedVia = f.relatedVia ? (chartToRegister.get(f.relatedVia) ?? null) : null;
+    out.push(f);
+  }
 
   if (fu) {
     for (const id of memberIds) {
       const ent = byId.get(id)!;
-      out.push({ ...toFact(`E${++n}`, ent, 'Group entity', null), memberOfUnityId: 'E1', related: false });
+      out.push({
+        id: `E${++n}`,
+        chartEntityId: ent.id,
+        name: ent.name,
+        jurisdiction: (ent.jurisdiction_iso as string | null) ?? null,
+        entityType: (ent.entity_type as string | null) ?? null,
+        role: 'Group entity',
+        ownershipPct: null,
+        related: false,
+        relatedVia: null,
+        relatedViaPct: null,
+        nlTaxStatus: null,
+        memberOfUnityId: 'E1',
+      });
     }
   }
 
   return out;
+}
+
+interface Pre {
+  ent: StructureEntity;
+  role: FactEntity['role'];
+  pct: number | null;
+  related: boolean;
+  relatedViaChartId: string | null;
+  relatedViaPct: number | null;
+}
+
+/**
+ * Classify every entity that is NOT in the taxpayer set, ordered Parent ->
+ * Subsidiary -> Group entity, then by effective percentage (desc) and name. Shared
+ * shape with the Deno mirror in supabase/functions/generate-appendix/factsBuild.ts.
+ */
+function classifyExternals(
+  entities: StructureEntity[],
+  memberSet: Set<string>,
+  graph: OwnershipGraph,
+): Pre[] {
+  const externals = entities.filter((e) => !memberSet.has(e.id));
+
+  // Parents that hold >25% in the taxpayer/unity: the candidate common parents for
+  // associating sibling group entities (ATAD2 art. 2(4): a third party with >25%
+  // in both the taxpayer and the other entity).
+  const qualifyingParents = externals.filter((e) => {
+    if (!reaches(e.id, memberSet, graph)) return false;
+    const pct = effectivePctToSet(e.id, memberSet, graph);
+    return pct != null && pct > RELATED_THRESHOLD;
+  });
+
+  const pre: Pre[] = externals.map((ent) => {
+    const isParent = reaches(ent.id, memberSet, graph);
+    const isSub = !isParent && [...memberSet].some((m) => reaches(m, new Set([ent.id]), graph));
+
+    if (isParent) {
+      const pct = effectivePctToSet(ent.id, memberSet, graph);
+      return { ent, role: 'Parent', pct, related: pct != null && pct > RELATED_THRESHOLD, relatedViaChartId: null, relatedViaPct: null };
+    }
+    if (isSub) {
+      const pct = effectivePctFromSet(memberSet, ent.id, graph);
+      return { ent, role: 'Subsidiary', pct, related: pct != null && pct > RELATED_THRESHOLD, relatedViaChartId: null, relatedViaPct: null };
+    }
+    // Group entity: related only if a common parent holds >25% in it as well.
+    let bestViaId: string | null = null;
+    let bestViaPct: number | null = null;
+    for (const p of qualifyingParents) {
+      const pctToA = effectivePctToSet(p.id, new Set([ent.id]), graph);
+      if (pctToA != null && pctToA > RELATED_THRESHOLD && (bestViaPct == null || pctToA > bestViaPct)) {
+        bestViaPct = pctToA;
+        bestViaId = p.id;
+      }
+    }
+    return { ent, role: 'Group entity', pct: null, related: bestViaId != null, relatedViaChartId: bestViaId, relatedViaPct: bestViaPct };
+  });
+
+  const order = { Parent: 1, Subsidiary: 2, 'Group entity': 3 } as const;
+  const sortKey = (c: Pre) => c.pct ?? c.relatedViaPct ?? -1;
+  return pre.sort((a, b) => {
+    if (order[a.role] !== order[b.role]) return order[a.role] - order[b.role];
+    if (sortKey(b) !== sortKey(a)) return sortKey(b) - sortKey(a);
+    return a.ent.name.localeCompare(b.ent.name);
+  });
 }
