@@ -1,27 +1,31 @@
 import { z } from "zod";
 
+// Tolerant: the model occasionally omits a field. Keep only the keys (entity
+// ids) required; everything else is nullish and coalesced in buildFacts, so a
+// near-miss output still populates the classification matrix + transactions
+// instead of failing the whole parse and falling back to empty.
 export const FactsModelOutput = z.object({
   classifications: z.array(z.object({
     entityId: z.string().min(1),
-    homeState: z.string(),
-    homeClass: z.string(),
-    sourceState: z.string().nullable(),
-    sourceClass: z.string().nullable(),
-    hybrid: z.boolean(),
-  })),
+    homeState: z.string().nullish(),
+    homeClass: z.string().nullish(),
+    sourceState: z.string().nullish(),
+    sourceClass: z.string().nullish(),
+    hybrid: z.boolean().nullish(),
+  })).optional().default([]),
   transactions: z.array(z.object({
     fromEntityId: z.string().min(1),
     toEntityId: z.string().min(1),
-    kind: z.string(),
-    instrument: z.string().nullable(),
-    note: z.string().nullable(),
-    articlesTested: z.array(z.string()),
-  })),
+    kind: z.string().nullish(),
+    instrument: z.string().nullish(),
+    note: z.string().nullish(),
+    articlesTested: z.array(z.string()).nullish(),
+  })).optional().default([]),
   actingTogether: z.array(z.object({
-    memberEntityIds: z.array(z.string().min(1)).min(2),
-    combinedPct: z.number().nullable(),
-    rationale: z.string(),
-  })),
+    memberEntityIds: z.array(z.string().min(1)).min(1),
+    combinedPct: z.number().nullish(),
+    rationale: z.string().nullish(),
+  })).optional().default([]),
   nlTaxStatusByEntityId: z.record(z.string(), z.string()).optional(),
 });
 export type FactsModelOutputT = z.infer<typeof FactsModelOutput>;

@@ -288,9 +288,32 @@ async function buildFacts(
     const nl = proposed.nlTaxStatusByEntityId ?? {};
     return {
       entities: entities.map((e) => ({ ...e, nlTaxStatus: nl[e.id] ?? e.nlTaxStatus })),
-      classifications: proposed.classifications.map((cl) => ({ ...cl, status: "proposed" as const, excludedFromClient: false, source: "ai" as const })),
-      transactions: proposed.transactions.map((t, i) => ({ id: `T${i + 1}`, ...t, status: "proposed" as const, excludedFromClient: false, source: "ai" as const })),
-      actingTogether: proposed.actingTogether.map((a, i) => ({ id: `A${i + 1}`, ...a, status: "proposed" as const, excludedFromClient: false, source: "ai" as const })),
+      classifications: proposed.classifications.map((cl) => ({
+        entityId: cl.entityId,
+        homeState: cl.homeState ?? "",
+        homeClass: cl.homeClass ?? "",
+        sourceState: cl.sourceState ?? null,
+        sourceClass: cl.sourceClass ?? null,
+        hybrid: cl.hybrid ?? false,
+        status: "proposed" as const, excludedFromClient: false, source: "ai" as const,
+      })),
+      transactions: proposed.transactions.map((t, i) => ({
+        id: `T${i + 1}`,
+        fromEntityId: t.fromEntityId,
+        toEntityId: t.toEntityId,
+        kind: t.kind ?? "",
+        instrument: t.instrument ?? null,
+        note: t.note ?? null,
+        articlesTested: t.articlesTested ?? [],
+        status: "proposed" as const, excludedFromClient: false, source: "ai" as const,
+      })),
+      actingTogether: proposed.actingTogether.map((a, i) => ({
+        id: `A${i + 1}`,
+        memberEntityIds: a.memberEntityIds,
+        combinedPct: a.combinedPct ?? null,
+        rationale: a.rationale ?? "",
+        status: "proposed" as const, excludedFromClient: false, source: "ai" as const,
+      })),
     };
   } catch (err) {
     console.warn(JSON.stringify({ level: "warn", event: "appendix_facts_failed", message: String(err).slice(0, 300) }));
