@@ -169,7 +169,7 @@ export default function AssessmentAppendix() {
     setConfirming(true);
     try {
       await confirmAppendix(appendix.id, user.id);
-      navigate(`/assessment-report/${sessionId}`);
+      navigate(`/assessment/structure/${sessionId}`);
     } catch (e) {
       toast.error('Could not confirm appendix', { description: String(e) });
       setConfirming(false);
@@ -285,7 +285,7 @@ export default function AssessmentAppendix() {
         left={
           <Button
             variant="outline"
-            onClick={() => navigate(`/assessment/structure/${sessionId}`)}
+            onClick={() => navigate(`/assessment-confirmation/${sessionId}`)}
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Previous

@@ -745,7 +745,7 @@ const [busy, setBusy] = useState(false);
       }
       await finalizeChart(chart.id);
     }
-    navigate(`/assessment-appendix/${sessionId}`);
+    navigate(`/assessment-report/${sessionId}`);
   };
 
   const skipNext = async () => {
@@ -756,7 +756,7 @@ const [busy, setBusy] = useState(false);
         console.warn('[StructureChartStep] unfinalize failed', err);
       }
     }
-    navigate(`/assessment-appendix/${sessionId}`);
+    navigate(`/assessment-report/${sessionId}`);
   };
 
   const isExtracting = typeof status === 'string' && status.startsWith('extracting:');
@@ -778,7 +778,7 @@ const [busy, setBusy] = useState(false);
           editFromOverview ? null : (
             <Button
               variant="outline"
-              onClick={() => navigate(`/assessment-confirmation/${sessionId}`)}
+              onClick={() => navigate(`/assessment-appendix/${sessionId}`)}
               className="transition-all duration-fast"
             >
               <ArrowLeft className="mr-2 h-4 w-4" />
