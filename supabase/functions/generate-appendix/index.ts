@@ -331,17 +331,25 @@ function mergeFacts(existing: AppendixFacts | null, fresh: AppendixFacts): Appen
 /** Compact text summary of Part A, fed to the article generation as grounding. */
 function buildFactsBlock(facts: AppendixFacts | null): string {
   if (!facts || !facts.entities.length) return "(no established facts)";
-  const nameOf = (id: string) => facts.entities.find((e) => e.id === id)?.name ?? id;
-  const ents = facts.entities
+  // Advisor-hidden entities are not shown to the client; keep them out of the
+  // article grounding too, cascading to anything that references them.
+  const hidden = new Set(facts.entities.filter((e) => e.hidden).map((e) => e.id));
+  const entities = facts.entities.filter((e) => !e.hidden);
+  if (!entities.length) return "(no established facts)";
+  const classifications = facts.classifications.filter((c) => !hidden.has(c.entityId));
+  const transactions = facts.transactions.filter((t) => !hidden.has(t.fromEntityId) && !hidden.has(t.toEntityId));
+  const acting = facts.actingTogether.filter((a) => !a.memberEntityIds.some((id) => hidden.has(id)));
+  const nameOf = (id: string) => entities.find((e) => e.id === id)?.name ?? id;
+  const ents = entities
     .map((e) => `${e.id} ${e.name} [${e.jurisdiction ?? "?"}, ${e.role}${e.ownershipPct != null ? `, ${e.ownershipPct}%` : ""}${e.nlTaxStatus ? `, ${e.nlTaxStatus}` : ""}]`)
     .join("\n");
-  const cls = facts.classifications
+  const cls = classifications
     .map((c) => `${c.entityId} ${nameOf(c.entityId)}: home ${c.homeState} ${c.homeClass} vs source ${c.sourceState ?? "?"} ${c.sourceClass ?? "?"}${c.hybrid ? " (HYBRID mismatch)" : ""}`)
     .join("\n");
-  const tx = facts.transactions
+  const tx = transactions
     .map((t) => `${t.id} ${nameOf(t.fromEntityId)} -> ${nameOf(t.toEntityId)}: ${t.kind}${t.instrument ? ` (${t.instrument})` : ""} [${t.articlesTested.join(", ")}]`)
     .join("\n");
-  const at = facts.actingTogether
+  const at = acting
     .filter((a) => a.status !== "dismissed")
     .map((a) => `${a.memberEntityIds.map(nameOf).join(" + ")} ~ ${a.combinedPct ?? "?"}%: ${a.rationale}`)
     .join("\n");

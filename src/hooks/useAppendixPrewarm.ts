@@ -10,7 +10,8 @@ import { startAppendixGeneration } from '@/lib/appendix/client';
 export function useAppendixPrewarm(sessionId: string | undefined): void {
   const fired = useRef(false);
   useEffect(() => {
-    if (!sessionId || fired.current) return;
+    if (!sessionId) return;
+    fired.current = false; // new session: allow exactly one prewarm
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout>;
     const tick = async () => {

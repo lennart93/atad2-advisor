@@ -32,6 +32,7 @@ export interface FactEntity {
   ownershipPct: number | null;
   related: boolean;
   nlTaxStatus: string | null;
+  hidden?: boolean;
   isFiscalUnity?: boolean;
   memberEntityIds?: string[];
   memberOfUnityId?: string;

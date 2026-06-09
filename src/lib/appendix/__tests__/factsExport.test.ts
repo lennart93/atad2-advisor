@@ -13,4 +13,19 @@ describe('factsForClient', () => {
     const out = factsForClient(f);
     expect(out.transactions.map((t) => t.id)).toEqual(['T1']);
   });
+
+  it('also strips advisor-hidden entities (and what references them)', () => {
+    const fe = (id: string, hidden = false) =>
+      ({ id, chartEntityId: id, name: id, jurisdiction: 'NL', entityType: 'BV', role: 'Group entity', ownershipPct: null, related: false, nlTaxStatus: null, hidden } as const);
+    const f = { ...emptyFacts(),
+      entities: [fe('E1'), fe('E2', true)],
+      classifications: [
+        { entityId: 'E1', homeState: 'NL', homeClass: 'x', sourceState: null, sourceClass: null, hybrid: false, status: 'confirmed', excludedFromClient: false, source: 'ai' },
+        { entityId: 'E2', homeState: 'NL', homeClass: 'y', sourceState: null, sourceClass: null, hybrid: false, status: 'confirmed', excludedFromClient: false, source: 'ai' },
+      ],
+    } as never;
+    const out = factsForClient(f);
+    expect(out.entities.map((e) => e.id)).toEqual(['E1']);
+    expect(out.classifications.map((c) => c.entityId)).toEqual(['E1']);
+  });
 });
