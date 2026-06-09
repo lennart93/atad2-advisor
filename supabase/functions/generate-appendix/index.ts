@@ -410,25 +410,16 @@ async function buildFacts(
         articlesTested: t.articlesTested ?? [],
         status: "proposed" as const, excludedFromClient: false, source: "ai" as const,
       })),
-      actingTogether: proposed.actingTogether.filter((a) => a.memberEntityIds.length >= 2).map((a, i) => {
-        const aiLikelihood = (a.likelihood && VALID_LIKELIHOODS.includes(a.likelihood as typeof VALID_LIKELIHOODS[number]) ? a.likelihood : "unclear") as ActingLikelihood;
-        const r = a.rationales ?? {};
-        const fallback = "No specific assessment for this level.";
-        const rationales: Record<ActingLikelihood, string> = {
-          highly_unlikely: r.highly_unlikely ?? fallback,
-          unlikely: r.unlikely ?? fallback,
-          unclear: r.unclear ?? fallback,
-          likely: r.likely ?? fallback,
-          highly_likely: r.highly_likely ?? fallback,
-        };
+      // One acting-together assessment for the parents (not multiple clusters with
+      // per-level texts): a single likelihood + one prose paragraph.
+      actingTogether: proposed.actingTogether.filter((a) => a.memberEntityIds.length >= 2).slice(0, 1).map((a, i) => {
+        const likelihood = (a.likelihood && VALID_LIKELIHOODS.includes(a.likelihood as typeof VALID_LIKELIHOODS[number]) ? a.likelihood : "unclear") as ActingLikelihood;
         return {
           id: `A${i + 1}`,
           memberEntityIds: a.memberEntityIds,
           combinedPct: a.combinedPct ?? null,
-          likelihood: aiLikelihood,
-          aiLikelihood,
-          rationales,
-          reasoning: rationales[aiLikelihood],
+          likelihood,
+          reasoning: a.reasoning ?? "",
           excludedFromClient: false,
           source: "ai" as const,
         };
@@ -501,9 +492,10 @@ function buildFactsBlock(facts: AppendixFacts | null): string {
     s === "transparent" ? "transparent for NL"
       : (s === "resident" || s === "nonresident_pe" || s === "outside_cit") ? "non-transparent for NL"
       : "NL qualification undetermined";
+  const taxpayerName = entities.find((e) => e.id === "E1")?.name ?? "the taxpayer";
   const relNote = (e: FactEntity) =>
-    e.inTaxpayerFiscalUnity ? ", fiscal unity with E1"
-      : (e.related && e.relatedVia) ? `, related via ${e.relatedVia} (${e.relatedViaPct ?? "?"}%)`
+    e.inTaxpayerFiscalUnity ? `, fiscal unity with ${taxpayerName}`
+      : (e.related && e.relatedVia) ? `, related via ${nameOf(e.relatedVia)} (${e.relatedViaPct ?? "?"}%)`
       : e.related ? ", related (>25%)" : "";
   const ents = entities
     .map((e) => `${e.id} ${e.name} [${effJur(e) ?? "?"}, ${e.role}${e.ownershipPct != null ? `, ${e.ownershipPct}%` : ""}${relNote(e)}, ${nlQual(effStatus(e))}]`)

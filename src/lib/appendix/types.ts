@@ -114,12 +114,10 @@ export interface FactEntity {
 
 export interface ActingTogetherCluster {
   id: string;                  // "A1"
-  memberEntityIds: string[];   // ["E3","E4"]
+  memberEntityIds: string[];   // the parents the assessment concerns
   combinedPct: number | null;
-  likelihood: ActingLikelihood;   // current (advisor may change); init = aiLikelihood
-  aiLikelihood: ActingLikelihood; // AI's proposed default
-  rationales: Record<ActingLikelihood, string>; // one pre-generated rationale per level
-  reasoning: string;           // live displayed text; init = rationales[likelihood]; editable
+  likelihood: ActingLikelihood;   // advisor-selectable level
+  reasoning: string;           // one assessment paragraph (entity names only, no source citations); editable
   excludedFromClient: boolean;
   source: 'ai' | 'edited';
 }

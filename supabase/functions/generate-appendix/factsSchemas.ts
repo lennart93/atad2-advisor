@@ -21,17 +21,13 @@ export const FactsModelOutput = z.object({
     note: z.string().nullish(),
     articlesTested: z.array(z.string()).nullish(),
   })).optional().default([]),
+  // One acting-together assessment for the parents: a single likelihood + one
+  // prose paragraph (entity names only, no source citations). No per-level texts.
   actingTogether: z.array(z.object({
     memberEntityIds: z.array(z.string()).optional().default([]),
     combinedPct: z.number().nullish(),
     likelihood: z.string().nullish(),
-    rationales: z.object({
-      highly_unlikely: z.string().nullish(),
-      unlikely: z.string().nullish(),
-      unclear: z.string().nullish(),
-      likely: z.string().nullish(),
-      highly_likely: z.string().nullish(),
-    }).partial().nullish(),
+    reasoning: z.string().nullish(),
   })).optional().default([]),
   nlTaxStatusByEntityId: z.record(z.string(), z.string()).optional(),
   // Register ids (E2, E3 ...) that form a Dutch fiscal unity (fiscale eenheid) with

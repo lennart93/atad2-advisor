@@ -14,7 +14,7 @@ const richFacts = (excludedSections?: AppendixSectionKey[]): AppendixFacts => ({
     { id: 'E1', chartEntityId: 'c1', name: 'Acme BV', jurisdiction: 'NL', entityType: 'corporation', role: 'Taxpayer', ownershipPct: null, related: false, nlTaxStatus: 'resident' },
     { id: 'E2', chartEntityId: 'c2', name: 'Sub Inc', jurisdiction: 'US', entityType: 'corporation', role: 'Subsidiary', ownershipPct: 100, related: true, nlTaxStatus: 'outside_cit' },
   ],
-  actingTogether: [{ id: 'A1', memberEntityIds: ['E1', 'E2'], combinedPct: 50, likelihood: 'likely', aiLikelihood: 'likely', rationales: { highly_unlikely: '', unlikely: '', unclear: '', likely: 'L', highly_likely: '' }, reasoning: 'coordination present', excludedFromClient: false, source: 'ai' }],
+  actingTogether: [{ id: 'A1', memberEntityIds: ['E1', 'E2'], combinedPct: 50, likelihood: 'likely', reasoning: 'coordination present', excludedFromClient: false, source: 'ai' }],
   classifications: [{ entityId: 'E2', homeState: 'US', homeClass: 'opaque', sourceState: 'NL', sourceClass: 'transparent', hybrid: true, status: 'confirmed', excludedFromClient: false, source: 'ai' }],
   transactions: [{ id: 'T1', fromEntityId: 'E1', toEntityId: 'E2', kind: 'loan', instrument: 'note', note: null, articlesTested: ['12aa(1)(a)'], status: 'confirmed', excludedFromClient: false, source: 'ai' }],
   excludedSections,

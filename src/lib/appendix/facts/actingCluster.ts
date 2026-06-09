@@ -9,12 +9,12 @@ function patch(
   return { ...facts, actingTogether: facts.actingTogether.map((c) => (c.id === id ? fn(c) : c)) };
 }
 
-/** Pick a level: swap the displayed reasoning to that level's pre-generated text. */
+/** Pick the likelihood level. The single assessment text is left as written/edited. */
 export function withClusterLikelihood(facts: AppendixFacts, id: string, level: ActingLikelihood): AppendixFacts {
-  return patch(facts, id, (c) => ({ ...c, likelihood: level, reasoning: c.rationales[level] ?? c.reasoning, source: 'edited' }));
+  return patch(facts, id, (c) => ({ ...c, likelihood: level, source: 'edited' }));
 }
 
-/** Hand-edit the rationale text for the current level. */
+/** Hand-edit the assessment text. */
 export function withClusterText(facts: AppendixFacts, id: string, reasoning: string): AppendixFacts {
   return patch(facts, id, (c) => ({ ...c, reasoning, source: 'edited' }));
 }

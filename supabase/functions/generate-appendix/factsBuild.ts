@@ -80,8 +80,6 @@ export interface ActingTogetherCluster {
   memberEntityIds: string[];
   combinedPct: number | null;
   likelihood: ActingLikelihood;
-  aiLikelihood: ActingLikelihood;
-  rationales: Record<ActingLikelihood, string>;
   reasoning: string;
   excludedFromClient: boolean;
   source: "ai" | "edited";

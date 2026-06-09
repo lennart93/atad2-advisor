@@ -1,7 +1,6 @@
-// The likelihood that a candidate cluster qualifies as an acting-together
-// group. Five ordered levels with a neutral middle. The AI proposes a default
-// and pre-writes a rationale per level so switching the level swaps the text
-// without a new AI call.
+// The likelihood that the parents qualify as an acting-together group. Five
+// ordered levels with a neutral middle; the AI proposes one, and the advisor can
+// switch it. The single assessment text is independent of the chosen level.
 
 export type ActingLikelihood =
   | 'highly_unlikely' | 'unlikely' | 'unclear' | 'likely' | 'highly_likely';

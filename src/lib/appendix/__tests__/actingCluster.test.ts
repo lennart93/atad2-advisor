@@ -5,20 +5,16 @@ import type { AppendixFacts } from '@/lib/appendix/types';
 
 const cluster = {
   id: 'A1', memberEntityIds: ['E2', 'E3'], combinedPct: 18,
-  likelihood: 'unlikely' as const, aiLikelihood: 'unlikely' as const,
-  rationales: {
-    highly_unlikely: 'HU text', unlikely: 'U text', unclear: 'UC text',
-    likely: 'L text', highly_likely: 'HL text',
-  },
-  reasoning: 'U text', excludedFromClient: false, source: 'ai' as const,
+  likelihood: 'unlikely' as const,
+  reasoning: 'The Forbion vehicles together hold a minority interest.', excludedFromClient: false, source: 'ai' as const,
 };
 const facts = (): AppendixFacts => ({ ...emptyFacts(), actingTogether: [cluster] });
 
 describe('acting-cluster patch helpers', () => {
-  it('changing the likelihood swaps reasoning to that level text and marks edited', () => {
+  it('changing the likelihood keeps the single assessment text and marks edited', () => {
     const out = withClusterLikelihood(facts(), 'A1', 'likely');
     expect(out.actingTogether[0].likelihood).toBe('likely');
-    expect(out.actingTogether[0].reasoning).toBe('L text');
+    expect(out.actingTogether[0].reasoning).toBe('The Forbion vehicles together hold a minority interest.'); // text unchanged
     expect(out.actingTogether[0].source).toBe('edited');
   });
   it('editing the text sets reasoning and marks edited, leaving likelihood', () => {
