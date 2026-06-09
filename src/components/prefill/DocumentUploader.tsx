@@ -11,6 +11,7 @@ import { Card } from "@/components/ui/card";
 import { Trash2, Upload, ClipboardPaste } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { PasteTextDialog } from "./PasteTextDialog";
+import { maybePrewarmPhaseA } from "@/lib/structure/phaseAPrewarm";
 
 interface Props {
   sessionId: string;
@@ -75,6 +76,10 @@ export function DocumentUploader({ sessionId, locked }: Props) {
           if (doc?.id) {
             classify.mutate({ documentId: doc.id });
           }
+          // Start Phase A extraction in the background as soon as a document
+          // lands. maybePrewarmPhaseA is fingerprint-guarded so it is a
+          // no-op if the same doc set was already extracted.
+          maybePrewarmPhaseA(sessionId).catch(() => {});
         })
         .catch((err) => store.setStatus(p.localId, "failed", { errorMessage: (err as Error).message }));
     }
