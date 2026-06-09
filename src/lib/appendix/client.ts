@@ -97,6 +97,20 @@ export async function saveFacts(appendixId: string, facts: AppendixFacts): Promi
   if (error) throw error;
 }
 
+/** Persist a per-page skip flag (Facts or Checklist) on the appendix row. */
+export async function setAppendixSkip(
+  appendixId: string,
+  page: 'facts' | 'checklist',
+  skipped: boolean,
+): Promise<void> {
+  const column = page === 'facts' ? 'facts_skipped' : 'checklist_skipped';
+  const { error } = await supabase
+    .from('atad2_appendix')
+    .update({ [column]: skipped, updated_at: new Date().toISOString() })
+    .eq('id', appendixId);
+  if (error) throw error;
+}
+
 export async function confirmAppendix(appendixId: string, userId: string): Promise<void> {
   const { error } = await supabase
     .from('atad2_appendix')
