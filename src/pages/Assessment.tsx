@@ -37,6 +37,7 @@ import { useQuestionPrefill, usePrefillJob, useSessionDocuments } from "@/hooks/
 import { seededIndex } from "@/utils/random";
 import { motion } from "framer-motion";
 import { startExtraction } from "@/lib/structure/extraction";
+import { startAppendixGeneration } from "@/lib/appendix/client";
 import { AssessmentFooterSlot } from "@/components/assessment/AssessmentFooterSlot";
 import { useAssessmentSessionId } from "@/lib/assessment/useAssessmentSessionId";
 import { useAppendixPrewarm } from "@/hooks/useAppendixPrewarm";
@@ -830,6 +831,13 @@ const Assessment = () => {
         if ((err as { status?: number })?.status === 409) return;
         console.warn('[Assessment] Phase B pre-fetch failed; Step 5 will retry', err);
       });
+
+      // Refresh the appendix/facts generation now that the Q&A answers exist.
+      // The prewarm hook fires once on Phase A chart draft (before answers) so
+      // this explicit call updates the article rows and facts with the answers.
+      // startAppendixGeneration merges fresh AI output with any prior advisor
+      // edits/confirmations, so re-running is non-destructive.
+      startAppendixGeneration(sessionId).catch(() => {});
 
       // Per-question suggestions are reviewed on the assessment report page,
       // where each answer can be edited inline. Skip the standalone review
