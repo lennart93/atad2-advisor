@@ -176,6 +176,8 @@ export interface StoredAppendix {
   generation_status: GenerationStatus;
   rows: AppendixRow[];
   facts: AppendixFacts | null;
+  facts_skipped: boolean;
+  checklist_skipped: boolean;
   model: string | null;
   prompt_version: number | null;
   error_message: string | null;

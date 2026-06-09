@@ -79,6 +79,9 @@ export type Database = {
           generation_status: string
           rows: Json
           facts: Json | null
+          facts_input_hash: string | null
+          facts_skipped: boolean
+          checklist_skipped: boolean
           model: string | null
           prompt_version: number | null
           error_message: string | null
@@ -95,6 +98,9 @@ export type Database = {
           generation_status?: string
           rows?: Json
           facts?: Json | null
+          facts_input_hash?: string | null
+          facts_skipped?: boolean
+          checklist_skipped?: boolean
           model?: string | null
           prompt_version?: number | null
           error_message?: string | null
@@ -111,6 +117,9 @@ export type Database = {
           generation_status?: string
           rows?: Json
           facts?: Json | null
+          facts_input_hash?: string | null
+          facts_skipped?: boolean
+          checklist_skipped?: boolean
           model?: string | null
           prompt_version?: number | null
           error_message?: string | null

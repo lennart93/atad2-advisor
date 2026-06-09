@@ -25,6 +25,8 @@ export async function loadAppendix(sessionId: string): Promise<StoredAppendix | 
     generation_status: data.generation_status as GenerationStatus,
     rows: (data.rows ?? []) as AppendixRow[],
     facts: coerceFacts((data as { facts?: unknown }).facts),
+    facts_skipped: (data as { facts_skipped?: boolean }).facts_skipped ?? false,
+    checklist_skipped: (data as { checklist_skipped?: boolean }).checklist_skipped ?? false,
     model: data.model,
     prompt_version: data.prompt_version,
     error_message: data.error_message,
