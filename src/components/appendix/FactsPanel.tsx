@@ -1,9 +1,18 @@
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Check, ChevronDown, ChevronRight, Eye, EyeOff, Users, Network, Layers, ArrowLeftRight, X } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, Eye, EyeOff, Users, Network, Layers, ArrowLeftRight, Handshake, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { AppendixFacts, FactEntity } from '@/lib/appendix/types';
 import { visibleFacts } from '@/lib/appendix/facts/visibleFacts';
+import { effJurisdiction, effEntityType, effNlTaxStatus, withEntityEdit } from '@/lib/appendix/facts/entityFields';
+import { nlQualification, nlQualificationLabel, nlTaxStatusLabel, NL_TAX_STATUSES } from '@/lib/appendix/facts/nlTaxStatus';
+import { withClusterLikelihood, withClusterText, withClusterExclude } from '@/lib/appendix/facts/actingCluster';
+import { ACTING_LIKELIHOODS, type ActingLikelihood } from '@/lib/appendix/facts/actingLikelihood';
+import { CountryFlag } from '@/components/CountryFlag';
+import { JurisdictionPicker } from '@/components/structure/JurisdictionPicker';
+import { ENTITY_TYPES } from '@/lib/structure/types';
+import { countryName } from '@/lib/structure/countries';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface Props {
   facts: AppendixFacts;
@@ -14,19 +23,6 @@ interface Props {
 // ---------------------------------------------------------------------------
 // Immutable patch helpers
 // ---------------------------------------------------------------------------
-
-function withClassification(
-  facts: AppendixFacts,
-  entityId: string,
-  patch: Partial<AppendixFacts['classifications'][number]>,
-): AppendixFacts {
-  return {
-    ...facts,
-    classifications: facts.classifications.map((c) =>
-      c.entityId === entityId ? { ...c, ...patch } : c,
-    ),
-  };
-}
 
 function withTransaction(
   facts: AppendixFacts,
@@ -41,30 +37,37 @@ function withTransaction(
   };
 }
 
-function withActing(
-  facts: AppendixFacts,
-  id: string,
-  patch: Partial<AppendixFacts['actingTogether'][number]>,
-): AppendixFacts {
-  return {
-    ...facts,
-    actingTogether: facts.actingTogether.map((a) =>
-      a.id === id ? { ...a, ...patch } : a,
-    ),
-  };
-}
-
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 function pct(n: number | null): string {
-  return n == null ? '—' : `${Number.isInteger(n) ? n : n.toFixed(2)}%`;
+  return n == null ? '-' : `${Number.isInteger(n) ? n : n.toFixed(2)}%`;
 }
 
 function nameOf(facts: AppendixFacts, id: string): string {
   return facts.entities.find((e) => e.id === id)?.name ?? id;
 }
+
+function likelihoodTint(level: ActingLikelihood): string {
+  // Directional + subtle: "likely" end = amber (a group is more likely, a
+  // relatedness risk); "unlikely" end = neutral slate; unclear = grey.
+  switch (level) {
+    case 'highly_likely':
+    case 'likely':
+      return 'bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200';
+    case 'unclear':
+      return 'bg-muted text-muted-foreground';
+    default:
+      return 'bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-300';
+  }
+}
+
+function entityTypeLabel(key: string | null): string {
+  return ENTITY_TYPES.find((t) => t.key === key)?.label ?? (key && key.trim() ? key : '-');
+}
+
+const COMPACT_CONTROL = 'h-7 text-xs bg-white/70';
 
 // ---------------------------------------------------------------------------
 // Small reusable control buttons
@@ -98,17 +101,19 @@ function ExcludeBtn({ excluded, onClick }: { excluded: boolean; onClick: () => v
   );
 }
 
-function DismissBtn({ onClick }: { onClick: () => void }) {
+/** The derived NL qualification (transparent / non-transparent / to be determined). */
+function QualBadge({ status }: { status: string | null }) {
+  const q = nlQualification(status);
+  const cls =
+    q === 'transparent'
+      ? 'bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200'
+      : q === 'non-transparent'
+        ? 'bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-300'
+        : 'bg-muted text-muted-foreground';
   return (
-    <button
-      type="button"
-      aria-label="Dismiss"
-      title="Dismiss this acting-together cluster"
-      onClick={onClick}
-      className="inline-flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-    >
-      <X className="h-3 w-3" />
-    </button>
+    <span className={cn('rounded px-1.5 py-0.5 text-[10.5px] font-medium', cls)}>
+      {nlQualificationLabel(q)}
+    </span>
   );
 }
 
@@ -171,21 +176,23 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
         <table className="w-full text-xs">
           <thead className="text-muted-foreground">
             <tr className="text-left">
-              <th className="py-1 pr-2">#</th><th className="pr-2">Entity</th><th className="pr-2">Jur</th>
-              <th className="pr-2">Type</th><th className="pr-2">NL tax status</th><th>Role</th>
+              <th className="py-1 pr-2">#</th><th className="pr-2">Entity</th><th className="pr-2 min-w-[150px]">Jurisdiction</th>
+              <th className="pr-2 min-w-[130px]">Type</th><th className="pr-2 min-w-[160px]">NL tax status</th><th>Role</th>
               {editable && <th className="w-6" aria-label="Controls" />}
             </tr>
           </thead>
           <tbody>
             {shown.entities.map((e) => {
               const isMember = !!e.memberOfUnityId;
+              const muted = isMember ? 'text-muted-foreground/70' : 'text-muted-foreground';
+              const jur = effJurisdiction(e);
+              const type = effEntityType(e);
+              const status = effNlTaxStatus(e);
               return (
-                <tr key={e.id} className="border-t border-[hsl(var(--border-subtle))]">
+                <tr key={e.id} className="border-t border-[hsl(var(--border-subtle))] align-middle">
                   <td className="py-1 pr-2 font-mono text-sky-700 dark:text-sky-300">{e.id}</td>
                   <td className="pr-2 font-medium text-foreground">
-                    {isMember && (
-                      <span className="mr-1 text-muted-foreground">↳</span>
-                    )}
+                    {isMember && <span className="mr-1 text-muted-foreground">↳</span>}
                     <span className={cn(isMember && 'text-muted-foreground')}>{e.name}</span>
                     {e.isFiscalUnity && (
                       <span className="ml-1.5 rounded bg-sky-100 px-1 text-[10px] font-normal text-sky-700 dark:bg-sky-900/40 dark:text-sky-300">
@@ -193,10 +200,58 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
                       </span>
                     )}
                   </td>
-                  <td className={cn('pr-2', isMember ? 'text-muted-foreground/70' : 'text-muted-foreground')}>{e.jurisdiction ?? '—'}</td>
-                  <td className={cn('pr-2', isMember ? 'text-muted-foreground/70' : 'text-muted-foreground')}>{e.entityType ?? '—'}</td>
-                  <td className={cn('pr-2', isMember ? 'text-muted-foreground/70' : 'text-muted-foreground')}>{e.nlTaxStatus ?? '—'}</td>
-                  <td className={cn(isMember ? 'text-muted-foreground/70' : 'text-muted-foreground')}>{e.role}</td>
+
+                  {/* Jurisdiction */}
+                  <td className="pr-2 py-0.5">
+                    {editable ? (
+                      <JurisdictionPicker
+                        value={jur ?? ''}
+                        onChange={(iso) => onChange!(withEntityEdit(facts, e.id, 'jurisdiction', iso || null))}
+                        className={COMPACT_CONTROL}
+                        placeholder="Set…"
+                      />
+                    ) : (
+                      <span className={cn('flex items-center gap-1.5', muted)}>
+                        {jur ? <><CountryFlag iso={jur} /> {countryName(jur) || jur}</> : '-'}
+                      </span>
+                    )}
+                  </td>
+
+                  {/* Type */}
+                  <td className="pr-2 py-0.5">
+                    {editable && !e.isFiscalUnity ? (
+                      <Select
+                        value={type ?? undefined}
+                        onValueChange={(v) => onChange!(withEntityEdit(facts, e.id, 'entityType', v))}
+                      >
+                        <SelectTrigger className={COMPACT_CONTROL}><SelectValue placeholder="Set…" /></SelectTrigger>
+                        <SelectContent>
+                          {ENTITY_TYPES.map((t) => <SelectItem key={t.key} value={t.key}>{t.label}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <span className={muted}>{e.isFiscalUnity ? 'Fiscal unity' : entityTypeLabel(type)}</span>
+                    )}
+                  </td>
+
+                  {/* NL tax status */}
+                  <td className="pr-2 py-0.5">
+                    {editable ? (
+                      <Select
+                        value={status ?? undefined}
+                        onValueChange={(v) => onChange!(withEntityEdit(facts, e.id, 'nlTaxStatus', v))}
+                      >
+                        <SelectTrigger className={COMPACT_CONTROL}><SelectValue placeholder="Set…" /></SelectTrigger>
+                        <SelectContent>
+                          {NL_TAX_STATUSES.map((s) => <SelectItem key={s.key} value={s.key}>{s.label}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <span className={muted}>{nlTaxStatusLabel(status)}</span>
+                    )}
+                  </td>
+
+                  <td className={muted}>{e.role}</td>
                   {editable && (
                     <td className="pl-1">
                       {e.role !== 'Taxpayer' && !isMember && (
@@ -233,125 +288,130 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
       </Exhibit>
 
       {/* ------------------------------------------------------------------ */}
-      {/* REL — Relatedness & acting-together                                  */}
+      {/* REL — Relatedness                                                    */}
       {/* ------------------------------------------------------------------ */}
-      <Exhibit tag="REL" icon={<Network className="h-4 w-4 text-muted-foreground" />} title="Relatedness & acting-together">
-        <div className="space-y-1 text-xs">
-          {related.map((e: FactEntity) => (
-            <div key={e.id} className="flex items-center gap-2">
-              <span className={cn('h-1.5 w-1.5 rounded-full', e.related ? 'bg-sky-500' : 'bg-muted-foreground/30')} />
-              <span className="font-mono text-sky-700 dark:text-sky-300">{e.id}</span>
-              <span className={cn(e.related ? 'font-medium text-foreground' : 'text-muted-foreground')}>{e.name}</span>
-              <span className="flex-1" />
-              <span className="tabular-nums text-muted-foreground">{pct(e.ownershipPct)}</span>
-            </div>
-          ))}
-        </div>
-        {shown.actingTogether.length > 0 && (
-          <div className="mt-2 space-y-1.5">
-            {shown.actingTogether.filter((a) => a.status !== 'dismissed').map((a) => {
-              const confirmed = a.status === 'confirmed';
-              return (
-                <div
-                  key={a.id}
-                  className={cn(
-                    'rounded border-l-2 border-l-amber-500 bg-amber-50/60 px-2 py-1.5 text-[11px] text-amber-900 dark:bg-amber-950/30 dark:text-amber-200',
-                    a.excludedFromClient && 'opacity-60',
-                  )}
-                >
-                  <div className="flex items-start gap-1.5">
-                    <div className="flex-1">
-                      <span className="font-medium">
-                        Acting-together {confirmed ? '(confirmed)' : '(proposed)'}:
-                      </span>{' '}
-                      {a.memberEntityIds.map((id) => nameOf(facts, id)).join(' + ')} ≈ {pct(a.combinedPct)}. {a.rationale}
-                    </div>
-                    {editable && (
-                      <div className="flex shrink-0 items-center gap-0.5 pl-1">
-                        {!confirmed && (
-                          <>
-                            <ConfirmBtn onClick={() => onChange!(withActing(facts, a.id, { status: 'confirmed', source: 'edited' }))} />
-                            <DismissBtn onClick={() => onChange!(withActing(facts, a.id, { status: 'dismissed', source: 'edited' }))} />
-                          </>
-                        )}
-                        {confirmed && (
-                          <ExcludeBtn
-                            excluded={a.excludedFromClient}
-                            onClick={() => onChange!(withActing(facts, a.id, { excludedFromClient: !a.excludedFromClient }))}
-                          />
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+      <Exhibit tag="REL" icon={<Network className="h-4 w-4 text-muted-foreground" />} title="Relatedness (>25%)">
+        {related.length === 0 ? (
+          <p className="text-xs text-muted-foreground">No related parties outside the taxpayer.</p>
+        ) : (
+          <div className="space-y-1 text-xs">
+            {related.map((e: FactEntity) => (
+              <div key={e.id} className="flex items-center gap-2">
+                <span className={cn('h-1.5 w-1.5 rounded-full', e.related ? 'bg-sky-500' : 'bg-muted-foreground/30')} />
+                <span className="font-mono text-sky-700 dark:text-sky-300">{e.id}</span>
+                <span className={cn(e.related ? 'font-medium text-foreground' : 'text-muted-foreground')}>{e.name}</span>
+                <span className="flex-1" />
+                <span className="tabular-nums text-muted-foreground">{pct(e.ownershipPct)}</span>
+              </div>
+            ))}
           </div>
         )}
       </Exhibit>
 
       {/* ------------------------------------------------------------------ */}
-      {/* CLS — Classification matrix                                          */}
+      {/* AT — Acting together                                                 */}
       {/* ------------------------------------------------------------------ */}
-      <Exhibit tag="CLS" icon={<Layers className="h-4 w-4 text-muted-foreground" />} title="Classification matrix (home vs source)" defaultOpen={false}>
-        {shown.classifications.length === 0
-          ? <p className="text-xs text-muted-foreground">{generated ? 'None identified.' : 'Not generated yet.'}</p>
-          : (
-          <table className="w-full text-xs">
-            <thead className="text-muted-foreground">
-              <tr className="text-left">
-                <th className="py-1 pr-2">Entity</th>
-                <th className="pr-2">Home</th>
-                <th className="pr-2">Source</th>
-                <th>Hybrid?</th>
-                {editable && <th className="w-10" aria-label="Controls" />}
-              </tr>
-            </thead>
-            <tbody>
-              {shown.classifications.map((c) => {
-                const confirmed = c.status === 'confirmed';
-                return (
-                  <tr
-                    key={c.entityId}
-                    className={cn('border-t border-[hsl(var(--border-subtle))]', c.excludedFromClient && 'opacity-60')}
-                  >
-                    <td className="py-1 pr-2">
-                      <span className="font-mono text-sky-700 dark:text-sky-300">{c.entityId}</span>{' '}
-                      {nameOf(facts, c.entityId)}
-                    </td>
-                    <td className="pr-2 text-muted-foreground">{c.homeState}: {c.homeClass}</td>
-                    <td className="pr-2 text-muted-foreground">{c.sourceState ? `${c.sourceState}: ${c.sourceClass}` : '—'}</td>
-                    <td>
-                      {c.hybrid
-                        ? <span className="rounded bg-rose-100 px-1 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200">mismatch</span>
-                        : <span className="text-muted-foreground">aligned</span>}
-                      {confirmed && (
-                        <span className="ml-1 text-muted-foreground/60" title="Confirmed">
-                          <Check className="inline h-2.5 w-2.5" />
-                        </span>
-                      )}
-                    </td>
-                    {editable && (
-                      <td className="pl-1">
-                        <div className="flex items-center gap-0.5">
-                          {!confirmed && (
-                            <ConfirmBtn
-                              onClick={() => onChange!(withClassification(facts, c.entityId, { status: 'confirmed', source: 'edited' }))}
-                            />
-                          )}
-                          <ExcludeBtn
-                            excluded={c.excludedFromClient}
-                            onClick={() => onChange!(withClassification(facts, c.entityId, { excludedFromClient: !c.excludedFromClient }))}
-                          />
-                        </div>
-                      </td>
-                    )}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+      <Exhibit tag="AT" icon={<Handshake className="h-4 w-4 text-muted-foreground" />} title="Acting together">
+        {shown.actingTogether.length === 0 ? (
+          <p className="text-xs text-muted-foreground">
+            {generated ? 'No entities that could form an acting-together group.' : 'Not assessed yet.'}
+          </p>
+        ) : (
+          <div className="space-y-2.5">
+            {shown.actingTogether.map((a) => (
+              <div
+                key={a.id}
+                className={cn(
+                  'rounded-md border border-[hsl(var(--border-subtle))] p-2.5',
+                  a.excludedFromClient && 'opacity-60',
+                )}
+              >
+                <div className="flex items-start gap-2">
+                  <div className="flex-1 text-xs">
+                    <span className="font-medium text-foreground">
+                      {a.memberEntityIds.map((id) => nameOf(facts, id)).join(' + ')}
+                    </span>
+                    <span className="text-muted-foreground"> ≈ {pct(a.combinedPct)}</span>
+                  </div>
+                  {editable && (
+                    <ExcludeBtn
+                      excluded={a.excludedFromClient}
+                      onClick={() => onChange!(withClusterExclude(facts, a.id, !a.excludedFromClient))}
+                    />
+                  )}
+                </div>
+
+                <div className="mt-1.5 flex flex-wrap gap-1">
+                  {ACTING_LIKELIHOODS.map((l) => {
+                    const active = a.likelihood === l.key;
+                    return (
+                      <button
+                        key={l.key}
+                        type="button"
+                        disabled={!editable}
+                        onClick={() => onChange!(withClusterLikelihood(facts, a.id, l.key))}
+                        className={cn(
+                          'rounded px-1.5 py-0.5 text-[10.5px] font-medium transition-colors',
+                          active ? likelihoodTint(l.key) : 'bg-transparent text-muted-foreground hover:bg-muted',
+                          !editable && 'cursor-default',
+                        )}
+                        aria-pressed={active}
+                      >
+                        {l.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {editable ? (
+                  <textarea
+                    value={a.reasoning}
+                    onChange={(e) => onChange!(withClusterText(facts, a.id, e.target.value))}
+                    rows={2}
+                    className="mt-1.5 w-full resize-y rounded border border-[hsl(var(--border-subtle))] bg-white/70 px-2 py-1 text-[11px] leading-relaxed text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-stone-400"
+                  />
+                ) : (
+                  <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">{a.reasoning}</p>
+                )}
+              </div>
+            ))}
+          </div>
         )}
+      </Exhibit>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* CLS — Classification (NL perspective), derived from NL tax status     */}
+      {/* ------------------------------------------------------------------ */}
+      <Exhibit tag="CLS" icon={<Layers className="h-4 w-4 text-muted-foreground" />} title="Classification (NL perspective)" defaultOpen={false}>
+        <table className="w-full text-xs">
+          <thead className="text-muted-foreground">
+            <tr className="text-left">
+              <th className="py-1 pr-2">Entity</th>
+              <th className="pr-2">NL tax status</th>
+              <th>NL qualification</th>
+            </tr>
+          </thead>
+          <tbody>
+            {shown.entities.map((e) => {
+              const isMember = !!e.memberOfUnityId;
+              const status = effNlTaxStatus(e);
+              return (
+                <tr key={e.id} className="border-t border-[hsl(var(--border-subtle))]">
+                  <td className="py-1 pr-2">
+                    {isMember && <span className="mr-1 text-muted-foreground">↳</span>}
+                    <span className="font-mono text-sky-700 dark:text-sky-300">{e.id}</span>{' '}
+                    <span className={cn(isMember && 'text-muted-foreground')}>{e.name}</span>
+                  </td>
+                  <td className="pr-2 text-muted-foreground">{nlTaxStatusLabel(status)}</td>
+                  <td><QualBadge status={status} /></td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        <p className="mt-2 text-[10.5px] leading-snug text-muted-foreground">
+          Derived from each entity's NL tax status. Hybrid mismatches (home vs source) are analysed in the article rows below.
+        </p>
       </Exhibit>
 
       {/* ------------------------------------------------------------------ */}
@@ -385,7 +445,7 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
                       {nameOf(facts, t.fromEntityId)} → {nameOf(facts, t.toEntityId)}
                     </td>
                     <td className="pr-2 text-muted-foreground">{t.kind}</td>
-                    <td className="pr-2 text-muted-foreground">{t.instrument ?? '—'}</td>
+                    <td className="pr-2 text-muted-foreground">{t.instrument ?? '-'}</td>
                     <td className="text-muted-foreground">
                       {t.articlesTested.join(' · ')}
                       {confirmed && (
