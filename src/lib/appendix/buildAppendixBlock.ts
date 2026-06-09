@@ -1,6 +1,9 @@
 import { APPENDIX_SKELETON } from './skeleton';
 import type { AppendixFacts, AppendixRow, SkeletonRow } from './types';
 import { factsForClient } from './factsExport';
+import { effJurisdiction, effNlTaxStatus } from './facts/entityFields';
+import { nlQualification, nlQualificationLabel } from './facts/nlTaxStatus';
+import { actingLikelihoodLabel } from './facts/actingLikelihood';
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
@@ -8,7 +11,12 @@ function buildFactsSummary(facts: AppendixFacts): string {
   const f = factsForClient(facts);
   const nameOf = (id: string) => f.entities.find((e) => e.id === id)?.name ?? id;
   const ents = f.entities
-    .map((e) => `- ${esc(e.name)} (${e.jurisdiction ?? '?'}, ${e.role}${e.ownershipPct != null ? `, ${e.ownershipPct}%` : ''}${e.related ? ', related' : ''}${e.nlTaxStatus ? `, ${esc(e.nlTaxStatus)}` : ''})`)
+    .map((e) => {
+      const jur = effJurisdiction(e);
+      const status = effNlTaxStatus(e);
+      const nlQual = nlQualificationLabel(nlQualification(status));
+      return `- ${esc(nameOf(e.id))} (${jur ?? '?'}, ${e.role}${e.ownershipPct != null ? `, ${e.ownershipPct}%` : ''}${e.related ? ', related' : ''}, NL: ${esc(nlQual)})`;
+    })
     .join('\n');
   const cls = [...f.classifications]
     .sort((a, b) => Number(b.hybrid) - Number(a.hybrid)) // hybrids first
@@ -18,11 +26,11 @@ function buildFactsSummary(facts: AppendixFacts): string {
     .map((t) => `- ${esc(nameOf(t.fromEntityId))} -> ${esc(nameOf(t.toEntityId))}: ${esc(t.kind)}${t.instrument ? ` (${esc(t.instrument)})` : ''}${t.articlesTested.length ? ` [${t.articlesTested.map(esc).join(', ')}]` : ''}`)
     .join('\n');
   const at = f.actingTogether
-    .map((a) => `- ${a.memberEntityIds.map((id) => esc(nameOf(id))).join(' + ')} ~ ${a.combinedPct ?? '?'}%: ${esc(a.rationale)}`)
+    .map((a) => `- ${a.memberEntityIds.map((id) => esc(nameOf(id))).join(' + ')} ~ ${a.combinedPct ?? '?'}%: ${esc(actingLikelihoodLabel(a.likelihood))} - ${esc(a.reasoning)}`)
     .join('\n');
   const parts = [
-    ents ? `Entities:\n${ents}` : '',
-    cls ? `Classification (home vs source):\n${cls}` : '',
+    ents ? `Entities (with NL classification):\n${ents}` : '',
+    cls ? `Cross-border classification (home vs source):\n${cls}` : '',
     tx ? `Intra-group transactions:\n${tx}` : '',
     at ? `Acting-together groups:\n${at}` : '',
   ].filter(Boolean).join('\n');

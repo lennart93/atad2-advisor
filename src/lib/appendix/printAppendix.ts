@@ -3,6 +3,14 @@ import { buildClientSections } from './clientExport';
 import { statusPrintColor } from './status';
 import type { AppendixFacts, AppendixRow, RowKind, SkeletonRow, Status } from './types';
 import { factsForClient } from './factsExport';
+import { effJurisdiction, effEntityType, effNlTaxStatus } from './facts/entityFields';
+import { nlQualification, nlQualificationLabel, nlTaxStatusLabel } from './facts/nlTaxStatus';
+import { actingLikelihoodLabel } from './facts/actingLikelihood';
+import { ENTITY_TYPES } from '@/lib/structure/types';
+import { countryName } from '@/lib/structure/countries';
+
+const typeLabel = (k: string | null) => ENTITY_TYPES.find((t) => t.key === k)?.label ?? (k ?? '');
+const jurLabel = (iso: string | null) => (iso ? `${countryName(iso)} (${iso})` : '');
 
 const esc = (s: string | null) => (s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
@@ -109,12 +117,12 @@ export function buildAppendixPrintHtml(
       return (
         `<tr><td>${esc(e.name)}</td>` +
         flagCols +
-        `<td>${esc(e.jurisdiction)}</td>` +
-        `<td>${esc(e.entityType)}</td>` +
+        `<td>${esc(jurLabel(effJurisdiction(e)))}</td>` +
+        `<td>${esc(e.isFiscalUnity ? 'Fiscal unity' : typeLabel(effEntityType(e)))}</td>` +
         `<td>${esc(e.role)}</td>` +
         `<td>${e.ownershipPct != null ? `${e.ownershipPct}%` : ''}</td>` +
         `<td>${e.related ? 'Yes' : 'No'}</td>` +
-        `<td>${esc(e.nlTaxStatus)}</td></tr>`
+        `<td>${esc(nlTaxStatusLabel(effNlTaxStatus(e)))}</td></tr>`
       );
     }).join('');
     const entityIdHeader = internal ? `<th class="c-num">Ref</th>` : '';
@@ -123,26 +131,18 @@ export function buildAppendixPrintHtml(
         `<table><tr>${entityIdHeader}<th>Entity</th><th>Jurisdiction</th><th>Type</th><th>Role</th><th>Ownership</th><th>Related (&gt;25%)</th><th>NL tax status</th></tr>${entityRows}</table>`
       : '';
 
-    // Classification matrix
-    const classRows = f.classifications.map((c) => {
-      const e = entityById.get(c.entityId);
-      const name = e ? e.name : c.entityId;
-      const hybridFlag = c.hybrid ? ` <span class="flag">hybrid mismatch</span>` : '';
-      const excludedFlag = (internal && c.excludedFromClient) ? ` <span class="flag">excluded</span>` : '';
-      const proposedFlag = (internal && c.status === 'proposed') ? ` <span class="flag">proposed</span>` : '';
+    // Classification (NL perspective) - derived from each entity's NL tax status.
+    const classRows = f.entities.map((e) => {
+      const status = effNlTaxStatus(e);
       return (
-        `<tr class="${(internal && c.excludedFromClient) ? 'excluded' : ''}">` +
-        `<td>${esc(name)}</td>` +
-        `<td>${esc(c.homeState)}</td>` +
-        `<td>${esc(c.homeClass)}</td>` +
-        `<td>${esc(c.sourceState)}</td>` +
-        `<td>${esc(c.sourceClass)}${hybridFlag}</td>` +
-        `<td>${c.hybrid ? 'Yes' : 'No'}${excludedFlag}${proposedFlag}</td></tr>`
+        `<tr><td>${esc(e.name)}</td>` +
+        `<td>${esc(nlTaxStatusLabel(status))}</td>` +
+        `<td>${esc(nlQualificationLabel(nlQualification(status)))}</td></tr>`
       );
     }).join('');
     const classTable = classRows
-      ? `<h2>Part A.2 · Classification matrix</h2>` +
-        `<table><tr><th>Entity</th><th>Home state</th><th>Home class</th><th>Source state</th><th>Source class</th><th>Hybrid</th></tr>${classRows}</table>`
+      ? `<h2>Part A.2 · Classification (NL perspective)</h2>` +
+        `<table><tr><th>Entity</th><th>NL tax status</th><th>NL qualification</th></tr>${classRows}</table>`
       : '';
 
     // Transaction map
@@ -167,13 +167,12 @@ export function buildAppendixPrintHtml(
         `<table><tr>${txIdHeader}<th>Flow</th><th>Type</th><th>Instrument</th><th>Article(s)</th></tr>${txRows}</table>`
       : '';
 
-    // Acting together
+    // Acting together: per-cluster likelihood + reasoning.
     const atItems = f.actingTogether.map((a) => {
       const members = a.memberEntityIds.map((mid) => entityName(mid)).join(', ');
-      const pct = a.combinedPct != null ? ` ≈ ${a.combinedPct}%` : '';
+      const pct = a.combinedPct != null ? ` (≈ ${a.combinedPct}%)` : '';
       const excludedFlag = (internal && a.excludedFromClient) ? ` <span class="flag">excluded</span>` : '';
-      const proposedFlag = (internal && a.status === 'proposed') ? ` <span class="flag">proposed</span>` : '';
-      return `<li>${esc(members)}${pct}${excludedFlag}${proposedFlag} — ${esc(a.rationale)}</li>`;
+      return `<li>${esc(members)}${pct} - <strong>${esc(actingLikelihoodLabel(a.likelihood))}</strong>${excludedFlag}: ${esc(a.reasoning)}</li>`;
     }).join('');
     const atBlock = atItems
       ? `<h2>Part A.4 · Acting together</h2><ul>${atItems}</ul>`
