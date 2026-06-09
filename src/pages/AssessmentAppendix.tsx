@@ -40,7 +40,7 @@ export default function AssessmentAppendix() {
   const [showSources, setShowSources] = useState(true);
   const [confirming, setConfirming] = useState(false);
   const [relatedParties, setRelatedParties] = useState<RelatedPartiesResult | null>(null);
-  const [chart, setChart] = useState<{ entities: Parameters<typeof buildEntityRegister>[0]; edges: Parameters<typeof buildEntityRegister>[1] } | null>(null);
+  const [chart, setChart] = useState<{ entities: Parameters<typeof buildEntityRegister>[0]; edges: Parameters<typeof buildEntityRegister>[1]; groupings: Parameters<typeof buildEntityRegister>[2] } | null>(null);
 
   // While generating, spin the top-left app logo instead of a local spinner.
   useUiBusySignal(phase === 'loading' || phase === 'generating');
@@ -53,7 +53,7 @@ export default function AssessmentAppendix() {
       .then((c) => {
         if (!cancelled && c) {
           setRelatedParties(buildRelatedParties(c.entities, c.edges));
-          setChart({ entities: c.entities, edges: c.edges });
+          setChart({ entities: c.entities, edges: c.edges, groupings: c.groupings });
         }
       })
       .catch(() => { /* the overview is optional */ });
@@ -204,7 +204,7 @@ export default function AssessmentAppendix() {
   const factsToShow = useMemo(() => {
     const stored = appendix?.facts;
     if (stored && stored.entities.length) return stored;
-    if (chart) return { ...emptyFacts(), entities: buildEntityRegister(chart.entities, chart.edges) };
+    if (chart) return { ...emptyFacts(), entities: buildEntityRegister(chart.entities, chart.edges, chart.groupings) };
     return emptyFacts();
   }, [appendix?.facts, chart]);
 
