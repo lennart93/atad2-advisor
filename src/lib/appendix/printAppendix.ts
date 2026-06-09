@@ -1,8 +1,9 @@
 import { APPENDIX_SKELETON } from './skeleton';
 import { buildClientSections } from './clientExport';
 import { statusPrintColor } from './status';
-import type { AppendixFacts, AppendixRow, RowKind, SkeletonRow, Status } from './types';
+import type { AppendixFacts, AppendixRow, AppendixSectionKey, RowKind, SkeletonRow, Status } from './types';
 import { factsForClient } from './factsExport';
+import { isSectionExcluded } from './facts/sections';
 import { effJurisdiction, effEntityType, effNlTaxStatus } from './facts/entityFields';
 import { nlQualification, nlQualificationLabel, nlTaxStatusLabel } from './facts/nlTaxStatus';
 import { actingLikelihoodLabel } from './facts/actingLikelihood';
@@ -102,6 +103,10 @@ export function buildAppendixPrintHtml(
   const partA = (() => {
     if (!facts || facts.entities.length === 0) return '';
     const f = internal ? facts : factsForClient(facts);
+    // In the client dossier, whole sections the advisor marked "exclude from client"
+    // are dropped. The internal working copy always shows every section.
+    const drop = (key: AppendixSectionKey) => !internal && isSectionExcluded(f, key);
+    const showRelated = !drop('relatedness');
 
     // Entity register
     const entityById = new Map(f.entities.map((e) => [e.id, e]));
@@ -120,6 +125,7 @@ export function buildAppendixPrintHtml(
         : (e.relatedVia && e.relatedViaPct != null)
           ? `via ${esc(entityName(e.relatedVia))} (${e.relatedViaPct}%)`
           : '';
+      const relCell = showRelated ? `<td>${e.related ? 'Yes' : 'No'}</td>` : '';
       return (
         `<tr><td>${esc(e.name)}</td>` +
         flagCols +
@@ -127,14 +133,15 @@ export function buildAppendixPrintHtml(
         `<td>${esc(e.isFiscalUnity ? 'Fiscal unity' : typeLabel(effEntityType(e)))}</td>` +
         `<td>${esc(roleText)}</td>` +
         `<td>${ownText}</td>` +
-        `<td>${e.related ? 'Yes' : 'No'}</td>` +
+        relCell +
         `<td>${esc(nlTaxStatusLabel(effNlTaxStatus(e)))}</td></tr>`
       );
     }).join('');
     const entityIdHeader = internal ? `<th class="c-num">Ref</th>` : '';
-    const entityTable = entityRows
+    const relHeader = showRelated ? `<th>Related (&gt;25%)</th>` : '';
+    const entityTable = (!drop('entityRegister') && entityRows)
       ? `<h2>Part A.1 · Entity register</h2>` +
-        `<table><tr>${entityIdHeader}<th>Entity</th><th>Jurisdiction</th><th>Type</th><th>Role</th><th>Ownership</th><th>Related (&gt;25%)</th><th>NL tax status</th></tr>${entityRows}</table>`
+        `<table><tr>${entityIdHeader}<th>Entity</th><th>Jurisdiction</th><th>Type</th><th>Role</th><th>Ownership</th>${relHeader}<th>NL tax status</th></tr>${entityRows}</table>`
       : '';
 
     // Classification (NL perspective) - derived from each entity's NL tax status.
@@ -146,7 +153,7 @@ export function buildAppendixPrintHtml(
         `<td>${esc(nlQualificationLabel(nlQualification(status)))}</td></tr>`
       );
     }).join('');
-    const classTable = classRows
+    const classTable = (!drop('classification') && classRows)
       ? `<h2>Part A.2 · Classification (NL perspective)</h2>` +
         `<table><tr><th>Entity</th><th>NL tax status</th><th>NL qualification</th></tr>${classRows}</table>`
       : '';
@@ -168,7 +175,7 @@ export function buildAppendixPrintHtml(
       );
     }).join('');
     const txIdHeader = internal ? `<th class="c-num">Ref</th>` : '';
-    const txTable = txRows
+    const txTable = (!drop('transactions') && txRows)
       ? `<h2>Part A.3 · Transaction map</h2>` +
         `<table><tr>${txIdHeader}<th>Flow</th><th>Type</th><th>Instrument</th><th>Article(s)</th></tr>${txRows}</table>`
       : '';
@@ -180,7 +187,7 @@ export function buildAppendixPrintHtml(
       const excludedFlag = (internal && a.excludedFromClient) ? ` <span class="flag">excluded</span>` : '';
       return `<li>${esc(members)}${pct} - <strong>${esc(actingLikelihoodLabel(a.likelihood))}</strong>${excludedFlag}: ${esc(a.reasoning)}</li>`;
     }).join('');
-    const atBlock = atItems
+    const atBlock = (!drop('actingTogether') && atItems)
       ? `<h2>Part A.4 · Acting together</h2><ul>${atItems}</ul>`
       : '';
 

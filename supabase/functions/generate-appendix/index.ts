@@ -123,13 +123,38 @@ async function runGeneration(c: SupabaseClient, appendixId: string, sessionId: s
     // Part A — deterministic entity register, then ask the model to propose the
     // classification matrix, transactions and acting-together clusters. Built
     // before the article swarm so the articles can later be grounded on it.
+    // Part A is derived from the documents + structure chart + grounded knowledge
+    // base, NOT the questionnaire answers. So on a refine pass (second run, after
+    // the answers) we reuse the stored facts when the structure + documents
+    // fingerprint is unchanged, skipping the sequential Claude call entirely.
     const rawChart = await loadChartRaw(c, sessionId);
     const factEntities = buildEntityRegister(rawChart.entities, rawChart.edges, rawChart.groups);
-    const factsFresh = await buildFacts(c, sessionId, factEntities, session ?? null, answersBlock, structureBlock);
-    const { data: priorFacts } = await c.from("atad2_appendix").select("facts").eq("id", appendixId).maybeSingle();
-    const factsToStore = factEntities.length
-      ? mergeFacts((priorFacts?.facts as AppendixFacts | null) ?? null, factsFresh)
-      : null;
+    const { data: priorRow } = await c
+      .from("atad2_appendix").select("facts, facts_input_hash").eq("id", appendixId).maybeSingle();
+    const priorFacts = (priorRow?.facts as AppendixFacts | null) ?? null;
+    const factsHash = await computeFactsInputHash(c, sessionId, rawChart, session ?? null);
+    const canReuseFacts = factEntities.length > 0
+      && priorFacts !== null
+      && Array.isArray(priorFacts.entities)
+      && priorFacts.entities.length > 0
+      && priorRow?.facts_input_hash === factsHash;
+    let factsToStore: AppendixFacts | null;
+    let factsHashToStore: string | null;
+    if (!factEntities.length) {
+      factsToStore = null;
+      factsHashToStore = null;
+    } else if (canReuseFacts) {
+      factsToStore = priorFacts;
+      factsHashToStore = factsHash;
+      console.log(JSON.stringify({ level: "info", event: "appendix_facts_reused", appendixId }));
+    } else {
+      const built = await buildFacts(c, sessionId, factEntities, session ?? null, structureBlock);
+      factsToStore = mergeFacts(priorFacts, built.facts);
+      // Only fingerprint a COMPLETE Part A. A degraded fallback (the Claude/KB
+      // call failed and left classifications/acting-together empty) must not be
+      // cached, otherwise the refine would reuse it and never retry the model.
+      factsHashToStore = built.complete ? factsHash : null;
+    }
     const factsBlock = buildFactsBlock(factsToStore);
 
     // Fill everything except the per-section skeleton, then swarm: one parallel
@@ -193,7 +218,8 @@ async function runGeneration(c: SupabaseClient, appendixId: string, sessionId: s
     });
 
     await c.from("atad2_appendix").update({
-      rows: merged, facts: factsToStore, generation_status: "ready",
+      rows: merged, facts: factsToStore, facts_input_hash: factsHashToStore,
+      generation_status: "ready",
       model: prompt.model, prompt_version: prompt.version,
       generated_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     }).eq("id", appendixId);
@@ -262,17 +288,57 @@ async function loadStructureBlock(c: SupabaseClient, sessionId: string): Promise
   return `Entities:\n${e}\nEdges:\n${o}`;
 }
 
+async function sha256Hex(s: string): Promise<string> {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function factsPromptVersion(c: SupabaseClient): Promise<number> {
+  const { data } = await c
+    .from("atad2_prompts").select("version").eq("key", "appendix_facts_system").eq("is_active", true).maybeSingle();
+  return (data?.version as number | undefined) ?? 0;
+}
+
+/**
+ * Fingerprint of everything Part A depends on (structure chart + documents +
+ * prompt version), NOT the questionnaire answers. The refine pass reuses the
+ * stored Part A facts whenever this hash is unchanged, so only Part B re-runs.
+ */
+async function computeFactsInputHash(
+  c: SupabaseClient,
+  sessionId: string,
+  raw: { entities: RawEntity[]; edges: Array<RawEdge & { kind: string | null }>; groups: RawGroup[] },
+  session: { taxpayer_name?: string | null; fiscal_year?: string | null } | null,
+): Promise<string> {
+  const ents = raw.entities.map((e) => `${e.id}|${e.name}|${e.entity_type}|${e.jurisdiction_iso}|${e.is_taxpayer}`).sort();
+  const edges = raw.edges.map((e) => `${e.from_entity_id}->${e.to_entity_id}|${e.ownership_pct}|${e.kind}`).sort();
+  const groups = raw.groups.map((g) => `${g.id}|${g.kind}|${g.label}|${[...(g.member_ids ?? [])].sort().join(",")}`).sort();
+  const { data: docs } = await c
+    .from("atad2_session_documents")
+    .select("id, doc_label, category, storage_path, relevance_note").eq("session_id", sessionId);
+  const docMeta = (docs ?? []).map((d) => `${d.id}|${d.doc_label}|${d.category}|${d.storage_path}|${d.relevance_note ?? ""}`).sort();
+  // Grounded-literature fingerprint: the curated KB shapes the NL classification
+  // and acting-together output, and it is mutable (ingest.mjs deletes + reinserts
+  // every kb=atad2 row). Folding its id set in busts the cache on any re-ingest.
+  const { data: kb } = await c.from("documents").select("id").eq("metadata->>kb", "atad2");
+  const kbIds = (kb ?? []).map((r) => String((r as { id: unknown }).id)).sort();
+  const pv = await factsPromptVersion(c);
+  return sha256Hex(JSON.stringify({
+    ents, edges, groups, docMeta, kbIds,
+    fy: session?.fiscal_year ?? "", name: session?.taxpayer_name ?? "", pv,
+  }));
+}
+
 /** Build Part A: deterministic entities are passed in; the model proposes the rest. */
 async function buildFacts(
   c: SupabaseClient,
   sessionId: string,
   entities: FactEntity[],
   session: { taxpayer_name?: string | null; fiscal_year?: string | null } | null,
-  answersBlock: string,
   structureBlock: string,
-): Promise<AppendixFacts> {
+): Promise<{ facts: AppendixFacts; complete: boolean }> {
   const base: AppendixFacts = { entities, actingTogether: [], classifications: [], transactions: [] };
-  if (!entities.length) return base;
+  if (!entities.length) return { facts: base, complete: false };
   try {
     const fp = await loadPrompt(c, "appendix_facts_system");
     const docsBlock = await loadDocumentsBlock(c, sessionId);
@@ -307,7 +373,6 @@ async function buildFacts(
       .replace("{{DOCUMENTS_BLOCK}}", docsBlock || "(no documents)")
       .replace("{{ENTITY_REGISTER}}", registerJson)
       .replace("{{KB_BLOCK}}", kbBlock || "(no knowledge base hits)")
-      .replace("{{ANSWERS_BLOCK}}", answersBlock || "(no answers recorded)")
       .replace("{{STRUCTURE_BLOCK}}", structureBlock || "(no structure chart available)");
     const proposed = FactsModelOutput.parse(JSON.parse(extractJson((await callClaude({ user })).text)));
     const nl = proposed.nlTaxStatusByEntityId ?? {};
@@ -316,7 +381,7 @@ async function buildFacts(
     // already drawn (that path collapses into a synthetic E1 instead).
     const hasExplicitFu = entities.some((e) => e.isFiscalUnity || e.memberOfUnityId);
     const fuMembers = new Set((proposed.fiscalUnityMemberEntityIds ?? []).filter((id) => id !== "E1"));
-    return {
+    const facts: AppendixFacts = {
       entities: entities.map((e) => {
         const next = { ...e, nlTaxStatus: nl[e.id] ?? e.nlTaxStatus };
         if (!hasExplicitFu && e.id !== "E1" && fuMembers.has(e.id)) {
@@ -369,9 +434,10 @@ async function buildFacts(
         };
       }),
     };
+    return { facts, complete: true };
   } catch (err) {
     console.warn(JSON.stringify({ level: "warn", event: "appendix_facts_failed", message: String(err).slice(0, 300) }));
-    return base;
+    return { facts: base, complete: false };
   }
 }
 
@@ -412,7 +478,8 @@ function mergeFacts(existing: AppendixFacts | null, fresh: AppendixFacts): Appen
     }
     return { ...f, excludedFromClient: prev?.excludedFromClient ?? false };
   });
-  return renumberFacts({ entities, classifications, transactions, actingTogether });
+  // Section-level exclusions are an advisor scope decision; carry them across regen.
+  return renumberFacts({ entities, classifications, transactions, actingTogether, excludedSections: existing.excludedSections });
 }
 
 /** Compact text summary of Part A, fed to the article generation as grounding. */
@@ -465,5 +532,6 @@ function renumberFacts(f: AppendixFacts): AppendixFacts {
     classifications: f.classifications,
     transactions: f.transactions.map((t, i) => ({ ...t, id: `T${i + 1}` })),
     actingTogether: f.actingTogether.map((a, i) => ({ ...a, id: `A${i + 1}` })),
+    ...(f.excludedSections ? { excludedSections: f.excludedSections } : {}),
   };
 }

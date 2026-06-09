@@ -1,12 +1,23 @@
 import { describe, it, expect } from 'vitest';
 import { buildAppendixPrintHtml } from '@/lib/appendix/printAppendix';
-import type { AppendixRow, AppendixFacts } from '@/lib/appendix/types';
+import type { AppendixRow, AppendixFacts, AppendixSectionKey } from '@/lib/appendix/types';
 
 const facts = (): AppendixFacts => ({
   entities: [{ id: 'E1', chartEntityId: 'c1', name: 'Acme BV', jurisdiction: 'NL', entityType: 'corporation', role: 'Taxpayer', ownershipPct: null, related: false, nlTaxStatus: 'resident' }],
   actingTogether: [],
   classifications: [],
   transactions: [],
+});
+
+const richFacts = (excludedSections?: AppendixSectionKey[]): AppendixFacts => ({
+  entities: [
+    { id: 'E1', chartEntityId: 'c1', name: 'Acme BV', jurisdiction: 'NL', entityType: 'corporation', role: 'Taxpayer', ownershipPct: null, related: false, nlTaxStatus: 'resident' },
+    { id: 'E2', chartEntityId: 'c2', name: 'Sub Inc', jurisdiction: 'US', entityType: 'corporation', role: 'Subsidiary', ownershipPct: 100, related: true, nlTaxStatus: 'outside_cit' },
+  ],
+  actingTogether: [{ id: 'A1', memberEntityIds: ['E1', 'E2'], combinedPct: 50, likelihood: 'likely', aiLikelihood: 'likely', rationales: { highly_unlikely: '', unlikely: '', unclear: '', likely: 'L', highly_likely: '' }, reasoning: 'coordination present', excludedFromClient: false, source: 'ai' }],
+  classifications: [{ entityId: 'E2', homeState: 'US', homeClass: 'opaque', sourceState: 'NL', sourceClass: 'transparent', hybrid: true, status: 'confirmed', excludedFromClient: false, source: 'ai' }],
+  transactions: [{ id: 'T1', fromEntityId: 'E1', toEntityId: 'E2', kind: 'loan', instrument: 'note', note: null, articlesTested: ['12aa(1)(a)'], status: 'confirmed', excludedFromClient: false, source: 'ai' }],
+  excludedSections,
 });
 
 const row = (
@@ -71,5 +82,33 @@ describe('buildAppendixPrintHtml', () => {
     expect(dossier).toContain('Non-transparent');  // derived from the 'resident' tax status
     expect(dossier).not.toContain('E1');            // internal code hidden in the dossier
     expect(internal).toContain('E1');               // Ref column in the internal entity register
+  });
+
+  it('dossier drops whole Part A sections the advisor excluded; internal keeps them', () => {
+    const kept = buildAppendixPrintHtml([row('3.2', 'Triggered', 'x')], 'dossier', undefined, richFacts());
+    expect(kept).toContain('Part A.1 · Entity register');
+    expect(kept).toContain('Part A.2 · Classification');
+    expect(kept).toContain('Part A.3 · Transaction map');
+    expect(kept).toContain('Part A.4 · Acting together');
+
+    const allExcluded: AppendixSectionKey[] = ['entityRegister', 'relatedness', 'actingTogether', 'classification', 'transactions'];
+    const excl = buildAppendixPrintHtml([row('3.2', 'Triggered', 'x')], 'dossier', undefined, richFacts(allExcluded));
+    expect(excl).not.toContain('Part A.1 · Entity register');
+    expect(excl).not.toContain('Part A.2 · Classification');
+    expect(excl).not.toContain('Part A.3 · Transaction map');
+    expect(excl).not.toContain('Part A.4 · Acting together');
+
+    // The internal working copy ignores the exclusions entirely.
+    const internal = buildAppendixPrintHtml([row('3.2', 'Triggered', 'x')], 'internal', undefined, richFacts(allExcluded));
+    expect(internal).toContain('Part A.1 · Entity register');
+    expect(internal).toContain('Part A.4 · Acting together');
+  });
+
+  it('relatedness exclusion drops only the Related column, not the whole register', () => {
+    const html = buildAppendixPrintHtml([row('3.2', 'Triggered', 'x')], 'dossier', undefined, richFacts(['relatedness']));
+    expect(html).toContain('Part A.1 · Entity register');
+    expect(html).not.toContain('Related (&gt;25%)');
+    const kept = buildAppendixPrintHtml([row('3.2', 'Triggered', 'x')], 'dossier', undefined, richFacts());
+    expect(kept).toContain('Related (&gt;25%)');
   });
 });

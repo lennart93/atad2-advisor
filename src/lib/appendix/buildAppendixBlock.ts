@@ -1,6 +1,7 @@
 import { APPENDIX_SKELETON } from './skeleton';
 import type { AppendixFacts, AppendixRow, SkeletonRow } from './types';
 import { factsForClient } from './factsExport';
+import { isSectionExcluded } from './facts/sections';
 import { effJurisdiction, effNlTaxStatus } from './facts/entityFields';
 import { nlQualification, nlQualificationLabel } from './facts/nlTaxStatus';
 import { actingLikelihoodLabel } from './facts/actingLikelihood';
@@ -9,23 +10,28 @@ const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 
 function buildFactsSummary(facts: AppendixFacts): string {
   const f = factsForClient(facts);
+  // Sections the advisor excluded from the client export are also dropped from the
+  // memo grounding (it feeds the client-facing memo). Read from `f` (which preserves
+  // excludedSections) so this stays in lockstep with the dossier.
+  const ex = (key: Parameters<typeof isSectionExcluded>[1]) => isSectionExcluded(f, key);
   const nameOf = (id: string) => f.entities.find((e) => e.id === id)?.name ?? id;
-  const ents = f.entities
+  const showRelated = !ex('relatedness');
+  const ents = ex('entityRegister') ? '' : f.entities
     .map((e) => {
       const jur = effJurisdiction(e);
       const status = effNlTaxStatus(e);
       const nlQual = nlQualificationLabel(nlQualification(status));
-      return `- ${esc(nameOf(e.id))} (${jur ?? '?'}, ${e.role}${e.ownershipPct != null ? `, ${e.ownershipPct}%` : ''}${e.related ? ', related' : ''}, NL: ${esc(nlQual)})`;
+      return `- ${esc(nameOf(e.id))} (${jur ?? '?'}, ${e.role}${e.ownershipPct != null ? `, ${e.ownershipPct}%` : ''}${showRelated && e.related ? ', related' : ''}, NL: ${esc(nlQual)})`;
     })
     .join('\n');
-  const cls = [...f.classifications]
+  const cls = ex('classification') ? '' : [...f.classifications]
     .sort((a, b) => Number(b.hybrid) - Number(a.hybrid)) // hybrids first
     .map((c) => `- ${esc(nameOf(c.entityId))}: home ${esc(c.homeState)} ${esc(c.homeClass)} vs source ${esc(c.sourceState ?? '?')} ${esc(c.sourceClass ?? '?')}${c.hybrid ? ' (hybrid mismatch)' : ''}`)
     .join('\n');
-  const tx = f.transactions
+  const tx = ex('transactions') ? '' : f.transactions
     .map((t) => `- ${esc(nameOf(t.fromEntityId))} -> ${esc(nameOf(t.toEntityId))}: ${esc(t.kind)}${t.instrument ? ` (${esc(t.instrument)})` : ''}${t.articlesTested.length ? ` [${t.articlesTested.map(esc).join(', ')}]` : ''}`)
     .join('\n');
-  const at = f.actingTogether
+  const at = ex('actingTogether') ? '' : f.actingTogether
     .map((a) => `- ${a.memberEntityIds.map((id) => esc(nameOf(id))).join(' + ')} ~ ${a.combinedPct ?? '?'}%: ${esc(actingLikelihoodLabel(a.likelihood))} - ${esc(a.reasoning)}`)
     .join('\n');
   const parts = [

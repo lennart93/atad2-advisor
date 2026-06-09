@@ -13,5 +13,6 @@ export function visibleFacts(facts: AppendixFacts): AppendixFacts {
     classifications: facts.classifications.filter((c) => !hidden.has(c.entityId)),
     transactions: facts.transactions.filter((t) => !hidden.has(t.fromEntityId) && !hidden.has(t.toEntityId)),
     actingTogether: facts.actingTogether.filter((a) => !a.memberEntityIds.some((id) => hidden.has(id))),
+    excludedSections: facts.excludedSections,
   };
 }

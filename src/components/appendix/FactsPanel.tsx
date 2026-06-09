@@ -2,8 +2,9 @@ import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Check, ChevronDown, ChevronRight, Eye, EyeOff, Users, Network, Layers, ArrowLeftRight, Handshake, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { AppendixFacts, FactEntity } from '@/lib/appendix/types';
+import type { AppendixFacts, FactEntity, AppendixSectionKey } from '@/lib/appendix/types';
 import { visibleFacts } from '@/lib/appendix/facts/visibleFacts';
+import { isSectionExcluded, withSectionExcluded } from '@/lib/appendix/facts/sections';
 import { effJurisdiction, effEntityType, effNlTaxStatus, withEntityEdit } from '@/lib/appendix/facts/entityFields';
 import { nlQualification, nlQualificationLabel, nlTaxStatusLabel, NL_TAX_STATUSES } from '@/lib/appendix/facts/nlTaxStatus';
 import { withClusterLikelihood, withClusterText, withClusterExclude } from '@/lib/appendix/facts/actingCluster';
@@ -121,22 +122,31 @@ function QualBadge({ status }: { status: string | null }) {
 // Exhibit collapsible wrapper
 // ---------------------------------------------------------------------------
 
-function Exhibit({ tag, icon, title, defaultOpen = true, children }: {
-  tag: string; icon: ReactNode; title: string; defaultOpen?: boolean; children: ReactNode;
+function Exhibit({ tag, icon, title, defaultOpen = true, excluded = false, onToggleExcluded, children }: {
+  tag: string; icon: ReactNode; title: string; defaultOpen?: boolean;
+  excluded?: boolean; onToggleExcluded?: () => void; children: ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="rounded-lg border border-[hsl(var(--border-subtle))] overflow-hidden">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center gap-2 bg-muted/40 px-3 py-2 text-left text-sm font-semibold text-foreground"
-      >
-        {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-        <span className="font-mono text-xs text-sky-700 dark:text-sky-300">{tag}</span>
-        {icon}
-        {title}
-      </button>
+    <div className={cn('rounded-lg border border-[hsl(var(--border-subtle))] overflow-hidden', excluded && 'opacity-60')}>
+      <div className="flex w-full items-center gap-2 bg-muted/40 px-3 py-2 text-sm font-semibold text-foreground">
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className="flex flex-1 items-center gap-2 text-left"
+        >
+          {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+          <span className="font-mono text-xs text-sky-700 dark:text-sky-300">{tag}</span>
+          {icon}
+          {title}
+          {excluded && (
+            <span className="ml-1 rounded bg-muted px-1.5 py-0.5 text-[10px] font-normal text-muted-foreground">
+              excluded from client
+            </span>
+          )}
+        </button>
+        {onToggleExcluded && <ExcludeBtn excluded={excluded} onClick={onToggleExcluded} />}
+      </div>
       {open && <div className="p-3">{children}</div>}
     </div>
   );
@@ -163,6 +173,15 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
     [shown.entities],
   );
 
+  // Whole-section "leave out of the client export" toggle, mirroring the per-item
+  // exclude. Editable only; the internal working copy still shows every section.
+  const sectionProps = (key: AppendixSectionKey) => ({
+    excluded: isSectionExcluded(facts, key),
+    onToggleExcluded: editable
+      ? () => onChange!(withSectionExcluded(facts, key, !isSectionExcluded(facts, key)))
+      : undefined,
+  });
+
   if (!shown.entities.length && !facts.entities.length) return null;
 
   return (
@@ -172,7 +191,7 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
       {/* ------------------------------------------------------------------ */}
       {/* E — Entity register                                                  */}
       {/* ------------------------------------------------------------------ */}
-      <Exhibit tag="E" icon={<Users className="h-4 w-4 text-muted-foreground" />} title="Entity register">
+      <Exhibit tag="E" icon={<Users className="h-4 w-4 text-muted-foreground" />} title="Entity register" {...sectionProps('entityRegister')}>
         <table className="w-full text-xs">
           <thead className="text-muted-foreground">
             <tr className="text-left">
@@ -298,7 +317,7 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
       {/* ------------------------------------------------------------------ */}
       {/* REL — Relatedness                                                    */}
       {/* ------------------------------------------------------------------ */}
-      <Exhibit tag="REL" icon={<Network className="h-4 w-4 text-muted-foreground" />} title="Relatedness (>25%)">
+      <Exhibit tag="REL" icon={<Network className="h-4 w-4 text-muted-foreground" />} title="Relatedness (>25%)" {...sectionProps('relatedness')}>
         {related.length === 0 ? (
           <p className="text-xs text-muted-foreground">No related parties outside the taxpayer.</p>
         ) : (
@@ -325,7 +344,7 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
       {/* ------------------------------------------------------------------ */}
       {/* AT — Acting together                                                 */}
       {/* ------------------------------------------------------------------ */}
-      <Exhibit tag="AT" icon={<Handshake className="h-4 w-4 text-muted-foreground" />} title="Acting together">
+      <Exhibit tag="AT" icon={<Handshake className="h-4 w-4 text-muted-foreground" />} title="Acting together" {...sectionProps('actingTogether')}>
         {shown.actingTogether.length === 0 ? (
           <p className="text-xs text-muted-foreground">
             {generated ? 'No entities that could form an acting-together group.' : 'Not assessed yet.'}
@@ -396,7 +415,7 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
       {/* ------------------------------------------------------------------ */}
       {/* CLS — Classification (NL perspective), derived from NL tax status     */}
       {/* ------------------------------------------------------------------ */}
-      <Exhibit tag="CLS" icon={<Layers className="h-4 w-4 text-muted-foreground" />} title="Classification (NL perspective)" defaultOpen={false}>
+      <Exhibit tag="CLS" icon={<Layers className="h-4 w-4 text-muted-foreground" />} title="Classification (NL perspective)" defaultOpen={false} {...sectionProps('classification')}>
         <table className="w-full text-xs">
           <thead className="text-muted-foreground">
             <tr className="text-left">
@@ -431,7 +450,7 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
       {/* ------------------------------------------------------------------ */}
       {/* T — Transaction map                                                  */}
       {/* ------------------------------------------------------------------ */}
-      <Exhibit tag="T" icon={<ArrowLeftRight className="h-4 w-4 text-muted-foreground" />} title="Transaction map" defaultOpen={false}>
+      <Exhibit tag="T" icon={<ArrowLeftRight className="h-4 w-4 text-muted-foreground" />} title="Transaction map" defaultOpen={false} {...sectionProps('transactions')}>
         {shown.transactions.length === 0
           ? <p className="text-xs text-muted-foreground">{generated ? 'None identified.' : 'Not generated yet.'}</p>
           : (

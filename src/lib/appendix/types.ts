@@ -149,11 +149,25 @@ export interface TransactionItem {
   source: 'ai' | 'edited';
 }
 
+/**
+ * The Part A exhibits an advisor can drop from the client export as a whole
+ * ("make transparent"): the section-level counterpart of the per-item
+ * excludedFromClient flag. Internal working copies still show every section.
+ */
+export type AppendixSectionKey =
+  | 'entityRegister'
+  | 'relatedness'
+  | 'actingTogether'
+  | 'classification'
+  | 'transactions';
+
 export interface AppendixFacts {
   entities: FactEntity[];
   actingTogether: ActingTogetherCluster[];
   classifications: ClassificationItem[];
   transactions: TransactionItem[];
+  /** Whole Part A sections the advisor excluded from the client export. */
+  excludedSections?: AppendixSectionKey[];
 }
 
 /** The atad2_appendix row shape (rows stored as JSONB). */

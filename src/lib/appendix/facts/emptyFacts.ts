@@ -11,5 +11,6 @@ export function normalizeFacts(facts: Partial<AppendixFacts> | null | undefined)
     actingTogether: Array.isArray(facts?.actingTogether) ? facts!.actingTogether : [],
     classifications: Array.isArray(facts?.classifications) ? facts!.classifications : [],
     transactions: Array.isArray(facts?.transactions) ? facts!.transactions : [],
+    ...(Array.isArray(facts?.excludedSections) ? { excludedSections: facts!.excludedSections } : {}),
   };
 }

@@ -92,6 +92,8 @@ export interface AppendixFacts {
   actingTogether: ActingTogetherCluster[];
   classifications: ClassificationItem[];
   transactions: TransactionItem[];
+  /** Whole Part A sections the advisor excluded from the client export. */
+  excludedSections?: string[];
 }
 
 const RELATED_THRESHOLD = 25;

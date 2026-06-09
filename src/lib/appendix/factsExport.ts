@@ -12,5 +12,6 @@ export function factsForClient(facts: AppendixFacts): AppendixFacts {
     actingTogether: f.actingTogether.filter((a) => !a.excludedFromClient),
     classifications: keep(f.classifications),
     transactions: keep(f.transactions),
+    excludedSections: facts.excludedSections,
   };
 }
