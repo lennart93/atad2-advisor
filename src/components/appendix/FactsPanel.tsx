@@ -3,10 +3,12 @@ import type { ReactNode } from 'react';
 import { Check, ChevronDown, ChevronRight, Eye, EyeOff, Users, Network, Layers, ArrowLeftRight, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { AppendixFacts, FactEntity } from '@/lib/appendix/types';
+import { visibleFacts } from '@/lib/appendix/facts/visibleFacts';
 
 interface Props {
   facts: AppendixFacts;
   onChange?: (next: AppendixFacts) => void;
+  generated?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -139,19 +141,31 @@ function Exhibit({ tag, icon, title, defaultOpen = true, children }: {
 // FactsPanel
 // ---------------------------------------------------------------------------
 
-export function FactsPanel({ facts, onChange }: Props) {
-  const entities = facts.entities;
-  const related = useMemo(() => entities.filter((e) => e.role !== 'Taxpayer'), [entities]);
+export function FactsPanel({ facts, onChange, generated }: Props) {
+  const shown = visibleFacts(facts);
   const editable = !!onChange;
 
-  if (!entities.length) return null;
+  const hideEntity = (id: string) =>
+    onChange?.({ ...facts, entities: facts.entities.map((e) => e.id === id ? { ...e, hidden: true } : e) });
+
+  const restoreHidden = () =>
+    onChange?.({ ...facts, entities: facts.entities.map((e) => e.hidden ? { ...e, hidden: false } : e) });
+
+  const hiddenEntities = useMemo(() => facts.entities.filter((e) => e.hidden), [facts.entities]);
+
+  const related = useMemo(
+    () => shown.entities.filter((e) => e.role !== 'Taxpayer' && !e.memberOfUnityId),
+    [shown.entities],
+  );
+
+  if (!shown.entities.length && !facts.entities.length) return null;
 
   return (
     <div className="space-y-3">
       <h3 className="text-sm font-semibold text-foreground">Part A · Facts &amp; relationships</h3>
 
       {/* ------------------------------------------------------------------ */}
-      {/* E — Entity register (read-only; entities are not status-controlled) */}
+      {/* E — Entity register                                                  */}
       {/* ------------------------------------------------------------------ */}
       <Exhibit tag="E" icon={<Users className="h-4 w-4 text-muted-foreground" />} title="Entity register">
         <table className="w-full text-xs">
@@ -159,21 +173,63 @@ export function FactsPanel({ facts, onChange }: Props) {
             <tr className="text-left">
               <th className="py-1 pr-2">#</th><th className="pr-2">Entity</th><th className="pr-2">Jur</th>
               <th className="pr-2">Type</th><th className="pr-2">NL tax status</th><th>Role</th>
+              {editable && <th className="w-6" aria-label="Controls" />}
             </tr>
           </thead>
           <tbody>
-            {entities.map((e) => (
-              <tr key={e.id} className="border-t border-[hsl(var(--border-subtle))]">
-                <td className="py-1 pr-2 font-mono text-sky-700 dark:text-sky-300">{e.id}</td>
-                <td className="pr-2 font-medium text-foreground">{e.name}</td>
-                <td className="pr-2 text-muted-foreground">{e.jurisdiction ?? '—'}</td>
-                <td className="pr-2 text-muted-foreground">{e.entityType ?? '—'}</td>
-                <td className="pr-2 text-muted-foreground">{e.nlTaxStatus ?? '—'}</td>
-                <td className="text-muted-foreground">{e.role}</td>
-              </tr>
-            ))}
+            {shown.entities.map((e) => {
+              const isMember = !!e.memberOfUnityId;
+              return (
+                <tr key={e.id} className="border-t border-[hsl(var(--border-subtle))]">
+                  <td className="py-1 pr-2 font-mono text-sky-700 dark:text-sky-300">{e.id}</td>
+                  <td className="pr-2 font-medium text-foreground">
+                    {isMember && (
+                      <span className="mr-1 text-muted-foreground">↳</span>
+                    )}
+                    <span className={cn(isMember && 'text-muted-foreground')}>{e.name}</span>
+                    {e.isFiscalUnity && (
+                      <span className="ml-1.5 rounded bg-sky-100 px-1 text-[10px] font-normal text-sky-700 dark:bg-sky-900/40 dark:text-sky-300">
+                        fiscal unity
+                      </span>
+                    )}
+                  </td>
+                  <td className={cn('pr-2', isMember ? 'text-muted-foreground/70' : 'text-muted-foreground')}>{e.jurisdiction ?? '—'}</td>
+                  <td className={cn('pr-2', isMember ? 'text-muted-foreground/70' : 'text-muted-foreground')}>{e.entityType ?? '—'}</td>
+                  <td className={cn('pr-2', isMember ? 'text-muted-foreground/70' : 'text-muted-foreground')}>{e.nlTaxStatus ?? '—'}</td>
+                  <td className={cn(isMember ? 'text-muted-foreground/70' : 'text-muted-foreground')}>{e.role}</td>
+                  {editable && (
+                    <td className="pl-1">
+                      {e.role !== 'Taxpayer' && !isMember && (
+                        <button
+                          type="button"
+                          aria-label={`Mark ${e.name} irrelevant`}
+                          title="Mark as irrelevant"
+                          onClick={() => hideEntity(e.id)}
+                          className="inline-flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+                    </td>
+                  )}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
+        {editable && hiddenEntities.length > 0 && (
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            Hidden ({hiddenEntities.length}): {hiddenEntities.map((e) => e.name).join(', ')}
+            {' · '}
+            <button
+              type="button"
+              onClick={restoreHidden}
+              className="underline underline-offset-2 hover:text-foreground transition-colors"
+            >
+              show
+            </button>
+          </p>
+        )}
       </Exhibit>
 
       {/* ------------------------------------------------------------------ */}
@@ -191,9 +247,9 @@ export function FactsPanel({ facts, onChange }: Props) {
             </div>
           ))}
         </div>
-        {facts.actingTogether.length > 0 && (
+        {shown.actingTogether.length > 0 && (
           <div className="mt-2 space-y-1.5">
-            {facts.actingTogether.filter((a) => a.status !== 'dismissed').map((a) => {
+            {shown.actingTogether.filter((a) => a.status !== 'dismissed').map((a) => {
               const confirmed = a.status === 'confirmed';
               return (
                 <div
@@ -238,8 +294,8 @@ export function FactsPanel({ facts, onChange }: Props) {
       {/* CLS — Classification matrix                                          */}
       {/* ------------------------------------------------------------------ */}
       <Exhibit tag="CLS" icon={<Layers className="h-4 w-4 text-muted-foreground" />} title="Classification matrix (home vs source)" defaultOpen={false}>
-        {facts.classifications.length === 0
-          ? <p className="text-xs text-muted-foreground">Not proposed yet.</p>
+        {shown.classifications.length === 0
+          ? <p className="text-xs text-muted-foreground">{generated ? 'None identified.' : 'Not generated yet.'}</p>
           : (
           <table className="w-full text-xs">
             <thead className="text-muted-foreground">
@@ -252,7 +308,7 @@ export function FactsPanel({ facts, onChange }: Props) {
               </tr>
             </thead>
             <tbody>
-              {facts.classifications.map((c) => {
+              {shown.classifications.map((c) => {
                 const confirmed = c.status === 'confirmed';
                 return (
                   <tr
@@ -302,8 +358,8 @@ export function FactsPanel({ facts, onChange }: Props) {
       {/* T — Transaction map                                                  */}
       {/* ------------------------------------------------------------------ */}
       <Exhibit tag="T" icon={<ArrowLeftRight className="h-4 w-4 text-muted-foreground" />} title="Transaction map" defaultOpen={false}>
-        {facts.transactions.length === 0
-          ? <p className="text-xs text-muted-foreground">Not proposed yet.</p>
+        {shown.transactions.length === 0
+          ? <p className="text-xs text-muted-foreground">{generated ? 'None identified.' : 'Not generated yet.'}</p>
           : (
           <table className="w-full text-xs">
             <thead className="text-muted-foreground">
@@ -317,7 +373,7 @@ export function FactsPanel({ facts, onChange }: Props) {
               </tr>
             </thead>
             <tbody>
-              {facts.transactions.map((t) => {
+              {shown.transactions.map((t) => {
                 const confirmed = t.status === 'confirmed';
                 return (
                   <tr
