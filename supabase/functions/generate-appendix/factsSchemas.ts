@@ -6,7 +6,7 @@ import { z } from "zod";
 // instead of failing the whole parse and falling back to empty.
 export const FactsModelOutput = z.object({
   classifications: z.array(z.object({
-    entityId: z.string().min(1),
+    entityId: z.string().nullish(),
     homeState: z.string().nullish(),
     homeClass: z.string().nullish(),
     sourceState: z.string().nullish(),
@@ -14,15 +14,15 @@ export const FactsModelOutput = z.object({
     hybrid: z.boolean().nullish(),
   })).optional().default([]),
   transactions: z.array(z.object({
-    fromEntityId: z.string().min(1),
-    toEntityId: z.string().min(1),
+    fromEntityId: z.string().nullish(),
+    toEntityId: z.string().nullish(),
     kind: z.string().nullish(),
     instrument: z.string().nullish(),
     note: z.string().nullish(),
     articlesTested: z.array(z.string()).nullish(),
   })).optional().default([]),
   actingTogether: z.array(z.object({
-    memberEntityIds: z.array(z.string().min(1)).min(1),
+    memberEntityIds: z.array(z.string()).optional().default([]),
     combinedPct: z.number().nullish(),
     likelihood: z.string().nullish(),
     rationales: z.object({

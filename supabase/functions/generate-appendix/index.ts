@@ -313,8 +313,8 @@ async function buildFacts(
     const nl = proposed.nlTaxStatusByEntityId ?? {};
     return {
       entities: entities.map((e) => ({ ...e, nlTaxStatus: nl[e.id] ?? e.nlTaxStatus })),
-      classifications: proposed.classifications.map((cl) => ({
-        entityId: cl.entityId,
+      classifications: proposed.classifications.filter((cl) => !!cl.entityId).map((cl) => ({
+        entityId: cl.entityId as string,
         homeState: cl.homeState ?? "",
         homeClass: cl.homeClass ?? "",
         sourceState: cl.sourceState ?? null,
@@ -322,17 +322,17 @@ async function buildFacts(
         hybrid: cl.hybrid ?? false,
         status: "proposed" as const, excludedFromClient: false, source: "ai" as const,
       })),
-      transactions: proposed.transactions.map((t, i) => ({
+      transactions: proposed.transactions.filter((t) => !!t.fromEntityId && !!t.toEntityId).map((t, i) => ({
         id: `T${i + 1}`,
-        fromEntityId: t.fromEntityId,
-        toEntityId: t.toEntityId,
+        fromEntityId: t.fromEntityId as string,
+        toEntityId: t.toEntityId as string,
         kind: t.kind ?? "",
         instrument: t.instrument ?? null,
         note: t.note ?? null,
         articlesTested: t.articlesTested ?? [],
         status: "proposed" as const, excludedFromClient: false, source: "ai" as const,
       })),
-      actingTogether: proposed.actingTogether.map((a, i) => {
+      actingTogether: proposed.actingTogether.filter((a) => a.memberEntityIds.length >= 2).map((a, i) => {
         const aiLikelihood = (a.likelihood && VALID_LIKELIHOODS.includes(a.likelihood as typeof VALID_LIKELIHOODS[number]) ? a.likelihood : "unclear") as ActingLikelihood;
         const r = a.rationales ?? {};
         const fallback = "No specific assessment for this level.";
