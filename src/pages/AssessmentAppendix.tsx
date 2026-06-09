@@ -43,7 +43,7 @@ function mergeServerUpdate(
   return { ...upd, rows, facts };
 }
 
-export default function AssessmentAppendix() {
+export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' | 'checklist' }) {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -251,32 +251,47 @@ export default function AssessmentAppendix() {
         </Button>
       </div>
 
-      <FactsPanel
-        facts={factsToShow}
-        onChange={appendix?.facts ? handleFactsChange : undefined}
-        generated={!!appendix?.facts}
-      />
-
-      <AppendixTable rows={appendix.rows} skeleton={skeleton} showSources={showSources} relatedParties={relatedParties} onEdit={handleEdit} onToggleExclude={handleToggleExclude} />
+      {page === 'facts' ? (
+        <FactsPanel
+          facts={factsToShow}
+          onChange={appendix?.facts ? handleFactsChange : undefined}
+          generated={!!appendix?.facts}
+        />
+      ) : (
+        <AppendixTable rows={appendix.rows} skeleton={skeleton} showSources={showSources} relatedParties={relatedParties} onEdit={handleEdit} onToggleExclude={handleToggleExclude} />
+      )}
 
       <AssessmentFooterSlot
         left={
           <Button
             variant="outline"
-            onClick={() => navigate(`/assessment-confirmation/${sessionId}`)}
+            onClick={() =>
+              navigate(
+                page === 'facts'
+                  ? `/assessment-confirmation/${sessionId}`
+                  : `/assessment-appendix/${sessionId}`,
+              )
+            }
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Previous
           </Button>
         }
         right={
-          <Button variant="outline" onClick={handleConfirm} disabled={confirming || refining}>
-            {confirming || refining ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : null}
-            {refining ? 'Finishing' : 'Confirm appendix'}
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </Button>
+          page === 'facts' ? (
+            <Button variant="outline" onClick={() => navigate(`/assessment-appendix/${sessionId}/checklist`)}>
+              Next
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          ) : (
+            <Button variant="outline" onClick={handleConfirm} disabled={confirming || refining}>
+              {confirming || refining ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
+              {refining ? 'Finishing' : 'Confirm appendix'}
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          )
         }
       />
     </div>
