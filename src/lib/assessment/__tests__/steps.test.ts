@@ -3,9 +3,9 @@ import { describe, it, expect } from 'vitest';
 import { ASSESSMENT_STEPS, stepIndexForPath } from '../steps';
 
 describe('assessment steps', () => {
-  it('exposes the seven ordered steps (confirmation gates structure; appendix before report)', () => {
+  it('exposes the seven ordered steps (confirmation gates appendix; structure before report)', () => {
     expect(ASSESSMENT_STEPS.map((s) => s.key)).toEqual([
-      'intake', 'documents', 'questions', 'confirmation', 'structure', 'appendix', 'report',
+      'intake', 'documents', 'questions', 'confirmation', 'appendix', 'structure', 'report',
     ]);
   });
 
@@ -40,12 +40,12 @@ describe('assessment steps', () => {
     expect(stepIndexForPath('/assessment-confirmation/abc-123')).toBe(3);
   });
 
-  it('maps the structure route to step 4', () => {
-    expect(stepIndexForPath('/assessment/structure/abc-123')).toBe(4);
+  it('maps the appendix route to step 4', () => {
+    expect(stepIndexForPath('/assessment-appendix/abc-123')).toBe(4);
   });
 
-  it('maps the appendix route to step 5', () => {
-    expect(stepIndexForPath('/assessment-appendix/abc-123')).toBe(5);
+  it('maps the structure route to step 5', () => {
+    expect(stepIndexForPath('/assessment/structure/abc-123')).toBe(5);
   });
 
   it('maps the report route to step 6', () => {

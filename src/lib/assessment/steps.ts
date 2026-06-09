@@ -15,8 +15,8 @@ export const ASSESSMENT_STEPS: readonly AssessmentStep[] = [
   { key: 'documents',    label: 'Documents',    wide: false, fullBleed: false },
   { key: 'questions',    label: 'Questions',    wide: true,  fullBleed: false },
   { key: 'confirmation', label: 'Confirmation', wide: false, fullBleed: false },
-  { key: 'structure',    label: 'Structure',    wide: true,  fullBleed: true  },
   { key: 'appendix',     label: 'Appendix',     wide: true,  fullBleed: false },
+  { key: 'structure',    label: 'Structure',    wide: true,  fullBleed: true  },
   { key: 'report',       label: 'Overview',     wide: false, fullBleed: false },
 ] as const;
 
@@ -24,9 +24,8 @@ export const ASSESSMENT_STEPS: readonly AssessmentStep[] = [
  * Maps a router pathname to a 0-based assessment step index, or -1 if the
  * path is not part of the assessment flow.
  *
- * Flow order: intake → documents → questions → confirmation → structure → report.
- * Confirmation gates the structure step (user confirms the preliminary outcome
- * BEFORE drawing the chart).
+ * Flow order: intake → documents → questions → confirmation → appendix → structure → report.
+ * Confirmation gates the appendix step; the structure chart follows the appendix.
  *
  * `/assessment` is ambiguous: it is the intake form before a session exists
  * and the decision tree once a session is active. The caller passes
@@ -41,8 +40,8 @@ export function stepIndexForPath(
   }
   if (pathname.startsWith('/assessment/upload')) return 1;
   if (pathname.startsWith('/assessment-confirmation/')) return 3;
-  if (pathname.startsWith('/assessment/structure/')) return 4;
-  if (pathname.startsWith('/assessment-appendix/')) return 5;
+  if (pathname.startsWith('/assessment-appendix/')) return 4;
+  if (pathname.startsWith('/assessment/structure/')) return 5;
   if (pathname.startsWith('/assessment-report/')) return 6;
   return -1;
 }
