@@ -4,6 +4,7 @@ import { createServiceClient, verifyJwtAndSessionOwnership } from "./verifyAuth.
 import { callClaude, extractJson } from "./claude.ts";
 import { AppendixModelOutput, type AppendixModelOutputT } from "./schemas.ts";
 import { FactsModelOutput } from "./factsSchemas.ts";
+import { loadDocumentsBlock } from "./documentsLoader.ts";
 import { SKELETON_ROWS, type ServerSkeletonRow } from "./skeletonRows.ts";
 import { loadAppendixPrompt, loadPrompt } from "./promptsLoader.ts";
 import {
@@ -121,7 +122,7 @@ async function runGeneration(c: SupabaseClient, appendixId: string, sessionId: s
     // before the article swarm so the articles can later be grounded on it.
     const rawChart = await loadChartRaw(c, sessionId);
     const factEntities = buildEntityRegister(rawChart.entities, rawChart.edges, rawChart.groups);
-    const factsFresh = await buildFacts(c, factEntities, session ?? null, answersBlock, structureBlock);
+    const factsFresh = await buildFacts(c, sessionId, factEntities, session ?? null, answersBlock, structureBlock);
     const { data: priorFacts } = await c.from("atad2_appendix").select("facts").eq("id", appendixId).maybeSingle();
     const factsToStore = factEntities.length
       ? mergeFacts((priorFacts?.facts as AppendixFacts | null) ?? null, factsFresh)
@@ -261,6 +262,7 @@ async function loadStructureBlock(c: SupabaseClient, sessionId: string): Promise
 /** Build Part A: deterministic entities are passed in; the model proposes the rest. */
 async function buildFacts(
   c: SupabaseClient,
+  sessionId: string,
   entities: FactEntity[],
   session: { taxpayer_name?: string | null; fiscal_year?: string | null } | null,
   answersBlock: string,
@@ -270,6 +272,7 @@ async function buildFacts(
   if (!entities.length) return base;
   try {
     const fp = await loadPrompt(c, "appendix_facts_system");
+    const docsBlock = await loadDocumentsBlock(c, sessionId);
     const registerJson = JSON.stringify(entities.map((e) => ({
       id: e.id, name: e.name, jurisdiction: e.jurisdiction, entityType: e.entityType,
       role: e.role, ownershipPct: e.ownershipPct, related: e.related,
@@ -277,6 +280,7 @@ async function buildFacts(
     const user = fp.systemPrompt
       .replace("{{TAXPAYER_NAME}}", session?.taxpayer_name ?? "")
       .replace("{{FISCAL_YEAR}}", session?.fiscal_year ?? "")
+      .replace("{{DOCUMENTS_BLOCK}}", docsBlock || "(no documents)")
       .replace("{{ENTITY_REGISTER}}", registerJson)
       .replace("{{ANSWERS_BLOCK}}", answersBlock || "(no answers recorded)")
       .replace("{{STRUCTURE_BLOCK}}", structureBlock || "(no structure chart available)");
@@ -297,6 +301,10 @@ async function buildFacts(
 /** On regenerate, keep advisor decisions (confirmed/dismissed/edited/excluded); refresh the rest. */
 function mergeFacts(existing: AppendixFacts | null, fresh: AppendixFacts): AppendixFacts {
   if (!existing) return renumberFacts(fresh);
+  // The register is rebuilt deterministically each run; re-apply the advisor's
+  // hidden flag (keyed by chart entity id) so "mark irrelevant" survives.
+  const exHidden = new Set(existing.entities.filter((e) => e.hidden).map((e) => e.chartEntityId));
+  const entities = fresh.entities.map((e) => (exHidden.has(e.chartEntityId) ? { ...e, hidden: true } : e));
   const exCls = new Map(existing.classifications.map((c) => [c.entityId, c]));
   const classifications = fresh.classifications.map((f) => {
     const prev = exCls.get(f.entityId);
@@ -317,7 +325,7 @@ function mergeFacts(existing: AppendixFacts | null, fresh: AppendixFacts): Appen
     if (prev && (prev.status === "confirmed" || prev.status === "dismissed" || prev.source === "edited")) return prev;
     return { ...f, excludedFromClient: prev?.excludedFromClient ?? false };
   });
-  return renumberFacts({ entities: fresh.entities, classifications, transactions, actingTogether });
+  return renumberFacts({ entities, classifications, transactions, actingTogether });
 }
 
 /** Compact text summary of Part A, fed to the article generation as grounding. */
