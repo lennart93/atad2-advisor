@@ -1,11 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, Loader2, AlertTriangle, RefreshCw, Printer } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Loader2, RefreshCw } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent } from '@/components/ui/card';
 import { useAuth } from '@/hooks/useAuth';
 import { AssessmentFooterSlot } from '@/components/assessment/AssessmentFooterSlot';
 import { AppendixTable } from '@/components/appendix/AppendixTable';
@@ -13,7 +10,6 @@ import {
   loadAppendix, startAppendixGeneration, pollAppendixUntilReady, saveRowEdit, confirmAppendix, saveFacts,
 } from '@/lib/appendix/client';
 import type { StoredAppendix, AppendixRow, EditableField, AppendixFacts } from '@/lib/appendix/types';
-import { buildAppendixPrintHtml, type PrintMode } from '@/lib/appendix/printAppendix';
 import { useAppendixSkeleton } from '@/lib/appendix/skeletonStore';
 import { loadChart } from '@/lib/structure/client';
 import { buildRelatedParties, type RelatedPartiesResult } from '@/lib/appendix/relatedParties';
@@ -30,6 +26,23 @@ function isStaleGenerating(updatedAt: string | null): boolean {
   return Date.now() - new Date(updatedAt).getTime() > STALE_GENERATING_MS;
 }
 
+// Adopt the server's refreshed appendix, but keep any rows/facts the advisor has
+// edited in this session so a background refine never clobbers an in-flight edit
+// on screen (the edge function also preserves edited rows server-side).
+function mergeServerUpdate(
+  prev: StoredAppendix | null,
+  upd: StoredAppendix,
+  dirtyRowIds: Set<string>,
+  factsDirty: boolean,
+): StoredAppendix {
+  if (!prev) return upd;
+  const rows = upd.rows.map((sr) =>
+    dirtyRowIds.has(sr.rowId) ? (prev.rows.find((pr) => pr.rowId === sr.rowId) ?? sr) : sr,
+  );
+  const facts = factsDirty ? prev.facts : upd.facts;
+  return { ...upd, rows, facts };
+}
+
 export default function AssessmentAppendix() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
@@ -37,10 +50,14 @@ export default function AssessmentAppendix() {
   const { data: skeleton } = useAppendixSkeleton();
   const [appendix, setAppendix] = useState<StoredAppendix | null>(null);
   const [phase, setPhase] = useState<Phase>('loading');
-  const [showSources, setShowSources] = useState(true);
+  const showSources = true;
   const [confirming, setConfirming] = useState(false);
   const [relatedParties, setRelatedParties] = useState<RelatedPartiesResult | null>(null);
   const [chart, setChart] = useState<{ entities: Parameters<typeof buildEntityRegister>[0]; edges: Parameters<typeof buildEntityRegister>[1]; groupings: Parameters<typeof buildEntityRegister>[2] } | null>(null);
+  // Rows/facts the advisor edited this session, so a background refine poll does
+  // not overwrite them on screen.
+  const dirtyRowIds = useRef<Set<string>>(new Set());
+  const factsDirty = useRef(false);
 
   // While generating, spin the top-left app logo instead of a local spinner.
   useUiBusySignal(phase === 'loading' || phase === 'generating');
@@ -90,7 +107,7 @@ export default function AssessmentAppendix() {
             sessionId,
             (upd) => {
               if (cancelled) return;
-              setAppendix(upd);
+              setAppendix((prev) => mergeServerUpdate(prev, upd, dirtyRowIds.current, factsDirty.current));
               setPhase(upd.generation_status === 'generating' ? 'generating' : upd.generation_status);
             },
             ac.signal,
@@ -124,6 +141,7 @@ export default function AssessmentAppendix() {
       editedBy: user.id,
       editedAt: new Date().toISOString(),
     };
+    dirtyRowIds.current.add(rowId);
     const rows = appendix.rows.map((r, i) => (i === idx ? updated : r));
     setAppendix({ ...appendix, rows }); // optimistic
     try {
@@ -140,6 +158,7 @@ export default function AssessmentAppendix() {
     const old = appendix.rows[idx];
     // Exclusion is a scope flag, not a content edit, so we do not touch `source`.
     const updated: AppendixRow = { ...old, excludedFromClient: excluded };
+    dirtyRowIds.current.add(rowId);
     const rows = appendix.rows.map((r, i) => (i === idx ? updated : r));
     setAppendix({ ...appendix, rows }); // optimistic
     try {
@@ -178,27 +197,13 @@ export default function AssessmentAppendix() {
 
   const handleFactsChange = async (next: AppendixFacts) => {
     if (!appendix) return;
+    factsDirty.current = true;
     setAppendix({ ...appendix, facts: next }); // optimistic
     try {
       await saveFacts(appendix.id, next);
     } catch (e) {
       toast.error('Could not save facts', { description: String(e) });
     }
-  };
-
-  const handlePrint = (mode: PrintMode) => {
-    if (!appendix) return;
-    const html = buildAppendixPrintHtml(appendix.rows, mode, skeleton, appendix.facts);
-    const w = window.open('', '_blank');
-    if (!w) {
-      toast.error('Pop-up blocked', { description: 'Allow pop-ups for this site to print the appendix.' });
-      return;
-    }
-    w.document.write(html);
-    w.document.close();
-    w.focus();
-    w.onafterprint = () => w.close();
-    setTimeout(() => w.print(), 250);
   };
 
   const factsToShow = useMemo(() => {
@@ -208,7 +213,13 @@ export default function AssessmentAppendix() {
     return emptyFacts();
   }, [appendix?.facts, chart]);
 
-  if (phase === 'loading' || phase === 'generating') {
+  // Once an earlier pass has produced rows or facts, keep showing them while a
+  // background refine (folding in the Q&A answers) runs, instead of blocking on
+  // a full-screen loader. Only the very first, content-less pass blocks.
+  const hasContent = !!appendix && (appendix.rows.length > 0 || appendix.facts !== null);
+  const refining = phase === 'generating';
+
+  if (phase === 'loading' || (phase === 'generating' && !hasContent)) {
     return (
       <div className="flex flex-col items-center justify-center gap-3 py-24 text-center">
         <p className="text-muted-foreground">
@@ -231,42 +242,9 @@ export default function AssessmentAppendix() {
     );
   }
 
-  const needReview = appendix.rows.filter((r) => r.stale).length;
-
   return (
     <div className="space-y-4">
-      <Card className="border-amber-400/30 bg-amber-50/40 dark:border-amber-500/20 dark:bg-amber-950/20">
-        <CardContent className="flex items-start gap-2 py-3 text-sm">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
-          <p className="text-amber-800 dark:text-amber-200">
-            <span className="font-semibold">Draft, pending tax review.</span>{' '}
-            Generated from the assessment answers and structure chart. Review each row before confirming. The internal column and the working-copy export are for internal use only.
-          </p>
-        </CardContent>
-      </Card>
-
-      <div className="flex flex-wrap items-center gap-3 text-sm">
-        <span className="text-muted-foreground">
-          {appendix.rows.length} rows
-          {needReview > 0 && (
-            <span className="text-amber-700 dark:text-amber-400"> · {needReview} need review</span>
-          )}
-        </span>
-        <span className="flex-1" />
-        <div className="flex items-center gap-2">
-          <Switch id="show-sources" checked={showSources} onCheckedChange={setShowSources} />
-          <Label htmlFor="show-sources" className="cursor-pointer text-muted-foreground">
-            Show sources
-          </Label>
-        </div>
-        <Button variant="outline" size="sm" className="gap-2" onClick={() => handlePrint('dossier')}>
-          <Printer className="h-3.5 w-3.5" />
-          Export dossier
-        </Button>
-        <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground" onClick={() => handlePrint('internal')}>
-          <Printer className="h-3.5 w-3.5" />
-          Working copy
-        </Button>
+      <div className="flex justify-end">
         <Button variant="outline" size="sm" className="gap-2" onClick={handleRetry}>
           <RefreshCw className="h-3.5 w-3.5" />
           Regenerate
@@ -292,11 +270,11 @@ export default function AssessmentAppendix() {
           </Button>
         }
         right={
-          <Button variant="outline" onClick={handleConfirm} disabled={confirming}>
-            {confirming ? (
+          <Button variant="outline" onClick={handleConfirm} disabled={confirming || refining}>
+            {confirming || refining ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : null}
-            Confirm appendix
+            {refining ? 'Finishing' : 'Confirm appendix'}
             <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         }

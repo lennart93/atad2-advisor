@@ -15,6 +15,19 @@ import {
 
 const VALID_LIKELIHOODS = ["highly_unlikely", "unlikely", "unclear", "likely", "highly_likely"] as const;
 
+/**
+ * Replace the em/en dashes the model still emits despite the prompt with a comma.
+ * Regular hyphens (co-investment, equity-and-loan) are U+002D and left untouched.
+ */
+function noDashes(s: string | null | undefined): string | null {
+  if (s == null) return null;
+  return s
+    .replace(/\s*[—–]\s*/g, ", ")
+    .replace(/\s+,/g, ",")
+    .replace(/,\s*,/g, ",")
+    .trim();
+}
+
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -194,7 +207,7 @@ async function runGeneration(c: SupabaseClient, appendixId: string, sessionId: s
       const m = byId.get(sk.rowId);
       const statusRaw = m?.status ?? "Insufficient information";
       const status = sk.allowedStates.includes(statusRaw) ? statusRaw : "Insufficient information";
-      const reasoning = m?.reasoning ?? "The model did not return a grounded answer for this row; confirm manually.";
+      const reasoning = noDashes(m?.reasoning) ?? "The model did not return a grounded answer for this row; confirm manually.";
       const provenance = m?.provenance ?? "";
       return {
         rowId: sk.rowId,
@@ -406,7 +419,7 @@ async function buildFacts(
         toEntityId: t.toEntityId as string,
         kind: t.kind ?? "",
         instrument: t.instrument ?? null,
-        note: t.note ?? null,
+        note: noDashes(t.note),
         articlesTested: t.articlesTested ?? [],
         status: "proposed" as const, excludedFromClient: false, source: "ai" as const,
       })),
@@ -419,7 +432,7 @@ async function buildFacts(
           memberEntityIds: a.memberEntityIds,
           combinedPct: a.combinedPct ?? null,
           likelihood,
-          reasoning: a.reasoning ?? "",
+          reasoning: noDashes(a.reasoning) ?? "",
           excludedFromClient: false,
           source: "ai" as const,
         };
