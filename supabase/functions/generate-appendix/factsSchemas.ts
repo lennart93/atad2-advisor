@@ -24,7 +24,14 @@ export const FactsModelOutput = z.object({
   actingTogether: z.array(z.object({
     memberEntityIds: z.array(z.string().min(1)).min(1),
     combinedPct: z.number().nullish(),
-    rationale: z.string().nullish(),
+    likelihood: z.enum(["highly_unlikely", "unlikely", "unclear", "likely", "highly_likely"]).nullish(),
+    rationales: z.object({
+      highly_unlikely: z.string().nullish(),
+      unlikely: z.string().nullish(),
+      unclear: z.string().nullish(),
+      likely: z.string().nullish(),
+      highly_likely: z.string().nullish(),
+    }).partial().nullish(),
   })).optional().default([]),
   nlTaxStatusByEntityId: z.record(z.string(), z.string()).optional(),
 });

@@ -32,6 +32,8 @@ export interface FactEntity {
   ownershipPct: number | null;
   related: boolean;
   nlTaxStatus: string | null;
+  /** Advisor overrides for the editable register fields; preserved across regeneration. */
+  edits?: { jurisdiction?: string | null; entityType?: string | null; nlTaxStatus?: string | null };
   hidden?: boolean;
   isFiscalUnity?: boolean;
   memberEntityIds?: string[];
@@ -63,12 +65,17 @@ export interface TransactionItem {
   source: "ai" | "edited";
 }
 
+export type ActingLikelihood =
+  | "highly_unlikely" | "unlikely" | "unclear" | "likely" | "highly_likely";
+
 export interface ActingTogetherCluster {
   id: string;
   memberEntityIds: string[];
   combinedPct: number | null;
-  rationale: string;
-  status: "proposed" | "confirmed" | "dismissed";
+  likelihood: ActingLikelihood;
+  aiLikelihood: ActingLikelihood;
+  rationales: Record<ActingLikelihood, string>;
+  reasoning: string;
   excludedFromClient: boolean;
   source: "ai" | "edited";
 }

@@ -5,11 +5,12 @@ import { callClaude, extractJson } from "./claude.ts";
 import { AppendixModelOutput, type AppendixModelOutputT } from "./schemas.ts";
 import { FactsModelOutput } from "./factsSchemas.ts";
 import { loadDocumentsBlock } from "./documentsLoader.ts";
+import { retrieveKb } from "./kbRetrieval.ts";
 import { SKELETON_ROWS, type ServerSkeletonRow } from "./skeletonRows.ts";
 import { loadAppendixPrompt, loadPrompt } from "./promptsLoader.ts";
 import {
   buildEntityRegister,
-  type RawEntity, type RawEdge, type RawGroup, type AppendixFacts, type FactEntity,
+  type RawEntity, type RawEdge, type RawGroup, type AppendixFacts, type FactEntity, type ActingLikelihood,
 } from "./factsBuild.ts";
 
 const corsHeaders: Record<string, string> = {
@@ -277,11 +278,33 @@ async function buildFacts(
       id: e.id, name: e.name, jurisdiction: e.jurisdiction, entityType: e.entityType,
       role: e.role, ownershipPct: e.ownershipPct, related: e.related,
     })));
+
+    // Grounded literature: retrieve samenwerkende-groep doctrine + NL rechtsvorm
+    // classification from the curated knowledge base (best-effort, may be empty).
+    const formList = entities
+      .map((e) => `${e.name} (${e.jurisdiction ?? "?"}, ${e.entityType ?? "?"})`)
+      .join("; ");
+    const fy = session?.fiscal_year ?? "";
+    const queries = [
+      { category: "samenwerkende_groep" as const, k: 6, query: `Wanneer vormen de aandeelhouders of investeerders een samenwerkende groep (acting together) voor de hybridemismatchtoets, gelet op deze structuur? ${structureBlock}` },
+      { category: "rechtsvorm_classificatie" as const, k: 4, query: `Fiscale kwalificatie naar Nederlandse maatstaven (transparant of niet-transparant), toestemmingsvereiste en Wet FKR in boekjaar ${fy} voor deze entiteiten: ${formList}` },
+    ];
+    // One focused list lookup per distinct jurisdiction, so each country's
+    // indicative-classification chunk is reliably retrieved (a single blended
+    // query lets semantically similar LP jurisdictions crowd each other out).
+    const distinctJur = [...new Set(entities.map((e) => e.jurisdiction).filter(Boolean))];
+    for (const j of distinctJur) {
+      const namesInJ = entities.filter((e) => e.jurisdiction === j).map((e) => e.name).join(", ");
+      queries.push({ category: "rechtsvorm_lijst" as const, k: 3, query: `Indicatieve NL-kwalificatie (transparant / niet-transparant / CV-achtige) van rechtsvormen in ${j} voor boekjaar ${fy}. Betrokken entiteiten: ${namesInJ}` });
+    }
+    const kbBlock = await retrieveKb(c, queries);
+
     const user = fp.systemPrompt
       .replace("{{TAXPAYER_NAME}}", session?.taxpayer_name ?? "")
       .replace("{{FISCAL_YEAR}}", session?.fiscal_year ?? "")
       .replace("{{DOCUMENTS_BLOCK}}", docsBlock || "(no documents)")
       .replace("{{ENTITY_REGISTER}}", registerJson)
+      .replace("{{KB_BLOCK}}", kbBlock || "(no knowledge base hits)")
       .replace("{{ANSWERS_BLOCK}}", answersBlock || "(no answers recorded)")
       .replace("{{STRUCTURE_BLOCK}}", structureBlock || "(no structure chart available)");
     const proposed = FactsModelOutput.parse(JSON.parse(extractJson((await callClaude({ user })).text)));
@@ -307,13 +330,29 @@ async function buildFacts(
         articlesTested: t.articlesTested ?? [],
         status: "proposed" as const, excludedFromClient: false, source: "ai" as const,
       })),
-      actingTogether: proposed.actingTogether.map((a, i) => ({
-        id: `A${i + 1}`,
-        memberEntityIds: a.memberEntityIds,
-        combinedPct: a.combinedPct ?? null,
-        rationale: a.rationale ?? "",
-        status: "proposed" as const, excludedFromClient: false, source: "ai" as const,
-      })),
+      actingTogether: proposed.actingTogether.map((a, i) => {
+        const aiLikelihood = (a.likelihood ?? "unclear") as ActingLikelihood;
+        const r = a.rationales ?? {};
+        const fallback = "No specific assessment for this level.";
+        const rationales: Record<ActingLikelihood, string> = {
+          highly_unlikely: r.highly_unlikely ?? fallback,
+          unlikely: r.unlikely ?? fallback,
+          unclear: r.unclear ?? fallback,
+          likely: r.likely ?? fallback,
+          highly_likely: r.highly_likely ?? fallback,
+        };
+        return {
+          id: `A${i + 1}`,
+          memberEntityIds: a.memberEntityIds,
+          combinedPct: a.combinedPct ?? null,
+          likelihood: aiLikelihood,
+          aiLikelihood,
+          rationales,
+          reasoning: rationales[aiLikelihood],
+          excludedFromClient: false,
+          source: "ai" as const,
+        };
+      }),
     };
   } catch (err) {
     console.warn(JSON.stringify({ level: "warn", event: "appendix_facts_failed", message: String(err).slice(0, 300) }));
@@ -325,9 +364,17 @@ async function buildFacts(
 function mergeFacts(existing: AppendixFacts | null, fresh: AppendixFacts): AppendixFacts {
   if (!existing) return renumberFacts(fresh);
   // The register is rebuilt deterministically each run; re-apply the advisor's
-  // hidden flag (keyed by chart entity id) so "mark irrelevant" survives.
+  // hidden flag and field edits (keyed by chart entity id) so "mark irrelevant"
+  // and the editable jurisdiction/type/NL-status survive regeneration.
   const exHidden = new Set(existing.entities.filter((e) => e.hidden).map((e) => e.chartEntityId));
-  const entities = fresh.entities.map((e) => (exHidden.has(e.chartEntityId) ? { ...e, hidden: true } : e));
+  const exEdits = new Map(existing.entities.filter((e) => e.edits).map((e) => [e.chartEntityId, e.edits]));
+  const entities = fresh.entities.map((e) => {
+    let out = e;
+    if (exHidden.has(e.chartEntityId)) out = { ...out, hidden: true };
+    const edits = exEdits.get(e.chartEntityId);
+    if (edits) out = { ...out, edits };
+    return out;
+  });
   const exCls = new Map(existing.classifications.map((c) => [c.entityId, c]));
   const classifications = fresh.classifications.map((f) => {
     const prev = exCls.get(f.entityId);
@@ -345,7 +392,9 @@ function mergeFacts(existing: AppendixFacts | null, fresh: AppendixFacts): Appen
   const exAt = new Map(existing.actingTogether.map((a) => [atKey(a), a]));
   const actingTogether = fresh.actingTogether.map((f) => {
     const prev = exAt.get(atKey(f));
-    if (prev && (prev.status === "confirmed" || prev.status === "dismissed" || prev.source === "edited")) return prev;
+    if (prev && prev.source === "edited") {
+      return { ...f, likelihood: prev.likelihood, reasoning: prev.reasoning, excludedFromClient: prev.excludedFromClient, source: "edited" as const };
+    }
     return { ...f, excludedFromClient: prev?.excludedFromClient ?? false };
   });
   return renumberFacts({ entities, classifications, transactions, actingTogether });
@@ -363,8 +412,15 @@ function buildFactsBlock(facts: AppendixFacts | null): string {
   const transactions = facts.transactions.filter((t) => !hidden.has(t.fromEntityId) && !hidden.has(t.toEntityId));
   const acting = facts.actingTogether.filter((a) => !a.memberEntityIds.some((id) => hidden.has(id)));
   const nameOf = (id: string) => entities.find((e) => e.id === id)?.name ?? id;
+  // Advisor edits win over the chart/AI base for grounding too.
+  const effJur = (e: FactEntity) => e.edits?.jurisdiction ?? e.jurisdiction;
+  const effStatus = (e: FactEntity) => e.edits?.nlTaxStatus ?? e.nlTaxStatus;
+  const nlQual = (s: string | null | undefined) =>
+    s === "transparent" ? "transparent for NL"
+      : (s === "resident" || s === "nonresident_pe" || s === "outside_cit") ? "non-transparent for NL"
+      : "NL qualification undetermined";
   const ents = entities
-    .map((e) => `${e.id} ${e.name} [${e.jurisdiction ?? "?"}, ${e.role}${e.ownershipPct != null ? `, ${e.ownershipPct}%` : ""}${e.nlTaxStatus ? `, ${e.nlTaxStatus}` : ""}]`)
+    .map((e) => `${e.id} ${e.name} [${effJur(e) ?? "?"}, ${e.role}${e.ownershipPct != null ? `, ${e.ownershipPct}%` : ""}, ${nlQual(effStatus(e))}]`)
     .join("\n");
   const cls = classifications
     .map((c) => `${c.entityId} ${nameOf(c.entityId)}: home ${c.homeState} ${c.homeClass} vs source ${c.sourceState ?? "?"} ${c.sourceClass ?? "?"}${c.hybrid ? " (HYBRID mismatch)" : ""}`)
@@ -373,12 +429,11 @@ function buildFactsBlock(facts: AppendixFacts | null): string {
     .map((t) => `${t.id} ${nameOf(t.fromEntityId)} -> ${nameOf(t.toEntityId)}: ${t.kind}${t.instrument ? ` (${t.instrument})` : ""} [${t.articlesTested.join(", ")}]`)
     .join("\n");
   const at = acting
-    .filter((a) => a.status !== "dismissed")
-    .map((a) => `${a.memberEntityIds.map(nameOf).join(" + ")} ~ ${a.combinedPct ?? "?"}%: ${a.rationale}`)
+    .map((a) => `${a.memberEntityIds.map(nameOf).join(" + ")} ~ ${a.combinedPct ?? "?"}%: ${a.likelihood} - ${a.reasoning}`)
     .join("\n");
   return [
-    `Entities:\n${ents}`,
-    cls ? `Classification (home vs source):\n${cls}` : "",
+    `Entities (with NL classification):\n${ents}`,
+    cls ? `Cross-border classification (home vs source):\n${cls}` : "",
     tx ? `Intra-group transactions:\n${tx}` : "",
     at ? `Possible acting-together groups:\n${at}` : "",
   ].filter(Boolean).join("\n\n");
