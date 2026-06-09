@@ -39,6 +39,7 @@ import { motion } from "framer-motion";
 import { startExtraction } from "@/lib/structure/extraction";
 import { AssessmentFooterSlot } from "@/components/assessment/AssessmentFooterSlot";
 import { useAssessmentSessionId } from "@/lib/assessment/useAssessmentSessionId";
+import { useAppendixPrewarm } from "@/hooks/useAppendixPrewarm";
 
 // Playful placeholders that rotate (seeded per session+question) when the user
 // picks "Unknown" and the explanation textarea is empty. Soften the moment by
@@ -217,6 +218,7 @@ const Assessment = () => {
   const [dontShowBeforeYouStartAgain, setDontShowBeforeYouStartAgain] = useState(false);
   const [sessionStarted, setSessionStarted] = useState(false);
   const [sessionId, setSessionId] = useState<string>("");
+  useAppendixPrewarm(sessionId || undefined);
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [selectedAnswer, setSelectedAnswer] = useState<string>("");
