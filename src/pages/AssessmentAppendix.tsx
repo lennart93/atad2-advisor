@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, Loader2, RefreshCw } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Eye, EyeOff, Loader2, RefreshCw } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { AssessmentFooterSlot } from '@/components/assessment/AssessmentFooterSlot';
 import { AppendixTable } from '@/components/appendix/AppendixTable';
 import {
-  loadAppendix, startAppendixGeneration, pollAppendixUntilReady, saveRowEdit, confirmAppendix, saveFacts,
+  loadAppendix, startAppendixGeneration, pollAppendixUntilReady, saveRowEdit, confirmAppendix, saveFacts, setAppendixSkip,
 } from '@/lib/appendix/client';
 import type { StoredAppendix, AppendixRow, EditableField, AppendixFacts } from '@/lib/appendix/types';
 import { useAppendixSkeleton } from '@/lib/appendix/skeletonStore';
@@ -242,24 +242,48 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
     );
   }
 
+  const skipped = page === 'facts' ? !!appendix.facts_skipped : !!appendix.checklist_skipped;
+  const handleToggleSkip = async () => {
+    if (!appendix) return;
+    const next = !skipped;
+    setAppendix({ ...appendix, ...(page === 'facts' ? { facts_skipped: next } : { checklist_skipped: next }) }); // optimistic
+    try {
+      await setAppendixSkip(appendix.id, page, next);
+    } catch (e) {
+      toast.error('Could not update skip', { description: String(e) });
+    }
+  };
+
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
+      <div className="flex items-center justify-end gap-2">
+        <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground" onClick={handleToggleSkip}>
+          {skipped ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+          {skipped ? 'Unskip page' : 'Skip page'}
+        </Button>
         <Button variant="outline" size="sm" className="gap-2" onClick={handleRetry}>
           <RefreshCw className="h-3.5 w-3.5" />
           Regenerate
         </Button>
       </div>
 
-      {page === 'facts' ? (
-        <FactsPanel
-          facts={factsToShow}
-          onChange={appendix?.facts ? handleFactsChange : undefined}
-          generated={!!appendix?.facts}
-        />
-      ) : (
-        <AppendixTable rows={appendix.rows} skeleton={skeleton} showSources={showSources} relatedParties={relatedParties} onEdit={handleEdit} onToggleExclude={handleToggleExclude} />
+      {skipped && (
+        <p className="rounded-md border border-[hsl(var(--border-subtle))] bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+          This page is skipped and will be left out of the report. The content is kept and can be restored with Unskip.
+        </p>
       )}
+
+      <div className={skipped ? 'opacity-60' : undefined}>
+        {page === 'facts' ? (
+          <FactsPanel
+            facts={factsToShow}
+            onChange={appendix?.facts ? handleFactsChange : undefined}
+            generated={!!appendix?.facts}
+          />
+        ) : (
+          <AppendixTable rows={appendix.rows} skeleton={skeleton} showSources={showSources} relatedParties={relatedParties} onEdit={handleEdit} onToggleExclude={handleToggleExclude} />
+        )}
+      </div>
 
       <AssessmentFooterSlot
         left={
