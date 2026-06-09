@@ -276,6 +276,7 @@ export default function AssessmentAppendix() {
       <FactsPanel
         facts={factsToShow}
         onChange={appendix?.facts ? handleFactsChange : undefined}
+        generated={!!appendix?.facts}
       />
 
       <AppendixTable rows={appendix.rows} skeleton={skeleton} showSources={showSources} relatedParties={relatedParties} onEdit={handleEdit} onToggleExclude={handleToggleExclude} />
