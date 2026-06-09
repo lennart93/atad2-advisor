@@ -15,6 +15,13 @@ export interface RawEdge {
   ownership_pct: number | null;
 }
 
+export interface RawGroup {
+  id: string;
+  kind: string;
+  label: string;
+  member_ids: string[];
+}
+
 export interface FactEntity {
   id: string;
   chartEntityId: string;
@@ -25,6 +32,9 @@ export interface FactEntity {
   ownershipPct: number | null;
   related: boolean;
   nlTaxStatus: string | null;
+  isFiscalUnity?: boolean;
+  memberEntityIds?: string[];
+  memberOfUnityId?: string;
 }
 
 export interface ClassificationItem {
@@ -70,45 +80,90 @@ export interface AppendixFacts {
 }
 
 const RELATED_THRESHOLD = 25;
+const FISCAL_UNITY_KIND = "fiscal_unity";
 
-/** The taxpayer is E1; parents (desc %), subsidiaries (desc %), then other group (by name). */
-export function buildEntityRegister(entities: RawEntity[], edges: RawEdge[]): FactEntity[] {
+/**
+ * The taxpayer is E1. A fiscal unity (a grouping of kind 'fiscal_unity' that
+ * contains the taxpayer) collapses into one synthetic E1; its members are listed
+ * (flagged memberOfUnityId), never counted as separate related parties, and
+ * relatedness is measured from the whole unity outward. Mirror of the frontend
+ * src/lib/appendix/facts/entityRegister.ts.
+ */
+export function buildEntityRegister(entities: RawEntity[], edges: RawEdge[], groupings: RawGroup[] = []): FactEntity[] {
   const taxpayer = entities.find((e) => e.is_taxpayer) ?? null;
   if (!taxpayer) return [];
 
   const byId = new Map(entities.map((e) => [e.id, e]));
-  type Pre = { ent: RawEntity; role: FactEntity["role"]; pct: number | null };
-  const pre = new Map<string, Pre>();
-  pre.set(taxpayer.id, { ent: taxpayer, role: "Taxpayer", pct: null });
+  const present = (id: string) => byId.has(id);
 
+  const fu = groupings.find(
+    (g) => g.kind === FISCAL_UNITY_KIND && Array.isArray(g.member_ids) && g.member_ids.includes(taxpayer.id),
+  ) ?? null;
+  const memberIds: string[] = fu ? fu.member_ids.filter(present) : [];
+  const memberSet = new Set<string>(fu ? memberIds : [taxpayer.id]);
+
+  type Pre = { ent: RawEntity; role: FactEntity["role"]; pct: number | null };
+  const ext = new Map<string, Pre>();
   for (const ed of edges) {
     const pct = ed.ownership_pct ?? null;
-    if (ed.to_entity_id === taxpayer.id && ed.from_entity_id !== taxpayer.id) {
-      const e = byId.get(ed.from_entity_id);
-      if (e && !pre.has(e.id)) pre.set(e.id, { ent: e, role: "Parent", pct });
-    } else if (ed.from_entity_id === taxpayer.id && ed.to_entity_id !== taxpayer.id) {
-      const e = byId.get(ed.to_entity_id);
-      if (e && !pre.has(e.id)) pre.set(e.id, { ent: e, role: "Subsidiary", pct });
+    if (memberSet.has(ed.to_entity_id) && !memberSet.has(ed.from_entity_id) && byId.has(ed.from_entity_id) && !ext.has(ed.from_entity_id)) {
+      ext.set(ed.from_entity_id, { ent: byId.get(ed.from_entity_id)!, role: "Parent", pct });
+    } else if (memberSet.has(ed.from_entity_id) && !memberSet.has(ed.to_entity_id) && byId.has(ed.to_entity_id) && !ext.has(ed.to_entity_id)) {
+      ext.set(ed.to_entity_id, { ent: byId.get(ed.to_entity_id)!, role: "Subsidiary", pct });
     }
   }
-  for (const e of entities) if (!pre.has(e.id)) pre.set(e.id, { ent: e, role: "Group entity", pct: null });
+  for (const e of entities) {
+    if (memberSet.has(e.id) || ext.has(e.id)) continue;
+    ext.set(e.id, { ent: e, role: "Group entity", pct: null });
+  }
 
-  const order = { Taxpayer: 0, Parent: 1, Subsidiary: 2, "Group entity": 3 } as const;
-  const sorted = [...pre.values()].sort((a, b) => {
+  const order = { Parent: 1, Subsidiary: 2, "Group entity": 3 } as const;
+  const sortedExt = [...ext.values()].sort((a, b) => {
     if (order[a.role] !== order[b.role]) return order[a.role] - order[b.role];
     if ((b.pct ?? -1) !== (a.pct ?? -1)) return (b.pct ?? -1) - (a.pct ?? -1);
     return a.ent.name.localeCompare(b.ent.name);
   });
 
-  return sorted.map((p, i) => ({
-    id: `E${i + 1}`,
-    chartEntityId: p.ent.id,
-    name: p.ent.name,
-    jurisdiction: p.ent.jurisdiction_iso ?? null,
-    entityType: p.ent.entity_type ?? null,
-    role: p.role,
-    ownershipPct: p.pct,
-    related: p.pct != null && p.pct > RELATED_THRESHOLD,
+  const toFact = (id: string, ent: RawEntity, role: FactEntity["role"], pct: number | null): FactEntity => ({
+    id,
+    chartEntityId: ent.id,
+    name: ent.name,
+    jurisdiction: ent.jurisdiction_iso ?? null,
+    entityType: ent.entity_type ?? null,
+    role,
+    ownershipPct: pct,
+    related: pct != null && pct > RELATED_THRESHOLD,
     nlTaxStatus: null,
-  }));
+  });
+
+  const out: FactEntity[] = [];
+  if (fu) {
+    out.push({
+      id: "E1",
+      chartEntityId: `fu:${fu.id}`,
+      name: fu.label,
+      jurisdiction: taxpayer.jurisdiction_iso ?? null,
+      entityType: "Fiscal unity",
+      role: "Taxpayer",
+      ownershipPct: null,
+      related: false,
+      nlTaxStatus: null,
+      isFiscalUnity: true,
+      memberEntityIds: memberIds,
+    });
+  } else {
+    out.push(toFact("E1", taxpayer, "Taxpayer", null));
+  }
+
+  let n = out.length;
+  for (const p of sortedExt) out.push(toFact(`E${++n}`, p.ent, p.role, p.pct));
+
+  if (fu) {
+    for (const id of memberIds) {
+      const ent = byId.get(id)!;
+      out.push({ ...toFact(`E${++n}`, ent, "Group entity", null), memberOfUnityId: "E1", related: false });
+    }
+  }
+
+  return out;
 }

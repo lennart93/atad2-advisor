@@ -8,7 +8,7 @@ import { SKELETON_ROWS, type ServerSkeletonRow } from "./skeletonRows.ts";
 import { loadAppendixPrompt, loadPrompt } from "./promptsLoader.ts";
 import {
   buildEntityRegister,
-  type RawEntity, type RawEdge, type AppendixFacts, type FactEntity,
+  type RawEntity, type RawEdge, type RawGroup, type AppendixFacts, type FactEntity,
 } from "./factsBuild.ts";
 
 const corsHeaders: Record<string, string> = {
@@ -120,7 +120,7 @@ async function runGeneration(c: SupabaseClient, appendixId: string, sessionId: s
     // classification matrix, transactions and acting-together clusters. Built
     // before the article swarm so the articles can later be grounded on it.
     const rawChart = await loadChartRaw(c, sessionId);
-    const factEntities = buildEntityRegister(rawChart.entities, rawChart.edges);
+    const factEntities = buildEntityRegister(rawChart.entities, rawChart.edges, rawChart.groups);
     const factsFresh = await buildFacts(c, factEntities, session ?? null, answersBlock, structureBlock);
     const { data: priorFacts } = await c.from("atad2_appendix").select("facts").eq("id", appendixId).maybeSingle();
     const factsToStore = factEntities.length
@@ -231,18 +231,22 @@ async function loadSkeletonRows(c: SupabaseClient): Promise<ServerSkeletonRow[]>
 async function loadChartRaw(
   c: SupabaseClient,
   sessionId: string,
-): Promise<{ entities: RawEntity[]; edges: Array<RawEdge & { kind: string | null }> }> {
+): Promise<{ entities: RawEntity[]; edges: Array<RawEdge & { kind: string | null }>; groups: RawGroup[] }> {
   const { data: chart } = await c.from("atad2_structure_charts").select("id").eq("session_id", sessionId).maybeSingle();
-  if (!chart?.id) return { entities: [], edges: [] };
+  if (!chart?.id) return { entities: [], edges: [], groups: [] };
   const { data: ents } = await c
     .from("atad2_structure_entities")
     .select("id, name, entity_type, jurisdiction_iso, is_taxpayer").eq("chart_id", chart.id);
   const { data: edges } = await c
     .from("atad2_structure_edges")
     .select("from_entity_id, to_entity_id, ownership_pct, kind").eq("chart_id", chart.id);
+  const { data: groups } = await c
+    .from("atad2_structure_groupings")
+    .select("id, kind, label, member_ids").eq("chart_id", chart.id);
   return {
     entities: (ents ?? []) as RawEntity[],
     edges: (edges ?? []) as Array<RawEdge & { kind: string | null }>,
+    groups: (groups ?? []) as RawGroup[],
   };
 }
 
