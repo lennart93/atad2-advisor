@@ -25,7 +25,7 @@ import { buildDocumentsBlock } from "@/lib/prefill/buildDocumentsBlock";
 import { AssessmentFooterSlot } from "@/components/assessment/AssessmentFooterSlot";
 import { loadChartSnapshot } from "@/lib/structure/client";
 import { loadAppendix } from "@/lib/appendix/client";
-import { buildAppendixBlock } from "@/lib/appendix/buildAppendixBlock";
+import { appendixMemoBlock } from "@/lib/appendix/buildAppendixBlock";
 import { loadAppendixSkeleton } from "@/lib/appendix/skeletonStore";
 interface SessionData {
   session_id: string;
@@ -434,7 +434,7 @@ const AssessmentReport = () => {
       try {
         const [appendix, appendixSkeleton] = await Promise.all([loadAppendix(sessionId), loadAppendixSkeleton()]);
         if (appendix && appendix.review_status === 'confirmed') {
-          confirmedAppendix = buildAppendixBlock(appendix.rows, appendixSkeleton, appendix.facts);
+          confirmedAppendix = appendixMemoBlock(appendix, appendixSkeleton);
         }
       } catch (e) {
         console.warn('[generate-report] loadAppendix failed, continuing without appendix', e);
