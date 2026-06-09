@@ -32,6 +32,7 @@ import {
 import { addOrMergeFiscalUnity } from '@/lib/structure/fiscalUnity';
 import { computeFrameLayouts } from '@/lib/structure/fiscalUnityLayout';
 import { startExtraction, pollUntilTerminal } from '@/lib/structure/extraction';
+import { loadAppendix } from '@/lib/appendix/client';
 import { FiscalUnityEditPopover } from './overlays/FiscalUnityEditPopover';
 import { captureChartSnapshot } from '@/lib/structure/captureChartSnapshot';
 import type { Node } from '@xyflow/react';
@@ -105,6 +106,7 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
   const [entities, setEntities] = useState<StructureEntity[]>([]);
   const [edges, setEdgesState] = useState<StructureEdge[]>([]);
   const [groupings, setGroupings] = useState<StructureGroup[]>([]);
+  const [hiddenChartIds, setHiddenChartIds] = useState<Set<string>>(new Set());
   type Selection =
     | { kind: 'node'; id: string }
     | { kind: 'edge'; id: string }
@@ -176,6 +178,24 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [selection]);
+  // Appendix is leading: entities the advisor hid in the appendix are filtered
+  // out of the chart (non-destructive — the rows stay; un-hiding is done in the
+  // appendix). hidden ids are chartEntityIds; synthetic fiscal-unity ids (fu:*)
+  // are not real chart entities and are ignored.
+  useEffect(() => {
+    let cancelled = false;
+    loadAppendix(sessionId)
+      .then((a) => {
+        if (cancelled || !a?.facts) return;
+        const ids = a.facts.entities
+          .filter((e) => e.hidden && !e.chartEntityId.startsWith('fu:'))
+          .map((e) => e.chartEntityId);
+        setHiddenChartIds(new Set(ids));
+      })
+      .catch(() => { /* no appendix yet → hide nothing */ });
+    return () => { cancelled = true; };
+  }, [sessionId]);
+
   const [status, setStatus] = useState<ChartStatus | 'loading'>('loading');
 
 const [busy, setBusy] = useState(false);
@@ -229,29 +249,31 @@ const [busy, setBusy] = useState(false);
   // to the chart anchor (taxpayer, or first entity as fallback). Entities that
   // were extracted but never wired into the ownership graph are excluded from
   // the rendered chart, the layout pass, the toolbar counts, and exports.
+  // Entities hidden in the appendix are also excluded from the BFS.
   const visibleEntities = useMemo(() => {
     if (entities.length === 0) return entities;
+    const hidden = hiddenChartIds;
     const ownership = edges.filter((e) => e.kind === 'ownership');
-    const taxpayer = entities.find((e) => e.is_taxpayer);
-    const anchorId = taxpayer?.id ?? entities[0]?.id;
-    if (!anchorId) return entities;
+    const taxpayer = entities.find((e) => e.is_taxpayer && !hidden.has(e.id));
+    const anchorId = taxpayer?.id ?? entities.find((e) => !hidden.has(e.id))?.id;
+    if (!anchorId) return entities.filter((e) => !hidden.has(e.id));
     const connected = new Set<string>([anchorId]);
     const queue = [anchorId];
     while (queue.length > 0) {
       const cur = queue.shift()!;
       for (const e of ownership) {
-        if (e.from_entity_id === cur && !connected.has(e.to_entity_id)) {
+        if (e.from_entity_id === cur && !hidden.has(e.to_entity_id) && !connected.has(e.to_entity_id)) {
           connected.add(e.to_entity_id);
           queue.push(e.to_entity_id);
         }
-        if (e.to_entity_id === cur && !connected.has(e.from_entity_id)) {
+        if (e.to_entity_id === cur && !hidden.has(e.from_entity_id) && !connected.has(e.from_entity_id)) {
           connected.add(e.from_entity_id);
           queue.push(e.from_entity_id);
         }
       }
     }
-    return entities.filter((e) => connected.has(e.id));
-  }, [entities, edges]);
+    return entities.filter((e) => connected.has(e.id) && !hidden.has(e.id));
+  }, [entities, edges, hiddenChartIds]);
 
   const visibleEdges = useMemo(() => {
     const ids = new Set(visibleEntities.map((e) => e.id));
@@ -771,6 +793,11 @@ const [busy, setBusy] = useState(false);
     status === 'extracting:stage1' ||
     status === 'extracting:stage2';
 
+  const hiddenInAppendixCount = useMemo(
+    () => entities.filter((e) => hiddenChartIds.has(e.id)).length,
+    [entities, hiddenChartIds],
+  );
+
   return (
     <div className="flex h-full flex-col">
       <AssessmentFooterSlot
@@ -949,6 +976,7 @@ const [busy, setBusy] = useState(false);
                 onToggleOrphans={() => setShowOrphans((v) => !v)}
                 onAutoArrange={runLayout}
                 selectedEntityIds={selection?.kind === 'nodes' ? selection.ids : []}
+                hiddenInAppendixCount={hiddenInAppendixCount}
                 onCreateFiscalUnity={async () => {
                   if (!chart || selection?.kind !== 'nodes') return;
                   const { groupings: next } = await addOrMergeFiscalUnity(
