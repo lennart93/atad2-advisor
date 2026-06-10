@@ -11,6 +11,7 @@ import { loadAppendixPrompt, loadPrompt } from "./promptsLoader.ts";
 import {
   buildEntityRegister,
   type RawEntity, type RawEdge, type RawGroup, type AppendixFacts, type FactEntity, type ActingLikelihood,
+  type Narrative, type NarrativeKey,
 } from "./factsBuild.ts";
 
 const VALID_LIKELIHOODS = ["highly_unlikely", "unlikely", "unclear", "likely", "highly_likely"] as const;
@@ -421,6 +422,8 @@ async function buildFacts(
         instrument: t.instrument ?? null,
         note: noDashes(t.note),
         articlesTested: t.articlesTested ?? [],
+        relevant: t.relevant ?? true,
+        relevanceReason: t.relevanceReason ?? null,
         status: "proposed" as const, excludedFromClient: false, source: "ai" as const,
       })),
       // One acting-together assessment for the parents (not multiple clusters with
@@ -437,6 +440,15 @@ async function buildFacts(
           source: "ai" as const,
         };
       }),
+      narratives: (() => {
+        const src = proposed.narratives ?? {};
+        const out: Partial<Record<NarrativeKey, Narrative>> = {};
+        for (const k of ["register", "related", "flows", "classification"] as const) {
+          const text = src[k];
+          if (typeof text === "string" && text.trim()) out[k] = { text: text.trim(), source: "ai" };
+        }
+        return Object.keys(out).length ? out : undefined;
+      })(),
     };
     return { facts, complete: true };
   } catch (err) {
@@ -482,8 +494,19 @@ function mergeFacts(existing: AppendixFacts | null, fresh: AppendixFacts): Appen
     }
     return { ...f, excludedFromClient: prev?.excludedFromClient ?? false };
   });
+  // An edited sentence survives; the rest refreshes from the new AI output.
+  const exNarr = existing.narratives ?? {};
+  const narratives: AppendixFacts["narratives"] = { ...fresh.narratives };
+  for (const k of ["register", "related", "flows", "classification"] as const) {
+    const prev = exNarr[k];
+    if (prev?.source === "edited") narratives[k] = prev;
+  }
   // Section-level exclusions are an advisor scope decision; carry them across regen.
-  return renumberFacts({ entities, classifications, transactions, actingTogether, excludedSections: existing.excludedSections });
+  return renumberFacts({
+    entities, classifications, transactions, actingTogether,
+    excludedSections: existing.excludedSections,
+    narratives: Object.keys(narratives).length ? narratives : undefined,
+  });
 }
 
 /** Compact text summary of Part A, fed to the article generation as grounding. */
@@ -530,13 +553,11 @@ function buildFactsBlock(facts: AppendixFacts | null): string {
   ].filter(Boolean).join("\n\n");
 }
 
-/** Keep T#/A# labels contiguous after a merge. */
+/** Keep T#/A# labels contiguous after a merge; spread keeps excludedSections/narratives. */
 function renumberFacts(f: AppendixFacts): AppendixFacts {
   return {
-    entities: f.entities,
-    classifications: f.classifications,
+    ...f,
     transactions: f.transactions.map((t, i) => ({ ...t, id: `T${i + 1}` })),
     actingTogether: f.actingTogether.map((a, i) => ({ ...a, id: `A${i + 1}` })),
-    ...(f.excludedSections ? { excludedSections: f.excludedSections } : {}),
   };
 }

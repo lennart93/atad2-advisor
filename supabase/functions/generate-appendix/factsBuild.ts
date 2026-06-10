@@ -67,6 +67,8 @@ export interface TransactionItem {
   instrument: string | null;
   note: string | null;
   articlesTested: string[];
+  relevant?: boolean;
+  relevanceReason?: string | null;
   status: "proposed" | "confirmed";
   excludedFromClient: boolean;
   source: "ai" | "edited";
@@ -85,6 +87,9 @@ export interface ActingTogetherCluster {
   source: "ai" | "edited";
 }
 
+export interface Narrative { text: string; source: "ai" | "edited"; }
+export type NarrativeKey = "register" | "related" | "flows" | "classification";
+
 export interface AppendixFacts {
   entities: FactEntity[];
   actingTogether: ActingTogetherCluster[];
@@ -92,6 +97,8 @@ export interface AppendixFacts {
   transactions: TransactionItem[];
   /** Whole Part A sections the advisor excluded from the client export. */
   excludedSections?: string[];
+  /** One connective sentence per funnel section; advisor edits survive regeneration. */
+  narratives?: Partial<Record<NarrativeKey, Narrative>>;
 }
 
 const RELATED_THRESHOLD = 25;

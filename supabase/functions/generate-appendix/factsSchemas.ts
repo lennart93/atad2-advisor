@@ -20,6 +20,8 @@ export const FactsModelOutput = z.object({
     instrument: z.string().nullish(),
     note: z.string().nullish(),
     articlesTested: z.array(z.string()).nullish(),
+    relevant: z.boolean().nullish(),
+    relevanceReason: z.string().nullish(),
   })).optional().default([]),
   // One acting-together assessment for the parents: a single likelihood + one
   // prose paragraph (entity names only, no source citations). No per-level texts.
@@ -34,5 +36,13 @@ export const FactsModelOutput = z.object({
   // the taxpayer E1, derived from the documents. E1 itself is implied and need not
   // be listed. Empty/omitted when there is no fiscal unity.
   fiscalUnityMemberEntityIds: z.array(z.string()).optional().default([]),
+  // One connective sentence per funnel section (register, related, flows,
+  // classification). All optional: a missing sentence renders as table-only.
+  narratives: z.object({
+    register: z.string().nullish(),
+    related: z.string().nullish(),
+    flows: z.string().nullish(),
+    classification: z.string().nullish(),
+  }).partial().nullish(),
 });
 export type FactsModelOutputT = z.infer<typeof FactsModelOutput>;
