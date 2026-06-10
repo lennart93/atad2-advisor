@@ -504,6 +504,13 @@ export function useClassifyDocument(sessionId: string | null) {
   });
 }
 
+/**
+ * Manual/admin use only. Since the dossier replatform (slice 1, spec
+ * 2026-06-10-integral-dossier-platform-design.md) nothing calls this
+ * automatically: source documents are retained after memo generation so the
+ * client library and year-over-year rollover can use them. The edge function
+ * "cleanup" action still exists for deliberate manual cleanup.
+ */
 export function useCleanupDocuments(sessionId: string | null) {
   const qc = useQueryClient();
   return useMutation({

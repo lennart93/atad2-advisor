@@ -3,7 +3,6 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { useCleanupDocuments } from "@/hooks/usePrefill";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/components/ui/sonner";
@@ -76,7 +75,6 @@ const AssessmentReport = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const cleanupDocs = useCleanupDocuments(sessionId ?? null);
 
   const [sessionData, setSessionData] = useState<SessionData | null>(null);
   const [answers, setAnswers] = useState<AnswerData[]>([]);
@@ -465,12 +463,6 @@ const AssessmentReport = () => {
 
       // No need to save to Supabase here - the Edge Function handles the complete insert
       console.log('Report processing completed successfully');
-
-      // Now that the memo has been saved, drop the source documents.
-      const cleanupResult = await cleanupDocs.mutateAsync().catch(() => null);
-      if (cleanupResult?.deleted_count && cleanupResult.deleted_count > 0) {
-        toast.success("Source documents deleted", { description: "The memorandum is saved." });
-      }
 
       // Refresh reports query to show the newly created report
       queryClient.invalidateQueries({ queryKey: ["reports", sessionId] });
