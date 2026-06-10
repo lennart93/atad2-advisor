@@ -94,42 +94,26 @@ describe('validate — missing fields', () => {
     expect(r.missingFields).toEqual([]);
   });
 
-  it('flags missing legal_form', () => {
-    const r = validate([ent('a', { legal_form: null })], []);
-    expect(r.missingFields).toEqual([{ entity_id: 'a', missing: ['legal_form'] }]);
-  });
-
   it('flags missing jurisdiction_iso (empty string)', () => {
     const r = validate([ent('a', { jurisdiction_iso: '' })], []);
     expect(r.missingFields).toEqual([{ entity_id: 'a', missing: ['jurisdiction_iso'] }]);
   });
 
-  it('flags both missing on same entity', () => {
+  it('does not flag a missing legal_form (no longer tracked)', () => {
+    const r = validate([ent('a', { legal_form: null })], []);
+    expect(r.missingFields).toEqual([]);
+  });
+
+  it('flags only jurisdiction when both legal_form and jurisdiction are empty', () => {
     const r = validate([ent('a', { legal_form: null, jurisdiction_iso: '' })], []);
     expect(r.missingFields).toEqual([
-      { entity_id: 'a', missing: ['legal_form', 'jurisdiction_iso'] },
+      { entity_id: 'a', missing: ['jurisdiction_iso'] },
     ]);
   });
 
-  it('does not flag missing legal_form on an individual', () => {
+  it('flags missing jurisdiction_iso on a trust_or_non_entity', () => {
     const r = validate(
-      [ent('a', { legal_form: null, entity_type: 'individual' })],
-      [],
-    );
-    expect(r.missingFields).toEqual([]);
-  });
-
-  it('does not flag missing legal_form on a trust_or_non_entity', () => {
-    const r = validate(
-      [ent('a', { legal_form: null, entity_type: 'trust_or_non_entity' })],
-      [],
-    );
-    expect(r.missingFields).toEqual([]);
-  });
-
-  it('still flags missing jurisdiction_iso on a trust_or_non_entity', () => {
-    const r = validate(
-      [ent('a', { legal_form: null, jurisdiction_iso: '', entity_type: 'trust_or_non_entity' })],
+      [ent('a', { jurisdiction_iso: '', entity_type: 'trust_or_non_entity' })],
       [],
     );
     expect(r.missingFields).toEqual([
@@ -186,7 +170,7 @@ describe('validate — hasBlocking', () => {
   });
 
   it('true when missing fields', () => {
-    const r = validate([ent('a', { legal_form: null })], []);
+    const r = validate([ent('a', { jurisdiction_iso: '' })], []);
     expect(r.hasBlocking).toBe(true);
   });
 

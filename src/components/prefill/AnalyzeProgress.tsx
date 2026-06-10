@@ -61,10 +61,10 @@ export function AnalyzeProgress({ sessionId, onContinue }: Props) {
     : null;
 
   // Time-based curve runs to 100% over the full WAIT_TIMEOUT window so the
-  // bar never visually hangs between prefill writes. The "honesty signal"
-  // is the X/Y count badge in the corner; the bar's job is to feel alive.
-  // Real progress can push pct higher (e.g. swarm finishes fast) but the
-  // curve keeps the floor moving so users don't think we've frozen.
+  // bar never visually hangs between prefill writes; the bar's job is to
+  // feel alive. Real progress can push pct higher (e.g. swarm finishes
+  // fast) but the curve keeps the floor moving so users don't think we've
+  // frozen.
   const [fallbackPct, setFallbackPct] = useState(0);
   useEffect(() => {
     if (ready) {
@@ -99,10 +99,6 @@ export function AnalyzeProgress({ sessionId, onContinue }: Props) {
     ? "Still working in the background"
     : "Reading your documents…";
 
-  const countBadge = total != null && prefillCount > 0
-    ? `${prefillCount} / ${total}`
-    : null;
-
   // Only render a detail line for terminal states. While we're actively
   // reading the bar + status label + count badge already say everything,
   // so we keep that area quiet.
@@ -121,7 +117,7 @@ export function AnalyzeProgress({ sessionId, onContinue }: Props) {
           <div className="flex items-baseline justify-between gap-3">
             <p className="text-sm font-medium tracking-tight">{statusLabel}</p>
             <span className="text-xs tabular-nums text-muted-foreground">
-              {countBadge ? `${countBadge}  ·  ` : ""}{Math.round(pct)}%
+              {Math.round(pct)}%
             </span>
           </div>
           <Progress value={pct} className="h-1.5" />

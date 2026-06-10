@@ -9,7 +9,7 @@ export interface OwnershipSumIssue {
 
 export interface MissingFieldsEntry {
   entity_id: string;
-  missing: ('legal_form' | 'jurisdiction_iso')[];
+  missing: 'jurisdiction_iso'[];
 }
 
 export interface ValidatorResult {
@@ -63,17 +63,12 @@ function computeOwnershipSumIssues(
 }
 
 function computeMissingFields(entities: StructureEntity[]): MissingFieldsEntry[] {
+  // legal_form is intentionally NOT validated: it was a constant source of
+  // false blocking (PE funds, foreign vehicles often have no BV/NV-style legal
+  // form), so the app no longer tracks it. Only jurisdiction is required.
   const out: MissingFieldsEntry[] = [];
   for (const e of entities) {
-    const missing: ('legal_form' | 'jurisdiction_iso')[] = [];
-    if (e.legal_form == null || e.legal_form.trim() === '') {
-      // Individuals and trusts/non-entities (trust, foundation, STAK, VI/PE,
-      // branch) don't have a legal form in the BV/NV/GmbH sense — the enum
-      // value literally means "non-entity". Everything else needs one.
-      if (e.entity_type !== 'individual' && e.entity_type !== 'trust_or_non_entity') {
-        missing.push('legal_form');
-      }
-    }
+    const missing: 'jurisdiction_iso'[] = [];
     if (e.jurisdiction_iso == null || e.jurisdiction_iso.trim() === '') {
       missing.push('jurisdiction_iso');
     }

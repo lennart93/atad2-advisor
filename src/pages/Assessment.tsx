@@ -37,7 +37,7 @@ import { useQuestionPrefill, usePrefillJob, useSessionDocuments } from "@/hooks/
 import { seededIndex } from "@/utils/random";
 import { motion } from "framer-motion";
 import { startExtraction } from "@/lib/structure/extraction";
-import { startAppendixGeneration } from "@/lib/appendix/client";
+import { startAppendixGeneration, loadAppendix, pollAppendixUntilReady } from "@/lib/appendix/client";
 import { AssessmentFooterSlot } from "@/components/assessment/AssessmentFooterSlot";
 import { useAssessmentSessionId } from "@/lib/assessment/useAssessmentSessionId";
 import { useAppendixPrewarm } from "@/hooks/useAppendixPrewarm";
@@ -833,11 +833,30 @@ const Assessment = () => {
       });
 
       // Refresh the appendix/facts generation now that the Q&A answers exist.
-      // The prewarm hook fires once on Phase A chart draft (before answers) so
-      // this explicit call updates the article rows and facts with the answers.
+      // The prewarm hook fires once on the Phase A chart draft (before answers),
+      // so this explicit call folds the answers into the article rows and facts.
       // startAppendixGeneration merges fresh AI output with any prior advisor
-      // edits/confirmations, so re-running is non-destructive.
-      startAppendixGeneration(sessionId).catch(() => {});
+      // edits/confirmations, so re-running is non-destructive. We first let any
+      // in-flight (answer-less) prewarm run finish: otherwise the edge function
+      // drops this invoke as a fresh duplicate, or races its final write, and
+      // the appendix lands "ready" with answer-less content.
+      void (async () => {
+        try {
+          const cur = await loadAppendix(sessionId);
+          // Only wait when a FRESH prewarm run is still in flight: starting now
+          // would make the edge function drop our answer-bearing run as a
+          // duplicate. A stale 'generating' row (its work died) is not worth
+          // waiting on, and the edge function just restarts it on our call.
+          const freshRun =
+            cur?.generation_status === 'generating' &&
+            !!cur.updated_at &&
+            Date.now() - new Date(cur.updated_at).getTime() < 90_000;
+          if (freshRun) {
+            await pollAppendixUntilReady(sessionId, () => {}).catch(() => {});
+          }
+          await startAppendixGeneration(sessionId);
+        } catch { /* the appendix step has a cold-start backstop */ }
+      })();
 
       // Per-question suggestions are reviewed on the assessment report page,
       // where each answer can be edited inline. Skip the standalone review

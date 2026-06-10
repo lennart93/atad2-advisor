@@ -22,6 +22,7 @@ import { AssessmentFooterSlot } from "@/components/assessment/AssessmentFooterSl
 import { useAssessmentSessionId } from "@/lib/assessment/useAssessmentSessionId";
 import { ArrowRight } from "lucide-react";
 import { maybePrewarmPhaseA } from "@/lib/structure/phaseAPrewarm";
+import { useAppendixPrewarm } from "@/hooks/useAppendixPrewarm";
 import { DocumentQualityMeter } from "@/components/prefill/DocumentQualityMeter";
 import { LowQualityGateDialog } from "@/components/prefill/LowQualityGateDialog";
 import { computeQuality } from "@/lib/prefill/qualityMeter";
@@ -34,6 +35,11 @@ export default function AssessmentUpload() {
   const { data: docs } = useSessionDocuments(sessionId);
   const { data: job } = usePrefillJob(sessionId);
   const startAnalyze = useStartAnalyze(sessionId);
+
+  // Start appendix/facts generation as early as 'phase_a_ready' (right after
+  // upload), so the facts pass is usually done by the time the user reaches the
+  // appendix step. The hook early-returns when sessionId is undefined.
+  useAppendixPrewarm(sessionId);
 
   const [waiting, setWaiting] = useState(false);
 
@@ -88,7 +94,7 @@ export default function AssessmentUpload() {
         <div>
           <h2 className="text-xl font-semibold tracking-tight">Reading your documents</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Pre-filling answers where possible. The questions open as soon as suggestions start arriving.
+            You can move on to the questions as soon as this is done. Give it a few minutes.
           </p>
         </div>
         <AnalyzeProgress
