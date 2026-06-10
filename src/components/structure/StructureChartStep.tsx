@@ -294,6 +294,10 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
         mismatch_classification: null,
         mismatch_atad2_article: null,
         label: null,
+        label_t: null,
+        label_dx: null,
+        label_dy: null,
+        label_hidden: false,
         source: 'ai_extracted',
         created_at: '',
         updated_at: '',
@@ -640,18 +644,33 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
     setEdgesState((prev) => prev.map((e) => (e.id === edgeId ? updated : e)));
   }, [edges]);
 
-  const handleLabelTChange = useCallback(async (edgeId: string, newT: number) => {
+  const handleLabelMove = useCallback(async (edgeId: string, dx: number, dy: number) => {
     const edge = edges.find((e) => e.id === edgeId);
     if (!edge) return;
-    // Optimistisch in lokale state, dan persist. Bij DB-fout valt 'ie terug
-    // op de oude waarde via de gebruikelijke load-paden.
+    // Optimistisch in lokale state, dan persist. label_t wissen zodat er één
+    // bron van waarheid is voor de labelpositie (de nieuwe 2D-offset).
     setEdgesState((prev) =>
-      prev.map((e) => (e.id === edgeId ? { ...e, label_t: newT } : e)),
+      prev.map((e) =>
+        e.id === edgeId ? { ...e, label_dx: dx, label_dy: dy, label_t: null } : e,
+      ),
     );
     try {
-      await upsertEdge({ ...edge, label_t: newT });
+      await upsertEdge({ ...edge, label_dx: dx, label_dy: dy, label_t: null });
     } catch (err) {
-      console.error('[Edge] persist label_t failed', err);
+      console.error('[Edge] persist label offset failed', err);
+    }
+  }, [edges]);
+
+  const handleLabelHide = useCallback(async (edgeId: string) => {
+    const edge = edges.find((e) => e.id === edgeId);
+    if (!edge) return;
+    setEdgesState((prev) =>
+      prev.map((e) => (e.id === edgeId ? { ...e, label_hidden: true } : e)),
+    );
+    try {
+      await upsertEdge({ ...edge, label_hidden: true });
+    } catch (err) {
+      console.error('[Edge] persist label_hidden failed', err);
     }
   }, [edges]);
 
@@ -875,7 +894,8 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
                 }}
                 onConnect={handleConnect}
                 onPctChange={handlePctChange}
-                onLabelTChange={handleLabelTChange}
+                onLabelMove={handleLabelMove}
+                onLabelHide={handleLabelHide}
                 ranks={tierResult?.ranks ?? new Map()}
                 frameLayouts={frameLayouts}
                 labelLineBreaks={labelLineBreaks}

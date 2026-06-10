@@ -960,6 +960,9 @@ export type Database = {
           kind: string
           label: string | null
           label_t: number | null
+          label_dx: number | null
+          label_dy: number | null
+          label_hidden: boolean
           mismatch_atad2_article: string | null
           mismatch_classification: string | null
           ownership_pct: number | null
@@ -979,6 +982,9 @@ export type Database = {
           kind: string
           label?: string | null
           label_t?: number | null
+          label_dx?: number | null
+          label_dy?: number | null
+          label_hidden?: boolean
           mismatch_atad2_article?: string | null
           mismatch_classification?: string | null
           ownership_pct?: number | null
@@ -998,6 +1004,9 @@ export type Database = {
           kind?: string
           label?: string | null
           label_t?: number | null
+          label_dx?: number | null
+          label_dy?: number | null
+          label_hidden?: boolean
           mismatch_atad2_article?: string | null
           mismatch_classification?: string | null
           ownership_pct?: number | null

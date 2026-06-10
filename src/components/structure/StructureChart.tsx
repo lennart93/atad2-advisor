@@ -28,6 +28,7 @@ import {
   type OwnershipEdgeType,
 } from './edges/OwnershipEdge';
 import { NODE_WIDTH, NODE_HEIGHT } from '@/lib/structure/labelMeasure';
+import { computeConvergingLabelCounts } from '@/lib/structure/labelLayout';
 import { FiscalUnityOverlay } from './overlays/FiscalUnityOverlay';
 import type { FrameLayout } from '@/lib/structure/fiscalUnityLayout';
 import type { StructureEntity, StructureEdge } from '@/lib/structure/types';
@@ -64,7 +65,10 @@ export interface StructureChartProps {
   onNodePositionEnd: (id: string, x: number, y: number) => void;
   onConnect: (from: string, to: string) => void;
   onPctChange?: (edgeId: string, newPct: number) => void;
-  onLabelTChange?: (edgeId: string, newT: number) => void;
+  /** Persist a hand-dragged 2D label offset (chart px from anchor). */
+  onLabelMove?: (edgeId: string, dx: number, dy: number) => void;
+  /** Hide the % label on this edge (value is kept for the memo). */
+  onLabelHide?: (edgeId: string) => void;
   ranks: Map<string, number>;
   frameLayouts: FrameLayout[];
   labelLineBreaks: Map<string, string[]>;
@@ -172,8 +176,19 @@ function StructureChartInner(props: StructureChartProps) {
       });
     }
 
-    return props.edges
-      .filter((e) => e.kind === 'ownership')
+    // Count how many visible % labels converge on each child. 2+ → those edges
+    // place their label under their own parent instead of above the shared
+    // child (smart anti-overlap; the edge component does the positioning).
+    const ownershipEdges = props.edges.filter((e) => e.kind === 'ownership');
+    const convergeCounts = computeConvergingLabelCounts(
+      ownershipEdges.map((e) => ({
+        id: e.id,
+        target: e.to_entity_id,
+        hasLabel: e.ownership_pct != null && !e.label_hidden,
+      })),
+    );
+
+    return ownershipEdges
       .map((e) => {
         // For long-skip routing: list center-X of every entity strictly between
         // source-row and target-row in Y. These are the obstacles the long
@@ -201,15 +216,19 @@ function StructureChartInner(props: StructureChartProps) {
           type: 'ownership',
           data: {
             ownership_pct: e.ownership_pct,
-            ownership_voting_only: e.ownership_voting_only,
             onPctChange: props.onPctChange,
             intermediateXs,
+            label_dx: e.label_dx,
+            label_dy: e.label_dy,
             label_t: e.label_t,
-            onLabelTChange: props.onLabelTChange,
+            label_hidden: e.label_hidden,
+            convergingLabels: convergeCounts.get(e.id) ?? 0,
+            onLabelMove: props.onLabelMove,
+            onLabelHide: props.onLabelHide,
           } satisfies OwnershipEdgeData,
         } as OwnershipEdgeType;
       });
-  }, [props.edges, props.entities, props.onPctChange, props.onLabelTChange]);
+  }, [props.edges, props.entities, props.onPctChange, props.onLabelMove, props.onLabelHide]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<ChartNodeType>(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState<ChartEdgeType>(initialEdges);

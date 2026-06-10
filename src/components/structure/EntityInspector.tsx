@@ -43,17 +43,6 @@ export function EntityInspector({
       </div>
 
       <div>
-        <label htmlFor="legal_form" className={FIELD_LABEL}>Legal form</label>
-        <Input
-          id="legal_form"
-          value={entity.legal_form ?? ''}
-          onChange={(e) => onChange({ legal_form: e.target.value || null })}
-          className={INPUT_BASE}
-          placeholder="B.V., LLC, GmbH…"
-        />
-      </div>
-
-      <div>
         <label htmlFor="jurisdiction" className={FIELD_LABEL}>Jurisdiction</label>
         <JurisdictionPicker
           id="jurisdiction"

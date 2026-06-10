@@ -141,9 +141,12 @@ export function computeOwnershipPath(p: PathInputs): PathResult {
   return { path, isLongSkip: true, detourX };
 }
 
+// Hoe ver onder de onderkant van de moeder het %-label op de lijn komt te
+// staan in de "meerdere eigenaren"-modus (chart-px).
+const PARENT_DROP_OFFSET = 22;
+
 export interface OwnershipEdgeData extends Record<string, unknown> {
   ownership_pct: number | null;
-  ownership_voting_only: boolean | null;
   onPctChange?: (edgeId: string, newPct: number) => void;
   /**
    * Center-X positions of entities sitting strictly between source-row and
@@ -152,11 +155,28 @@ export interface OwnershipEdgeData extends Record<string, unknown> {
    */
   intermediateXs?: number[];
   /**
-   * Persisted label position along the source→target line, 0..1.
-   * NULL = use the default (midpoint for straight, just-above-target for jog).
+   * Persisted free 2D label offset (chart px) from the target's top handle.
+   * NULL on both = not hand-placed; fall back to legacy label_t, then the
+   * smart default position.
+   */
+  label_dx?: number | null;
+  label_dy?: number | null;
+  /**
+   * Legacy: persisted label position along the source→target line, 0..1.
+   * Still honored for charts saved before 2D offsets existed. First 2D drag
+   * writes dx/dy and clears this.
    */
   label_t?: number | null;
-  onLabelTChange?: (edgeId: string, newT: number) => void;
+  /**
+   * How many visible % labels converge on this edge's child (incl. itself).
+   * >= 2 → place the label under its own parent instead of above the shared
+   * child, so siblings don't stack and none sits on the bus crossing.
+   */
+  convergingLabels?: number;
+  /** User clicked the label's × — suppress the % on the chart (value kept). */
+  label_hidden?: boolean | null;
+  onLabelMove?: (edgeId: string, dx: number, dy: number) => void;
+  onLabelHide?: (edgeId: string) => void;
 }
 
 export type OwnershipEdgeType = Edge<OwnershipEdgeData, 'ownership'>;
@@ -172,10 +192,11 @@ export function OwnershipEdge({
 }: EdgeProps<OwnershipEdgeType>) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<string>(String(data?.ownership_pct ?? ''));
-  // Lokale draft voor label_t terwijl je sleept (omgezet naar chart-coords
-  // via de viewport-zoom; pas op mouseup gaat de waarde via onLabelTChange
-  // naar de DB). NULL = geen actieve sleep, gebruik persisted of default.
-  const [tDraft, setTDraft] = useState<number | null>(null);
+  // Lokale offset-draft terwijl je sleept (scherm-px omgerekend naar chart-px
+  // via de viewport-zoom). Pas op mouseup gaat {dx,dy} via onLabelMove naar de
+  // DB. NULL = geen actieve sleep, gebruik de persisted/default rustpositie.
+  const [dragDraft, setDragDraft] = useState<{ dx: number; dy: number } | null>(null);
+  const [hover, setHover] = useState(false);
   const zoom = useStore((s: ReactFlowState) => s.transform[2]);
 
   const { path } = computeOwnershipPath({
@@ -183,25 +204,56 @@ export function OwnershipEdge({
     intermediateXs: data?.intermediateXs,
   });
 
-  // Voor een rechte verticale lijn (ouder direct boven dochter, geen bus-jog)
-  // zet het percentage op het MIDDEN van de lijn — anders staat 'ie tegen de
-  // dochter aangedrukt bij lange drops zoals top-tier → tweede tier.
-  // Voor smooth-step paden met een horizontale bus-jog blijft het label vlak
-  // boven de dochter staan: dan horen alle siblings van dezelfde ouder op
-  // dezelfde hoogte uitgelijnd, en valt het % logisch bij het onderste
-  // (kind-specifieke) stuk lijn — niet halverwege bij de bus.
   const isStraight = Math.abs(targetX - sourceX) < 5;
   const range = targetY - sourceY;
-  // Default-t alleen relevant zolang label_t == null. Voor straight: midden.
-  // Voor jog: targetY-14 = even boven target, zelfde uitlijning als voorheen.
-  const defaultT = isStraight
-    ? 0.5
-    : Math.abs(range) > 1
-      ? (targetY - 14 - sourceY) / range
-      : 0.5;
-  const effectiveT = tDraft ?? data?.label_t ?? defaultT;
-  const labelX = targetX;
-  const labelY = sourceY + range * effectiveT;
+
+  // Slimme standaardpositie (absolute chart-coords):
+  // - 1 eigenaar: het % staat direct BOVEN de dochter (rechte lijn: midden,
+  //   anders vlak boven de dochter, zoals voorheen).
+  // - 2+ eigenaren op dezelfde dochter: zet elk % op zijn EIGEN lijn, vlak
+  //   onder de eigen moeder. Zo waaieren ze vanzelf uit (moeders staan uit
+  //   elkaar) en valt de rechte-boven-de-dochter-eigenaar niet meer op de
+  //   bus-kruising.
+  const underParent = (data?.convergingLabels ?? 0) >= 2;
+  let defX: number;
+  let defY: number;
+  if (underParent) {
+    defX = sourceX;
+    defY = sourceY + PARENT_DROP_OFFSET;
+  } else {
+    const t = isStraight
+      ? 0.5
+      : Math.abs(range) > 1
+        ? (targetY - 14 - sourceY) / range
+        : 0.5;
+    defX = targetX;
+    defY = sourceY + range * t;
+  }
+
+  // Handmatige offsets worden bewaard t.o.v. een STABIEL referentiepunt (de
+  // top-handle van de dochter) zodat ze niet verspringen als de modus wisselt.
+  const refX = targetX;
+  const refY = targetY;
+
+  // Rustpositie als offset t.o.v. de referentie. Voorrang: handmatige 2D-offset
+  // > legacy label_t (alleen verticaal, op de dochter-kolom) > slimme default.
+  let restDx: number;
+  let restDy: number;
+  if (data?.label_dx != null || data?.label_dy != null) {
+    restDx = data?.label_dx ?? 0;
+    restDy = data?.label_dy ?? 0;
+  } else if (data?.label_t != null && Math.abs(range) > 1) {
+    restDx = targetX - refX;
+    restDy = sourceY + range * data.label_t - refY;
+  } else {
+    restDx = defX - refX;
+    restDy = defY - refY;
+  }
+
+  const dx = dragDraft?.dx ?? restDx;
+  const dy = dragDraft?.dy ?? restDy;
+  const labelX = refX + dx;
+  const labelY = refY + dy;
 
   const save = () => {
     const parsed = Number(draft);
@@ -209,35 +261,36 @@ export function OwnershipEdge({
     setEditing(false);
   };
 
-  const showLabel = data?.ownership_pct != null || editing;
+  const showLabel = !data?.label_hidden && (data?.ownership_pct != null || editing);
 
   // Click vs drag op het %-vakje: <4px beweging = klik (edit-modus), anders
-  // slepen langs de lijn. Listeners worden imperatief geattacht/gedetached
-  // per sleep-sessie zodat closures fris blijven en we geen verlaten
-  // window-listeners hebben.
+  // vrij 2D-slepen. Listeners worden imperatief geattacht/gedetacht per
+  // sleep-sessie zodat closures fris blijven en er geen verweesde
+  // window-listeners achterblijven.
   const startDragOrEdit = (e: React.MouseEvent) => {
     if (editing) return;
     e.stopPropagation();
+    const startX = e.clientX;
     const startY = e.clientY;
-    const startT = effectiveT;
+    const startDx = dx;
+    const startDy = dy;
     let moved = false;
 
     const onMove = (ev: MouseEvent) => {
-      const dyScreen = ev.clientY - startY;
-      if (!moved && Math.abs(dyScreen) < 4) return;
+      const ddxScreen = ev.clientX - startX;
+      const ddyScreen = ev.clientY - startY;
+      if (!moved && Math.hypot(ddxScreen, ddyScreen) < 4) return;
       moved = true;
-      if (Math.abs(range) < 1) return;
-      const dyChart = dyScreen / Math.max(0.01, zoom);
-      const newT = Math.max(0, Math.min(1, startT + dyChart / range));
-      setTDraft(newT);
+      const z = Math.max(0.01, zoom);
+      setDragDraft({ dx: startDx + ddxScreen / z, dy: startDy + ddyScreen / z });
     };
 
     const onUp = () => {
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
       if (moved) {
-        setTDraft((cur) => {
-          if (cur != null) data?.onLabelTChange?.(id, cur);
+        setDragDraft((cur) => {
+          if (cur) data?.onLabelMove?.(id, cur.dx, cur.dy);
           return null;
         });
       } else {
@@ -250,6 +303,12 @@ export function OwnershipEdge({
     window.addEventListener('mouseup', onUp);
   };
 
+  const dragging = dragDraft != null;
+  // De × verschijnt alleen bij hover (en niet tijdens bewerken/slepen), zodat
+  // de kaart rustig blijft en de knop niet in de PNG-capture belandt.
+  const showHide =
+    hover && !editing && !dragging && data?.ownership_pct != null && data?.onLabelHide != null;
+
   return (
     <>
       <BaseEdge
@@ -260,6 +319,13 @@ export function OwnershipEdge({
       {showLabel && (
         <EdgeLabelRenderer>
           <div
+            // React Flow zet de edge-label-laag op pointer-events:none, dus zonder
+            // 'all' lekken klikken door naar het canvas en kun je niet slepen of
+            // wegklikken. nodrag/nopan houden het pannen/slepen van het canvas
+            // tegen terwijl je het label versleept.
+            className="nodrag nopan"
+            onMouseEnter={() => setHover(true)}
+            onMouseLeave={() => setHover(false)}
             style={{
               position: 'absolute',
               transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
@@ -269,6 +335,7 @@ export function OwnershipEdge({
               fontSize: 11.5,
               fontWeight: 600,
               color: '#3a3530',
+              pointerEvents: 'all',
               // Zorg dat het %-vakje boven de gestippelde FE-rand komt te liggen.
               zIndex: 5,
             }}
@@ -297,13 +364,45 @@ export function OwnershipEdge({
             ) : (
               <div
                 onMouseDown={startDragOrEdit}
-                style={{ cursor: tDraft != null ? 'ns-resize' : 'pointer', userSelect: 'none' }}
-                title="Drag to slide along the line, click to edit"
+                style={{ cursor: dragging ? 'grabbing' : 'grab', userSelect: 'none' }}
+                title="Drag to move, click to edit"
               >
-                {data?.ownership_pct != null
-                  ? `${data.ownership_pct}%${data.ownership_voting_only ? ' (voting)' : ''}`
-                  : ''}
+                {data?.ownership_pct != null ? `${data.ownership_pct}%` : ''}
               </div>
+            )}
+            {showHide && (
+              <button
+                type="button"
+                aria-label="Hide percentage"
+                title="Hide this percentage"
+                data-snapshot-exclude="true"
+                // mousedown niet laten doorlekken naar de sleep-handler.
+                onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); }}
+                onClick={(e) => { e.stopPropagation(); data?.onLabelHide?.(id); }}
+                style={{
+                  position: 'absolute',
+                  top: -7,
+                  right: -7,
+                  width: 15,
+                  height: 15,
+                  padding: 0,
+                  borderRadius: 8,
+                  border: '1px solid #d6d3d1',
+                  background: '#ffffff',
+                  color: '#78716c',
+                  fontSize: 11,
+                  lineHeight: '12px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 1px 3px rgba(40,30,20,0.18)',
+                  zIndex: 6,
+                }}
+              >
+                ×
+              </button>
             )}
           </div>
         </EdgeLabelRenderer>
