@@ -388,7 +388,20 @@ async function buildFacts(
       .replace("{{ENTITY_REGISTER}}", registerJson)
       .replace("{{KB_BLOCK}}", kbBlock || "(no knowledge base hits)")
       .replace("{{STRUCTURE_BLOCK}}", structureBlock || "(no structure chart available)");
-    const proposed = FactsModelOutput.parse(JSON.parse(extractJson((await callClaude({ user })).text)));
+    // One retry, like the Part B sections: a single malformed model response must
+    // not collapse the whole facts proposal to the empty base.
+    const proposed = await (async () => {
+      try {
+        return FactsModelOutput.parse(JSON.parse(extractJson((await callClaude({ user })).text)));
+      } catch (first) {
+        console.warn(JSON.stringify({ level: "warn", event: "appendix_facts_retry", message: String(first).slice(0, 200) }));
+        try {
+          return FactsModelOutput.parse(JSON.parse(extractJson((await callClaude({ user })).text)));
+        } catch {
+          throw first;
+        }
+      }
+    })();
     const nl = proposed.nlTaxStatusByEntityId ?? {};
     // Fiscal unity from the documents: flag the AI-identified members as part of the
     // same NL taxpayer as E1. Skip entirely when an explicit fiscal-unity grouping is
