@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/collapsible";
 import { useOpenQuestionsView } from "@/hooks/useOpenQuestions";
 import { useRecheckOpenQuestions } from "@/hooks/useRecheckOpenQuestions";
+import { dismissedGateHint } from "@/lib/openQuestions/grouping";
 import type { OpenQuestionRow } from "@/lib/openQuestions/types";
 import { OpenQuestionRowActions } from "./OpenQuestionRowActions";
 import { OpenQuestionRowCard } from "./OpenQuestionRowCard";
@@ -33,21 +34,23 @@ export function OpenQuestionsPanel({
   onGoToQuestion,
 }: OpenQuestionsPanelProps) {
   const view = useOpenQuestionsView(sessionId);
-  const { groups, answerMap, resolveText, isLoading } = view;
+  const { groups, answerMap, projectedIds, resolveText, isLoading } = view;
 
   const renderRows = (rows: OpenQuestionRow[]) =>
     rows.map((row) => {
-      const onPath = answerMap.has(row.question_id);
+      const onProjectedPath = projectedIds.has(row.question_id);
+      const answerForQuestion = answerMap.get(row.question_id);
       return (
         <OpenQuestionRowCard
           key={row.id}
           row={row}
           questionText={resolveText(row)}
+          gateHint={dismissedGateHint(row, onProjectedPath, answerForQuestion)}
           actions={
             <OpenQuestionRowActions
               row={row}
-              onPath={onPath}
-              answerForQuestion={answerMap.get(row.question_id)}
+              onProjectedPath={onProjectedPath}
+              answerForQuestion={answerForQuestion}
               onGoToQuestion={onGoToQuestion}
             />
           }
@@ -117,8 +120,11 @@ export function OpenQuestionsPanel({
         )}
       </section>
 
+      {/* The quiet reveal-all toggle: the default view is filtered to the
+          projected path; this collapsed section holds everything else. */}
       <CollapsedSection
-        title={`May become relevant later (${groups.later.length})`}
+        title={`Not expected on the current path (${groups.later.length})`}
+        explainer="These questions are not reachable given the recorded answers and AI suggestions. Nothing here is deleted."
         rows={groups.later}
         renderRows={renderRows}
         gapClass={sectionGap}
@@ -191,11 +197,14 @@ function PageHeading() {
 
 function CollapsedSection({
   title,
+  explainer,
   rows,
   renderRows,
   gapClass,
 }: {
   title: string;
+  /** Optional muted line shown above the rows when the section is open. */
+  explainer?: string;
   rows: OpenQuestionRow[];
   renderRows: (rows: OpenQuestionRow[]) => ReactNode;
   gapClass: string;
@@ -208,7 +217,12 @@ function CollapsedSection({
         {title}
       </CollapsibleTrigger>
       <CollapsibleContent className="overflow-hidden data-[state=open]:animate-collapsible-down data-[state=closed]:animate-collapsible-up">
-        <div className={`pt-3 ${gapClass}`}>{renderRows(rows)}</div>
+        <div className={`pt-3 ${gapClass}`}>
+          {explainer && (
+            <p className="text-xs text-muted-foreground">{explainer}</p>
+          )}
+          {renderRows(rows)}
+        </div>
       </CollapsibleContent>
     </Collapsible>
   );

@@ -25,6 +25,12 @@ export interface OpenQuestionRowCardProps {
   row: OpenQuestionRow;
   /** Resolved display text (client_question fallback already applied). */
   questionText: string;
+  /**
+   * Honesty hint for dismissed rows whose underlying question still needs an
+   * answer or a confirmed unknown for the final memo (dismissing never moves
+   * the gate). See dismissedGateHint in grouping.ts.
+   */
+  gateHint?: string | null;
   /** Full-width actions slot under the row content (buttons + inputs). */
   actions?: ReactNode;
 }
@@ -36,6 +42,7 @@ export interface OpenQuestionRowCardProps {
 export function OpenQuestionRowCard({
   row,
   questionText,
+  gateHint,
   actions,
 }: OpenQuestionRowCardProps) {
   const statusLabel = STATUS_LABELS[row.status] ?? row.status;
@@ -57,6 +64,8 @@ export function OpenQuestionRowCard({
               </Badge>
             )}
           </div>
+
+          {gateHint && <p className="text-xs text-amber-800/80">{gateHint}</p>}
 
           <p className="text-sm font-medium leading-snug text-foreground">
             {questionText}

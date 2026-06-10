@@ -3,8 +3,9 @@ import {
   groupOpenQuestions,
   countActiveOpenQuestions,
   resolveClientQuestion,
-  isOnPath,
+  isOnProjectedPath,
   visibleActionsFor,
+  dismissedGateHint,
 } from "../grouping";
 import { FALLBACK_QUESTION_SENTENCE, type OpenQuestionRow } from "../types";
 
@@ -60,7 +61,7 @@ describe("groupOpenQuestions", () => {
     expect(groups.needsAttention.map((r) => r.id)).toEqual(["a"]);
   });
 
-  it("splits open rows into active (on-path) and later (off-path)", () => {
+  it("splits open rows into active (on projected path) and later (off projected path)", () => {
     const rows = [
       makeRow({ id: "on", question_id: "3", status: "open" }),
       makeRow({ id: "off", question_id: "7", status: "open" }),
@@ -70,7 +71,7 @@ describe("groupOpenQuestions", () => {
     expect(groups.later.map((r) => r.id)).toEqual(["off"]);
   });
 
-  it("splits taken_to_client rows into active (on-path) and later (off-path)", () => {
+  it("splits taken_to_client rows into active (on projected path) and later (off projected path)", () => {
     const rows = [
       makeRow({ id: "on", question_id: "3", status: "taken_to_client" }),
       makeRow({ id: "off", question_id: "7", status: "taken_to_client" }),
@@ -92,7 +93,7 @@ describe("groupOpenQuestions", () => {
     expect(groups.active.map((r) => r.question_id)).toEqual(["2", "2", "10", "10"]);
   });
 
-  it("sorts later numerically by question_id when off-path", () => {
+  it("sorts later numerically by question_id when off the projected path", () => {
     const rows = [
       makeRow({ id: "a", question_id: "12", status: "open" }),
       makeRow({ id: "b", question_id: "9", status: "open" }),
@@ -128,25 +129,26 @@ describe("countActiveOpenQuestions", () => {
   });
 });
 
-describe("isOnPath", () => {
-  it("is true when an answer row exists for the question in this session", () => {
-    expect(isOnPath(makeRow({ question_id: "4" }), new Set(["4"]))).toBe(true);
-    expect(isOnPath(makeRow({ question_id: "4" }), new Set(["5"]))).toBe(false);
+describe("isOnProjectedPath", () => {
+  it("is true when the question is in the projected path set", () => {
+    expect(isOnProjectedPath(makeRow({ question_id: "4" }), new Set(["4"]))).toBe(true);
+    expect(isOnProjectedPath(makeRow({ question_id: "4" }), new Set(["5"]))).toBe(false);
   });
 });
 
 describe("visibleActionsFor", () => {
-  it("offers keep-as-unknown for off-path active rows regardless of answer", () => {
+  it("offers keep-as-unknown for active rows without an answer row regardless of path", () => {
     for (const status of ["open", "taken_to_client"]) {
-      const v = visibleActionsFor(makeRow({ status }), false, undefined);
-      expect(v.keepAsUnknown).toBe(true);
+      expect(visibleActionsFor(makeRow({ status }), false, undefined).keepAsUnknown).toBe(true);
+      // Projected-but-unanswered: the write path falls back to the register.
+      expect(visibleActionsFor(makeRow({ status }), true, undefined).keepAsUnknown).toBe(true);
     }
   });
 
-  it("offers keep-as-unknown for on-path active rows only when the answer is Unknown", () => {
+  it("offers keep-as-unknown for answered active rows only when the answer is Unknown", () => {
     expect(visibleActionsFor(makeRow({ status: "open" }), true, "Unknown").keepAsUnknown).toBe(true);
     expect(visibleActionsFor(makeRow({ status: "taken_to_client" }), true, "Unknown").keepAsUnknown).toBe(true);
-    // On-path Yes/No rows are reopen flags: only editing the answer moves the gate.
+    // Yes/No-answered rows are reopen flags: only editing the answer moves the gate.
     expect(visibleActionsFor(makeRow({ status: "open" }), true, "Yes").keepAsUnknown).toBe(false);
     expect(visibleActionsFor(makeRow({ status: "open" }), true, "No").keepAsUnknown).toBe(false);
   });
@@ -157,11 +159,25 @@ describe("visibleActionsFor", () => {
     }
   });
 
-  it("offers not-relevant only for off-path active rows", () => {
+  it("offers not-relevant for all active rows regardless of path", () => {
     expect(visibleActionsFor(makeRow({ status: "open" }), false, undefined).notRelevant).toBe(true);
     expect(visibleActionsFor(makeRow({ status: "taken_to_client" }), false, undefined).notRelevant).toBe(true);
-    expect(visibleActionsFor(makeRow({ status: "open" }), true, "Unknown").notRelevant).toBe(false);
-    expect(visibleActionsFor(makeRow({ status: "answered" }), false, undefined).notRelevant).toBe(false);
+    expect(visibleActionsFor(makeRow({ status: "open" }), true, "Unknown").notRelevant).toBe(true);
+    expect(visibleActionsFor(makeRow({ status: "open" }), true, undefined).notRelevant).toBe(true);
+  });
+
+  it("never offers not-relevant on terminal rows", () => {
+    for (const status of ["answered", "resolved", "confirmed_unknown", "dismissed"]) {
+      expect(visibleActionsFor(makeRow({ status }), true, undefined).notRelevant).toBe(false);
+    }
+  });
+
+  it("offers restore only for dismissed rows", () => {
+    expect(visibleActionsFor(makeRow({ status: "dismissed" }), false, undefined).restore).toBe(true);
+    expect(visibleActionsFor(makeRow({ status: "dismissed" }), true, "Unknown").restore).toBe(true);
+    for (const status of ["open", "taken_to_client", "answered", "resolved", "confirmed_unknown"]) {
+      expect(visibleActionsFor(makeRow({ status }), false, undefined).restore).toBe(false);
+    }
   });
 
   it("offers mark-as-sent only while the row is still open", () => {
@@ -179,10 +195,41 @@ describe("visibleActionsFor", () => {
     expect(visibleActionsFor(makeRow({ status: "resolved" }), false, undefined).editClientAnswer).toBe(false);
   });
 
-  it("offers go-to-question only for on-path rows, including answered history rows", () => {
+  it("offers go-to-question only when an answer row exists, including answered history rows", () => {
     expect(visibleActionsFor(makeRow({ status: "open" }), true, "Unknown").goToQuestion).toBe(true);
     expect(visibleActionsFor(makeRow({ status: "answered" }), true, "Unknown").goToQuestion).toBe(true);
+    // Projected but never answered: the ?q= deep link cannot replay there yet.
+    expect(visibleActionsFor(makeRow({ status: "open" }), true, undefined).goToQuestion).toBe(false);
     expect(visibleActionsFor(makeRow({ status: "open" }), false, undefined).goToQuestion).toBe(false);
+  });
+});
+
+describe("dismissedGateHint", () => {
+  it("returns the hint for a dismissed projected-path row without a definitive answer", () => {
+    const hintNoAnswer = dismissedGateHint(makeRow({ status: "dismissed" }), true, undefined);
+    expect(hintNoAnswer).toMatch(/answer or a confirmed unknown/);
+    const hintUnknown = dismissedGateHint(makeRow({ status: "dismissed" }), true, "Unknown");
+    expect(hintUnknown).toMatch(/final memo/);
+  });
+
+  it("returns null when the underlying question already has a Yes or No answer", () => {
+    expect(dismissedGateHint(makeRow({ status: "dismissed" }), true, "Yes")).toBeNull();
+    expect(dismissedGateHint(makeRow({ status: "dismissed" }), true, "No")).toBeNull();
+  });
+
+  it("returns null for non-dismissed rows", () => {
+    for (const status of ["open", "taken_to_client", "answered", "resolved", "confirmed_unknown"]) {
+      expect(dismissedGateHint(makeRow({ status }), true, undefined)).toBeNull();
+    }
+  });
+
+  it("returns null for dismissed rows off the projected path", () => {
+    expect(dismissedGateHint(makeRow({ status: "dismissed" }), false, undefined)).toBeNull();
+  });
+
+  it("never contains an em-dash", () => {
+    const hint = dismissedGateHint(makeRow({ status: "dismissed" }), true, undefined);
+    expect(hint).not.toContain("—");
   });
 });
 

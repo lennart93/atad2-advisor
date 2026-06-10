@@ -103,8 +103,18 @@ export function useOpenQuestionActions(sessionId: string | null) {
   });
 
   const dismiss = useMutation({
-    mutationFn: async ({ row }: { row: OpenQuestionRow }) => {
-      // Off-path rows only; the visibility rules hide this action elsewhere.
+    mutationFn: async ({
+      row,
+    }: {
+      row: OpenQuestionRow;
+      /**
+       * True when the underlying question is on the projected path without a
+       * definitive Yes/No answer. Only changes the toast wording: dismissing
+       * is register-only for ALL rows, NEVER touches atad2_answers, and never
+       * closes the final-memo gate (the gate stays answers-based).
+       */
+      gateStillOpen?: boolean;
+    }) => {
       const { error } = await supabase
         .from("atad2_open_questions")
         .update({
@@ -115,9 +125,34 @@ export function useOpenQuestionActions(sessionId: string | null) {
       if (error) throw error;
       await logEvent(row.question_id, "dismissed");
     },
+    onSuccess: (_data, { gateStillOpen }) => {
+      invalidate();
+      toast.success("Marked as not relevant", {
+        description: gateStillOpen
+          ? "The question itself stays open for the final memo until it is answered or confirmed unknown."
+          : undefined,
+      });
+    },
+    onError: (e: Error) => {
+      toast.error("Could not update the question", { description: e.message });
+    },
+  });
+
+  const undismiss = useMutation({
+    mutationFn: async ({ row }: { row: OpenQuestionRow }) => {
+      const { error } = await supabase
+        .from("atad2_open_questions")
+        .update({
+          status: "open",
+          resolved_at: null,
+        })
+        .eq("id", row.id);
+      if (error) throw error;
+      await logEvent(row.question_id, "undismissed");
+    },
     onSuccess: () => {
       invalidate();
-      toast.success("Marked as not relevant");
+      toast.success("Moved back to open questions");
     },
     onError: (e: Error) => {
       toast.error("Could not update the question", { description: e.message });
@@ -218,6 +253,7 @@ export function useOpenQuestionActions(sessionId: string | null) {
     logEvent,
     keepAsUnknown,
     dismiss,
+    undismiss,
     markSentToClient,
     saveClientAnswer,
     recordExportSent,
