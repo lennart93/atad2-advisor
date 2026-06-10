@@ -40,11 +40,18 @@ $$;
 
 -- ---------------------------------------------------------------------
 -- 2) Register-trigger pickup. Full current body re-issued verbatim from
---    20260610190300_open_questions_register.sql (section 5) with ONE diff:
---    CASE A copies NEW.client_question into atad2_open_questions, and the
---    wording refresh COALESCEs it so a re-analysis under an older prompt
---    version (which emits NULL) never wipes existing wording. CASE B/C and
---    the fail-soft EXCEPTION guard are untouched.
+--    20260610190300_open_questions_register.sql (section 5) with TWO diffs:
+--    a) CASE A copies NEW.client_question into atad2_open_questions, and the
+--       wording refresh COALESCEs it so a re-analysis under an older prompt
+--       version (which emits NULL) never wipes existing wording.
+--    b) The early-return guard also compares client_question. Without this,
+--       a "Prepare client questions" re-run whose Route B output matches the
+--       previous run on suggested_answer (null), confidence_pct (null) AND
+--       contextual_hint (plausible at temperature 0; the hint spec is
+--       unchanged between v11 and v12) but newly fills client_question would
+--       early-return and never copy the new wording into the register,
+--       silently defeating the whole point of that action.
+--    CASE B/C and the fail-soft EXCEPTION guard are untouched.
 -- ---------------------------------------------------------------------
 
 CREATE OR REPLACE FUNCTION public.sync_open_questions_from_prefill()
@@ -65,7 +72,8 @@ BEGIN
   IF TG_OP = 'UPDATE'
      AND NEW.suggested_answer IS NOT DISTINCT FROM OLD.suggested_answer
      AND NEW.confidence_pct   IS NOT DISTINCT FROM OLD.confidence_pct
-     AND NEW.contextual_hint  IS NOT DISTINCT FROM OLD.contextual_hint THEN
+     AND NEW.contextual_hint  IS NOT DISTINCT FROM OLD.contextual_hint
+     AND NEW.client_question  IS NOT DISTINCT FROM OLD.client_question THEN
     RETURN NEW;
   END IF;
 
