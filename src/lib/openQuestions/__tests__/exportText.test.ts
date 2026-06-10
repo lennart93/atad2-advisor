@@ -118,6 +118,39 @@ describe("rowsToExportItems", () => {
     expect(flipRowIds).not.toContain("active-sent");
     expect(flipRowIds).not.toContain("hist-resolved");
   });
+
+  it("excludes answered rows even when they carry a saved client answer", () => {
+    const withAnswered = [
+      ...rows,
+      makeRow({
+        id: "hist-answered",
+        question_id: "6",
+        status: "answered",
+        client_answer: "Yes, the US LLC.",
+      }),
+    ];
+    const g = groupOpenQuestions(withAnswered, new Set(["2", "3", "4", "5", "6"]));
+    const { items, flipRowIds } = rowsToExportItems(g, resolveText, true);
+    expect(items.map((i) => i.question)).not.toContain("Text for 6");
+    expect(flipRowIds).not.toContain("hist-answered");
+  });
+
+  it("returns the selected rows in export order for per-row audit logging", () => {
+    const { rows: selectedRows } = rowsToExportItems(groups, resolveText, false);
+    expect(selectedRows.map((r) => r.id)).toEqual([
+      "reopen-open",
+      "active-open",
+      "active-sent",
+    ]);
+  });
+
+  it("keeps items, rows and numbering aligned when later rows are included", () => {
+    const { items, rows: selectedRows } = rowsToExportItems(groups, resolveText, true);
+    expect(selectedRows).toHaveLength(items.length);
+    expect(selectedRows.map((r) => `Text for ${r.question_id}`)).toEqual(
+      items.map((i) => i.question),
+    );
+  });
 });
 
 describe("buildClientResponsesDocument", () => {

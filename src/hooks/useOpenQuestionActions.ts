@@ -173,5 +173,53 @@ export function useOpenQuestionActions(sessionId: string | null) {
     },
   });
 
-  return { logEvent, keepAsUnknown, dismiss, markSentToClient, saveClientAnswer };
+  /**
+   * After a successful "Copy as text" or "Export to Word": stamp the
+   * still-open exported rows as taken_to_client in one update (the status
+   * filter makes sure already-sent rows are never re-stamped), then write
+   * one audit event per included row. Callers run this strictly AFTER the
+   * clipboard write resolved or the docx download was triggered, so a
+   * failed export never flips anything.
+   */
+  const recordExportSent = useCallback(
+    async ({
+      flipRowIds,
+      includedQuestionIds,
+      event,
+      count,
+    }: {
+      flipRowIds: string[];
+      includedQuestionIds: string[];
+      event: "copied_as_text" | "exported_to_word";
+      count: number;
+    }) => {
+      if (flipRowIds.length > 0) {
+        const { error } = await supabase
+          .from("atad2_open_questions")
+          .update({
+            status: "taken_to_client",
+            taken_to_client_at: new Date().toISOString(),
+          })
+          .in("id", flipRowIds)
+          .eq("status", "open");
+        if (error) throw error;
+      }
+      await Promise.all(
+        includedQuestionIds.map((questionId) =>
+          logEvent(questionId, event, { count }),
+        ),
+      );
+      invalidate();
+    },
+    [logEvent, invalidate],
+  );
+
+  return {
+    logEvent,
+    keepAsUnknown,
+    dismiss,
+    markSentToClient,
+    saveClientAnswer,
+    recordExportSent,
+  };
 }

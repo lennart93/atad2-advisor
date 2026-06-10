@@ -39,6 +39,8 @@ export function formatOpenQuestionsText(
 
 export interface RowsToExportItemsResult {
   items: OpenQuestionExportItem[];
+  /** The selected register rows, in export order (for per-row audit events). */
+  rows: OpenQuestionRow[];
   /** Ids of included rows with status 'open': the set to flip to taken_to_client. */
   flipRowIds: string[];
 }
@@ -65,6 +67,7 @@ export function rowsToExportItems(
       question: resolveText(row),
       whyItMatters: row.why_it_matters,
     })),
+    rows: selected,
     flipRowIds: selected
       .filter((row) => row.status === "open")
       .map((row) => row.id),

@@ -9,6 +9,7 @@ import { useOpenQuestionsView } from "@/hooks/useOpenQuestions";
 import type { OpenQuestionRow } from "@/lib/openQuestions/types";
 import { OpenQuestionRowActions } from "./OpenQuestionRowActions";
 import { OpenQuestionRowCard } from "./OpenQuestionRowCard";
+import { OpenQuestionsExportActions } from "./OpenQuestionsExportActions";
 
 // The compact analysis-phase list is a dedicated component
 // (OpenQuestionsStream), so the panel only knows page and sheet.
@@ -83,6 +84,12 @@ export function OpenQuestionsPanel({
   return (
     <div className={panelGap}>
       {variant === "page" && <PageHeading />}
+
+      <OpenQuestionsExportActions
+        sessionId={sessionId}
+        groups={groups}
+        resolveText={resolveText}
+      />
 
       {groups.needsAttention.length > 0 && (
         <section className={sectionGap}>
