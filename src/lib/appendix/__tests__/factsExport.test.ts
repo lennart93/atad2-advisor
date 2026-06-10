@@ -29,3 +29,20 @@ describe('factsForClient', () => {
     expect(out.classifications.map((c) => c.entityId)).toEqual(['E1']);
   });
 });
+
+describe('acting-together export rule', () => {
+  const cluster = (id: string, likelihood: string, excluded = false) => ({
+    id, memberEntityIds: ['E1', 'E2'], combinedPct: 30, likelihood, reasoning: 'r',
+    excludedFromClient: excluded, source: 'ai',
+  });
+  it('keeps only likely and highly_likely clusters for the client', () => {
+    const facts = {
+      entities: [], classifications: [], transactions: [],
+      actingTogether: [
+        cluster('A1', 'highly_unlikely'), cluster('A2', 'unlikely'), cluster('A3', 'unclear'),
+        cluster('A4', 'likely'), cluster('A5', 'highly_likely'), cluster('A6', 'likely', true),
+      ],
+    } as never;
+    expect(factsForClient(facts).actingTogether.map((a) => a.id)).toEqual(['A4', 'A5']);
+  });
+});
