@@ -337,6 +337,14 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
               fiscal unity · taxpayer
             </span>
           )}
+          {positionNote(e) && (
+            <div
+              className="mt-0.5 max-w-md truncate text-[10.5px] font-normal leading-snug text-muted-foreground"
+              title={positionNote(e) ?? undefined}
+            >
+              {positionNote(e)}
+            </div>
+          )}
         </td>
 
         {/* Jurisdiction */}
@@ -387,13 +395,8 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
           </QuietCell>
         </td>
 
-        {/* Role, with the position relative to the taxpayer where it is not obvious. */}
-        <td className={muted}>
-          <div>{roleLabel(e)}</div>
-          {positionNote(e) && (
-            <div className="text-[10px] text-muted-foreground/70">{positionNote(e)}</div>
-          )}
-        </td>
+        {/* Role: one clean line; the relationship note lives under the entity name. */}
+        <td className={cn('whitespace-nowrap', muted)}>{roleLabel(e)}</td>
         {editable && (
           <td className="pl-1">
             {e.role !== 'Taxpayer' && !isMember && (
