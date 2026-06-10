@@ -285,11 +285,15 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
     </tr>
   );
 
-  /** Subsidiaries say whether the holding is direct; older facts (no flag) stay plain. */
+  /**
+   * Subsidiaries say whether the holding is direct; older facts (no flag) stay
+   * plain. "Group entity" reads as "Other" (the data value stays Group entity).
+   */
   const roleLabel = (e: FactEntity): string => {
     if (e.role === 'Subsidiary' && e.directLink != null) {
       return e.directLink ? 'Subsidiary (direct)' : 'Subsidiary (indirect)';
     }
+    if (e.role === 'Group entity') return 'Other';
     return e.role;
   };
 
@@ -417,7 +421,7 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
         <span className={cn('h-1.5 w-1.5 rounded-full', e.related ? 'bg-sky-500' : 'bg-muted-foreground/30')} />
         <span className="font-mono text-sky-700 dark:text-sky-300">{e.id}</span>
         <span className={cn(e.related ? 'font-medium text-foreground' : 'text-muted-foreground')}>{e.name}</span>
-        <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70">{e.role}</span>
+        <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70">{roleLabel(e)}</span>
         {viaName && <span className="text-[11px] text-muted-foreground">via {viaName}</span>}
         <span className="flex-1" />
         <span className="tabular-nums text-muted-foreground">{pct(shownPct)}</span>
@@ -481,7 +485,7 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
           )}
           {otherEnts.length > 0 && (
             <tbody>
-              {groupLabelRow('Other group entities')}
+              {groupLabelRow('Other entities')}
               {otherEnts.map((e) => renderEntityRow(e))}
             </tbody>
           )}
