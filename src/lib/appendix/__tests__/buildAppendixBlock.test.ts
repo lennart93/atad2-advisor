@@ -51,6 +51,25 @@ describe('buildAppendixBlock', () => {
     expect(out).toContain('<confirmed_appendix>');
     expect(out).not.toContain('E9');
   });
+
+  it('feeds the memo only relevant flows plus an accounted count, and the conclusion flags', () => {
+    const facts = {
+      entities: [
+        { id: 'E1', chartEntityId: 'c1', name: 'Tax BV', jurisdiction: 'NL', entityType: 'corporation', role: 'Taxpayer', ownershipPct: null, related: false, nlTaxStatus: 'resident' },
+        { id: 'E2', chartEntityId: 'c2', name: 'US Inc', jurisdiction: 'US', entityType: 'corporation', role: 'Group entity', ownershipPct: null, related: true, nlTaxStatus: 'outside_cit' },
+      ],
+      classifications: [], actingTogether: [],
+      transactions: [
+        { id: 'T1', fromEntityId: 'E1', toEntityId: 'E2', kind: 'loan', instrument: null, note: null, articlesTested: [], status: 'confirmed', excludedFromClient: false, source: 'ai', relevant: true, relevanceReason: 'Cross-border related' },
+        { id: 'T2', fromEntityId: 'E1', toEntityId: 'E2', kind: 'service', instrument: null, note: null, articlesTested: [], status: 'confirmed', excludedFromClient: false, source: 'ai', relevant: false, relevanceReason: 'Within the fiscal unity' },
+      ],
+    } as never;
+    const block = buildAppendixBlock([], undefined, facts);
+    expect(block).toContain('loan');
+    expect(block).not.toContain('service');
+    expect(block).toContain('1 flow assessed as not relevant (Within the fiscal unity)');
+    expect(block).toContain('Cross-border flows with related parties: 1');
+  });
 });
 
 const row2 = (rowId: string): AppendixRow => ({
