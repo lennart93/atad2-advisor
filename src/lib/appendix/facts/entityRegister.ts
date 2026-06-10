@@ -45,8 +45,10 @@ export function buildEntityRegister(
   const memberIds: string[] = fu ? (fu.member_ids as string[]).filter(present) : [];
   const memberSet = new Set<string>(fu ? memberIds : [taxpayer.id]);
 
-  const graph = buildOwnershipGraph(toOwnershipEdges(edges));
-  const cls = classifyExternals(entities, memberSet, graph);
+  const ownershipEdges = toOwnershipEdges(edges);
+  const graph = buildOwnershipGraph(ownershipEdges);
+  const directPairs = new Set(ownershipEdges.map((e) => `${e.from}>${e.to}`));
+  const cls = classifyExternals(entities, memberSet, graph, directPairs);
 
   const toFact = (id: string, c: Pre): FactEntity => ({
     id,
@@ -59,6 +61,7 @@ export function buildEntityRegister(
     related: c.related,
     relatedVia: c.relatedViaChartId ?? null,
     relatedViaPct: c.relatedViaPct,
+    ...(c.direct == null ? {} : { directLink: c.direct }),
     nlTaxStatus: null,
   });
 
@@ -136,6 +139,8 @@ interface Pre {
   related: boolean;
   relatedViaChartId: string | null;
   relatedViaPct: number | null;
+  /** Parent/Subsidiary: one ownership edge away from the taxpayer set. Null otherwise. */
+  direct: boolean | null;
 }
 
 /**
@@ -147,6 +152,7 @@ function classifyExternals(
   entities: StructureEntity[],
   memberSet: Set<string>,
   graph: OwnershipGraph,
+  directPairs: Set<string>,
 ): Pre[] {
   const externals = entities.filter((e) => !memberSet.has(e.id));
 
@@ -165,11 +171,13 @@ function classifyExternals(
 
     if (isParent) {
       const pct = effectivePctToSet(ent.id, memberSet, graph);
-      return { ent, role: 'Parent', pct, related: pct != null && pct > RELATED_THRESHOLD, relatedViaChartId: null, relatedViaPct: null };
+      const direct = [...memberSet].some((m) => directPairs.has(`${ent.id}>${m}`));
+      return { ent, role: 'Parent', pct, related: pct != null && pct > RELATED_THRESHOLD, relatedViaChartId: null, relatedViaPct: null, direct };
     }
     if (isSub) {
       const pct = effectivePctFromSet(memberSet, ent.id, graph);
-      return { ent, role: 'Subsidiary', pct, related: pct != null && pct > RELATED_THRESHOLD, relatedViaChartId: null, relatedViaPct: null };
+      const direct = [...memberSet].some((m) => directPairs.has(`${m}>${ent.id}`));
+      return { ent, role: 'Subsidiary', pct, related: pct != null && pct > RELATED_THRESHOLD, relatedViaChartId: null, relatedViaPct: null, direct };
     }
     // Group entity: related only if a common parent holds >25% in it as well.
     let bestViaId: string | null = null;
@@ -181,7 +189,7 @@ function classifyExternals(
         bestViaId = p.id;
       }
     }
-    return { ent, role: 'Group entity', pct: null, related: bestViaId != null, relatedViaChartId: bestViaId, relatedViaPct: bestViaPct };
+    return { ent, role: 'Group entity', pct: null, related: bestViaId != null, relatedViaChartId: bestViaId, relatedViaPct: bestViaPct, direct: null };
   });
 
   const order = { Parent: 1, Subsidiary: 2, 'Group entity': 3 } as const;

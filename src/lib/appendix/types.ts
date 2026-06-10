@@ -89,6 +89,12 @@ export interface FactEntity {
    */
   relatedVia?: string | null;
   relatedViaPct?: number | null;
+  /**
+   * Parent/Subsidiary only: true when a single ownership edge connects the
+   * taxpayer (or a fiscal-unity member) and this entity; false when the link
+   * runs through intermediate entities (indirect). Undefined on other roles.
+   */
+  directLink?: boolean;
   nlTaxStatus: string | null;  // AI/advisor filled; null until proposed
   /**
    * Advisor overrides for the editable register fields. The base fields above are

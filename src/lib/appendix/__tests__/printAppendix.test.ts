@@ -78,7 +78,7 @@ describe('buildAppendixPrintHtml', () => {
     const internal = buildAppendixPrintHtml([row('3.2', 'Triggered', 'x')], 'internal', undefined, facts());
     expect(dossier).toContain('Part A');
     expect(dossier).toContain('Acme BV');
-    expect(dossier).toContain('A.4 · Classification of the relevant entities');
+    expect(dossier).toContain('A.3 · Classification of the relevant entities');
     expect(dossier).toContain('Non-transparent');  // derived from the 'resident' tax status
     expect(dossier).not.toContain('E1');            // internal code hidden in the dossier
     expect(internal).toContain('E1');               // Ref column in the internal register
@@ -89,8 +89,8 @@ describe('buildAppendixPrintHtml', () => {
     expect(kept).toContain('A.1 · The group and the taxpayer');
     expect(kept).toContain('A.2 · Related parties');
     expect(kept).toContain('Acting together');
-    expect(kept).toContain('A.3 · Relevant flows');
-    expect(kept).toContain('A.4 · Classification of the relevant entities');
+    expect(kept).toContain('A.4 · Relevant flows');
+    expect(kept).toContain('A.3 · Classification of the relevant entities');
 
     const allExcluded: AppendixSectionKey[] = ['entityRegister', 'relatedness', 'actingTogether', 'classification', 'transactions'];
     const excl = buildAppendixPrintHtml([row('3.2', 'Triggered', 'x')], 'dossier', undefined, richFacts(allExcluded));
@@ -171,9 +171,10 @@ describe('part A funnel export', () => {
       ent('E1', 'Tax BV', 'NL', 'Taxpayer'), ent('E2', 'US Inc', 'US'), ent('E3', 'Idle BV', 'NL'),
     ] } as never;
     const html = buildAppendixPrintHtml([], 'dossier', undefined, f);
-    expect(html).toContain('A.4');
-    // Idle BV is a related party (A.2) but must not reach the classification table (A.4).
-    const partA4 = html.slice(html.indexOf('A.4'));
+    expect(html).toContain('A.3 · Classification');
+    // Idle BV is a related party (A.2) but must not reach the classification table (A.3),
+    // which now precedes the flows section.
+    const partA4 = html.slice(html.indexOf('A.3 ·'), html.indexOf('A.4 ·'));
     expect(partA4).not.toContain('Idle BV');
     expect(html).toContain('The remaining 1 group entity is not party to a relevant flow');
   });

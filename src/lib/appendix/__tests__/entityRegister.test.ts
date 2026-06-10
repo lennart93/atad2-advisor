@@ -145,3 +145,33 @@ describe('buildEntityRegister fiscal unity', () => {
     expect(reg[0].isFiscalUnity).toBeUndefined();
   });
 });
+
+describe('buildEntityRegister direct vs indirect links', () => {
+  it('flags direct and indirect subsidiaries and parents', () => {
+    // top -100-> TP -100-> sub -50-> gsub
+    const entities = [
+      ent('tp', 'TaxPayer BV', true),
+      ent('top', 'Holding BV'),
+      ent('sub', 'Sub BV'),
+      ent('gsub', 'Grand Sub BV'),
+    ];
+    const edges = [edge('top', 'tp', 100), edge('tp', 'sub', 100), edge('sub', 'gsub', 50)];
+    const reg = buildEntityRegister(entities, edges);
+
+    expect(reg.find((e) => e.name === 'Holding BV')!.directLink).toBe(true);
+    expect(reg.find((e) => e.name === 'Sub BV')!.directLink).toBe(true);
+    expect(reg.find((e) => e.name === 'Grand Sub BV')!.directLink).toBe(false);
+    expect(reg.find((e) => e.name === 'TaxPayer BV')!.directLink).toBeUndefined();
+  });
+
+  it('leaves group entities without the flag', () => {
+    // parent owns TP (30%) and sister (40%): sister is a Group entity.
+    const entities = [ent('tp', 'TaxPayer BV', true), ent('p', 'Parent BV'), ent('sis', 'Sister BV')];
+    const edges = [edge('p', 'tp', 30), edge('p', 'sis', 40)];
+    const reg = buildEntityRegister(entities, edges);
+    const sister = reg.find((e) => e.name === 'Sister BV')!;
+    expect(sister.role).toBe('Group entity');
+    expect(sister.directLink).toBeUndefined();
+    expect(sister.relatedVia).toBeTruthy();
+  });
+});

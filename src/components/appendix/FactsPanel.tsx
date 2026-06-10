@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 import type { AppendixFacts, FactEntity, AppendixSectionKey, NarrativeKey, Narrative } from '@/lib/appendix/types';
 import { visibleFacts } from '@/lib/appendix/facts/visibleFacts';
 import { isSectionExcluded, withSectionExcluded } from '@/lib/appendix/facts/sections';
-import { effJurisdiction, effEntityType, effNlTaxStatus, withEntityEdit } from '@/lib/appendix/facts/entityFields';
+import { effJurisdiction, effNlTaxStatus, withEntityEdit } from '@/lib/appendix/facts/entityFields';
 import { nlQualification, nlQualificationLabel, nlTaxStatusLabel, NL_TAX_STATUSES } from '@/lib/appendix/facts/nlTaxStatus';
 import { withClusterLikelihood, withClusterText, withClusterExclude } from '@/lib/appendix/facts/actingCluster';
 import { ACTING_LIKELIHOODS, type ActingLikelihood } from '@/lib/appendix/facts/actingLikelihood';
@@ -14,7 +14,6 @@ import { relevantTransactions, accountedTransactionGroups, withTransactionReleva
 import { withNarrative } from '@/lib/appendix/facts/narratives';
 import { CountryFlag } from '@/components/CountryFlag';
 import { JurisdictionPicker } from '@/components/structure/JurisdictionPicker';
-import { ENTITY_TYPES } from '@/lib/structure/types';
 import { countryName } from '@/lib/structure/countries';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
@@ -65,10 +64,6 @@ function likelihoodTint(level: ActingLikelihood): string {
     default:
       return 'bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-300';
   }
-}
-
-function entityTypeLabel(key: string | null): string {
-  return ENTITY_TYPES.find((t) => t.key === key)?.label ?? (key && key.trim() ? key : '-');
 }
 
 const COMPACT_CONTROL = 'h-7 text-xs bg-white/70';
@@ -284,17 +279,36 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
 
   const groupLabelRow = (label: string) => (
     <tr>
-      <td colSpan={editable ? 7 : 6} className="pt-2 pb-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70">
+      <td colSpan={editable ? 6 : 5} className="pt-2 pb-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70">
         {label}
       </td>
     </tr>
   );
 
+  /** Subsidiaries say whether the holding is direct; older facts (no flag) stay plain. */
+  const roleLabel = (e: FactEntity): string => {
+    if (e.role === 'Subsidiary' && e.directLink != null) {
+      return e.directLink ? 'Subsidiary (direct)' : 'Subsidiary (indirect)';
+    }
+    return e.role;
+  };
+
+  /** One short line on how a Group entity sits relative to the taxpayer. */
+  const positionNote = (e: FactEntity): string | null => {
+    if (e.role !== 'Group entity' || e.memberOfUnityId) return null;
+    if (e.relatedVia) {
+      const viaName = nameOf(facts, e.relatedVia);
+      return e.relatedViaPct != null
+        ? `sister entity: ${viaName} holds ${pct(e.relatedViaPct)} here and >25% in the taxpayer`
+        : `sister entity via ${viaName}`;
+    }
+    return 'no qualifying ownership link with the taxpayer';
+  };
+
   const renderEntityRow = (e: FactEntity, tint?: string) => {
     const isMember = !!e.memberOfUnityId;
     const muted = isMember ? 'text-muted-foreground/70' : 'text-muted-foreground';
     const jur = effJurisdiction(e);
-    const type = effEntityType(e);
     const status = effNlTaxStatus(e);
     return (
       <tr key={e.id} className={cn('border-t border-[hsl(var(--border-subtle))] align-middle', tint)}>
@@ -339,35 +353,15 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
           </QuietCell>
         </td>
 
-        {/* Type */}
-        <td className="pr-2 py-0.5">
-          {e.isFiscalUnity ? (
-            <span className={muted}>Fiscal unity</span>
-          ) : (
-            <QuietCell
-              display={<span className={muted}>{entityTypeLabel(type)}</span>}
-              editing={editable && editCell?.id === e.id && editCell?.field === 'entityType'}
-              onStartEdit={editable ? () => setEditCell({ id: e.id, field: 'entityType' }) : undefined}
-            >
-              <Select
-                value={type ?? undefined}
-                defaultOpen
-                onOpenChange={(open) => { if (!open) setEditCell(null); }}
-                onValueChange={(v) => onChange!(withEntityEdit(facts, e.id, 'entityType', v))}
-              >
-                <SelectTrigger className={COMPACT_CONTROL}><SelectValue placeholder="Set…" /></SelectTrigger>
-                <SelectContent>
-                  {ENTITY_TYPES.map((t) => <SelectItem key={t.key} value={t.key}>{t.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </QuietCell>
-          )}
-        </td>
-
-        {/* NL tax status */}
+        {/* Classification (NL): transparent vs non-transparent, derived from the
+            underlying NL tax status; the quiet editor still picks the status. */}
         <td className="pr-2 py-0.5">
           <QuietCell
-            display={<span className={muted}>{nlTaxStatusLabel(status)}</span>}
+            display={
+              <span className="flex items-center gap-1.5" title={nlTaxStatusLabel(status)}>
+                <QualBadge status={status} />
+              </span>
+            }
             editing={editable && editCell?.id === e.id && editCell?.field === 'nlTaxStatus'}
             onStartEdit={editable ? () => setEditCell({ id: e.id, field: 'nlTaxStatus' }) : undefined}
           >
@@ -385,7 +379,13 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
           </QuietCell>
         </td>
 
-        <td className={muted}>{e.role}</td>
+        {/* Role, with the position relative to the taxpayer where it is not obvious. */}
+        <td className={muted}>
+          <div>{roleLabel(e)}</div>
+          {positionNote(e) && (
+            <div className="text-[10px] text-muted-foreground/70">{positionNote(e)}</div>
+          )}
+        </td>
         {editable && (
           <td className="pl-1">
             {e.role !== 'Taxpayer' && !isMember && (
@@ -465,7 +465,7 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
           <thead className="text-muted-foreground">
             <tr className="text-left">
               <th className="py-1 pr-2">#</th><th className="pr-2">Entity</th><th className="pr-2 min-w-[150px]">Jurisdiction</th>
-              <th className="pr-2 min-w-[130px]">Type</th><th className="pr-2 min-w-[160px]">NL tax status</th><th>Role</th>
+              <th className="pr-2 min-w-[150px]">Classification (NL)</th><th>Role</th>
               {editable && <th className="w-6" aria-label="Controls" />}
             </tr>
           </thead>
@@ -605,9 +605,58 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
       </Exhibit>
 
       {/* ------------------------------------------------------------------ */}
-      {/* T - 3. Relevant flows                                                */}
+      {/* CLS - 3. Classification of the relevant entities                     */}
       {/* ------------------------------------------------------------------ */}
-      <Exhibit tag="T" icon={<ArrowLeftRight className="h-4 w-4 text-muted-foreground" />} title="3 · Relevant flows" {...sectionProps('transactions')}>
+      <Exhibit tag="CLS" icon={<Layers className="h-4 w-4 text-muted-foreground" />} title="3 · Classification of the relevant entities" {...sectionProps('classification')}>
+        <NarrativeLine narrative={narrative('classification')} onSave={saveNarrative?.('classification')} />
+        {(() => {
+          const inScopeEnts = shown.entities.filter((e) => inScope.has(e.id));
+          const outCount = shown.entities.length - inScopeEnts.length;
+          const clsByEntity = new Map(shown.classifications.map((c) => [c.entityId, c]));
+          return (
+            <>
+              <table className="w-full text-xs">
+                <thead className="text-muted-foreground">
+                  <tr className="text-left">
+                    <th className="py-1 pr-2">Entity</th><th className="pr-2">NL qualification</th>
+                    <th className="pr-2">Local qualification</th><th>Mismatch?</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {inScopeEnts.map((e) => {
+                    const c = clsByEntity.get(e.id);
+                    const local = c ? localQualification(c.homeClass) : 'undetermined';
+                    const mismatch = entityHasQualificationDifference(e, c);
+                    return (
+                      <tr key={e.id} className="border-t border-[hsl(var(--border-subtle))]">
+                        <td className="py-1 pr-2">
+                          <span className="font-mono text-sky-700 dark:text-sky-300">{e.id}</span>{' '}
+                          <span>{e.name}</span>
+                        </td>
+                        <td className="pr-2"><QualBadge status={effNlTaxStatus(e)} /></td>
+                        <td className="pr-2 text-muted-foreground">
+                          {c ? `${nlQualificationLabel(local)}${c.homeState ? ` (${c.homeState})` : ''}` : 'To be determined'}
+                        </td>
+                        <td className={cn(mismatch ? 'font-medium text-amber-700 dark:text-amber-400' : 'text-muted-foreground')}>
+                          {mismatch ? 'Yes' : 'No'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              {outCount > 0 && (
+                <AccountedLine summary={`The remaining ${outCount} group ${outCount === 1 ? 'entity is' : 'entities are'} not party to a relevant flow and ${outCount === 1 ? 'carries' : 'carry'} no qualification difference.`} />
+              )}
+            </>
+          );
+        })()}
+      </Exhibit>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* T - 4. Relevant flows                                                */}
+      {/* ------------------------------------------------------------------ */}
+      <Exhibit tag="T" icon={<ArrowLeftRight className="h-4 w-4 text-muted-foreground" />} title="4 · Relevant flows" {...sectionProps('transactions')}>
         <NarrativeLine narrative={narrative('flows')} onSave={saveNarrative?.('flows')} />
         {relevantTx.length === 0
           ? <p className="text-xs text-muted-foreground">{generated ? 'No relevant intra-group flows identified.' : 'Not generated yet.'}</p>
@@ -702,54 +751,6 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
         ))}
       </Exhibit>
 
-      {/* ------------------------------------------------------------------ */}
-      {/* CLS - 4. Classification of the relevant entities                     */}
-      {/* ------------------------------------------------------------------ */}
-      <Exhibit tag="CLS" icon={<Layers className="h-4 w-4 text-muted-foreground" />} title="4 · Classification of the relevant entities" {...sectionProps('classification')}>
-        <NarrativeLine narrative={narrative('classification')} onSave={saveNarrative?.('classification')} />
-        {(() => {
-          const inScopeEnts = shown.entities.filter((e) => inScope.has(e.id));
-          const outCount = shown.entities.length - inScopeEnts.length;
-          const clsByEntity = new Map(shown.classifications.map((c) => [c.entityId, c]));
-          return (
-            <>
-              <table className="w-full text-xs">
-                <thead className="text-muted-foreground">
-                  <tr className="text-left">
-                    <th className="py-1 pr-2">Entity</th><th className="pr-2">NL qualification</th>
-                    <th className="pr-2">Local qualification</th><th>Mismatch?</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {inScopeEnts.map((e) => {
-                    const c = clsByEntity.get(e.id);
-                    const local = c ? localQualification(c.homeClass) : 'undetermined';
-                    const mismatch = entityHasQualificationDifference(e, c);
-                    return (
-                      <tr key={e.id} className="border-t border-[hsl(var(--border-subtle))]">
-                        <td className="py-1 pr-2">
-                          <span className="font-mono text-sky-700 dark:text-sky-300">{e.id}</span>{' '}
-                          <span>{e.name}</span>
-                        </td>
-                        <td className="pr-2"><QualBadge status={effNlTaxStatus(e)} /></td>
-                        <td className="pr-2 text-muted-foreground">
-                          {c ? `${nlQualificationLabel(local)}${c.homeState ? ` (${c.homeState})` : ''}` : 'To be determined'}
-                        </td>
-                        <td className={cn(mismatch ? 'font-medium text-amber-700 dark:text-amber-400' : 'text-muted-foreground')}>
-                          {mismatch ? 'Yes' : 'No'}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              {outCount > 0 && (
-                <AccountedLine summary={`The remaining ${outCount} group ${outCount === 1 ? 'entity is' : 'entities are'} not party to a relevant flow and ${outCount === 1 ? 'carries' : 'carry'} no qualification difference.`} />
-              )}
-            </>
-          );
-        })()}
-      </Exhibit>
     </div>
   );
 }

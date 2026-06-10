@@ -36,6 +36,8 @@ export interface FactEntity {
   /** Group entity associated via a common parent: that parent's register id + its effective stake here. */
   relatedVia?: string | null;
   relatedViaPct?: number | null;
+  /** Parent/Subsidiary only: one ownership edge away from the taxpayer set (direct) vs via intermediates (indirect). */
+  directLink?: boolean;
   nlTaxStatus: string | null;
   /** Advisor overrides for the editable register fields; preserved across regeneration. */
   edits?: { jurisdiction?: string | null; entityType?: string | null; nlTaxStatus?: string | null };
@@ -182,9 +184,11 @@ interface Pre {
   related: boolean;
   relatedViaChartId: string | null;
   relatedViaPct: number | null;
+  /** Parent/Subsidiary: one ownership edge away from the taxpayer set. Null otherwise. */
+  direct: boolean | null;
 }
 
-function classifyExternals(entities: RawEntity[], memberSet: Set<string>, graph: OwnershipGraph): Pre[] {
+function classifyExternals(entities: RawEntity[], memberSet: Set<string>, graph: OwnershipGraph, directPairs: Set<string>): Pre[] {
   const externals = entities.filter((e) => !memberSet.has(e.id));
 
   const qualifyingParents = externals.filter((e) => {
@@ -199,11 +203,13 @@ function classifyExternals(entities: RawEntity[], memberSet: Set<string>, graph:
 
     if (isParent) {
       const pct = effectivePctToSet(ent.id, memberSet, graph);
-      return { ent, role: "Parent", pct, related: pct != null && pct > RELATED_THRESHOLD, relatedViaChartId: null, relatedViaPct: null };
+      const direct = [...memberSet].some((m) => directPairs.has(`${ent.id}>${m}`));
+      return { ent, role: "Parent", pct, related: pct != null && pct > RELATED_THRESHOLD, relatedViaChartId: null, relatedViaPct: null, direct };
     }
     if (isSub) {
       const pct = effectivePctFromSet(memberSet, ent.id, graph);
-      return { ent, role: "Subsidiary", pct, related: pct != null && pct > RELATED_THRESHOLD, relatedViaChartId: null, relatedViaPct: null };
+      const direct = [...memberSet].some((m) => directPairs.has(`${m}>${ent.id}`));
+      return { ent, role: "Subsidiary", pct, related: pct != null && pct > RELATED_THRESHOLD, relatedViaChartId: null, relatedViaPct: null, direct };
     }
     let bestViaId: string | null = null;
     let bestViaPct: number | null = null;
@@ -214,7 +220,7 @@ function classifyExternals(entities: RawEntity[], memberSet: Set<string>, graph:
         bestViaId = p.id;
       }
     }
-    return { ent, role: "Group entity", pct: null, related: bestViaId != null, relatedViaChartId: bestViaId, relatedViaPct: bestViaPct };
+    return { ent, role: "Group entity", pct: null, related: bestViaId != null, relatedViaChartId: bestViaId, relatedViaPct: bestViaPct, direct: null };
   });
 
   const order = { Parent: 1, Subsidiary: 2, "Group entity": 3 } as const;
@@ -247,8 +253,10 @@ export function buildEntityRegister(entities: RawEntity[], edges: RawEdge[], gro
   const memberIds: string[] = fu ? fu.member_ids.filter(present) : [];
   const memberSet = new Set<string>(fu ? memberIds : [taxpayer.id]);
 
-  const graph = buildOwnershipGraph(toOwnershipEdges(edges));
-  const cls = classifyExternals(entities, memberSet, graph);
+  const ownershipEdges = toOwnershipEdges(edges);
+  const graph = buildOwnershipGraph(ownershipEdges);
+  const directPairs = new Set(ownershipEdges.map((e) => `${e.from}>${e.to}`));
+  const cls = classifyExternals(entities, memberSet, graph, directPairs);
 
   const toFact = (id: string, c: Pre): FactEntity => ({
     id,
@@ -261,6 +269,7 @@ export function buildEntityRegister(entities: RawEntity[], edges: RawEdge[], gro
     related: c.related,
     relatedVia: c.relatedViaChartId ?? null,
     relatedViaPct: c.relatedViaPct,
+    ...(c.direct == null ? {} : { directLink: c.direct }),
     nlTaxStatus: null,
   });
 

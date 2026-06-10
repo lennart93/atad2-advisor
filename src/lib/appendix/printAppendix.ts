@@ -5,15 +5,13 @@ import type { AppendixFacts, AppendixRow, AppendixSectionKey, FactEntity, Narrat
 import { factsForClient } from './factsExport';
 import { visibleFacts } from './facts/visibleFacts';
 import { isSectionExcluded } from './facts/sections';
-import { effJurisdiction, effEntityType, effNlTaxStatus } from './facts/entityFields';
-import { nlQualification, nlQualificationLabel, nlTaxStatusLabel } from './facts/nlTaxStatus';
+import { effJurisdiction, effNlTaxStatus } from './facts/entityFields';
+import { nlQualification, nlQualificationLabel } from './facts/nlTaxStatus';
 import { actingLikelihoodLabel } from './facts/actingLikelihood';
 import { deriveConclusions, inScopeEntityIds, localQualification, entityHasQualificationDifference } from './facts/conclusions';
 import { relevantTransactions, accountedTransactionGroups } from './facts/relevance';
-import { ENTITY_TYPES } from '@/lib/structure/types';
 import { countryName } from '@/lib/structure/countries';
 
-const typeLabel = (k: string | null) => ENTITY_TYPES.find((t) => t.key === k)?.label ?? (k ?? '');
 const jurLabel = (iso: string | null) => (iso ? `${countryName(iso)} (${iso})` : '');
 
 const esc = (s: string | null) => (s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -137,17 +135,31 @@ export function buildAppendixPrintHtml(
     // A.1 - The group and the taxpayer: taxpayer side (incl. fiscal-unity members) first.
     const isTaxpayerSide = (e: FactEntity) =>
       e.role === 'Taxpayer' || !!e.memberOfUnityId || !!e.inTaxpayerFiscalUnity;
+    const roleText = (e: FactEntity): string => {
+      if (e.role === 'Subsidiary' && e.directLink != null) {
+        return e.directLink ? 'Subsidiary (direct)' : 'Subsidiary (indirect)';
+      }
+      return e.role + (e.inTaxpayerFiscalUnity ? ' (fiscal unity)' : '');
+    };
+    const positionNote = (e: FactEntity): string => {
+      if (e.role !== 'Group entity' || e.memberOfUnityId) return '';
+      if (e.relatedVia) {
+        const viaName = entityName(e.relatedVia);
+        return e.relatedViaPct != null
+          ? `; sister entity: ${viaName} holds ${e.relatedViaPct}% here and more than 25% in the taxpayer`
+          : `; sister entity via ${viaName}`;
+      }
+      return '; no qualifying ownership link with the taxpayer';
+    };
     const registerRow = (e: FactEntity, taxpayerSide: boolean) => {
       const refCol = internal ? `<td class="c-num">${esc(e.id)}</td>` : '';
-      const roleText = e.role + (e.inTaxpayerFiscalUnity ? ' (fiscal unity)' : '');
       return (
         `<tr${taxpayerSide ? ' class="taxpayer"' : ''}>` +
         refCol +
         `<td>${esc(e.name)}</td>` +
         `<td>${esc(jurLabel(effJurisdiction(e)))}</td>` +
-        `<td>${esc(e.isFiscalUnity ? 'Fiscal unity' : typeLabel(effEntityType(e)))}</td>` +
-        `<td>${esc(nlTaxStatusLabel(effNlTaxStatus(e)))}</td>` +
-        `<td>${esc(roleText)}</td></tr>`
+        `<td>${esc(nlQualificationLabel(nlQualification(effNlTaxStatus(e))))}</td>` +
+        `<td>${esc(roleText(e))}${esc(positionNote(e))}</td></tr>`
       );
     };
     const registerRows =
@@ -156,7 +168,7 @@ export function buildAppendixPrintHtml(
     const refHeader = internal ? `<th class="c-num">Ref</th>` : '';
     const registerBlock = (!drop('entityRegister') && registerRows)
       ? `<h2>A.1 · The group and the taxpayer</h2>` + narrative('register') +
-        `<table><tr>${refHeader}<th>Entity</th><th>Jurisdiction</th><th>Type</th><th>NL tax status</th><th>Role</th></tr>${registerRows}</table>`
+        `<table><tr>${refHeader}<th>Entity</th><th>Jurisdiction</th><th>Classification (NL)</th><th>Role</th></tr>${registerRows}</table>`
       : '';
 
     // A.2 - Related parties outside the taxpayer side, plus acting together.
@@ -194,7 +206,7 @@ export function buildAppendixPrintHtml(
       ? `<h2>A.2 · Related parties</h2>` + narrative('related') + relatedTable + atBlock
       : '';
 
-    // A.3 - Relevant flows, with the non-relevant ones accounted per reason.
+    // A.4 - Relevant flows, with the non-relevant ones accounted per reason.
     const relevantRows = relevantTransactions(f).map((t) => {
       const excludedFlag = (internal && t.excludedFromClient) ? ` <span class="flag">excluded</span>` : '';
       const proposedFlag = (internal && t.status === 'proposed') ? ` <span class="flag">proposed</span>` : '';
@@ -219,10 +231,10 @@ export function buildAppendixPrintHtml(
       `<p class="accounted">${g.transactions.length} ${g.transactions.length === 1 ? 'flow' : 'flows'} not relevant: ${esc(g.reason)}</p>`,
     ).join('');
     const flowsBlock = (!drop('transactions') && (flowsNarrative || flowsTable || accountedTxLines))
-      ? `<h2>A.3 · Relevant flows</h2>` + flowsNarrative + flowsTable + accountedTxLines
+      ? `<h2>A.4 · Relevant flows</h2>` + flowsNarrative + flowsTable + accountedTxLines
       : '';
 
-    // A.4 - Classification of the relevant entities only; the rest is accounted.
+    // A.3 - Classification of the relevant entities only; the rest is accounted.
     const scope = inScopeEntityIds(f);
     const clsByEntity = new Map(f.classifications.map((c) => [c.entityId, c]));
     const inScopeEnts = f.entities.filter((e) => scope.has(e.id));
@@ -244,12 +256,12 @@ export function buildAppendixPrintHtml(
       ? `<p class="accounted">The remaining ${outCount} group ${outCount === 1 ? 'entity is' : 'entities are'} not party to a relevant flow and ${outCount === 1 ? 'carries' : 'carry'} no qualification difference.</p>`
       : '';
     const classBlock = (!drop('classification') && clsRows)
-      ? `<h2>A.4 · Classification of the relevant entities</h2>` + narrative('classification') +
+      ? `<h2>A.3 · Classification of the relevant entities</h2>` + narrative('classification') +
         `<table><tr><th>Entity</th><th>NL qualification</th><th>Local qualification</th><th>Mismatch?</th></tr>${clsRows}</table>` + outOfScopeLine
       : '';
 
     if (!registerBlock && !relatedBlock && !flowsBlock && !classBlock) return '';
-    return `<h2 style="font-size:13px;margin-top:0;">Part A &middot; Facts &amp; relationships</h2>${strip}${registerBlock}${relatedBlock}${flowsBlock}${classBlock}<hr style="margin:14px 0;border:none;border-top:1px solid #ccc;">`;
+    return `<h2 style="font-size:13px;margin-top:0;">Part A &middot; Facts &amp; relationships</h2>${strip}${registerBlock}${relatedBlock}${classBlock}${flowsBlock}<hr style="margin:14px 0;border:none;border-top:1px solid #ccc;">`;
   })();
 
   return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>ATAD2 technical appendix</title>
