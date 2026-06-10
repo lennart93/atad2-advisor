@@ -9,7 +9,7 @@ import { effJurisdiction, effEntityType, effNlTaxStatus, withEntityEdit } from '
 import { nlQualification, nlQualificationLabel, nlTaxStatusLabel, NL_TAX_STATUSES } from '@/lib/appendix/facts/nlTaxStatus';
 import { withClusterLikelihood, withClusterText, withClusterExclude } from '@/lib/appendix/facts/actingCluster';
 import { ACTING_LIKELIHOODS, type ActingLikelihood } from '@/lib/appendix/facts/actingLikelihood';
-import { deriveConclusions, inScopeEntityIds, localQualification } from '@/lib/appendix/facts/conclusions';
+import { deriveConclusions, inScopeEntityIds, localQualification, entityHasQualificationDifference } from '@/lib/appendix/facts/conclusions';
 import { relevantTransactions, accountedTransactionGroups, withTransactionRelevance } from '@/lib/appendix/facts/relevance';
 import { withNarrative } from '@/lib/appendix/facts/narratives';
 import { CountryFlag } from '@/components/CountryFlag';
@@ -115,7 +115,11 @@ function NarrativeLine({ narrative, onSave }: { narrative?: Narrative; onSave?: 
         autoFocus
         defaultValue={narrative?.text ?? ''}
         rows={2}
-        onBlur={(e) => { setEditing(false); onSave(e.target.value.trim()); }}
+        onBlur={(e) => {
+          setEditing(false);
+          const text = e.target.value.trim();
+          if (text && text !== (narrative?.text ?? '')) onSave(text);
+        }}
         className="mb-2 w-full resize-y rounded border border-[hsl(var(--border-subtle))] bg-white/70 px-2 py-1 text-[11.5px] leading-relaxed text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-stone-400"
       />
     );
@@ -326,10 +330,9 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
           >
             <JurisdictionPicker
               value={jur ?? ''}
-              onChange={(iso) => {
-                setEditCell(null);
-                onChange!(withEntityEdit(facts, e.id, 'jurisdiction', iso || null));
-              }}
+              onChange={(iso) => onChange!(withEntityEdit(facts, e.id, 'jurisdiction', iso || null))}
+              defaultOpen
+              onSettled={() => setEditCell(null)}
               className={COMPACT_CONTROL}
               placeholder="Set…"
             />
@@ -348,10 +351,9 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
             >
               <Select
                 value={type ?? undefined}
-                onValueChange={(v) => {
-                  setEditCell(null);
-                  onChange!(withEntityEdit(facts, e.id, 'entityType', v));
-                }}
+                defaultOpen
+                onOpenChange={(open) => { if (!open) setEditCell(null); }}
+                onValueChange={(v) => onChange!(withEntityEdit(facts, e.id, 'entityType', v))}
               >
                 <SelectTrigger className={COMPACT_CONTROL}><SelectValue placeholder="Set…" /></SelectTrigger>
                 <SelectContent>
@@ -371,10 +373,9 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
           >
             <Select
               value={status ?? undefined}
-              onValueChange={(v) => {
-                setEditCell(null);
-                onChange!(withEntityEdit(facts, e.id, 'nlTaxStatus', v));
-              }}
+              defaultOpen
+              onOpenChange={(open) => { if (!open) setEditCell(null); }}
+              onValueChange={(v) => onChange!(withEntityEdit(facts, e.id, 'nlTaxStatus', v))}
             >
               <SelectTrigger className={COMPACT_CONTROL}><SelectValue placeholder="Set…" /></SelectTrigger>
               <SelectContent>
@@ -425,32 +426,35 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
       <h3 className="text-sm font-semibold text-foreground">Part A · Facts &amp; relationships</h3>
 
       {/* ------------------------------------------------------------------ */}
-      {/* Summary strip: deterministic funnel conclusions                     */}
+      {/* Summary strip: deterministic funnel conclusions (post-generation     */}
+      {/* only; before that "None identified" would mislead)                   */}
       {/* ------------------------------------------------------------------ */}
-      <div className="rounded-lg border border-[hsl(var(--border-subtle))] px-3 py-2.5">
-        <table className="w-full text-xs">
-          <tbody>
-            <tr>
-              <td className="py-0.5 pr-2 text-muted-foreground">Cross-border flows with related parties</td>
-              <td className="py-0.5 text-right font-medium text-foreground">
-                {flags.crossBorderRelatedFlows > 0 ? `${flags.crossBorderRelatedFlows} identified` : 'None identified'}
-              </td>
-            </tr>
-            <tr>
-              <td className="py-0.5 pr-2 text-muted-foreground">Hybrid qualification differences (NL vs local)</td>
-              <td className="py-0.5 text-right font-medium text-foreground">
-                {flags.hybridDifferences > 0 ? `${flags.hybridDifferences} identified` : 'None identified'}
-              </td>
-            </tr>
-            <tr>
-              <td className="py-0.5 pr-2 text-muted-foreground">Acting-together group considered likely</td>
-              <td className="py-0.5 text-right font-medium text-foreground">
-                {flags.likelyActingTogether > 0 ? `${flags.likelyActingTogether} ${flags.likelyActingTogether === 1 ? 'cluster' : 'clusters'}` : 'None'}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      {generated && (
+        <div className="rounded-lg border border-[hsl(var(--border-subtle))] px-3 py-2.5">
+          <table className="w-full text-xs">
+            <tbody>
+              <tr>
+                <td className="py-0.5 pr-2 text-muted-foreground">Cross-border flows with related parties</td>
+                <td className="py-0.5 text-right font-medium text-foreground">
+                  {flags.crossBorderRelatedFlows > 0 ? `${flags.crossBorderRelatedFlows} identified` : 'None identified'}
+                </td>
+              </tr>
+              <tr>
+                <td className="py-0.5 pr-2 text-muted-foreground">Hybrid qualification differences (NL vs local)</td>
+                <td className="py-0.5 text-right font-medium text-foreground">
+                  {flags.hybridDifferences > 0 ? `${flags.hybridDifferences} identified` : 'None identified'}
+                </td>
+              </tr>
+              <tr>
+                <td className="py-0.5 pr-2 text-muted-foreground">Acting-together group considered likely</td>
+                <td className="py-0.5 text-right font-medium text-foreground">
+                  {flags.likelyActingTogether > 0 ? `${flags.likelyActingTogether} ${flags.likelyActingTogether === 1 ? 'cluster' : 'clusters'}` : 'None'}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* ------------------------------------------------------------------ */}
       {/* E - 1. The group and the taxpayer                                    */}
@@ -594,7 +598,7 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
           )}
           {notLikelyClusters > 0 && (
             <AccountedLine
-              summary={`${notLikelyClusters} candidate ${notLikelyClusters === 1 ? 'grouping was' : 'groupings were'} considered and assessed as not likely; ${notLikelyClusters === 1 ? 'it is' : 'they are'} left out of the client annex.`}
+              summary={`${notLikelyClusters} candidate ${notLikelyClusters === 1 ? 'grouping was' : 'groupings were'} considered and not assessed as likely; ${notLikelyClusters === 1 ? 'it is' : 'they are'} left out of the client annex.`}
             />
           )}
         </div>
@@ -719,9 +723,8 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
                 <tbody>
                   {inScopeEnts.map((e) => {
                     const c = clsByEntity.get(e.id);
-                    const nl = nlQualification(effNlTaxStatus(e));
                     const local = c ? localQualification(c.homeClass) : 'undetermined';
-                    const mismatch = !!c?.hybrid || (nl !== 'undetermined' && local !== 'undetermined' && nl !== local);
+                    const mismatch = entityHasQualificationDifference(e, c);
                     return (
                       <tr key={e.id} className="border-t border-[hsl(var(--border-subtle))]">
                         <td className="py-1 pr-2">

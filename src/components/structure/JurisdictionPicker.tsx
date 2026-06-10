@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Check, ChevronsUpDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,6 +17,10 @@ interface Props {
   placeholder?: string;
   /** Extra classes for the trigger button, e.g. a compact height in a dense table. */
   className?: string;
+  /** Open the list immediately on mount (quiet-cell editors). */
+  defaultOpen?: boolean;
+  /** Called when the interaction finishes: list selection, dismissal, or custom-input blur. NOT called when switching into custom mode. */
+  onSettled?: () => void;
 }
 
 /**
@@ -25,9 +29,12 @@ interface Props {
  * the UI into a free-text input for non-standard codes (e.g. legacy alpha-3 or
  * sub-national designators the AI extractor produced).
  */
-export function JurisdictionPicker({ id, value, onChange, placeholder = 'Select a country…', className }: Props) {
+export function JurisdictionPicker({ id, value, onChange, placeholder = 'Select a country…', className, defaultOpen, onSettled }: Props) {
   const [customMode, setCustomMode] = useState(() => value !== '' && !isKnownCountryIso(value));
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(!!defaultOpen);
+  // A list selection (or the switch into custom mode) closes the popover
+  // itself and handles settling; the close event must not settle again.
+  const suppressSettle = useRef(false);
 
   // Re-derive mode when the value changes from outside (e.g. user switched
   // selected entity). Typing in custom mode keeps customMode=true unless the
@@ -54,6 +61,7 @@ export function JurisdictionPicker({ id, value, onChange, placeholder = 'Select 
           maxLength={3}
           placeholder="Custom code"
           onChange={(e) => onChange(e.target.value.toUpperCase())}
+          onBlur={() => onSettled?.()}
           autoFocus
         />
         <button
@@ -71,7 +79,16 @@ export function JurisdictionPicker({ id, value, onChange, placeholder = 'Select 
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o);
+        if (!o) {
+          if (!suppressSettle.current) onSettled?.();
+          suppressSettle.current = false;
+        }
+      }}
+    >
         <PopoverTrigger asChild>
           <Button
             id={id}
@@ -98,8 +115,10 @@ export function JurisdictionPicker({ id, value, onChange, placeholder = 'Select 
                     key={iso}
                     value={`${name} ${iso}`}
                     onSelect={() => {
+                      suppressSettle.current = true;
                       onChange(iso);
                       setOpen(false);
+                      onSettled?.();
                     }}
                   >
                     <Check
@@ -114,6 +133,8 @@ export function JurisdictionPicker({ id, value, onChange, placeholder = 'Select 
               <CommandGroup className="sticky bottom-0 bg-popover border-t border-border">
                 <CommandItem
                   onSelect={() => {
+                    // No onSettled here: the user keeps editing in the custom input.
+                    suppressSettle.current = true;
                     setCustomMode(true);
                     setOpen(false);
                     onChange('');

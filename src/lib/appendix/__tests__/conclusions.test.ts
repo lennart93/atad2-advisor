@@ -96,6 +96,14 @@ describe('inScopeEntityIds', () => {
     });
     expect([...inScopeEntityIds(f)].sort()).toEqual(['E1', 'E2', 'E4']);
   });
+
+  it('includes an entity with a derived NL-vs-local divergence even without a hybrid flag or transaction', () => {
+    const f = facts({
+      entities: [ent('E1', { role: 'Taxpayer' }), ent('E2', { nlTaxStatus: 'transparent' })],
+      classifications: [cls('E2', { homeClass: 'opaque' })], // hybrid: false
+    });
+    expect(inScopeEntityIds(f).has('E2')).toBe(true);
+  });
 });
 
 describe('localQualification', () => {
