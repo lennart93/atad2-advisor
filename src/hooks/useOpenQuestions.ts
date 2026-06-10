@@ -33,8 +33,16 @@ export function useOpenQuestions(sessionId: string | null) {
 
   useEffect(() => {
     if (!sessionId) return;
+    // Unique topic per mount: supabase.channel() returns the EXISTING channel
+    // for a duplicate topic, so several simultaneous consumers (sub-header
+    // button, sheet, page panel, analysis stream) would share one channel.
+    // Then one consumer's cleanup would remove the shared channel and kill
+    // realtime for the others, and a same-commit double mount can error the
+    // join with a bindings mismatch. A unique suffix gives each mount its own
+    // channel; identical postgres_changes filters across channels are fine.
+    const topic = `open-questions-${sessionId}-${Math.random().toString(36).slice(2)}`;
     const channel = supabase
-      .channel(`open-questions-${sessionId}`)
+      .channel(topic)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "atad2_open_questions", filter: `session_id=eq.${sessionId}` },
