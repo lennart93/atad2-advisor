@@ -29,12 +29,12 @@ export function accountedTransactionGroups(facts: AppendixFacts): AccountedGroup
   return [...groups.entries()].map(([reason, transactions]) => ({ reason, transactions }));
 }
 
-/** Advisor flips a relevance marking; the flip survives regeneration via mergeFacts. */
+/** Advisor flips a relevance marking; the stale AI reason is cleared. The flip survives regeneration via mergeFacts. */
 export function withTransactionRelevance(facts: AppendixFacts, id: string, relevant: boolean): AppendixFacts {
   return {
     ...facts,
     transactions: facts.transactions.map((t) =>
-      t.id === id ? { ...t, relevant, source: 'edited' } : t,
+      t.id === id ? { ...t, relevant, relevanceReason: null, source: 'edited' } : t,
     ),
   };
 }

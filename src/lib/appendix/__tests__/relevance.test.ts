@@ -35,8 +35,14 @@ describe('relevance', () => {
   });
 
   it('withTransactionRelevance flips the flag and marks the item edited', () => {
-    const f = facts([tx('T1', { relevant: true })]);
+    const f = facts([tx('T1', { relevant: true, relevanceReason: 'Cross-border to a related party' })]);
     const next = withTransactionRelevance(f, 'T1', false);
-    expect(next.transactions[0]).toMatchObject({ relevant: false, source: 'edited' });
+    expect(next.transactions[0]).toMatchObject({ relevant: false, relevanceReason: null, source: 'edited' });
+  });
+
+  it('flipping an unknown id is a no-op', () => {
+    const f = facts([tx('T1')]);
+    const next = withTransactionRelevance(f, 'NOPE', false);
+    expect(next.transactions[0]).toBe(f.transactions[0]);
   });
 });
