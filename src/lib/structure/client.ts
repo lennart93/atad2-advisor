@@ -142,9 +142,22 @@ export async function updateEntityPosition(id: string, x: number, y: number) {
 }
 
 export async function finalizeChart(chartId: string) {
-  await supabase.from('atad2_structure_charts')
-    .update({ status: 'finalized', finalized_at: new Date().toISOString() })
+  const { data: { user } } = await supabase.auth.getUser();
+  const { error } = await supabase.from('atad2_structure_charts')
+    .update({
+      status: 'finalized',
+      finalized_at: new Date().toISOString(),
+      finalized_by: user?.id ?? null,
+    })
     .eq('id', chartId);
+  if (error) {
+    // finalized_by column may not exist yet on this VM (migration not applied).
+    // Fall back without it so finalization still lands.
+    console.debug('[finalizeChart] finalized_by write failed, retrying without it', error.message);
+    await supabase.from('atad2_structure_charts')
+      .update({ status: 'finalized', finalized_at: new Date().toISOString() })
+      .eq('id', chartId);
+  }
 }
 
 /**
@@ -159,11 +172,26 @@ export async function unfinalizeChart(chartId: string) {
     .update({
       status: 'draft_ready',
       finalized_at: null,
+      finalized_by: null,
       snapshot_png: null,
       snapshot_captured_at: null,
     })
     .eq('id', chartId);
-  if (error) throw error;
+  if (error) {
+    // finalized_by column may not exist yet on this VM (migration not applied).
+    // Fall back without it so unfinalize still lands.
+    console.debug('[unfinalizeChart] finalized_by write failed, retrying without it', error.message);
+    const { error: fallbackError } = await supabase
+      .from('atad2_structure_charts')
+      .update({
+        status: 'draft_ready',
+        finalized_at: null,
+        snapshot_png: null,
+        snapshot_captured_at: null,
+      })
+      .eq('id', chartId);
+    if (fallbackError) throw fallbackError;
+  }
 }
 
 export async function forceDraftReady(chartId: string, warningMessage: string) {

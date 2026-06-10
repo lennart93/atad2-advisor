@@ -384,6 +384,39 @@ export function useUploadText(sessionId: string | null) {
 }
 
 /**
+ * Heartbeat for the browser-orchestrated swarm. While this tab owns the
+ * analysis run, tick atad2_prefill_jobs.heartbeat_at every ~20s so a reader
+ * can tell "still running" from "tab was closed mid-run". Copies
+ * startHeartbeat in supabase/functions/extract-structure/index.ts (the chart
+ * pipeline's 15s heartbeat). Readers treat a running status with a heartbeat
+ * older than 2 minutes as dead (STALENESS THRESHOLD, see migration
+ * 20260610190200_prefill_job_heartbeat.sql); 20s gives ~6 beats inside that
+ * window, so one dropped request never flags a live run as dead.
+ *
+ * Returns a stop function. Caller MUST call stop() in a finally block so the
+ * interval never outlives the swarm. A failed beat is logged to the console
+ * and otherwise ignored: fire-and-forget, no toast, no retry, never thrown.
+ */
+const PREFILL_HEARTBEAT_INTERVAL_MS = 20_000;
+
+function startJobHeartbeat(sessionId: string): () => void {
+  const tick = async () => {
+    try {
+      const { error } = await supabase
+        .from("atad2_prefill_jobs")
+        .update({ heartbeat_at: new Date().toISOString() })
+        .eq("session_id", sessionId);
+      if (error) console.warn("[prefill-heartbeat] update failed", error.message);
+    } catch (err) {
+      console.warn("[prefill-heartbeat] update failed", err);
+    }
+  };
+  void tick(); // first beat right away so a fresh job is never "stale at birth"
+  const timer = setInterval(() => { void tick(); }, PREFILL_HEARTBEAT_INTERVAL_MS);
+  return () => clearInterval(timer);
+}
+
+/**
  * Client-orchestrated swarm: each question gets its own Edge Function call,
  * fired in parallel with a small concurrency cap. This avoids the per-isolate
  * wall-clock limit that killed the previous server-side swarm.
@@ -414,72 +447,96 @@ export function useStartAnalyze(sessionId: string | null) {
       if (jobErr && !`${jobErr.message}`.toLowerCase().includes("duplicate")) {
         throw jobErr;
       }
-
-      // 3. Load distinct questions.
-      const { data: rawQuestions } = await supabase
-        .from("atad2_questions")
-        .select("question_id, question, question_explanation");
-      const uniq = new Map<string, { question_id: string; question: string; question_explanation: string | null }>();
-      for (const q of rawQuestions ?? []) {
-        if (!uniq.has(q.question_id)) uniq.set(q.question_id, q as never);
+      if (jobErr) {
+        // Re-analysis: the job row already exists (one row per session).
+        // Re-claim it so started_at reflects THIS run. The dossier status
+        // view (atad2_dossier_blocks, M5) derives "Documents ready" from
+        // "last completed analysis started at or after the newest upload",
+        // so a frozen started_at would block 'ready' forever after a later
+        // upload. Allowed by the session-owner UPDATE policy from M2.
+        await supabase.from("atad2_prefill_jobs").update({
+          status: "stage2_running",
+          started_at: new Date().toISOString(),
+          stage2_finished_at: null,
+          error_message: null,
+          locked_at: new Date().toISOString(),
+        }).eq("session_id", sessionId);
       }
-      const questions = Array.from(uniq.values());
 
-      // 4. Cache-warmup: fire ONE call first so the prompt-cache prefix is
-      //    written before we slam Anthropic with N parallel requests.
-      const failures: string[] = [];
-      const queue = [...questions];
-      const work = async (q: typeof questions[number]) => {
-        try {
-          await invokePrefillFn({
-            action: "analyze_one",
-            session_id: sessionId,
-            question_id: q.question_id,
-            question_text: q.question,
-            question_explanation: q.question_explanation ?? "",
-            documents_block: documentsBlock,
-            image_refs: imageRefs,
-            pdf_refs: pdfRefs,
-            taxpayer_name: taxpayerName,
-            fiscal_year: fiscalYear,
-          });
-        } catch (e) {
-          failures.push(`${q.question_id}: ${(e as Error).message}`);
+      // 2b. Start the heartbeat now that the job row exists / is re-claimed.
+      //     Stopped in the finally below; if this tab dies instead, the beats
+      //     stop with it, which is exactly the signal readers use to detect
+      //     an abandoned run.
+      const stopHeartbeat = startJobHeartbeat(sessionId);
+      try {
+        // 3. Load distinct questions.
+        const { data: rawQuestions } = await supabase
+          .from("atad2_questions")
+          .select("question_id, question, question_explanation");
+        const uniq = new Map<string, { question_id: string; question: string; question_explanation: string | null }>();
+        for (const q of rawQuestions ?? []) {
+          if (!uniq.has(q.question_id)) uniq.set(q.question_id, q as never);
         }
-      };
+        const questions = Array.from(uniq.values());
 
-      const warmup = queue.shift();
-      if (warmup) await work(warmup);
-
-      // 5. Fan out with concurrency cap. Each call is ~5-15s and fits the
-      //    edge-runtime wall-clock budget on its own; the browser owns the
-      //    overall coordination, so total time = max single-call latency.
-      //
-      //    When PDFs are attached, each call ships the PDF base64 (3-5 MB)
-      //    and the edge isolate has to encode + serialize it. Twelve parallel
-      //    calls overran the Deno CPU soft limit and supervisors started
-      //    cancelling requests mid-flight (observed: ~45 500s, only 4 calls
-      //    completed). Cap concurrency much lower when raw PDFs are in play.
-      const CONCURRENCY = pdfRefs.length > 0 ? 4 : 12;
-      const workers: Promise<void>[] = [];
-      for (let i = 0; i < Math.min(CONCURRENCY, queue.length); i++) {
-        workers.push((async () => {
-          while (queue.length > 0) {
-            const q = queue.shift();
-            if (q) await work(q);
+        // 4. Cache-warmup: fire ONE call first so the prompt-cache prefix is
+        //    written before we slam Anthropic with N parallel requests.
+        const failures: string[] = [];
+        const queue = [...questions];
+        const work = async (q: typeof questions[number]) => {
+          try {
+            await invokePrefillFn({
+              action: "analyze_one",
+              session_id: sessionId,
+              question_id: q.question_id,
+              question_text: q.question,
+              question_explanation: q.question_explanation ?? "",
+              documents_block: documentsBlock,
+              image_refs: imageRefs,
+              pdf_refs: pdfRefs,
+              taxpayer_name: taxpayerName,
+              fiscal_year: fiscalYear,
+            });
+          } catch (e) {
+            failures.push(`${q.question_id}: ${(e as Error).message}`);
           }
-        })());
+        };
+
+        const warmup = queue.shift();
+        if (warmup) await work(warmup);
+
+        // 5. Fan out with concurrency cap. Each call is ~5-15s and fits the
+        //    edge-runtime wall-clock budget on its own; the browser owns the
+        //    overall coordination, so total time = max single-call latency.
+        //
+        //    When PDFs are attached, each call ships the PDF base64 (3-5 MB)
+        //    and the edge isolate has to encode + serialize it. Twelve parallel
+        //    calls overran the Deno CPU soft limit and supervisors started
+        //    cancelling requests mid-flight (observed: ~45 500s, only 4 calls
+        //    completed). Cap concurrency much lower when raw PDFs are in play.
+        const CONCURRENCY = pdfRefs.length > 0 ? 4 : 12;
+        const workers: Promise<void>[] = [];
+        for (let i = 0; i < Math.min(CONCURRENCY, queue.length); i++) {
+          workers.push((async () => {
+            while (queue.length > 0) {
+              const q = queue.shift();
+              if (q) await work(q);
+            }
+          })());
+        }
+        await Promise.allSettled(workers);
+
+        // 6. Finalize the job row.
+        await supabase.from("atad2_prefill_jobs").update({
+          status: failures.length === questions.length ? "failed" : "completed",
+          stage2_finished_at: new Date().toISOString(),
+          error_message: failures.length === questions.length ? `All ${failures.length} questions failed` : null,
+        }).eq("session_id", sessionId);
+
+        return { ok: true, prefill_count: questions.length - failures.length, failure_count: failures.length };
+      } finally {
+        stopHeartbeat();
       }
-      await Promise.allSettled(workers);
-
-      // 6. Finalize the job row.
-      await supabase.from("atad2_prefill_jobs").update({
-        status: failures.length === questions.length ? "failed" : "completed",
-        stage2_finished_at: new Date().toISOString(),
-        error_message: failures.length === questions.length ? `All ${failures.length} questions failed` : null,
-      }).eq("session_id", sessionId);
-
-      return { ok: true, prefill_count: questions.length - failures.length, failure_count: failures.length };
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["prefill-job", sessionId] });

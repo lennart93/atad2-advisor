@@ -122,6 +122,8 @@ export interface PrefillJob {
   error_message: string | null;
   total_token_usage: { input_tokens: number; output_tokens: number } | null;
   locked_at: string | null;
+  // Ticked ~20s by the browser swarm while it runs; NULL on legacy rows.
+  heartbeat_at: string | null;
 }
 
 export interface SessionDocument {

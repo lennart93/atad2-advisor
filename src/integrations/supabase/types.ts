@@ -14,6 +14,53 @@ export type Database = {
   }
   public: {
     Tables: {
+      atad2_answer_events: {
+        Row: {
+          actor: string | null
+          confirmation_change: "set" | "cleared" | null
+          created_at: string
+          id: string
+          new_answer: string | null
+          new_explanation: string | null
+          old_answer: string | null
+          old_explanation: string | null
+          question_id: string
+          session_id: string
+        }
+        Insert: {
+          actor?: string | null
+          confirmation_change?: "set" | "cleared" | null
+          created_at?: string
+          id?: string
+          new_answer?: string | null
+          new_explanation?: string | null
+          old_answer?: string | null
+          old_explanation?: string | null
+          question_id: string
+          session_id: string
+        }
+        Update: {
+          actor?: string | null
+          confirmation_change?: "set" | "cleared" | null
+          created_at?: string
+          id?: string
+          new_answer?: string | null
+          new_explanation?: string | null
+          old_answer?: string | null
+          old_explanation?: string | null
+          question_id?: string
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_atad2_answer_events_session"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "atad2_sessions"
+            referencedColumns: ["session_id"]
+          },
+        ]
+      }
       atad2_answers: {
         Row: {
           answer: string
@@ -27,6 +74,10 @@ export type Database = {
           risk_points: number
           session_id: string
           term_explanation: string | null
+          unknown_confirmed_at: string | null
+          unknown_confirmed_by: string | null
+          unknown_confirmed_note: string | null
+          updated_at: string
         }
         Insert: {
           answer: string
@@ -40,6 +91,10 @@ export type Database = {
           risk_points?: number
           session_id: string
           term_explanation?: string | null
+          unknown_confirmed_at?: string | null
+          unknown_confirmed_by?: string | null
+          unknown_confirmed_note?: string | null
+          updated_at?: string
         }
         Update: {
           answer?: string
@@ -53,6 +108,10 @@ export type Database = {
           risk_points?: number
           session_id?: string
           term_explanation?: string | null
+          unknown_confirmed_at?: string | null
+          unknown_confirmed_by?: string | null
+          unknown_confirmed_note?: string | null
+          updated_at?: string
         }
         Relationships: [
           {
@@ -89,7 +148,7 @@ export type Database = {
           session_created_at: string | null
           session_updated_at: string | null
           confirmed_at: string | null
-          event_type: "created" | "completed" | "deleted" | "backfill"
+          event_type: "created" | "completed" | "deleted" | "backfill" | "interim_generated" | "final_generated"
           event_at: string
         }
         Insert: {
@@ -109,7 +168,7 @@ export type Database = {
           session_created_at?: string | null
           session_updated_at?: string | null
           confirmed_at?: string | null
-          event_type: "created" | "completed" | "deleted" | "backfill"
+          event_type: "created" | "completed" | "deleted" | "backfill" | "interim_generated" | "final_generated"
           event_at?: string
         }
         Update: {
@@ -129,7 +188,7 @@ export type Database = {
           session_created_at?: string | null
           session_updated_at?: string | null
           confirmed_at?: string | null
-          event_type?: "created" | "completed" | "deleted" | "backfill"
+          event_type?: "created" | "completed" | "deleted" | "backfill" | "interim_generated" | "final_generated"
           event_at?: string
         }
         Relationships: []
@@ -200,12 +259,113 @@ export type Database = {
         }
         Relationships: []
       }
+      atad2_open_question_events: {
+        Row: {
+          actor: string | null
+          created_at: string
+          detail: Json | null
+          event: string
+          id: string
+          question_id: string
+          session_id: string
+        }
+        Insert: {
+          actor?: string | null
+          created_at?: string
+          detail?: Json | null
+          event: string
+          id?: string
+          question_id: string
+          session_id: string
+        }
+        Update: {
+          actor?: string | null
+          created_at?: string
+          detail?: Json | null
+          event?: string
+          id?: string
+          question_id?: string
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "atad2_open_question_events_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "atad2_sessions"
+            referencedColumns: ["session_id"]
+          },
+        ]
+      }
+      atad2_open_questions: {
+        Row: {
+          client_answer: string | null
+          client_answer_at: string | null
+          client_question: string | null
+          created_at: string
+          id: string
+          question_id: string
+          reopen_reason: string | null
+          resolution_note: string | null
+          resolved_at: string | null
+          session_id: string
+          source: string
+          status: string
+          taken_to_client_at: string | null
+          updated_at: string
+          why_it_matters: string | null
+        }
+        Insert: {
+          client_answer?: string | null
+          client_answer_at?: string | null
+          client_question?: string | null
+          created_at?: string
+          id?: string
+          question_id: string
+          reopen_reason?: string | null
+          resolution_note?: string | null
+          resolved_at?: string | null
+          session_id: string
+          source: string
+          status?: string
+          taken_to_client_at?: string | null
+          updated_at?: string
+          why_it_matters?: string | null
+        }
+        Update: {
+          client_answer?: string | null
+          client_answer_at?: string | null
+          client_question?: string | null
+          created_at?: string
+          id?: string
+          question_id?: string
+          reopen_reason?: string | null
+          resolution_note?: string | null
+          resolved_at?: string | null
+          session_id?: string
+          source?: string
+          status?: string
+          taken_to_client_at?: string | null
+          updated_at?: string
+          why_it_matters?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "atad2_open_questions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "atad2_sessions"
+            referencedColumns: ["session_id"]
+          },
+        ]
+      }
       // Manually added — no Supabase CLI available for self-hosted VM (feat/document-prefill)
       atad2_prefill_jobs: {
         Row: {
           created_at: string
           error_message: string | null
           failed_at: string | null
+          heartbeat_at: string | null
           id: string
           locked_at: string | null
           session_id: string
@@ -222,6 +382,7 @@ export type Database = {
           created_at?: string
           error_message?: string | null
           failed_at?: string | null
+          heartbeat_at?: string | null
           id?: string
           locked_at?: string | null
           session_id: string
@@ -238,6 +399,7 @@ export type Database = {
           created_at?: string
           error_message?: string | null
           failed_at?: string | null
+          heartbeat_at?: string | null
           id?: string
           locked_at?: string | null
           session_id?: string
@@ -487,10 +649,17 @@ export type Database = {
           answers_count: number | null
           archived_at: string | null
           archived_by: string | null
+          error_message: string | null
           generated_at: string
+          generation_status: string
           id: string
           model: string | null
+          open_questions: Json | null
+          parent_report_id: string | null
+          prompt_version: string | null
+          regenerated_sections: string[] | null
           report_json: Json | null
+          report_kind: string
           report_md: string
           report_title: string | null
           risk_category: string | null
@@ -503,10 +672,17 @@ export type Database = {
           answers_count?: number | null
           archived_at?: string | null
           archived_by?: string | null
+          error_message?: string | null
           generated_at?: string
+          generation_status?: string
           id?: string
           model?: string | null
+          open_questions?: Json | null
+          parent_report_id?: string | null
+          prompt_version?: string | null
+          regenerated_sections?: string[] | null
           report_json?: Json | null
+          report_kind?: string
           report_md: string
           report_title?: string | null
           risk_category?: string | null
@@ -519,10 +695,17 @@ export type Database = {
           answers_count?: number | null
           archived_at?: string | null
           archived_by?: string | null
+          error_message?: string | null
           generated_at?: string
+          generation_status?: string
           id?: string
           model?: string | null
+          open_questions?: Json | null
+          parent_report_id?: string | null
+          prompt_version?: string | null
+          regenerated_sections?: string[] | null
           report_json?: Json | null
+          report_kind?: string
           report_md?: string
           report_title?: string | null
           risk_category?: string | null
@@ -532,6 +715,13 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "atad2_reports_parent_report_id_fkey"
+            columns: ["parent_report_id"]
+            isOneToOne: false
+            referencedRelation: "atad2_reports"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "fk_atad2_reports_session"
             columns: ["session_id"]
@@ -638,6 +828,7 @@ export type Database = {
           created_at: string
           draft_extracted_at: string | null
           finalized_at: string | null
+          finalized_by: string | null
           heartbeat_at: string | null
           id: string
           session_id: string
@@ -653,6 +844,7 @@ export type Database = {
           created_at?: string
           draft_extracted_at?: string | null
           finalized_at?: string | null
+          finalized_by?: string | null
           heartbeat_at?: string | null
           id?: string
           session_id: string
@@ -668,6 +860,7 @@ export type Database = {
           created_at?: string
           draft_extracted_at?: string | null
           finalized_at?: string | null
+          finalized_by?: string | null
           heartbeat_at?: string | null
           id?: string
           session_id?: string
@@ -1016,7 +1209,33 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      atad2_dossier_blocks: {
+        Row: {
+          session_id: string
+          documents_status: "empty" | "generating" | "in_progress" | "attention" | "ready" | "confirmed"
+          questions_status: "empty" | "generating" | "in_progress" | "attention" | "ready" | "confirmed"
+          structure_status: "empty" | "generating" | "in_progress" | "attention" | "ready" | "confirmed"
+          appendix_status: "empty" | "generating" | "in_progress" | "attention" | "ready" | "confirmed"
+          report_status: "empty" | "generating" | "in_progress" | "attention" | "ready" | "confirmed"
+          docs_count: number
+          last_doc_at: string | null
+          prefill_job_status: string | null
+          prefill_count: number
+          open_unknown_count: number
+          answers_count: number
+          completed: boolean
+          outcome_confirmed: boolean
+          chart_status: string | null
+          finalized_at: string | null
+          appendix_generation_status: string | null
+          appendix_review_status: string | null
+          has_interim_report: boolean
+          has_final_report: boolean
+          report_generation_status: string | null
+          inputs_changed_after_final: boolean
+        }
+        Relationships: []
+      }
     }
     Functions: {
       admin_reset_session: {
@@ -1032,9 +1251,17 @@ export type Database = {
         Returns: Json
       }
       anonymize_old_sessions: { Args: never; Returns: undefined }
+      archive_report: {
+        Args: { p_report_id: string }
+        Returns: Json
+      }
       can_modify_admin_role: {
         Args: { action: string; target_user_id: string }
         Returns: boolean
+      }
+      final_report_gate: {
+        Args: { p_session_id: string }
+        Returns: Json
       }
       has_role: {
         Args: {
@@ -1042,6 +1269,15 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      log_open_question_event: {
+        Args: {
+          p_detail?: Json | null
+          p_event: string
+          p_question_id: string
+          p_session_id: string
+        }
+        Returns: Json
       }
     }
     Enums: {

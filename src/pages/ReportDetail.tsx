@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Seo } from "@/components/Seo";
 import { useToast } from "@/hooks/use-toast";
-import { Download, ArrowLeft, Trash2 } from "lucide-react";
+import { Download, ArrowLeft, Archive } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import DownloadMemoButton from "@/components/DownloadMemoButton";
 
@@ -35,25 +35,29 @@ const ReportDetail = () => {
     enabled: !!reportId && !!user,
   });
 
-  const deleteMutation = useMutation({
+  const archiveMutation = useMutation({
     mutationFn: async () => {
       if (!reportId) throw new Error("No report ID");
-      
-      const { error } = await supabase
-        .from("atad2_reports")
-        .delete()
-        .eq("id", reportId);
+
+      // Archiving goes through a SECURITY DEFINER RPC. atad2_reports has no
+      // user UPDATE policy on purpose (reports stay unchangeable for users),
+      // so a direct .update() here would silently match zero rows. The RPC
+      // checks ownership and sets archived_at and archived_by server-side.
+      const { error } = await supabase.rpc("archive_report", {
+        p_report_id: reportId,
+      });
 
       if (error) throw error;
     },
     onSuccess: () => {
-      toast({ title: "Report deleted" });
+      toast({ title: "Report archived" });
       queryClient.invalidateQueries({ queryKey: ["reports"] });
+      queryClient.invalidateQueries({ queryKey: ["report", reportId] });
       navigate("/");
     },
     onError: (error) => {
       toast({
-        title: "Error deleting report",
+        title: "Error archiving report",
         description: error.message,
         variant: "destructive",
       });
@@ -169,25 +173,25 @@ const ReportDetail = () => {
             
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="destructive" size="sm">
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete
+                <Button variant="outline" size="sm">
+                  <Archive className="mr-2 h-4 w-4" />
+                  Archive
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Delete report</AlertDialogTitle>
+                  <AlertDialogTitle>Archive report</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Are you sure you want to delete this report? This action cannot be undone.
+                    This removes the report from your dashboard. An archived copy is kept for the audit trail.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
                   <AlertDialogAction
-                    onClick={() => deleteMutation.mutate()}
-                    disabled={deleteMutation.isPending}
+                    onClick={() => archiveMutation.mutate()}
+                    disabled={archiveMutation.isPending}
                   >
-                    {deleteMutation.isPending ? "Deleting…" : "Delete"}
+                    {archiveMutation.isPending ? "Archiving…" : "Archive"}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
