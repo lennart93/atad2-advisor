@@ -10,7 +10,9 @@ import type { OpenQuestionRow } from "@/lib/openQuestions/types";
 import { OpenQuestionRowActions } from "./OpenQuestionRowActions";
 import { OpenQuestionRowCard } from "./OpenQuestionRowCard";
 
-export type OpenQuestionsPanelVariant = "page" | "sheet" | "stream";
+// The compact analysis-phase list is a dedicated component
+// (OpenQuestionsStream), so the panel only knows page and sheet.
+export type OpenQuestionsPanelVariant = "page" | "sheet";
 
 export interface OpenQuestionsPanelProps {
   sessionId: string;
@@ -62,14 +64,6 @@ export function OpenQuestionsPanel({
     groups.active.length === 0 &&
     groups.later.length === 0 &&
     groups.history.length === 0;
-
-  // Stream variant: bare live rows only, no headers or collapsibles. The
-  // full streaming treatment arrives with the sub-header button slice.
-  if (variant === "stream") {
-    const streamRows = [...groups.needsAttention, ...groups.active, ...groups.later];
-    if (streamRows.length === 0) return null;
-    return <div className="space-y-2">{renderRows(streamRows)}</div>;
-  }
 
   const compact = variant === "sheet";
   const sectionGap = compact ? "space-y-2" : "space-y-3";

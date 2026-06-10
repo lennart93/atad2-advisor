@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { ASSESSMENT_STEPS, stepIndexForPath } from '@/lib/assessment/steps';
 import { useAssessmentSessionId } from '@/lib/assessment/useAssessmentSessionId';
+import { OpenQuestionsButton } from '@/components/openQuestions/OpenQuestionsButton';
 import { AssessmentStepper } from './AssessmentStepper';
 import { AssessmentShellContext } from './AssessmentShellContext';
 
@@ -118,13 +119,18 @@ export default function AssessmentShell() {
         {/* Sub-header */}
         <div className="shrink-0 border-b border-[hsl(var(--border-subtle))] bg-background">
           <div className="mx-auto max-w-6xl px-4 py-3">
-            <AssessmentStepper
-              current={currentStep}
-              extraDone={extraDone}
-              onStepClick={fromOverview || onOverview ? handleStepClick : undefined}
-              lockedTooltip={lockedTooltip}
-              lockedIndexes={lockedIndexes}
-            />
+            <div className="flex items-center gap-4">
+              <div className="min-w-0 flex-1">
+                <AssessmentStepper
+                  current={currentStep}
+                  extraDone={extraDone}
+                  onStepClick={fromOverview || onOverview ? handleStepClick : undefined}
+                  lockedTooltip={lockedTooltip}
+                  lockedIndexes={lockedIndexes}
+                />
+              </div>
+              {sessionId && <OpenQuestionsButton sessionId={sessionId} />}
+            </div>
           </div>
         </div>
 
