@@ -48,7 +48,11 @@ export function buildEntityRegister(
   const ownershipEdges = toOwnershipEdges(edges);
   const graph = buildOwnershipGraph(ownershipEdges);
   const directPairs = new Set(ownershipEdges.map((e) => `${e.from}>${e.to}`));
-  const cls = classifyExternals(entities, memberSet, graph, directPairs);
+  // The register covers the corporate chain. Natural persons only stay when they
+  // are genuinely associated (a >25% individual shareholder is an associated
+  // enterprise under ATAD2); minor individual co-investors are noise.
+  const cls = classifyExternals(entities, memberSet, graph, directPairs)
+    .filter((c) => c.ent.entity_type !== 'individual' || c.related);
 
   const toFact = (id: string, c: Pre): FactEntity => ({
     id,

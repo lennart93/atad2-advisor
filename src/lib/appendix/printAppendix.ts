@@ -149,7 +149,8 @@ export function buildAppendixPrintHtml(
           ? `; sister entity: ${viaName} holds ${e.relatedViaPct}% here and more than 25% in the taxpayer`
           : `; sister entity via ${viaName}`;
       }
-      return '; no qualifying ownership link with the taxpayer';
+      const position = e.position?.trim();
+      return position ? `; ${position}` : '';
     };
     const registerRow = (e: FactEntity, taxpayerSide: boolean) => {
       const refCol = internal ? `<td class="c-num">${esc(e.id)}</td>` : '';

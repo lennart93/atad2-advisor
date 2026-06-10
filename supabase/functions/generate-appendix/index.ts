@@ -395,9 +395,11 @@ async function buildFacts(
     // already drawn (that path collapses into a synthetic E1 instead).
     const hasExplicitFu = entities.some((e) => e.isFiscalUnity || e.memberOfUnityId);
     const fuMembers = new Set((proposed.fiscalUnityMemberEntityIds ?? []).filter((id) => id !== "E1"));
+    const positions = proposed.positionByEntityId ?? {};
     const facts: AppendixFacts = {
       entities: entities.map((e) => {
-        const next = { ...e, nlTaxStatus: nl[e.id] ?? e.nlTaxStatus };
+        const aiPosition = e.role === "Group entity" ? noDashes(positions[e.id]) ?? null : null;
+        const next = { ...e, nlTaxStatus: nl[e.id] ?? e.nlTaxStatus, ...(aiPosition ? { position: aiPosition } : {}) };
         if (!hasExplicitFu && e.id !== "E1" && fuMembers.has(e.id)) {
           // Inside the taxpayer's fiscal unity: part of the same taxpayer, so not a
           // separate related party (mirrors how explicit FE members are treated).

@@ -32,6 +32,10 @@ export const FactsModelOutput = z.object({
     reasoning: z.string().nullish(),
   })).optional().default([]),
   nlTaxStatusByEntityId: z.record(z.string(), z.string()).optional(),
+  // Group entities only: one short clause per register id on how the entity
+  // relates to the taxpayer (e.g. "co-investor in a named fund alongside E9").
+  // Optional and tolerant: missing ids simply show nothing in the register.
+  positionByEntityId: z.record(z.string(), z.string()).optional(),
   // Register ids (E2, E3 ...) that form a Dutch fiscal unity (fiscale eenheid) with
   // the taxpayer E1, derived from the documents. E1 itself is implied and need not
   // be listed. Empty/omitted when there is no fiscal unity.

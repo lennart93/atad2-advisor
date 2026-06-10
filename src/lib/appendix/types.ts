@@ -95,6 +95,12 @@ export interface FactEntity {
    * runs through intermediate entities (indirect). Undefined on other roles.
    */
   directLink?: boolean;
+  /**
+   * Group entity only: one short AI-written clause on how this entity relates
+   * to the taxpayer (e.g. a co-investor in a named fund), grounded on the
+   * documents. Null when the documents give nothing.
+   */
+  position?: string | null;
   nlTaxStatus: string | null;  // AI/advisor filled; null until proposed
   /**
    * Advisor overrides for the editable register fields. The base fields above are

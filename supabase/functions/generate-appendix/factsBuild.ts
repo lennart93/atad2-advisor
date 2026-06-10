@@ -38,6 +38,8 @@ export interface FactEntity {
   relatedViaPct?: number | null;
   /** Parent/Subsidiary only: one ownership edge away from the taxpayer set (direct) vs via intermediates (indirect). */
   directLink?: boolean;
+  /** Group entity only: short AI-written relationship-to-the-taxpayer clause, grounded on the documents. */
+  position?: string | null;
   nlTaxStatus: string | null;
   /** Advisor overrides for the editable register fields; preserved across regeneration. */
   edits?: { jurisdiction?: string | null; entityType?: string | null; nlTaxStatus?: string | null };
@@ -256,7 +258,11 @@ export function buildEntityRegister(entities: RawEntity[], edges: RawEdge[], gro
   const ownershipEdges = toOwnershipEdges(edges);
   const graph = buildOwnershipGraph(ownershipEdges);
   const directPairs = new Set(ownershipEdges.map((e) => `${e.from}>${e.to}`));
-  const cls = classifyExternals(entities, memberSet, graph, directPairs);
+  // The register covers the corporate chain. Natural persons only stay when they
+  // are genuinely associated (a >25% individual shareholder is an associated
+  // enterprise under ATAD2); minor individual co-investors are noise.
+  const cls = classifyExternals(entities, memberSet, graph, directPairs)
+    .filter((c) => c.ent.entity_type !== "individual" || c.related);
 
   const toFact = (id: string, c: Pre): FactEntity => ({
     id,

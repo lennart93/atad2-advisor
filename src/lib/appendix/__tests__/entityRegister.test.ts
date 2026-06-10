@@ -175,3 +175,26 @@ describe('buildEntityRegister direct vs indirect links', () => {
     expect(sister.relatedVia).toBeTruthy();
   });
 });
+
+describe('buildEntityRegister natural persons', () => {
+  const person = (id: string, name: string): StructureEntity =>
+    ({ id, name, is_taxpayer: false, jurisdiction_iso: 'NL', entity_type: 'individual' } as unknown as StructureEntity);
+
+  it('drops unrelated individuals from the register (corporate chain only)', () => {
+    const entities = [ent('tp', 'TaxPayer BV', true), ent('co', 'Fund BV'), person('p1', 'C. de Vries')];
+    // The person co-invests somewhere irrelevant: no ownership in or from the taxpayer.
+    const edges = [edge('tp', 'co', 60), edge('p1', 'co', 1)];
+    const reg = buildEntityRegister(entities, edges);
+    expect(reg.find((e) => e.name === 'C. de Vries')).toBeUndefined();
+    expect(reg.find((e) => e.name === 'Fund BV')).toBeTruthy();
+  });
+
+  it('keeps an individual who is a genuine >25% shareholder of the taxpayer', () => {
+    const entities = [ent('tp', 'TaxPayer BV', true), person('dga', 'A. Founder')];
+    const edges = [edge('dga', 'tp', 100)];
+    const reg = buildEntityRegister(entities, edges);
+    const dga = reg.find((e) => e.name === 'A. Founder')!;
+    expect(dga.role).toBe('Parent');
+    expect(dga.related).toBe(true);
+  });
+});

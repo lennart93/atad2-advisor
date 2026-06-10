@@ -293,7 +293,11 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
     return e.role;
   };
 
-  /** One short line on how a Group entity sits relative to the taxpayer. */
+  /**
+   * One short line on how a Group entity sits relative to the taxpayer: the hard
+   * common-parent link when the graph has one, otherwise the AI's grounded
+   * relationship clause. Nothing at all beats a boilerplate non-answer.
+   */
   const positionNote = (e: FactEntity): string | null => {
     if (e.role !== 'Group entity' || e.memberOfUnityId) return null;
     if (e.relatedVia) {
@@ -302,7 +306,7 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
         ? `sister entity: ${viaName} holds ${pct(e.relatedViaPct)} here and >25% in the taxpayer`
         : `sister entity via ${viaName}`;
     }
-    return 'no qualifying ownership link with the taxpayer';
+    return e.position?.trim() || null;
   };
 
   const renderEntityRow = (e: FactEntity, tint?: string) => {
