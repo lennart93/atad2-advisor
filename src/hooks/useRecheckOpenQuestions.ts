@@ -6,19 +6,13 @@ import { buildDocumentsBlock } from "@/lib/prefill/buildDocumentsBlock";
 import { invokePrefillFn, useUploadText } from "@/hooks/usePrefill";
 import { useOpenQuestionActions } from "@/hooks/useOpenQuestionActions";
 import { useQuestionTexts } from "@/hooks/useOpenQuestions";
+import { runAnalyzePool } from "@/lib/openQuestions/analyzePool";
 import { resolveClientQuestion } from "@/lib/openQuestions/grouping";
 import {
   buildClientResponsesDocument,
   type ClientResponseEntry,
 } from "@/lib/openQuestions/exportText";
 import type { OpenQuestionRow } from "@/lib/openQuestions/types";
-
-/**
- * Targeted re-check, not a swarm run: a handful of analyze_one calls is far
- * cheaper than the full swarm, and the per-call payload is identical, so the
- * full-swarm CPU ceiling (12) does not apply. Fixed at the PDF-safe cap.
- */
-const RECHECK_CONCURRENCY = 4;
 
 /** Same query as useQuestionTexts, for when its cache has not filled yet. */
 async function fetchQuestionTextMap(): Promise<Map<string, string>> {
@@ -127,11 +121,10 @@ export function useRecheckOpenQuestions(sessionId: string | null) {
         if (!officialById.has(q.question_id)) officialById.set(q.question_id, q);
       }
 
-      // 6. analyze_one per affected question through a small worker pool.
+      // 6. analyze_one per affected question through the shared worker pool.
       //    NO atad2_prefill_jobs write, NO heartbeat (see hook comment).
       const failures: string[] = [];
-      const queue = [...entries];
-      const work = async (entry: ClientResponseEntry) => {
+      await runAnalyzePool(entries, async (entry: ClientResponseEntry) => {
         const official = officialById.get(entry.questionId);
         try {
           await logEvent(entry.questionId, "recheck_started");
@@ -150,19 +143,7 @@ export function useRecheckOpenQuestions(sessionId: string | null) {
         } catch (e) {
           failures.push(`${entry.questionId}: ${(e as Error).message}`);
         }
-      };
-      const workers: Promise<void>[] = [];
-      for (let i = 0; i < Math.min(RECHECK_CONCURRENCY, queue.length); i++) {
-        workers.push(
-          (async () => {
-            while (queue.length > 0) {
-              const next = queue.shift();
-              if (next) await work(next);
-            }
-          })(),
-        );
-      }
-      await Promise.allSettled(workers);
+      });
 
       return { aborted: false, total: entries.length, failed: failures.length };
     },

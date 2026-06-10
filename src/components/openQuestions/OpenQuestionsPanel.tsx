@@ -13,6 +13,7 @@ import type { OpenQuestionRow } from "@/lib/openQuestions/types";
 import { OpenQuestionRowActions } from "./OpenQuestionRowActions";
 import { OpenQuestionRowCard } from "./OpenQuestionRowCard";
 import { OpenQuestionsExportActions } from "./OpenQuestionsExportActions";
+import { PrepareClientQuestionsButton } from "./PrepareClientQuestionsButton";
 
 // The compact analysis-phase list is a dedicated component
 // (OpenQuestionsStream), so the panel only knows page and sheet.
@@ -95,7 +96,10 @@ export function OpenQuestionsPanel({
           groups={groups}
           resolveText={resolveText}
         />
-        <RecheckWithAiButton sessionId={sessionId} rows={view.rows} />
+        <div className="flex flex-wrap items-start gap-x-2 gap-y-2">
+          <PrepareClientQuestionsButton sessionId={sessionId} rows={view.rows} />
+          <RecheckWithAiButton sessionId={sessionId} rows={view.rows} />
+        </div>
       </div>
 
       {groups.needsAttention.length > 0 && (
