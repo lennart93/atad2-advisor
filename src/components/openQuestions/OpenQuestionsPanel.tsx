@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/collapsible";
 import { useOpenQuestionsView } from "@/hooks/useOpenQuestions";
 import type { OpenQuestionRow } from "@/lib/openQuestions/types";
+import { OpenQuestionRowActions } from "./OpenQuestionRowActions";
 import { OpenQuestionRowCard } from "./OpenQuestionRowCard";
 
 export type OpenQuestionsPanelVariant = "page" | "sheet" | "stream";
@@ -14,31 +15,41 @@ export type OpenQuestionsPanelVariant = "page" | "sheet" | "stream";
 export interface OpenQuestionsPanelProps {
   sessionId: string;
   variant: OpenQuestionsPanelVariant;
-  /** Wired to the row actions in a later slice; unused while read-only. */
+  /** Deep link into the questions flow; "Go to question" hides when absent. */
   onGoToQuestion?: (questionId: string) => void;
 }
 
 /**
- * Grouped view over the open-questions register. Read-only for now: the
- * per-row actions slot stays empty until the actions slice lands.
+ * Grouped view over the open-questions register with per-row actions.
  */
 export function OpenQuestionsPanel({
   sessionId,
   variant,
-  onGoToQuestion: _onGoToQuestion,
+  onGoToQuestion,
 }: OpenQuestionsPanelProps) {
   const view = useOpenQuestionsView(sessionId);
   const { groups, answerMap, resolveText, isLoading } = view;
 
   const renderRows = (rows: OpenQuestionRow[]) =>
-    rows.map((row) => (
-      <OpenQuestionRowCard
-        key={row.id}
-        row={row}
-        questionText={resolveText(row)}
-        onPath={answerMap.has(row.question_id)}
-      />
-    ));
+    rows.map((row) => {
+      const onPath = answerMap.has(row.question_id);
+      return (
+        <OpenQuestionRowCard
+          key={row.id}
+          row={row}
+          questionText={resolveText(row)}
+          onPath={onPath}
+          actions={
+            <OpenQuestionRowActions
+              row={row}
+              onPath={onPath}
+              answerForQuestion={answerMap.get(row.question_id)}
+              onGoToQuestion={onGoToQuestion}
+            />
+          }
+        />
+      );
+    });
 
   if (isLoading) {
     return (

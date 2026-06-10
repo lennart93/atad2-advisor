@@ -100,3 +100,43 @@ export function groupOpenQuestions(
 export function countActiveOpenQuestions(groups: OpenQuestionGroups): number {
   return groups.needsAttention.length + groups.active.length;
 }
+
+export interface RowActionVisibility {
+  keepAsUnknown: boolean;
+  notRelevant: boolean;
+  markSentToClient: boolean;
+  /** "What did the client say?" input for rows still in play. */
+  clientAnswerInput: boolean;
+  /** Edit affordance on the saved client answer of an answered row. */
+  editClientAnswer: boolean;
+  goToQuestion: boolean;
+}
+
+/**
+ * Which row actions a register row offers. Pure visibility rules:
+ * - Keep as unknown: active rows that are off-path, or on-path with an
+ *   Unknown answer. Never for on-path Yes/No rows (reopen flags), where
+ *   only editing the answer itself moves the gate.
+ * - Not relevant: off-path active rows only.
+ * - Mark as sent to client: only while the row is still open.
+ * - Client answer input: active rows; answered rows get an edit affordance
+ *   on the saved text instead.
+ * - Go to question: on-path rows only (off-path questions have no position
+ *   in the replayed flow), including answered history rows so the apply-it
+ *   work is never lost.
+ */
+export function visibleActionsFor(
+  row: OpenQuestionRow,
+  onPath: boolean,
+  answerForQuestion: string | undefined,
+): RowActionVisibility {
+  const active = row.status === "open" || row.status === "taken_to_client";
+  return {
+    keepAsUnknown: active && (!onPath || answerForQuestion === "Unknown"),
+    notRelevant: active && !onPath,
+    markSentToClient: row.status === "open",
+    clientAnswerInput: active,
+    editClientAnswer: row.status === "answered",
+    goToQuestion: onPath,
+  };
+}

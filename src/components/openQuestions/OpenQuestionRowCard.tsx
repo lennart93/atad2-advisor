@@ -27,13 +27,13 @@ export interface OpenQuestionRowCardProps {
   questionText: string;
   /** True when an answer row exists for this question in this session. */
   onPath: boolean;
-  /** Right-aligned actions slot (filled in by the panel later). */
+  /** Full-width actions slot under the row content (buttons + inputs). */
   actions?: ReactNode;
 }
 
 /**
- * Presentational card for one open-question register row. Read-only: all
- * mutations arrive through the actions slot.
+ * Presentational card for one open-question register row. All mutations
+ * arrive through the actions slot.
  */
 export function OpenQuestionRowCard({
   row,
@@ -90,11 +90,9 @@ export function OpenQuestionRowCard({
             </p>
           )}
         </div>
-
-        {actions && (
-          <div className="flex shrink-0 flex-col items-end gap-1">{actions}</div>
-        )}
       </div>
+
+      {actions && <div className="mt-3">{actions}</div>}
     </div>
   );
 }

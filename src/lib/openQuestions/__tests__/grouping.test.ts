@@ -4,6 +4,7 @@ import {
   countActiveOpenQuestions,
   resolveClientQuestion,
   isOnPath,
+  visibleActionsFor,
 } from "../grouping";
 import { FALLBACK_QUESTION_SENTENCE, type OpenQuestionRow } from "../types";
 
@@ -131,6 +132,57 @@ describe("isOnPath", () => {
   it("is true when an answer row exists for the question in this session", () => {
     expect(isOnPath(makeRow({ question_id: "4" }), new Set(["4"]))).toBe(true);
     expect(isOnPath(makeRow({ question_id: "4" }), new Set(["5"]))).toBe(false);
+  });
+});
+
+describe("visibleActionsFor", () => {
+  it("offers keep-as-unknown for off-path active rows regardless of answer", () => {
+    for (const status of ["open", "taken_to_client"]) {
+      const v = visibleActionsFor(makeRow({ status }), false, undefined);
+      expect(v.keepAsUnknown).toBe(true);
+    }
+  });
+
+  it("offers keep-as-unknown for on-path active rows only when the answer is Unknown", () => {
+    expect(visibleActionsFor(makeRow({ status: "open" }), true, "Unknown").keepAsUnknown).toBe(true);
+    expect(visibleActionsFor(makeRow({ status: "taken_to_client" }), true, "Unknown").keepAsUnknown).toBe(true);
+    // On-path Yes/No rows are reopen flags: only editing the answer moves the gate.
+    expect(visibleActionsFor(makeRow({ status: "open" }), true, "Yes").keepAsUnknown).toBe(false);
+    expect(visibleActionsFor(makeRow({ status: "open" }), true, "No").keepAsUnknown).toBe(false);
+  });
+
+  it("never offers keep-as-unknown on terminal rows", () => {
+    for (const status of ["answered", "resolved", "confirmed_unknown", "dismissed"]) {
+      expect(visibleActionsFor(makeRow({ status }), false, undefined).keepAsUnknown).toBe(false);
+    }
+  });
+
+  it("offers not-relevant only for off-path active rows", () => {
+    expect(visibleActionsFor(makeRow({ status: "open" }), false, undefined).notRelevant).toBe(true);
+    expect(visibleActionsFor(makeRow({ status: "taken_to_client" }), false, undefined).notRelevant).toBe(true);
+    expect(visibleActionsFor(makeRow({ status: "open" }), true, "Unknown").notRelevant).toBe(false);
+    expect(visibleActionsFor(makeRow({ status: "answered" }), false, undefined).notRelevant).toBe(false);
+  });
+
+  it("offers mark-as-sent only while the row is still open", () => {
+    expect(visibleActionsFor(makeRow({ status: "open" }), false, undefined).markSentToClient).toBe(true);
+    for (const status of ["taken_to_client", "answered", "resolved", "confirmed_unknown", "dismissed"]) {
+      expect(visibleActionsFor(makeRow({ status }), false, undefined).markSentToClient).toBe(false);
+    }
+  });
+
+  it("offers the client-answer input for active rows and the edit affordance for answered rows", () => {
+    expect(visibleActionsFor(makeRow({ status: "open" }), false, undefined).clientAnswerInput).toBe(true);
+    expect(visibleActionsFor(makeRow({ status: "taken_to_client" }), false, undefined).clientAnswerInput).toBe(true);
+    expect(visibleActionsFor(makeRow({ status: "answered" }), false, undefined).clientAnswerInput).toBe(false);
+    expect(visibleActionsFor(makeRow({ status: "answered" }), false, undefined).editClientAnswer).toBe(true);
+    expect(visibleActionsFor(makeRow({ status: "resolved" }), false, undefined).editClientAnswer).toBe(false);
+  });
+
+  it("offers go-to-question only for on-path rows, including answered history rows", () => {
+    expect(visibleActionsFor(makeRow({ status: "open" }), true, "Unknown").goToQuestion).toBe(true);
+    expect(visibleActionsFor(makeRow({ status: "answered" }), true, "Unknown").goToQuestion).toBe(true);
+    expect(visibleActionsFor(makeRow({ status: "open" }), false, undefined).goToQuestion).toBe(false);
   });
 });
 

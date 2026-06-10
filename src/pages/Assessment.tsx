@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useCallback, useMemo, memo } from "react";
+import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef, memo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useUserPreference } from "@/hooks/useUserPreference";
 import { OptionToggle } from "@/components/prefill/OptionToggle";
@@ -220,6 +220,9 @@ const Assessment = () => {
   // (deep link from the dossier and the sub-header button). Read-only here;
   // the render branch below acts on it once the session has started.
   const focusParam = searchParams.get("focus");
+  // ?q=<question_id> jumps to that question once the flow is rebuilt. Read
+  // here; the deep-link effect below goToPendingQuestion consumes it.
+  const qParam = searchParams.get("q");
   const [intakeClient, setIntakeClient] = useState<{ id: string; client_name: string } | null>(null);
 
   const [sessionInfo, setSessionInfo] = useState<SessionInfo>({
@@ -1161,15 +1164,51 @@ const Assessment = () => {
 
   const goToPendingQuestion = async () => {
     if (!pendingQuestion) return;
-    
+
     setCurrentQuestion(pendingQuestion);
-    
+
     // Restore existing answer if any
     const existingAnswer = await restoreExistingAnswer(pendingQuestion.question_id);
     setSelectedAnswer(existingAnswer);
-    
+
     setNavigationIndex(-1); // Set to -1 to indicate we're on the active question
   };
+
+  // Deep link from the open-questions register: ?q=<question_id> jumps to
+  // that question once the session has started and the flow is rebuilt, then
+  // strips q and focus from the URL with a replace navigation. The ref guards
+  // re-entry while the same q is still in the URL across renders; it resets
+  // when q disappears so a later click on the same question works again.
+  const lastHandledQRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!qParam) {
+      lastHandledQRef.current = null;
+      return;
+    }
+    if (!sessionStarted) return;
+    if (lastHandledQRef.current === qParam) return;
+    // Wait for the resume replay: with no flow and no pending question the
+    // target cannot be located yet, so keep the param and try next render.
+    if (questionFlow.length === 0 && !pendingQuestion) return;
+    lastHandledQRef.current = qParam;
+
+    const targetIndex = questionFlow.findIndex(
+      (entry) => entry.question.question_id === qParam
+    );
+    if (targetIndex >= 0) {
+      goToSpecificQuestion(targetIndex);
+    } else if (pendingQuestion?.question_id === qParam) {
+      goToPendingQuestion();
+    }
+
+    const next = new URLSearchParams(searchParams);
+    next.delete("q");
+    next.delete("focus");
+    setSearchParams(next, { replace: true });
+    // goToSpecificQuestion/goToPendingQuestion are stable per render and the
+    // ref prevents double handling, so they are deliberately not dependencies.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qParam, sessionStarted, questionFlow, pendingQuestion, searchParams, setSearchParams]);
 
   const handleAnswerSelect = async (answer: string) => {
     if (loading || isTransitioning) return;
@@ -2108,7 +2147,18 @@ const Assessment = () => {
             Back to questions
           </Button>
         </div>
-        <OpenQuestionsPanel variant="page" sessionId={sessionId} />
+        <OpenQuestionsPanel
+          variant="page"
+          sessionId={sessionId}
+          onGoToQuestion={(questionId) => {
+            // Setting q and dropping focus hands off to the deep-link effect
+            // above, which jumps to the question and then strips the params.
+            const next = new URLSearchParams(searchParams);
+            next.set("q", questionId);
+            next.delete("focus");
+            setSearchParams(next);
+          }}
+        />
       </div>
     );
   }
