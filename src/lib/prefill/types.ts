@@ -102,6 +102,11 @@ export interface QuestionPrefill {
   // the user-voice "it is unknown..." version of the same dossier facts that
   // the SuggestionCard renders when the user picks Unknown on this question.
   suggested_toelichting_unknown: string | null;
+  // v12 companion to contextual_hint. Ready-to-send client question in
+  // We-understand style ("We understand that ... Could you please confirm ...",
+  // <=450 chars). NULL on Route A and for rows analyzed under prompt v11 or
+  // older; the open-questions register copies it via trigger.
+  client_question: string | null;
   // Snapshot of the exact text the user accepted (Accept) or edited-then-saved (Edit).
   // Falls back to suggested_toelichting for historical rows where the column is null.
   committed_text: string | null;

@@ -189,6 +189,7 @@ export async function runAnalyzeOne(
         answer_rationale: truncate(parsed.answer_rationale, 200),
         contextual_hint: truncate(parsed.contextual_hint, 1000),
         suggested_toelichting_unknown: truncate(unknownToelichting, 1000),
+        client_question: truncate(parsed.client_question, 450),
         user_action: "pending",
       }, { onConflict: "session_id,question_id" });
 

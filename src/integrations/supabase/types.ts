@@ -536,6 +536,7 @@ export type Database = {
           answer_rationale: string | null
           contextual_hint: string | null
           suggested_toelichting_unknown: string | null
+          client_question: string | null
           committed_text: string | null
         }
         Insert: {
@@ -553,6 +554,7 @@ export type Database = {
           answer_rationale?: string | null
           contextual_hint?: string | null
           suggested_toelichting_unknown?: string | null
+          client_question?: string | null
           committed_text?: string | null
         }
         Update: {
@@ -570,6 +572,7 @@ export type Database = {
           answer_rationale?: string | null
           contextual_hint?: string | null
           suggested_toelichting_unknown?: string | null
+          client_question?: string | null
           committed_text?: string | null
         }
         Relationships: [
@@ -1328,6 +1331,10 @@ export type Database = {
       final_report_gate: {
         Args: { p_session_id: string }
         Returns: Json
+      }
+      get_active_prompt_version: {
+        Args: { p_key: string }
+        Returns: number
       }
       has_role: {
         Args: {

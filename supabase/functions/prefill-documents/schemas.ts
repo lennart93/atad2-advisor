@@ -39,17 +39,25 @@ const SwarmPrefillRaw = z.object({
   // is populated; otherwise null. Older swarm versions that don't emit this
   // field still parse cleanly because we default it before validation.
   suggested_toelichting_unknown: z.string().min(1).max(1000).nullable().default(null),
+  // v12: Route B companion. The ready-to-send client question ("We understand
+  // that ... Could you please confirm ..."), populated only alongside
+  // contextual_hint. Zod cap deliberately generous at 700 (same precedent as
+  // answer_rationale above); the DB CHECK is 450 and analyze.ts truncates to
+  // 450, so a slight model overshoot never 500s the row. nullish().default(null)
+  // keeps v11-and-older payloads (which never emit the key) parseable.
+  client_question: z.string().max(700).nullish().default(null),
 });
 
 export const SwarmPrefill = SwarmPrefillRaw.transform((raw) => {
   // Routing invariant: drop contextual_hint if suggested_toelichting is also
   // populated. Defensive — keeps a bad LLM payload from breaking the row.
   if (raw.suggested_toelichting && raw.contextual_hint) {
-    return { ...raw, contextual_hint: null, suggested_toelichting_unknown: null };
+    return { ...raw, contextual_hint: null, suggested_toelichting_unknown: null, client_question: null };
   }
-  // suggested_toelichting_unknown only rides along with contextual_hint.
-  if (!raw.contextual_hint && raw.suggested_toelichting_unknown) {
-    return { ...raw, suggested_toelichting_unknown: null };
+  // suggested_toelichting_unknown and client_question only ride along with
+  // contextual_hint.
+  if (!raw.contextual_hint && (raw.suggested_toelichting_unknown || raw.client_question)) {
+    return { ...raw, suggested_toelichting_unknown: null, client_question: null };
   }
   return raw;
 }).refine(
