@@ -708,7 +708,7 @@ export function useUpdatePrefillAction() {
   });
 }
 
-async function invokePrefillFn(body: Record<string, unknown>) {
+export async function invokePrefillFn(body: Record<string, unknown>) {
   const { data, error } = await supabase.functions.invoke("prefill-documents", { body });
   if (error) throw error;
   return data as { ok: boolean; error?: string };

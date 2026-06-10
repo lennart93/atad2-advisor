@@ -1,11 +1,13 @@
 import type { ReactNode } from "react";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Loader2, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { useOpenQuestionsView } from "@/hooks/useOpenQuestions";
+import { useRecheckOpenQuestions } from "@/hooks/useRecheckOpenQuestions";
 import type { OpenQuestionRow } from "@/lib/openQuestions/types";
 import { OpenQuestionRowActions } from "./OpenQuestionRowActions";
 import { OpenQuestionRowCard } from "./OpenQuestionRowCard";
@@ -85,11 +87,14 @@ export function OpenQuestionsPanel({
     <div className={panelGap}>
       {variant === "page" && <PageHeading />}
 
-      <OpenQuestionsExportActions
-        sessionId={sessionId}
-        groups={groups}
-        resolveText={resolveText}
-      />
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+        <OpenQuestionsExportActions
+          sessionId={sessionId}
+          groups={groups}
+          resolveText={resolveText}
+        />
+        <RecheckWithAiButton sessionId={sessionId} rows={view.rows} />
+      </div>
 
       {groups.needsAttention.length > 0 && (
         <section className={sectionGap}>
@@ -126,6 +131,47 @@ export function OpenQuestionsPanel({
         renderRows={renderRows}
         gapClass={sectionGap}
       />
+    </div>
+  );
+}
+
+/**
+ * "Re-check with AI" for the panel header (page and sheet variants). Enabled
+ * once at least one client answer is saved; the heavy lifting lives in
+ * useRecheckOpenQuestions.
+ */
+function RecheckWithAiButton({
+  sessionId,
+  rows,
+}: {
+  sessionId: string;
+  rows: OpenQuestionRow[];
+}) {
+  const recheck = useRecheckOpenQuestions(sessionId);
+  const hasClientAnswers = rows.some(
+    (row) => (row.client_answer ?? "").trim().length > 0,
+  );
+
+  return (
+    <div className="space-y-1">
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={!hasClientAnswers || recheck.isPending}
+        onClick={() => recheck.mutate()}
+      >
+        {recheck.isPending ? (
+          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+        ) : (
+          <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+        )}
+        {recheck.isPending ? "Re-checking..." : "Re-check with AI"}
+      </Button>
+      {!hasClientAnswers && (
+        <p className="text-xs text-muted-foreground">
+          Save at least one client answer first.
+        </p>
+      )}
     </div>
   );
 }
