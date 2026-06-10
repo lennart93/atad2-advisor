@@ -1,5 +1,5 @@
 import { useState, useEffect, useLayoutEffect, useCallback, useMemo, memo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useUserPreference } from "@/hooks/useUserPreference";
 import { OptionToggle } from "@/components/prefill/OptionToggle";
 import { useAuth } from "@/hooks/useAuth";
@@ -209,6 +209,14 @@ const Assessment = () => {
   
   const resumeSessionId = useAssessmentSessionId();
 
+  // Optional ?clientId= from a client folder. When present and the client
+  // belongs to the current user, the intake prefills the taxpayer name and
+  // the new session is linked to that client. Without the param (or when
+  // the lookup fails) the intake behaves exactly as it does today.
+  const [searchParams] = useSearchParams();
+  const intakeClientIdParam = searchParams.get("clientId");
+  const [intakeClient, setIntakeClient] = useState<{ id: string; client_name: string } | null>(null);
+
   const [sessionInfo, setSessionInfo] = useState<SessionInfo>({
     taxpayer_name: "",
     tax_year: "",
@@ -253,7 +261,40 @@ const Assessment = () => {
   useEffect(() => {
     setCommittingExplanation(false);
   }, [currentQuestion?.question_id]);
-  
+
+  // Resolve ?clientId= to a client folder owned by the current user. The
+  // ownership filter runs in the query itself and RLS enforces it server-side.
+  // Any error or missing row means "no client": the intake then behaves
+  // exactly like the normal flow (fail soft, no toast). Skipped entirely in
+  // resume mode (?session= present) because the intake form is not shown.
+  useEffect(() => {
+    if (!intakeClientIdParam || !user?.id || resumeSessionId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('atad2_clients')
+          .select('id, client_name')
+          .eq('id', intakeClientIdParam)
+          .eq('user_id', user.id)
+          .maybeSingle();
+        if (cancelled) return;
+        if (error || !data) {
+          if (error) console.warn('Client prefill lookup failed:', error.message);
+          return;
+        }
+        setIntakeClient({ id: data.id, client_name: data.client_name });
+        // Prefill only while the field is still empty; never overwrite typing.
+        setSessionInfo(prev =>
+          prev.taxpayer_name ? prev : { ...prev, taxpayer_name: data.client_name }
+        );
+      } catch (err) {
+        if (!cancelled) console.warn('Client prefill lookup failed:', err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [intakeClientIdParam, user?.id, resumeSessionId]);
+
   // Friendly reminder messages for empty explanations
   const friendlyReminders = [
     "Some further context would be really helpful",
@@ -633,7 +674,10 @@ const Assessment = () => {
           period_start_date: startDate,
           period_end_date: endDate,
           status: 'in_progress',
-          completed: false
+          completed: false,
+          // Link the session to its client folder only when a validated
+          // ?clientId= is present; otherwise the payload is unchanged.
+          ...(intakeClient ? { client_id: intakeClient.id } : {})
         });
 
       if (error) throw error;

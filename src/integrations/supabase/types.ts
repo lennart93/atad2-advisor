@@ -135,6 +135,8 @@ export type Database = {
           id: string
           session_uuid: string
           session_id: string
+          client_id: string | null
+          client_name: string | null
           user_id: string | null
           user_email: string | null
           user_full_name: string | null
@@ -155,6 +157,8 @@ export type Database = {
           id?: string
           session_uuid: string
           session_id: string
+          client_id?: string | null
+          client_name?: string | null
           user_id?: string | null
           user_email?: string | null
           user_full_name?: string | null
@@ -175,6 +179,8 @@ export type Database = {
           id?: string
           session_uuid?: string
           session_id?: string
+          client_id?: string | null
+          client_name?: string | null
           user_id?: string | null
           user_email?: string | null
           user_full_name?: string | null
@@ -190,6 +196,45 @@ export type Database = {
           confirmed_at?: string | null
           event_type?: "created" | "completed" | "deleted" | "backfill" | "interim_generated" | "final_generated"
           event_at?: string
+        }
+        Relationships: []
+      }
+      atad2_clients: {
+        Row: {
+          archived_at: string | null
+          archived_by: string | null
+          client_code: string | null
+          client_name: string
+          created_at: string
+          id: string
+          jurisdiction: string | null
+          notes: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          archived_at?: string | null
+          archived_by?: string | null
+          client_code?: string | null
+          client_name: string
+          created_at?: string
+          id?: string
+          jurisdiction?: string | null
+          notes?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          archived_at?: string | null
+          archived_by?: string | null
+          client_code?: string | null
+          client_name?: string
+          created_at?: string
+          id?: string
+          jurisdiction?: string | null
+          notes?: string | null
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -589,6 +634,7 @@ export type Database = {
         Row: {
           category: string
           category_source: string
+          client_id: string | null
           created_at: string
           doc_label: string
           error_message: string | null
@@ -597,7 +643,7 @@ export type Database = {
           is_thin: boolean
           mime_type: string
           relevance_note: string | null
-          session_id: string
+          session_id: string | null
           size_bytes: number
           status: string
           storage_path: string
@@ -605,6 +651,7 @@ export type Database = {
         Insert: {
           category: string
           category_source?: string
+          client_id?: string | null
           created_at?: string
           doc_label: string
           error_message?: string | null
@@ -613,7 +660,7 @@ export type Database = {
           is_thin?: boolean
           mime_type: string
           relevance_note?: string | null
-          session_id: string
+          session_id?: string | null
           size_bytes: number
           status?: string
           storage_path: string
@@ -621,6 +668,7 @@ export type Database = {
         Update: {
           category?: string
           category_source?: string
+          client_id?: string | null
           created_at?: string
           doc_label?: string
           error_message?: string | null
@@ -629,12 +677,19 @@ export type Database = {
           is_thin?: boolean
           mime_type?: string
           relevance_note?: string | null
-          session_id?: string
+          session_id?: string | null
           size_bytes?: number
           status?: string
           storage_path?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "atad2_session_documents_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "atad2_clients"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "atad2_session_documents_session_id_fkey"
             columns: ["session_id"]
@@ -734,6 +789,7 @@ export type Database = {
       atad2_sessions: {
         Row: {
           additional_context: string | null
+          client_id: string | null
           completed: boolean | null
           confirmed_at: string | null
           created_at: string
@@ -763,6 +819,7 @@ export type Database = {
         }
         Insert: {
           additional_context?: string | null
+          client_id?: string | null
           completed?: boolean | null
           confirmed_at?: string | null
           created_at?: string
@@ -792,6 +849,7 @@ export type Database = {
         }
         Update: {
           additional_context?: string | null
+          client_id?: string | null
           completed?: boolean | null
           confirmed_at?: string | null
           created_at?: string
@@ -819,7 +877,15 @@ export type Database = {
           updated_at?: string
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "atad2_sessions_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "atad2_clients"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       atad2_structure_charts: {
         Row: {
