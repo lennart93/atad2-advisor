@@ -15,8 +15,7 @@ export function DocumentUploadStep({
         <h2 className="text-xl font-semibold tracking-tight">Supporting documents</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Optional. Documents are processed only for pre-fill extraction, not used
-          for AI training. They are removed automatically after the report is
-          generated.
+          for AI training. They stay with this assessment so they can be reused later; you can delete them manually at any time.
         </p>
       </div>
       {!locked && (

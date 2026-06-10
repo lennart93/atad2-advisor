@@ -167,7 +167,7 @@ export const CHAPTERS: Chapter[] = [
         bullets: [
           "Supported: PDF, images (PNG/JPG/WEBP), Word, PowerPoint, Excel, text/CSV/Markdown",
           "Max 15 MB per file, 100 MB per session",
-          "Documents are used only for pre-fill extraction — never for AI training — and are removed automatically after the report is generated",
+          "Documents are used only for pre-fill extraction, never for AI training, and stay with the assessment after the report is generated",
         ],
         visual: <Shot src={`${SHOT}/04-upload-empty.png`} url="app.atad2.tax/assessment/upload" alt="Empty document upload screen with dropzone, Upload files and Paste text" />,
       },
