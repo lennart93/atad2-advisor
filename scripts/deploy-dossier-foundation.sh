@@ -445,7 +445,9 @@ WHERE j.status IN ('queued', 'stage1_running', 'stage2_running')
 --   SELECT policyname, cmd FROM pg_policies
 --   WHERE schemaname = 'public' AND tablename = 'atad2_prefill_jobs'
 --   ORDER BY cmd;
---   -- expected: one SELECT, one INSERT, and exactly one UPDATE policy.
+--   -- expected: one INSERT and exactly one UPDATE policy; for SELECT, the
+--   -- owner policy plus, after migration 20260610190500, the additional
+--   -- staff SELECT policy.
 --
 --   SELECT column_name FROM information_schema.columns
 --   WHERE table_schema = 'public' AND table_name = 'atad2_prefill_jobs'
@@ -805,6 +807,7 @@ BEGIN
               source = 'reopen',
               reopen_reason = EXCLUDED.reopen_reason,
               why_it_matters = COALESCE(EXCLUDED.why_it_matters, atad2_open_questions.why_it_matters),
+              resolution_note = NULL,
               resolved_at = NULL,
               updated_at = now();
 
@@ -826,6 +829,7 @@ BEGIN
               source = 'reopen',
               reopen_reason = EXCLUDED.reopen_reason,
               why_it_matters = COALESCE(EXCLUDED.why_it_matters, atad2_open_questions.why_it_matters),
+              resolution_note = NULL,
               resolved_at = NULL,
               updated_at = now();
       END IF;
@@ -1435,6 +1439,18 @@ cat > /tmp/dossier-foundation/20260610190500_dossier_blocks_view_and_final_gate.
 -- Safe to re-run end to end: DROP IF EXISTS / CREATE OR REPLACE throughout
 -- (PIM windows expire mid-run; recovery is "run it again").
 -- Requires Postgres 15+ (security_invoker view option).
+
+-- ============================================================================
+-- 0) Preflight: fail loudly on PostgreSQL < 15 (security_invoker views
+--    require Postgres 15+; see header).
+-- ============================================================================
+
+DO $$
+BEGIN
+  IF current_setting('server_version_num')::int < 150000 THEN
+    RAISE EXCEPTION 'This migration requires PostgreSQL 15+ (security_invoker views); server reports %', current_setting('server_version');
+  END IF;
+END $$;
 
 -- ============================================================================
 -- 1) Staff SELECT policies (mirror "Staff can view all answers" from
