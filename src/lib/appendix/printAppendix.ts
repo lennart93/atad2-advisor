@@ -105,7 +105,10 @@ export function buildAppendixPrintHtml(
   // ---- Part A: Facts & relationships (funnel order, mirrors FactsPanel) ------
   const partA = (() => {
     if (!facts || facts.entities.length === 0) return '';
-    const f = internal ? facts : factsForClient(facts);
+    // Internal working copy: everything the advisor still has visible (hidden
+    // entities are out, like in the app). Dossier: the client-filtered facts, so
+    // the strip and scope can never claim more than the tables show.
+    const f = internal ? visibleFacts(facts) : factsForClient(facts);
     // In the client dossier, whole sections the advisor marked "exclude from client"
     // are dropped. The internal working copy always shows every section.
     const drop = (key: AppendixSectionKey) => !internal && isSectionExcluded(f, key);
@@ -120,14 +123,15 @@ export function buildAppendixPrintHtml(
       return n?.text ? `<p class="narrative">${esc(n.text)}</p>` : '';
     };
 
-    // Summary strip: deterministic funnel flags, computed from the full facts
-    // (advisor edits included), never written by the model.
-    const flags = deriveConclusions(facts);
+    // Summary strip: deterministic funnel flags, computed from the same base
+    // as the tables below (advisor edits included), never written by the model.
+    const flags = deriveConclusions(f);
+    const at = flags.likelyActingTogether;
     const strip =
       `<table>` +
       `<tr><td>Cross-border flows with related parties</td><td>${flags.crossBorderRelatedFlows > 0 ? `${flags.crossBorderRelatedFlows} identified` : 'None identified'}</td></tr>` +
       `<tr><td>Hybrid qualification differences (NL vs local)</td><td>${flags.hybridDifferences > 0 ? `${flags.hybridDifferences} identified` : 'None identified'}</td></tr>` +
-      `<tr><td>Acting-together group considered likely</td><td>${flags.likelyActingTogether > 0 ? `${flags.likelyActingTogether}` : 'None'}</td></tr>` +
+      `<tr><td>Acting-together group considered likely</td><td>${at > 0 ? `${at} ${at === 1 ? 'cluster' : 'clusters'}` : 'None'}</td></tr>` +
       `</table>`;
 
     // A.1 - The group and the taxpayer: taxpayer side (incl. fiscal-unity members) first.
@@ -141,9 +145,9 @@ export function buildAppendixPrintHtml(
         refCol +
         `<td>${esc(e.name)}</td>` +
         `<td>${esc(jurLabel(effJurisdiction(e)))}</td>` +
-        `<td>${esc(roleText)}</td>` +
         `<td>${esc(e.isFiscalUnity ? 'Fiscal unity' : typeLabel(effEntityType(e)))}</td>` +
-        `<td>${esc(nlTaxStatusLabel(effNlTaxStatus(e)))}</td></tr>`
+        `<td>${esc(nlTaxStatusLabel(effNlTaxStatus(e)))}</td>` +
+        `<td>${esc(roleText)}</td></tr>`
       );
     };
     const registerRows =
@@ -152,7 +156,7 @@ export function buildAppendixPrintHtml(
     const refHeader = internal ? `<th class="c-num">Ref</th>` : '';
     const registerBlock = (!drop('entityRegister') && registerRows)
       ? `<h2>A.1 · The group and the taxpayer</h2>` + narrative('register') +
-        `<table><tr>${refHeader}<th>Entity</th><th>Jurisdiction</th><th>Role</th><th>Type</th><th>NL tax status</th></tr>${registerRows}</table>`
+        `<table><tr>${refHeader}<th>Entity</th><th>Jurisdiction</th><th>Type</th><th>NL tax status</th><th>Role</th></tr>${registerRows}</table>`
       : '';
 
     // A.2 - Related parties outside the taxpayer side, plus acting together.
@@ -207,18 +211,19 @@ export function buildAppendixPrintHtml(
     }).join('');
     const accountedTx = accountedTransactionGroups(f);
     const txIdHeader = internal ? `<th class="c-num">Ref</th>` : '';
+    const flowsNarrative = narrative('flows');
     const flowsTable = relevantRows
       ? `<table><tr>${txIdHeader}<th>Flow</th><th>Type</th><th>Instrument</th><th>Why relevant</th><th>Article(s)</th></tr>${relevantRows}</table>`
-      : (accountedTx.length > 0 ? `<p class="accounted">No relevant intra-group flows identified.</p>` : '');
+      : ((accountedTx.length > 0 || flowsNarrative) ? `<p class="accounted">No relevant intra-group flows identified.</p>` : '');
     const accountedTxLines = accountedTx.map((g) =>
       `<p class="accounted">${g.transactions.length} ${g.transactions.length === 1 ? 'flow' : 'flows'} not relevant: ${esc(g.reason)}</p>`,
     ).join('');
-    const flowsBlock = (!drop('transactions') && (flowsTable || accountedTxLines))
-      ? `<h2>A.3 · Relevant flows</h2>` + narrative('flows') + flowsTable + accountedTxLines
+    const flowsBlock = (!drop('transactions') && (flowsNarrative || flowsTable || accountedTxLines))
+      ? `<h2>A.3 · Relevant flows</h2>` + flowsNarrative + flowsTable + accountedTxLines
       : '';
 
     // A.4 - Classification of the relevant entities only; the rest is accounted.
-    const scope = inScopeEntityIds(facts);
+    const scope = inScopeEntityIds(f);
     const clsByEntity = new Map(f.classifications.map((c) => [c.entityId, c]));
     const inScopeEnts = f.entities.filter((e) => scope.has(e.id));
     const clsRows = inScopeEnts.map((e) => {

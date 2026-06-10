@@ -155,6 +155,17 @@ describe('part A funnel export', () => {
     expect(html).toContain('1 candidate grouping was considered and not assessed as likely');
   });
 
+  it('dossier strip does not count client-excluded flows', () => {
+    const f = { ...(baseFacts as Record<string, unknown>), transactions: [
+      { id: 'T1', fromEntityId: 'E1', toEntityId: 'E2', kind: 'loan', instrument: null, note: null,
+        articlesTested: [], status: 'confirmed', excludedFromClient: true, source: 'ai',
+        relevant: true, relevanceReason: 'Cross-border to a related party' },
+    ] } as never;
+    const html = buildAppendixPrintHtml([], 'dossier', undefined, f);
+    expect(html).toContain('None identified');
+    expect(html).not.toContain('1 identified'); // strip follows the filtered base, not the raw facts
+  });
+
   it('classifies only in-scope entities and accounts for the rest', () => {
     const f = { ...(baseFacts as Record<string, unknown>), entities: [
       ent('E1', 'Tax BV', 'NL', 'Taxpayer'), ent('E2', 'US Inc', 'US'), ent('E3', 'Idle BV', 'NL'),
