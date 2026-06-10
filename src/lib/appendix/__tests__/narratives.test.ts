@@ -14,8 +14,10 @@ describe('narratives', () => {
   });
 
   it('withNarrative sets text and marks the key edited, leaving others alone', () => {
-    const next = withNarrative(base(), 'register', 'My text.');
+    const input = base();
+    const next = withNarrative(input, 'register', 'My text.');
     expect(next.narratives?.register).toEqual({ text: 'My text.', source: 'edited' });
+    expect(input).toEqual(base()); // original untouched
     const other = withNarrative(base(), 'flows', 'Flows intro.');
     expect(other.narratives?.flows).toEqual({ text: 'Flows intro.', source: 'edited' });
     expect(other.narratives?.register).toEqual({ text: 'AI intro.', source: 'ai' });
