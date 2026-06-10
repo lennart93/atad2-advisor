@@ -412,8 +412,8 @@ const AssessmentReport = () => {
       console.log('Starting report generation for session:', sessionId);
 
       // Build the background documents block BEFORE the n8n call so we can pass
-      // it through. Cleanup is deferred to the success branch — if the n8n call
-      // fails the user can retry without re-uploading.
+      // it through. Documents are retained after generation (dossier replatform
+      // slice 1), so a failed call can always be retried without re-uploading.
       let documentsBlock = "";
       try {
         // Memo generation runs through n8n which is text-only — images stay
