@@ -64,7 +64,9 @@ function stableStringify(value: unknown): string {
   return `{${entries.join(",")}}`;
 }
 
-/** FNV-1a 32-bit, hex. Fingerprint only; no cryptographic strength needed. */
+/** FNV-1a 32-bit, hex. Fingerprint only; no cryptographic strength needed.
+ * Hashes UTF-16 char codes (charCodeAt), NOT UTF-8 bytes: the future Deno
+ * mirror must use the same convention or hashes diverge on non-ASCII input. */
 function fnv1a(input: string): string {
   let hash = 0x811c9dc5;
   for (let i = 0; i < input.length; i++) {
