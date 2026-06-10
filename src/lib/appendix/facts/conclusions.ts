@@ -39,6 +39,7 @@ export function deriveConclusions(facts: AppendixFacts): ConclusionFlags {
   // both determined and different.
   const hybridIds = new Set<string>();
   for (const c of f.classifications) {
+    if (!byId.has(c.entityId)) continue;
     if (c.excludedFromClient) continue;
     if (c.hybrid) { hybridIds.add(c.entityId); continue; }
     const e = byId.get(c.entityId);

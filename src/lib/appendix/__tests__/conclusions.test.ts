@@ -58,6 +58,33 @@ describe('deriveConclusions', () => {
     });
     expect(deriveConclusions(f).likelyActingTogether).toBe(1);
   });
+
+  it('ignores a hybrid classification row whose entity is no longer in the register', () => {
+    const f = facts({
+      entities: [ent('E1', { role: 'Taxpayer' })],
+      classifications: [cls('E9', { hybrid: true })],
+    });
+    expect(deriveConclusions(f).hybridDifferences).toBe(0);
+  });
+
+  it('reads advisor edits: an edited jurisdiction can make a flow cross-border', () => {
+    const f = facts({
+      entities: [ent('E1', { role: 'Taxpayer' }), ent('E2', { edits: { jurisdiction: 'US' } })],
+      transactions: [tx('T1', 'E1', 'E2')],
+    });
+    expect(deriveConclusions(f).crossBorderRelatedFlows).toBe(1);
+  });
+
+  it('does not count flows or classifications of advisor-hidden entities', () => {
+    const f = facts({
+      entities: [ent('E1', { role: 'Taxpayer' }), ent('E2', { jurisdiction: 'US', hidden: true })],
+      transactions: [tx('T1', 'E1', 'E2')],
+      classifications: [cls('E2', { hybrid: true })],
+    });
+    const flags = deriveConclusions(f);
+    expect(flags.crossBorderRelatedFlows).toBe(0);
+    expect(flags.hybridDifferences).toBe(0);
+  });
 });
 
 describe('inScopeEntityIds', () => {
