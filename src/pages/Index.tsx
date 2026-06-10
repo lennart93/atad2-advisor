@@ -22,6 +22,7 @@ import { toast } from "@/components/ui/sonner";
 import { FadeIn, MotionPage, StaggerChildren, staggerItem } from "@/components/motion";
 import { formatDate } from "@/utils/formatDate";
 import { resumeUrlForSession } from "@/lib/assessment/resumeUrl";
+import { groupSessionFacts } from "@/lib/dashboard/sessionFacts";
 
 interface SessionListItem {
   id: string;
@@ -78,23 +79,33 @@ const Index = () => {
 
       if (sessionsError) throw sessionsError;
 
+      const ids = (sessionsData || []).map((s) => s.session_id);
+
+      const [answersRes, reportsRes] = ids.length
+        ? await Promise.all([
+            supabase
+              .from('atad2_answers')
+              .select('session_id')
+              .in('session_id', ids),
+            supabase
+              .from('atad2_reports')
+              .select('session_id, generated_at')
+              .in('session_id', ids)
+              .is('archived_at', null),
+          ])
+        : [
+            { data: [], error: null },
+            { data: [], error: null },
+          ];
+
+      if (answersRes.error) throw answersRes.error;
+      if (reportsRes.error) throw reportsRes.error;
+
+      const facts = groupSessionFacts(ids, answersRes.data || [], reportsRes.data || []);
+
       const sessionsWithCounts = await Promise.all(
         (sessionsData || []).map(async (session) => {
-          const { count } = await supabase
-            .from('atad2_answers')
-            .select('*', { count: 'exact', head: true })
-            .eq('session_id', session.session_id);
-
-          const { data: reportData } = await supabase
-            .from('atad2_reports')
-            .select('generated_at')
-            .eq('session_id', session.session_id)
-            .is('archived_at', null)
-            .order('generated_at', { ascending: false })
-            .limit(1);
-
-          const hasMemorandum = reportData && reportData.length > 0;
-          const memorandumDate = hasMemorandum ? reportData[0].generated_at : null;
+          const sessionFacts = facts.get(session.session_id)!;
 
           // Where this card should take the user when clicked:
           //  - in-progress → resume at the right step (derived from data)
@@ -111,9 +122,9 @@ const Index = () => {
             ...session,
             completed: Boolean(session.completed),
             outcome_confirmed: Boolean(session.outcome_confirmed),
-            answer_count: count || 0,
-            has_memorandum: hasMemorandum,
-            memorandum_date: memorandumDate,
+            answer_count: sessionFacts.answerCount,
+            has_memorandum: sessionFacts.hasMemorandum,
+            memorandum_date: sessionFacts.memorandumDate,
             destination_url: destination,
           };
         })
