@@ -14,20 +14,21 @@ export interface OpenQuestionsStreamProps {
  * the advisor acts on rows from the panel or sheet after analysis.
  */
 export function OpenQuestionsStream({ sessionId }: OpenQuestionsStreamProps) {
-  const { rows, resolveText } = useOpenQuestionsView(sessionId);
+  const { groups, resolveText } = useOpenQuestionsView(sessionId);
 
+  // Same filter as the panel worklist: only questions on the projected path
+  // (plus reopened ones). Off-path rows stay countable but are never listed
+  // here; the panel's collapsed section remains the place to inspect them.
   const streamRows = useMemo(
     () =>
-      rows
-        .filter((r) => r.status === "open" || r.status === "taken_to_client")
-        .sort(
-          (a, b) =>
-            new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
-        ),
-    [rows],
+      [...groups.needsAttention, ...groups.active].sort(
+        (a, b) =>
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+      ),
+    [groups.needsAttention, groups.active],
   );
 
-  // Quiet until the swarm flags its first open question.
+  // Quiet until the swarm flags its first open question on the path.
   if (streamRows.length === 0) return null;
 
   return (
@@ -48,6 +49,12 @@ export function OpenQuestionsStream({ sessionId }: OpenQuestionsStreamProps) {
           </li>
         ))}
       </ul>
+      {groups.later.length > 0 && (
+        <p className="mt-3 text-xs text-muted-foreground">
+          {groups.later.length} more not expected on the current path; see the
+          open questions panel.
+        </p>
+      )}
     </Card>
   );
 }
