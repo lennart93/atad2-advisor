@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Check, ChevronDown, ChevronRight, Eye, EyeOff, Users, Network, Layers, ArrowLeftRight, Handshake, X } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, Eye, EyeOff, Info, Users, Network, Layers, ArrowLeftRight, Handshake, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { AppendixFacts, FactEntity, AppendixSectionKey, NarrativeKey, Narrative } from '@/lib/appendix/types';
 import { visibleFacts } from '@/lib/appendix/facts/visibleFacts';
@@ -245,6 +245,15 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
   const flags = useMemo(() => deriveConclusions(facts), [facts]);
   const inScope = useMemo(() => inScopeEntityIds(facts), [facts]);
   const [editCell, setEditCell] = useState<{ id: string; field: 'jurisdiction' | 'entityType' | 'nlTaxStatus' } | null>(null);
+  // Register rows whose relationship note is expanded (collapsed by default).
+  const [openNotes, setOpenNotes] = useState<Set<string>>(new Set());
+  const toggleNote = (id: string) =>
+    setOpenNotes((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   const narrative = (key: NarrativeKey) => facts.narratives?.[key];
   const saveNarrative = editable ? (key: NarrativeKey) => (text: string) => onChange!(withNarrative(facts, key, text)) : undefined;
 
@@ -338,12 +347,26 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
             </span>
           )}
           {positionNote(e) && (
-            <div
-              className="mt-0.5 max-w-md truncate text-[10.5px] font-normal leading-snug text-muted-foreground"
-              title={positionNote(e) ?? undefined}
-            >
-              {positionNote(e)}
-            </div>
+            <>
+              <button
+                type="button"
+                aria-expanded={openNotes.has(e.id)}
+                aria-label={`How ${e.name} relates to the taxpayer`}
+                title="How this entity relates to the taxpayer"
+                onClick={() => toggleNote(e.id)}
+                className={cn(
+                  'ml-1 inline-flex h-5 w-5 items-center justify-center rounded align-middle transition-colors hover:bg-muted hover:text-foreground',
+                  openNotes.has(e.id) ? 'text-foreground' : 'text-muted-foreground/60',
+                )}
+              >
+                <Info className="h-3 w-3" />
+              </button>
+              {openNotes.has(e.id) && (
+                <div className="mt-0.5 max-w-md text-[10.5px] font-normal leading-snug text-muted-foreground">
+                  {positionNote(e)}
+                </div>
+              )}
+            </>
           )}
         </td>
 
