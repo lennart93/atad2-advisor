@@ -39,6 +39,7 @@ import { motion } from "framer-motion";
 import { startExtraction } from "@/lib/structure/extraction";
 import { AssessmentFooterSlot } from "@/components/assessment/AssessmentFooterSlot";
 import { useAssessmentSessionId } from "@/lib/assessment/useAssessmentSessionId";
+import { OpenQuestionsPanel } from "@/components/openQuestions/OpenQuestionsPanel";
 
 // Playful placeholders that rotate (seeded per session+question) when the user
 // picks "Unknown" and the explanation textarea is empty. Soften the moment by
@@ -213,8 +214,12 @@ const Assessment = () => {
   // belongs to the current user, the intake prefills the taxpayer name and
   // the new session is linked to that client. Without the param (or when
   // the lookup fails) the intake behaves exactly as it does today.
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const intakeClientIdParam = searchParams.get("clientId");
+  // ?focus=open swaps the question card region for the open questions panel
+  // (deep link from the dossier and the sub-header button). Read-only here;
+  // the render branch below acts on it once the session has started.
+  const focusParam = searchParams.get("focus");
   const [intakeClient, setIntakeClient] = useState<{ id: string; client_name: string } | null>(null);
 
   const [sessionInfo, setSessionInfo] = useState<SessionInfo>({
@@ -2081,6 +2086,30 @@ const Assessment = () => {
           </DialogContent>
         </Dialog>
       </>
+    );
+  }
+
+  // Focus mode: ?focus=open swaps the question card region for the open
+  // questions panel. Only this return changes; every hook, state value and
+  // the resume replay above stay mounted, so dropping the param puts the
+  // user back on exactly the question they left.
+  if (focusParam === "open" && sessionId) {
+    return (
+      <div className="max-w-3xl mx-auto space-y-4">
+        <div>
+          <Button
+            variant="outline"
+            onClick={() => {
+              const next = new URLSearchParams(searchParams);
+              next.delete("focus");
+              setSearchParams(next, { replace: true });
+            }}
+          >
+            Back to questions
+          </Button>
+        </div>
+        <OpenQuestionsPanel variant="page" sessionId={sessionId} />
+      </div>
     );
   }
 
