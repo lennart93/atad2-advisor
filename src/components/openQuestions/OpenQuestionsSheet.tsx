@@ -16,7 +16,7 @@ export interface OpenQuestionsSheetProps {
 
 /**
  * Slide-over with the open-questions register. Mounted from the assessment
- * sub-header button in a later slice; exported and ready now.
+ * sub-header button (T5).
  */
 export function OpenQuestionsSheet({
   sessionId,

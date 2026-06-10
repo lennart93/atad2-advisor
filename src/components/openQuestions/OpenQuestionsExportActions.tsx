@@ -72,7 +72,7 @@ export function OpenQuestionsExportActions({
    * were not marked as sent.
    */
   const flipAndLog = async (
-    event: "copied_as_text" | "exported_to_word",
+    event: "copied" | "exported",
     sel: RowsToExportItemsResult,
     failureMessage: string,
   ): Promise<boolean> => {
@@ -105,7 +105,7 @@ export function OpenQuestionsExportActions({
         return;
       }
       const ok = await flipAndLog(
-        "copied_as_text",
+        "copied",
         sel,
         "Copied, but could not mark the questions as sent to client.",
       );
@@ -140,7 +140,7 @@ export function OpenQuestionsExportActions({
         return;
       }
       const ok = await flipAndLog(
-        "exported_to_word",
+        "exported",
         sel,
         "Exported, but could not mark the questions as sent to client.",
       );

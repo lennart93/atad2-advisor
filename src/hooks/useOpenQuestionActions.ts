@@ -134,7 +134,7 @@ export function useOpenQuestionActions(sessionId: string | null) {
         })
         .eq("id", row.id);
       if (error) throw error;
-      await logEvent(row.question_id, "marked_sent_to_client");
+      await logEvent(row.question_id, "marked_sent");
     },
     onSuccess: () => {
       invalidate();
@@ -158,7 +158,7 @@ export function useOpenQuestionActions(sessionId: string | null) {
         })
         .eq("id", row.id);
       if (error) throw error;
-      await logEvent(row.question_id, "client_answer_saved", {
+      await logEvent(row.question_id, "answer_saved", {
         chars: trimmed.length,
       });
     },
@@ -190,7 +190,7 @@ export function useOpenQuestionActions(sessionId: string | null) {
     }: {
       flipRowIds: string[];
       includedQuestionIds: string[];
-      event: "copied_as_text" | "exported_to_word";
+      event: "copied" | "exported";
       count: number;
     }) => {
       if (flipRowIds.length > 0) {

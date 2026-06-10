@@ -25,8 +25,6 @@ export interface OpenQuestionRowCardProps {
   row: OpenQuestionRow;
   /** Resolved display text (client_question fallback already applied). */
   questionText: string;
-  /** True when an answer row exists for this question in this session. */
-  onPath: boolean;
   /** Full-width actions slot under the row content (buttons + inputs). */
   actions?: ReactNode;
 }
@@ -38,7 +36,6 @@ export interface OpenQuestionRowCardProps {
 export function OpenQuestionRowCard({
   row,
   questionText,
-  onPath: _onPath,
   actions,
 }: OpenQuestionRowCardProps) {
   const statusLabel = STATUS_LABELS[row.status] ?? row.status;

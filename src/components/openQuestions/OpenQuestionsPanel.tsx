@@ -43,7 +43,6 @@ export function OpenQuestionsPanel({
           key={row.id}
           row={row}
           questionText={resolveText(row)}
-          onPath={onPath}
           actions={
             <OpenQuestionRowActions
               row={row}
