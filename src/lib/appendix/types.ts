@@ -142,6 +142,10 @@ export interface TransactionItem {
   instrument: string | null;
   note: string | null;
   articlesTested: string[];    // ["12aa(1)(a)","12ad"]
+  /** AI-proposed funnel relevance; advisor can flip it. Missing = relevant. */
+  relevant?: boolean;
+  /** Short AI reason why this flow is (not) relevant for ATAD2. */
+  relevanceReason?: string | null;
   status: FactStatus;
   excludedFromClient: boolean;
   source: 'ai' | 'edited';
@@ -159,6 +163,14 @@ export type AppendixSectionKey =
   | 'classification'
   | 'transactions';
 
+/** One connective sentence per funnel section; AI-drafted, advisor-editable. */
+export interface Narrative {
+  text: string;
+  source: 'ai' | 'edited';
+}
+
+export type NarrativeKey = 'register' | 'related' | 'flows' | 'classification';
+
 export interface AppendixFacts {
   entities: FactEntity[];
   actingTogether: ActingTogetherCluster[];
@@ -166,6 +178,8 @@ export interface AppendixFacts {
   transactions: TransactionItem[];
   /** Whole Part A sections the advisor excluded from the client export. */
   excludedSections?: AppendixSectionKey[];
+  /** Per-section connective sentences (max ~2 sentences each). */
+  narratives?: Partial<Record<NarrativeKey, Narrative>>;
 }
 
 /** The atad2_appendix row shape (rows stored as JSONB). */
