@@ -30,7 +30,10 @@ const client = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") ?? "" }
 // this pipeline; users see polling timeouts when stage 3 takes >60-90s.
 // Quality is still strong; ATAD2 mismatch classification works well on Sonnet.
 const MODEL = "claude-sonnet-4-6";
-const MAX_TOKENS = 4096;
+// 4096 truncated the facts proposal mid-JSON once the funnel prompt started
+// asking for per-entity positions and classifications on larger groups (the
+// response is a cap, not a target: short answers stay short and cheap).
+const MAX_TOKENS = 16384;
 
 const RATE_LIMIT_BACKOFF_MS = [2000, 4000, 8000];
 
