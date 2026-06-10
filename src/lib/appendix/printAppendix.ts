@@ -1,12 +1,15 @@
 import { APPENDIX_SKELETON } from './skeleton';
 import { buildClientSections } from './clientExport';
 import { statusPrintColor } from './status';
-import type { AppendixFacts, AppendixRow, AppendixSectionKey, RowKind, SkeletonRow, Status } from './types';
+import type { AppendixFacts, AppendixRow, AppendixSectionKey, FactEntity, NarrativeKey, RowKind, SkeletonRow, Status } from './types';
 import { factsForClient } from './factsExport';
+import { visibleFacts } from './facts/visibleFacts';
 import { isSectionExcluded } from './facts/sections';
 import { effJurisdiction, effEntityType, effNlTaxStatus } from './facts/entityFields';
 import { nlQualification, nlQualificationLabel, nlTaxStatusLabel } from './facts/nlTaxStatus';
 import { actingLikelihoodLabel } from './facts/actingLikelihood';
+import { deriveConclusions, inScopeEntityIds, localQualification, entityHasQualificationDifference } from './facts/conclusions';
+import { relevantTransactions, accountedTransactionGroups } from './facts/relevance';
 import { ENTITY_TYPES } from '@/lib/structure/types';
 import { countryName } from '@/lib/structure/countries';
 
@@ -99,100 +102,149 @@ export function buildAppendixPrintHtml(
     ? `<div class="banner"><strong>Draft, pending tax review.</strong> Internal working copy, includes internal references and excluded rows. Do not share this version externally.</div>`
     : '';
 
-  // ---- Part A: Facts & relationships ----------------------------------------
+  // ---- Part A: Facts & relationships (funnel order, mirrors FactsPanel) ------
   const partA = (() => {
     if (!facts || facts.entities.length === 0) return '';
     const f = internal ? facts : factsForClient(facts);
     // In the client dossier, whole sections the advisor marked "exclude from client"
     // are dropped. The internal working copy always shows every section.
     const drop = (key: AppendixSectionKey) => !internal && isSectionExcluded(f, key);
-    const showRelated = !drop('relatedness');
 
-    // Entity register
     const entityById = new Map(f.entities.map((e) => [e.id, e]));
-    const entityName = (id: string) => {
-      const e = entityById.get(id);
-      return e ? e.name : id;
+    const entityName = (id: string) => entityById.get(id)?.name ?? id;
+
+    // One connective AI sentence under each section title. Narratives live on the
+    // full facts (factsForClient does not carry them) and are advisor-reviewed text.
+    const narrative = (key: NarrativeKey) => {
+      const n = facts.narratives?.[key];
+      return n?.text ? `<p class="narrative">${esc(n.text)}</p>` : '';
     };
 
-    const entityRows = f.entities.map((e) => {
-      const flagCols = internal
-        ? `<td class="c-num">${esc(e.id)}</td>`
-        : '';
+    // Summary strip: deterministic funnel flags, computed from the full facts
+    // (advisor edits included), never written by the model.
+    const flags = deriveConclusions(facts);
+    const strip =
+      `<table>` +
+      `<tr><td>Cross-border flows with related parties</td><td>${flags.crossBorderRelatedFlows > 0 ? `${flags.crossBorderRelatedFlows} identified` : 'None identified'}</td></tr>` +
+      `<tr><td>Hybrid qualification differences (NL vs local)</td><td>${flags.hybridDifferences > 0 ? `${flags.hybridDifferences} identified` : 'None identified'}</td></tr>` +
+      `<tr><td>Acting-together group considered likely</td><td>${flags.likelyActingTogether > 0 ? `${flags.likelyActingTogether}` : 'None'}</td></tr>` +
+      `</table>`;
+
+    // A.1 - The group and the taxpayer: taxpayer side (incl. fiscal-unity members) first.
+    const isTaxpayerSide = (e: FactEntity) =>
+      e.role === 'Taxpayer' || !!e.memberOfUnityId || !!e.inTaxpayerFiscalUnity;
+    const registerRow = (e: FactEntity, taxpayerSide: boolean) => {
+      const refCol = internal ? `<td class="c-num">${esc(e.id)}</td>` : '';
       const roleText = e.role + (e.inTaxpayerFiscalUnity ? ' (fiscal unity)' : '');
-      const ownText = e.ownershipPct != null
-        ? `${e.ownershipPct}%`
-        : (e.relatedVia && e.relatedViaPct != null)
-          ? `via ${esc(entityName(e.relatedVia))} (${e.relatedViaPct}%)`
-          : '';
-      const relCell = showRelated ? `<td>${e.related ? 'Yes' : 'No'}</td>` : '';
       return (
-        `<tr><td>${esc(e.name)}</td>` +
-        flagCols +
+        `<tr${taxpayerSide ? ' class="taxpayer"' : ''}>` +
+        refCol +
+        `<td>${esc(e.name)}</td>` +
         `<td>${esc(jurLabel(effJurisdiction(e)))}</td>` +
-        `<td>${esc(e.isFiscalUnity ? 'Fiscal unity' : typeLabel(effEntityType(e)))}</td>` +
         `<td>${esc(roleText)}</td>` +
-        `<td>${ownText}</td>` +
-        relCell +
+        `<td>${esc(e.isFiscalUnity ? 'Fiscal unity' : typeLabel(effEntityType(e)))}</td>` +
         `<td>${esc(nlTaxStatusLabel(effNlTaxStatus(e)))}</td></tr>`
       );
-    }).join('');
-    const entityIdHeader = internal ? `<th class="c-num">Ref</th>` : '';
-    const relHeader = showRelated ? `<th>Related (&gt;25%)</th>` : '';
-    const entityTable = (!drop('entityRegister') && entityRows)
-      ? `<h2>Part A.1 · Entity register</h2>` +
-        `<table><tr>${entityIdHeader}<th>Entity</th><th>Jurisdiction</th><th>Type</th><th>Role</th><th>Ownership</th>${relHeader}<th>NL tax status</th></tr>${entityRows}</table>`
+    };
+    const registerRows =
+      f.entities.filter(isTaxpayerSide).map((e) => registerRow(e, true)).join('') +
+      f.entities.filter((e) => !isTaxpayerSide(e)).map((e) => registerRow(e, false)).join('');
+    const refHeader = internal ? `<th class="c-num">Ref</th>` : '';
+    const registerBlock = (!drop('entityRegister') && registerRows)
+      ? `<h2>A.1 · The group and the taxpayer</h2>` + narrative('register') +
+        `<table><tr>${refHeader}<th>Entity</th><th>Jurisdiction</th><th>Role</th><th>Type</th><th>NL tax status</th></tr>${registerRows}</table>`
       : '';
 
-    // Classification (NL perspective) - derived from each entity's NL tax status.
-    const classRows = f.entities.map((e) => {
-      const status = effNlTaxStatus(e);
-      return (
-        `<tr><td>${esc(e.name)}</td>` +
-        `<td>${esc(nlTaxStatusLabel(status))}</td>` +
-        `<td>${esc(nlQualificationLabel(nlQualification(status)))}</td></tr>`
-      );
-    }).join('');
-    const classTable = (!drop('classification') && classRows)
-      ? `<h2>Part A.2 · Classification (NL perspective)</h2>` +
-        `<table><tr><th>Entity</th><th>NL tax status</th><th>NL qualification</th></tr>${classRows}</table>`
-      : '';
+    // A.2 - Related parties outside the taxpayer side, plus acting together.
+    const relatedRows = f.entities
+      .filter((e) => e.related && e.role !== 'Taxpayer' && !e.memberOfUnityId && !e.inTaxpayerFiscalUnity)
+      .map((e) => {
+        const interest = e.ownershipPct != null
+          ? `${e.ownershipPct}%`
+          : (e.relatedVia && e.relatedViaPct != null)
+            ? `via ${esc(entityName(e.relatedVia))} (${e.relatedViaPct}%)`
+            : '';
+        return `<tr><td>${esc(e.name)}</td><td>${esc(e.role)}</td><td>${interest}</td></tr>`;
+      }).join('');
+    const relatedTable = relatedRows
+      ? `<table><tr><th>Entity</th><th>Role</th><th>Interest</th></tr>${relatedRows}</table>`
+      : `<p class="accounted">No related parties outside the taxpayer.</p>`;
 
-    // Transaction map
-    const txRows = f.transactions.map((t) => {
-      const fromName = entityName(t.fromEntityId);
-      const toName = entityName(t.toEntityId);
-      const excludedFlag = (internal && t.excludedFromClient) ? ` <span class="flag">excluded</span>` : '';
-      const proposedFlag = (internal && t.status === 'proposed') ? ` <span class="flag">proposed</span>` : '';
-      const idCol = internal ? `<td class="c-num">${esc(t.id)}</td>` : '';
-      return (
-        `<tr class="${(internal && t.excludedFromClient) ? 'excluded' : ''}">` +
-        idCol +
-        `<td>${esc(fromName)} &rarr; ${esc(toName)}</td>` +
-        `<td>${esc(t.kind)}</td>` +
-        `<td>${esc(t.instrument)}</td>` +
-        `<td>${t.articlesTested.map(esc).join(', ')}${excludedFlag}${proposedFlag}</td></tr>`
-      );
-    }).join('');
-    const txIdHeader = internal ? `<th class="c-num">Ref</th>` : '';
-    const txTable = (!drop('transactions') && txRows)
-      ? `<h2>Part A.3 · Transaction map</h2>` +
-        `<table><tr>${txIdHeader}<th>Flow</th><th>Type</th><th>Instrument</th><th>Article(s)</th></tr>${txRows}</table>`
-      : '';
-
-    // Acting together: per-cluster likelihood + reasoning.
     const atItems = f.actingTogether.map((a) => {
       const members = a.memberEntityIds.map((mid) => entityName(mid)).join(', ');
       const pct = a.combinedPct != null ? ` (≈ ${a.combinedPct}%)` : '';
       const excludedFlag = (internal && a.excludedFromClient) ? ` <span class="flag">excluded</span>` : '';
       return `<li>${esc(members)}${pct} - <strong>${esc(actingLikelihoodLabel(a.likelihood))}</strong>${excludedFlag}: ${esc(a.reasoning)}</li>`;
     }).join('');
-    const atBlock = (!drop('actingTogether') && atItems)
-      ? `<h2>Part A.4 · Acting together</h2><ul>${atItems}</ul>`
+    // Dossier only: clusters below "likely" never reach the client (factsForClient
+    // drops them); account for them with one quiet line instead.
+    const allAt = internal ? [] : visibleFacts(facts).actingTogether.filter((a) => !a.excludedFromClient);
+    const downgradedAt = internal ? 0 : allAt.length - f.actingTogether.length;
+    const atAccounted = downgradedAt > 0
+      ? `<p class="accounted">${downgradedAt} candidate ${downgradedAt === 1 ? 'grouping was' : 'groupings were'} considered and not assessed as likely.</p>`
+      : '';
+    const atBlock = (!drop('actingTogether') && (atItems || atAccounted))
+      ? `<h3>Acting together</h3>${atItems ? `<ul>${atItems}</ul>` : ''}${atAccounted}`
+      : '';
+    const relatedBlock = !drop('relatedness')
+      ? `<h2>A.2 · Related parties</h2>` + narrative('related') + relatedTable + atBlock
       : '';
 
-    if (!entityTable && !classTable && !txTable && !atBlock) return '';
-    return `<h2 style="font-size:13px;margin-top:0;">Part A &middot; Facts &amp; relationships</h2>${entityTable}${classTable}${txTable}${atBlock}<hr style="margin:14px 0;border:none;border-top:1px solid #ccc;">`;
+    // A.3 - Relevant flows, with the non-relevant ones accounted per reason.
+    const relevantRows = relevantTransactions(f).map((t) => {
+      const excludedFlag = (internal && t.excludedFromClient) ? ` <span class="flag">excluded</span>` : '';
+      const proposedFlag = (internal && t.status === 'proposed') ? ` <span class="flag">proposed</span>` : '';
+      const idCol = internal ? `<td class="c-num">${esc(t.id)}</td>` : '';
+      return (
+        `<tr class="${(internal && t.excludedFromClient) ? 'excluded' : ''}">` +
+        idCol +
+        `<td>${esc(entityName(t.fromEntityId))} &rarr; ${esc(entityName(t.toEntityId))}</td>` +
+        `<td>${esc(t.kind)}</td>` +
+        `<td>${esc(t.instrument)}</td>` +
+        `<td>${esc(t.relevanceReason ?? '')}</td>` +
+        `<td>${t.articlesTested.map(esc).join(', ')}${excludedFlag}${proposedFlag}</td></tr>`
+      );
+    }).join('');
+    const accountedTx = accountedTransactionGroups(f);
+    const txIdHeader = internal ? `<th class="c-num">Ref</th>` : '';
+    const flowsTable = relevantRows
+      ? `<table><tr>${txIdHeader}<th>Flow</th><th>Type</th><th>Instrument</th><th>Why relevant</th><th>Article(s)</th></tr>${relevantRows}</table>`
+      : (accountedTx.length > 0 ? `<p class="accounted">No relevant intra-group flows identified.</p>` : '');
+    const accountedTxLines = accountedTx.map((g) =>
+      `<p class="accounted">${g.transactions.length} ${g.transactions.length === 1 ? 'flow' : 'flows'} not relevant: ${esc(g.reason)}</p>`,
+    ).join('');
+    const flowsBlock = (!drop('transactions') && (flowsTable || accountedTxLines))
+      ? `<h2>A.3 · Relevant flows</h2>` + narrative('flows') + flowsTable + accountedTxLines
+      : '';
+
+    // A.4 - Classification of the relevant entities only; the rest is accounted.
+    const scope = inScopeEntityIds(facts);
+    const clsByEntity = new Map(f.classifications.map((c) => [c.entityId, c]));
+    const inScopeEnts = f.entities.filter((e) => scope.has(e.id));
+    const clsRows = inScopeEnts.map((e) => {
+      const c = clsByEntity.get(e.id);
+      const local = c
+        ? `${esc(nlQualificationLabel(localQualification(c.homeClass)))}${c.homeState ? ` (${esc(c.homeState)})` : ''}`
+        : 'To be determined';
+      const mismatch = entityHasQualificationDifference(e, c);
+      return (
+        `<tr><td>${esc(e.name)}</td>` +
+        `<td>${esc(nlQualificationLabel(nlQualification(effNlTaxStatus(e))))}</td>` +
+        `<td>${local}</td>` +
+        `<td>${mismatch ? '<strong>Yes</strong>' : 'No'}</td></tr>`
+      );
+    }).join('');
+    const outCount = f.entities.length - inScopeEnts.length;
+    const outOfScopeLine = outCount > 0
+      ? `<p class="accounted">The remaining ${outCount} group ${outCount === 1 ? 'entity is' : 'entities are'} not party to a relevant flow and ${outCount === 1 ? 'carries' : 'carry'} no qualification difference.</p>`
+      : '';
+    const classBlock = (!drop('classification') && clsRows)
+      ? `<h2>A.4 · Classification of the relevant entities</h2>` + narrative('classification') +
+        `<table><tr><th>Entity</th><th>NL qualification</th><th>Local qualification</th><th>Mismatch?</th></tr>${clsRows}</table>` + outOfScopeLine
+      : '';
+
+    if (!registerBlock && !relatedBlock && !flowsBlock && !classBlock) return '';
+    return `<h2 style="font-size:13px;margin-top:0;">Part A &middot; Facts &amp; relationships</h2>${strip}${registerBlock}${relatedBlock}${flowsBlock}${classBlock}<hr style="margin:14px 0;border:none;border-top:1px solid #ccc;">`;
   })();
 
   return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>ATAD2 technical appendix</title>
@@ -202,6 +254,10 @@ export function buildAppendixPrintHtml(
   body { font-family: Arial, Helvetica, sans-serif; color: #111; font-size: 11px; line-height: 1.35; }
   h1 { font-size: 17px; margin: 0 0 4px; }
   h2 { font-size: 12px; margin: 16px 0 4px; break-after: avoid; }
+  h3 { font-size: 11px; margin: 8px 0 3px; }
+  .narrative { color: #444; font-style: italic; margin: 2px 0 6px; }
+  .accounted { color: #666; font-size: 10px; margin: 2px 0 8px; }
+  tr.taxpayer td { background: #eef6fb; }
   .banner { border: 1px solid #e0c84a; background: #fff7d6; color: #5b4b00; padding: 6px 10px; border-radius: 4px; margin: 8px 0 14px; }
   table { border-collapse: collapse; width: 100%; margin-bottom: 6px; }
   th, td { border: 1px solid #aaa; padding: 4px 6px; text-align: left; vertical-align: top; }

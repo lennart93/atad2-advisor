@@ -73,42 +73,97 @@ describe('buildAppendixPrintHtml', () => {
     expect(html).not.toContain('a < b & c');
   });
 
-  it('renders Part A: dossier shows the NL-perspective classification + names, hides internal codes; internal shows E# codes', () => {
+  it('renders Part A: dossier shows the funnel classification + names, hides internal codes; internal shows E# codes', () => {
     const dossier = buildAppendixPrintHtml([row('3.2', 'Triggered', 'x')], 'dossier', undefined, facts());
     const internal = buildAppendixPrintHtml([row('3.2', 'Triggered', 'x')], 'internal', undefined, facts());
     expect(dossier).toContain('Part A');
     expect(dossier).toContain('Acme BV');
-    expect(dossier).toContain('Classification (NL perspective)');
+    expect(dossier).toContain('A.4 · Classification of the relevant entities');
     expect(dossier).toContain('Non-transparent');  // derived from the 'resident' tax status
     expect(dossier).not.toContain('E1');            // internal code hidden in the dossier
-    expect(internal).toContain('E1');               // Ref column in the internal entity register
+    expect(internal).toContain('E1');               // Ref column in the internal register
   });
 
   it('dossier drops whole Part A sections the advisor excluded; internal keeps them', () => {
     const kept = buildAppendixPrintHtml([row('3.2', 'Triggered', 'x')], 'dossier', undefined, richFacts());
-    expect(kept).toContain('Part A.1 · Entity register');
-    expect(kept).toContain('Part A.2 · Classification');
-    expect(kept).toContain('Part A.3 · Transaction map');
-    expect(kept).toContain('Part A.4 · Acting together');
+    expect(kept).toContain('A.1 · The group and the taxpayer');
+    expect(kept).toContain('A.2 · Related parties');
+    expect(kept).toContain('Acting together');
+    expect(kept).toContain('A.3 · Relevant flows');
+    expect(kept).toContain('A.4 · Classification of the relevant entities');
 
     const allExcluded: AppendixSectionKey[] = ['entityRegister', 'relatedness', 'actingTogether', 'classification', 'transactions'];
     const excl = buildAppendixPrintHtml([row('3.2', 'Triggered', 'x')], 'dossier', undefined, richFacts(allExcluded));
-    expect(excl).not.toContain('Part A.1 · Entity register');
-    expect(excl).not.toContain('Part A.2 · Classification');
-    expect(excl).not.toContain('Part A.3 · Transaction map');
-    expect(excl).not.toContain('Part A.4 · Acting together');
+    expect(excl).not.toContain('A.1 ·');
+    expect(excl).not.toContain('A.2 ·');
+    expect(excl).not.toContain('A.3 ·');
+    expect(excl).not.toContain('A.4 ·');
+    expect(excl).not.toContain('Acting together');
+    // With every section dropped the whole Part A disappears, strip included.
+    expect(excl).not.toContain('Part A');
 
     // The internal working copy ignores the exclusions entirely.
     const internal = buildAppendixPrintHtml([row('3.2', 'Triggered', 'x')], 'internal', undefined, richFacts(allExcluded));
-    expect(internal).toContain('Part A.1 · Entity register');
-    expect(internal).toContain('Part A.4 · Acting together');
+    expect(internal).toContain('A.1 · The group and the taxpayer');
+    expect(internal).toContain('Acting together');
   });
 
-  it('relatedness exclusion drops only the Related column, not the whole register', () => {
+  it('relatedness exclusion drops the related-parties section, not the register', () => {
     const html = buildAppendixPrintHtml([row('3.2', 'Triggered', 'x')], 'dossier', undefined, richFacts(['relatedness']));
-    expect(html).toContain('Part A.1 · Entity register');
-    expect(html).not.toContain('Related (&gt;25%)');
+    expect(html).toContain('A.1 · The group and the taxpayer');
+    expect(html).not.toContain('A.2 · Related parties');
     const kept = buildAppendixPrintHtml([row('3.2', 'Triggered', 'x')], 'dossier', undefined, richFacts());
-    expect(kept).toContain('Related (&gt;25%)');
+    expect(kept).toContain('A.2 · Related parties');
+  });
+});
+
+describe('part A funnel export', () => {
+  const ent = (id: string, name: string, jur: string, role = 'Group entity', extra: Record<string, unknown> = {}) => ({
+    id, chartEntityId: `c-${id}`, name, jurisdiction: jur, entityType: 'corporation', role,
+    ownershipPct: null, related: true, nlTaxStatus: 'resident', ...extra,
+  });
+  const baseFacts = {
+    entities: [ent('E1', 'Tax BV', 'NL', 'Taxpayer'), ent('E2', 'US Inc', 'US')],
+    transactions: [
+      { id: 'T1', fromEntityId: 'E1', toEntityId: 'E2', kind: 'loan', instrument: null, note: null,
+        articlesTested: [], status: 'confirmed', excludedFromClient: false, source: 'ai',
+        relevant: true, relevanceReason: 'Cross-border to a related party' },
+      { id: 'T2', fromEntityId: 'E1', toEntityId: 'E2', kind: 'service', instrument: null, note: null,
+        articlesTested: [], status: 'confirmed', excludedFromClient: false, source: 'ai',
+        relevant: false, relevanceReason: 'Within the fiscal unity' },
+    ],
+    classifications: [], actingTogether: [],
+    narratives: { register: { text: 'The group narrative.', source: 'ai' } },
+  } as never;
+
+  it('renders the summary strip, the narrative and the accounted line', () => {
+    const html = buildAppendixPrintHtml([], 'dossier', undefined, baseFacts);
+    expect(html).toContain('Cross-border flows with related parties');
+    expect(html).toContain('The group narrative.');
+    expect(html).toContain('1 flow not relevant: Within the fiscal unity');
+    expect(html).toContain('Why relevant');
+    expect(html).toContain('Cross-border to a related party');
+    expect(html).not.toContain('service'); // accounted flow not in the relevant table
+  });
+
+  it('drops sub-likely acting-together clusters from the dossier with an accounted line', () => {
+    const f = { ...(baseFacts as Record<string, unknown>), actingTogether: [
+      { id: 'A1', memberEntityIds: ['E1', 'E2'], combinedPct: 30, likelihood: 'unlikely', reasoning: 'no coordination', excludedFromClient: false, source: 'ai' },
+    ] } as never;
+    const html = buildAppendixPrintHtml([], 'dossier', undefined, f);
+    expect(html).not.toContain('no coordination');
+    expect(html).toContain('1 candidate grouping was considered and not assessed as likely');
+  });
+
+  it('classifies only in-scope entities and accounts for the rest', () => {
+    const f = { ...(baseFacts as Record<string, unknown>), entities: [
+      ent('E1', 'Tax BV', 'NL', 'Taxpayer'), ent('E2', 'US Inc', 'US'), ent('E3', 'Idle BV', 'NL'),
+    ] } as never;
+    const html = buildAppendixPrintHtml([], 'dossier', undefined, f);
+    expect(html).toContain('A.4');
+    // Idle BV is a related party (A.2) but must not reach the classification table (A.4).
+    const partA4 = html.slice(html.indexOf('A.4'));
+    expect(partA4).not.toContain('Idle BV');
+    expect(html).toContain('The remaining 1 group entity is not party to a relevant flow');
   });
 });
