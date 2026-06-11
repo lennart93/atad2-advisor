@@ -9,7 +9,7 @@ export const DOCUMENT_CATEGORIES = [
   { value: "trial_balance", label: "Trial balance" },
   { value: "general_ledger", label: "General ledger" },
   { value: "memo", label: "Memo" },
-  { value: "comment_letter_to_tax_return", label: "Comment letter to tax return" },
+  { value: "comment_letter_to_tax_return", label: "Comment letter" },
   { value: "other", label: "Other" },
 ] as const;
 
