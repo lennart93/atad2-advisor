@@ -524,8 +524,15 @@ function mergeFacts(existing: AppendixFacts | null, fresh: AppendixFacts): Appen
   const advisorOwnsAt = existing.actingTogether.some((a) => a.source === "edited");
   const atKey = (a: { memberEntityIds: string[] }) => [...a.memberEntityIds].sort().join("|");
   const exAt = new Map(existing.actingTogether.map((a) => [atKey(a), a]));
+  const freshAtByKey = new Map(fresh.actingTogether.map((f) => [atKey(f), f]));
   const actingTogether = advisorOwnsAt
-    ? existing.actingTogether
+    ? existing.actingTogether.map((p) => {
+      // Graft fresh per-level texts onto a kept cluster that predates them, as
+      // long as the member set still matches (texts describe that exact set).
+      if (p.rationales) return p;
+      const freshMatch = freshAtByKey.get(atKey(p));
+      return freshMatch?.rationales ? { ...p, rationales: freshMatch.rationales } : p;
+    })
     : fresh.actingTogether.map((f) => {
       const prev = exAt.get(atKey(f));
       return { ...f, excludedFromClient: prev?.excludedFromClient ?? false };
