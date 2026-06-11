@@ -13,6 +13,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { AnalyzeProgress } from "@/components/prefill/AnalyzeProgress";
+import { AnalysisNarrative } from "@/components/prefill/AnalysisNarrative";
 import { OpenQuestionsStream } from "@/components/openQuestions/OpenQuestionsStream";
 import { DocumentUploadStep } from "@/components/assessment/DocumentUploadStep";
 import { usePrefillStore } from "@/stores/prefillStore";
@@ -96,6 +97,7 @@ export default function AssessmentUpload() {
           sessionId={sessionId}
           onContinue={() => navigate(`/assessment?session=${sessionId}`)}
         />
+        <AnalysisNarrative sessionId={sessionId} />
         <OpenQuestionsStream sessionId={sessionId} />
       </div>
     );
