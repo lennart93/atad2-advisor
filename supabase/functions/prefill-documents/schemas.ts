@@ -66,6 +66,23 @@ export const SwarmPrefill = SwarmPrefillRaw.transform((raw) => {
 );
 export type SwarmPrefillType = z.infer<typeof SwarmPrefill>;
 
+// compose_client_letter v1: ONE composed client letter assembled from the
+// per-question client_question drafts. understandings = shared "We understand
+// that ..." facts merged across questions (each stated exactly once);
+// questions = one numbered ask per input question_id, without repeating the
+// merged context. understandings may be empty (sparse inputs share no facts);
+// questions must not be. The 1200-char cap per ask is deliberately generous
+// (the per-question drafts are <=450 chars; merged rephrasing stays well
+// under it) but still bounds a runaway model.
+export const ComposedLetterSchema = z.object({
+  understandings: z.array(z.string().min(1)),
+  questions: z.array(z.object({
+    question_id: z.string().min(1),
+    text: z.string().min(1).max(1200),
+  })).min(1),
+});
+export type ComposedLetterType = z.infer<typeof ComposedLetterSchema>;
+
 export const TokenUsage = z.object({
   input_tokens: z.number(),
   output_tokens: z.number(),

@@ -1,6 +1,10 @@
 import type { SupabaseClient } from "supabase";
 
-export type PromptKey = "prefill_stage1_system" | "prefill_stage2_system" | "prefill_swarm_system";
+export type PromptKey =
+  | "prefill_stage1_system"
+  | "prefill_stage2_system"
+  | "prefill_swarm_system"
+  | "compose_client_letter";
 
 export interface LoadedPrompt {
   version: number;

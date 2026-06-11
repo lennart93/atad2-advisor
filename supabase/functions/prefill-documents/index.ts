@@ -2,6 +2,7 @@ import { serve } from "std/http/server.ts";
 import { createClient, SupabaseClient } from "supabase";
 import { runAnalyzeOne } from "./analyze.ts";
 import { runCleanup } from "./cleanup.ts";
+import { runComposeLetter } from "./composeLetter.ts";
 
 const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") || "*";
 
@@ -25,7 +26,7 @@ interface PdfRefPayload {
 }
 
 interface PrefillRequest {
-  action: "analyze_one" | "cleanup";
+  action: "analyze_one" | "cleanup" | "compose_client_letter";
   session_id: string;
   question_id?: string;
   question_text?: string;
@@ -35,6 +36,7 @@ interface PrefillRequest {
   pdf_refs?: PdfRefPayload[];
   taxpayer_name?: string;
   fiscal_year?: string;
+  questions?: { question_id: string; client_question: string; why_it_matters: string | null }[];
 }
 
 serve(async (req) => {
@@ -78,6 +80,19 @@ serve(async (req) => {
       }
       case "cleanup": {
         const result = await runCleanup(serviceClient, body.session_id);
+        return json(result, result.ok ? 200 : 500);
+      }
+      case "compose_client_letter": {
+        if (!Array.isArray(body.questions) || body.questions.length === 0) {
+          return json({ error: "Missing questions" }, 400);
+        }
+        const result = await runComposeLetter(
+          serviceClient,
+          body.session_id,
+          body.questions,
+          body.taxpayer_name ?? "",
+          body.fiscal_year ?? "",
+        );
         return json(result, result.ok ? 200 : 500);
       }
       default:
