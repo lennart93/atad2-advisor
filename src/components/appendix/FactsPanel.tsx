@@ -257,6 +257,15 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
       else next.add(id);
       return next;
     });
+  // Same toggle, scoped to the Classification (NL) column.
+  const [openClsNotes, setOpenClsNotes] = useState<Set<string>>(new Set());
+  const toggleClsNote = (id: string) =>
+    setOpenClsNotes((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   const narrative = (key: NarrativeKey) => facts.narratives?.[key];
   const saveNarrative = editable ? (key: NarrativeKey) => (text: string) => onChange!(withNarrative(facts, key, text)) : undefined;
 
@@ -349,13 +358,13 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
               fiscal unity · taxpayer
             </span>
           )}
-          {(positionNote(e) || e.nlTaxStatusReason) && (
+          {positionNote(e) && (
             <>
               <button
                 type="button"
                 aria-expanded={openNotes.has(e.id)}
-                aria-label={`Background on ${e.name}`}
-                title="Position and classification background"
+                aria-label={`How ${e.name} relates to the taxpayer`}
+                title="How this entity relates to the taxpayer"
                 onClick={() => toggleNote(e.id)}
                 className={cn(
                   'ml-1 inline-flex h-5 w-5 items-center justify-center rounded align-middle transition-colors hover:bg-muted hover:text-foreground',
@@ -365,13 +374,8 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
                 <Info className="h-3 w-3" />
               </button>
               {openNotes.has(e.id) && (
-                <div className="mt-0.5 max-w-md space-y-0.5 text-[10.5px] font-normal leading-snug text-muted-foreground">
-                  {positionNote(e) && (
-                    <div><span className="font-medium text-muted-foreground/80">Position:</span> {positionNote(e)}</div>
-                  )}
-                  {e.nlTaxStatusReason && (
-                    <div><span className="font-medium text-muted-foreground/80">Classification (NL):</span> {e.nlTaxStatusReason}</div>
-                  )}
+                <div className="mt-0.5 max-w-md text-[10.5px] font-normal leading-snug text-muted-foreground">
+                  {positionNote(e)}
                 </div>
               )}
             </>
@@ -403,6 +407,7 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
         {/* Classification (NL): transparent vs non-transparent, derived from the
             underlying NL tax status; the quiet editor still picks the status. */}
         <td className="pr-2 py-0.5">
+          <div className="flex items-center gap-0.5">
           <QuietCell
             display={
               <span className="flex items-center gap-1.5" title={nlTaxStatusLabel(status)}>
@@ -424,6 +429,27 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
               </SelectContent>
             </Select>
           </QuietCell>
+          {e.nlTaxStatusReason && (
+            <button
+              type="button"
+              aria-expanded={openClsNotes.has(e.id)}
+              aria-label={`How the NL classification of ${e.name} was reached`}
+              title="How this classification was reached"
+              onClick={() => toggleClsNote(e.id)}
+              className={cn(
+                'inline-flex h-5 w-5 items-center justify-center rounded transition-colors hover:bg-muted hover:text-foreground',
+                openClsNotes.has(e.id) ? 'text-foreground' : 'text-muted-foreground/60',
+              )}
+            >
+              <Info className="h-3 w-3" />
+            </button>
+          )}
+          </div>
+          {openClsNotes.has(e.id) && e.nlTaxStatusReason && (
+            <div className="mt-0.5 text-[10.5px] font-normal leading-snug text-muted-foreground">
+              {e.nlTaxStatusReason}
+            </div>
+          )}
         </td>
 
         {/* Role: one clean line; the relationship note lives under the entity name. */}
