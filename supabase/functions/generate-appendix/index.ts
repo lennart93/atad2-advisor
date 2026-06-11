@@ -409,10 +409,20 @@ async function buildFacts(
     const hasExplicitFu = entities.some((e) => e.isFiscalUnity || e.memberOfUnityId);
     const fuMembers = new Set((proposed.fiscalUnityMemberEntityIds ?? []).filter((id) => id !== "E1"));
     const positions = proposed.positionByEntityId ?? {};
+    const statusReasons = proposed.nlTaxStatusReasonByEntityId ?? {};
+    const shareholders = new Set((proposed.taxpayerShareholderEntityIds ?? []).filter((id) => id !== "E1"));
     const facts: AppendixFacts = {
       entities: entities.map((e) => {
         const aiPosition = e.role === "Group entity" ? noDashes(positions[e.id]) ?? null : null;
-        const next = { ...e, nlTaxStatus: nl[e.id] ?? e.nlTaxStatus, ...(aiPosition ? { position: aiPosition } : {}) };
+        const aiStatusReason = noDashes(statusReasons[e.id]) ?? null;
+        const isShareholder = e.role === "Group entity" && !e.memberOfUnityId && shareholders.has(e.id);
+        const next = {
+          ...e,
+          nlTaxStatus: nl[e.id] ?? e.nlTaxStatus,
+          ...(aiPosition ? { position: aiPosition } : {}),
+          ...(aiStatusReason ? { nlTaxStatusReason: aiStatusReason } : {}),
+          ...(isShareholder ? { shareholderOfTaxpayer: true } : {}),
+        };
         if (!hasExplicitFu && e.id !== "E1" && fuMembers.has(e.id)) {
           // Inside the taxpayer's fiscal unity: part of the same taxpayer, so not a
           // separate related party (mirrors how explicit FE members are treated).

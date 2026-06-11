@@ -302,7 +302,7 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
     if (e.role === 'Subsidiary' && e.directLink != null) {
       return e.directLink ? 'Subsidiary (direct)' : 'Subsidiary (indirect)';
     }
-    if (e.role === 'Group entity') return 'Other';
+    if (e.role === 'Group entity') return e.shareholderOfTaxpayer ? 'Shareholder' : 'Other';
     return e.role;
   };
 
@@ -346,13 +346,13 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
               fiscal unity · taxpayer
             </span>
           )}
-          {positionNote(e) && (
+          {(positionNote(e) || e.nlTaxStatusReason) && (
             <>
               <button
                 type="button"
                 aria-expanded={openNotes.has(e.id)}
-                aria-label={`How ${e.name} relates to the taxpayer`}
-                title="How this entity relates to the taxpayer"
+                aria-label={`Background on ${e.name}`}
+                title="Position and classification background"
                 onClick={() => toggleNote(e.id)}
                 className={cn(
                   'ml-1 inline-flex h-5 w-5 items-center justify-center rounded align-middle transition-colors hover:bg-muted hover:text-foreground',
@@ -362,8 +362,13 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
                 <Info className="h-3 w-3" />
               </button>
               {openNotes.has(e.id) && (
-                <div className="mt-0.5 max-w-md text-[10.5px] font-normal leading-snug text-muted-foreground">
-                  {positionNote(e)}
+                <div className="mt-0.5 max-w-md space-y-0.5 text-[10.5px] font-normal leading-snug text-muted-foreground">
+                  {positionNote(e) && (
+                    <div><span className="font-medium text-muted-foreground/80">Position:</span> {positionNote(e)}</div>
+                  )}
+                  {e.nlTaxStatusReason && (
+                    <div><span className="font-medium text-muted-foreground/80">Classification (NL):</span> {e.nlTaxStatusReason}</div>
+                  )}
                 </div>
               )}
             </>
@@ -667,7 +672,11 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
                           <span className="font-mono text-sky-700 dark:text-sky-300">{e.id}</span>{' '}
                           <span>{e.name}</span>
                         </td>
-                        <td className="pr-2"><QualBadge status={effNlTaxStatus(e)} /></td>
+                        <td className="pr-2">
+                          <span title={e.nlTaxStatusReason ?? undefined}>
+                            <QualBadge status={effNlTaxStatus(e)} />
+                          </span>
+                        </td>
                         <td className="pr-2 text-muted-foreground">
                           {c ? `${nlQualificationLabel(local)}${c.homeState ? ` (${c.homeState})` : ''}` : 'To be determined'}
                         </td>

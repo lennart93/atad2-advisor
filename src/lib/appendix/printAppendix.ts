@@ -139,7 +139,7 @@ export function buildAppendixPrintHtml(
       if (e.role === 'Subsidiary' && e.directLink != null) {
         return e.directLink ? 'Subsidiary (direct)' : 'Subsidiary (indirect)';
       }
-      const label = e.role === 'Group entity' ? 'Other' : e.role;
+      const label = e.role === 'Group entity' ? (e.shareholderOfTaxpayer ? 'Shareholder' : 'Other') : e.role;
       return label + (e.inTaxpayerFiscalUnity ? ' (fiscal unity)' : '');
     };
     const positionNote = (e: FactEntity): string => {
@@ -182,7 +182,7 @@ export function buildAppendixPrintHtml(
           : (e.relatedVia && e.relatedViaPct != null)
             ? `via ${esc(entityName(e.relatedVia))} (${e.relatedViaPct}%)`
             : '';
-        return `<tr><td>${esc(e.name)}</td><td>${esc(e.role === 'Group entity' ? 'Other' : e.role)}</td><td>${interest}</td></tr>`;
+        return `<tr><td>${esc(e.name)}</td><td>${esc(e.role === 'Group entity' ? (e.shareholderOfTaxpayer ? 'Shareholder' : 'Other') : e.role)}</td><td>${interest}</td></tr>`;
       }).join('');
     const relatedTable = relatedRows
       ? `<table><tr><th>Entity</th><th>Role</th><th>Interest</th></tr>${relatedRows}</table>`

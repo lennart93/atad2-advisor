@@ -101,7 +101,15 @@ export interface FactEntity {
    * documents. Null when the documents give nothing.
    */
   position?: string | null;
+  /**
+   * AI-derived from the documents: this entity holds shares directly in the
+   * taxpayer even though the chart has no ownership edge (e.g. share counts
+   * without percentages). Display-level: the data role stays Group entity.
+   */
+  shareholderOfTaxpayer?: boolean;
   nlTaxStatus: string | null;  // AI/advisor filled; null until proposed
+  /** AI-written, grounded one-liner on how the NL qualification was reached (legal form + rule applied). */
+  nlTaxStatusReason?: string | null;
   /**
    * Advisor overrides for the editable register fields. The base fields above are
    * rebuilt from the chart/AI on every regeneration; anything set here wins and is

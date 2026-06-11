@@ -40,7 +40,11 @@ export interface FactEntity {
   directLink?: boolean;
   /** Group entity only: short AI-written relationship-to-the-taxpayer clause, grounded on the documents. */
   position?: string | null;
+  /** AI-derived: holds shares directly in the taxpayer although the chart has no ownership edge. */
+  shareholderOfTaxpayer?: boolean;
   nlTaxStatus: string | null;
+  /** AI-written, grounded one-liner on how the NL qualification was reached. */
+  nlTaxStatusReason?: string | null;
   /** Advisor overrides for the editable register fields; preserved across regeneration. */
   edits?: { jurisdiction?: string | null; entityType?: string | null; nlTaxStatus?: string | null };
   hidden?: boolean;

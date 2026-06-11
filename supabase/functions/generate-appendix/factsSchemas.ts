@@ -36,6 +36,12 @@ export const FactsModelOutput = z.object({
   // relates to the taxpayer (e.g. "co-investor in a named fund alongside E9").
   // Optional and tolerant: missing ids simply show nothing in the register.
   positionByEntityId: z.record(z.string(), z.string()).optional(),
+  // Register ids that, per the documents, hold shares DIRECTLY in the taxpayer
+  // even though the chart shows no ownership edge (share counts, registers).
+  taxpayerShareholderEntityIds: z.array(z.string()).optional().default([]),
+  // One short grounded sentence per register id explaining the NL qualification
+  // (legal form + rule applied). Optional and tolerant.
+  nlTaxStatusReasonByEntityId: z.record(z.string(), z.string()).optional(),
   // Register ids (E2, E3 ...) that form a Dutch fiscal unity (fiscale eenheid) with
   // the taxpayer E1, derived from the documents. E1 itself is implied and need not
   // be listed. Empty/omitted when there is no fiscal unity.
