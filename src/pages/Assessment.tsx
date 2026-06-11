@@ -38,6 +38,7 @@ import { seededIndex } from "@/utils/random";
 import { motion } from "framer-motion";
 import { startExtraction } from "@/lib/structure/extraction";
 import { startAppendixGeneration, loadAppendix, pollAppendixUntilReady } from "@/lib/appendix/client";
+import { loadChart } from "@/lib/structure/client";
 import { AssessmentFooterSlot } from "@/components/assessment/AssessmentFooterSlot";
 import { useAssessmentSessionId } from "@/lib/assessment/useAssessmentSessionId";
 import { useAppendixPrewarm } from "@/hooks/useAppendixPrewarm";
@@ -842,6 +843,24 @@ const Assessment = () => {
       // the appendix lands "ready" with answer-less content.
       void (async () => {
         try {
+          const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+          // First let the just-dispatched Phase B refine settle, so this
+          // answer-bearing appendix run reads the refined chart instead of the
+          // docs-only one. Give the refine up to ~20s to actually start, then
+          // wait (bounded) until the chart leaves its extracting state.
+          const chartStatus = async () =>
+            (await loadChart(sessionId).catch(() => null))?.chart?.status ?? null;
+          for (let i = 0; i < 5; i++) {
+            const st = await chartStatus();
+            if (st && st.startsWith('extracting')) break;
+            await sleep(4000);
+          }
+          const refineDeadline = Date.now() + 240_000;
+          while (Date.now() < refineDeadline) {
+            const st = await chartStatus();
+            if (!st || !st.startsWith('extracting')) break;
+            await sleep(4000);
+          }
           const cur = await loadAppendix(sessionId);
           // Only wait when a FRESH prewarm run is still in flight: starting now
           // would make the edge function drop our answer-bearing run as a
