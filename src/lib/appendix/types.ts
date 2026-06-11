@@ -134,10 +134,16 @@ export interface FactEntity {
 
 export interface ActingTogetherCluster {
   id: string;                  // "A1"
-  memberEntityIds: string[];   // the parents the assessment concerns
+  memberEntityIds: string[];   // the parents/shareholders the assessment concerns; advisor-editable
   combinedPct: number | null;
   likelihood: ActingLikelihood;   // advisor-selectable level
-  reasoning: string;           // one assessment paragraph (entity names only, no source citations); editable
+  reasoning: string;           // the displayed assessment paragraph; editable
+  /**
+   * AI-prepared assessment text per likelihood level, so switching the level
+   * swaps the displayed reasoning without a new AI call. Missing on old data
+   * or after heavy advisor edits; switching then keeps the current text.
+   */
+  rationales?: Partial<Record<ActingLikelihood, string>>;
   excludedFromClient: boolean;
   source: 'ai' | 'edited';
 }

@@ -35,7 +35,7 @@ function buildFactsSummary(facts: AppendixFacts): string {
     .map((t) => `- ${esc(nameOf(t.fromEntityId))} -> ${esc(nameOf(t.toEntityId))}: ${esc(t.kind)}${t.instrument ? ` (${esc(t.instrument)})` : ''}${t.relevanceReason ? ` [why: ${esc(t.relevanceReason)}]` : ''}${t.articlesTested.length ? ` [${t.articlesTested.map(esc).join(', ')}]` : ''}`)
     .join('\n');
   const txAccounted = ex('transactions') ? '' : accountedTransactionGroups(f)
-    .map((g) => `- ${g.transactions.length} ${g.transactions.length === 1 ? 'flow' : 'flows'} assessed as not relevant (${esc(g.reason)})`)
+    .map((g) => `- ${g.transactions.length} ${g.transactions.length === 1 ? 'transaction' : 'transactions'} assessed as not relevant (${esc(g.reason)})`)
     .join('\n');
   const at = ex('actingTogether') ? '' : f.actingTogether
     .map((a) => `- ${a.memberEntityIds.map((id) => esc(nameOf(id))).join(' + ')} ~ ${a.combinedPct ?? '?'}%: ${esc(actingLikelihoodLabel(a.likelihood))} - ${esc(a.reasoning)}`)
@@ -44,7 +44,7 @@ function buildFactsSummary(facts: AppendixFacts): string {
   // from, so the memo can never claim more than its own grounding shows.
   const flags = deriveConclusions(f);
   const conclusions = [
-    `- Cross-border flows with related parties: ${flags.crossBorderRelatedFlows}`,
+    `- Cross-border transactions with related parties: ${flags.crossBorderRelatedFlows}`,
     `- Hybrid qualification differences (NL vs local): ${flags.hybridDifferences}`,
     `- Acting-together clusters considered likely: ${flags.likelyActingTogether}`,
   ].join('\n');
@@ -53,7 +53,7 @@ function buildFactsSummary(facts: AppendixFacts): string {
     ents ? `Entities (with NL classification):\n${ents}` : '',
     cls ? `Cross-border classification (home vs source):\n${cls}` : '',
     tx ? `Relevant intra-group transactions:\n${tx}` : '',
-    txAccounted ? `Flows accounted for and set aside:\n${txAccounted}` : '',
+    txAccounted ? `Transactions accounted for and set aside:\n${txAccounted}` : '',
     at ? `Acting-together groups:\n${at}` : '',
   ].filter(Boolean).join('\n');
   return `<facts>\n${parts}\n</facts>`;

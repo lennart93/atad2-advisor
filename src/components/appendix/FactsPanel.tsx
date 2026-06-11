@@ -7,7 +7,8 @@ import { visibleFacts } from '@/lib/appendix/facts/visibleFacts';
 import { isSectionExcluded, withSectionExcluded } from '@/lib/appendix/facts/sections';
 import { effJurisdiction, effNlTaxStatus, withEntityEdit } from '@/lib/appendix/facts/entityFields';
 import { nlQualification, nlQualificationLabel, nlTaxStatusLabel, NL_TAX_STATUSES } from '@/lib/appendix/facts/nlTaxStatus';
-import { withClusterLikelihood, withClusterText, withClusterExclude } from '@/lib/appendix/facts/actingCluster';
+import { withClusterLikelihood, withClusterText, withClusterExclude, withClusterMembers } from '@/lib/appendix/facts/actingCluster';
+import { withLocalQualification } from '@/lib/appendix/facts/classificationEdit';
 import { ACTING_LIKELIHOODS, type ActingLikelihood } from '@/lib/appendix/facts/actingLikelihood';
 import { deriveConclusions, inScopeEntityIds, localQualification, entityHasQualificationDifference } from '@/lib/appendix/facts/conclusions';
 import { relevantTransactions, accountedTransactionGroups, withTransactionRelevance } from '@/lib/appendix/facts/relevance';
@@ -245,6 +246,8 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
   const flags = useMemo(() => deriveConclusions(facts), [facts]);
   const inScope = useMemo(() => inScopeEntityIds(facts), [facts]);
   const [editCell, setEditCell] = useState<{ id: string; field: 'jurisdiction' | 'entityType' | 'nlTaxStatus' } | null>(null);
+  // Section 3 row whose local qualification is being edited.
+  const [editLocalQual, setEditLocalQual] = useState<string | null>(null);
   // Register rows whose relationship note is expanded (collapsed by default).
   const [openNotes, setOpenNotes] = useState<Set<string>>(new Set());
   const toggleNote = (id: string) =>
@@ -473,7 +476,7 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
           <table className="w-full text-xs">
             <tbody>
               <tr>
-                <td className="py-0.5 pr-2 text-muted-foreground">Cross-border flows with related parties</td>
+                <td className="py-0.5 pr-2 text-muted-foreground">Cross-border transactions with related parties</td>
                 <td className="py-0.5 text-right font-medium text-foreground">
                   {flags.crossBorderRelatedFlows > 0 ? `${flags.crossBorderRelatedFlows} identified` : 'None identified'}
                 </td>
@@ -586,10 +589,48 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
                 >
                   <div className="flex items-start gap-2">
                     <div className="flex-1 text-xs">
-                      <span className="font-medium text-foreground">
-                        {a.memberEntityIds.map((id) => nameOf(facts, id)).join(' + ')}
-                      </span>
-                      <span className="text-muted-foreground"> ≈ {pct(a.combinedPct)}</span>
+                      {editable ? (
+                        <div className="flex flex-wrap items-center gap-1">
+                          {a.memberEntityIds.map((id) => (
+                            <span key={id} className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 font-medium text-foreground">
+                              {nameOf(facts, id)}
+                              <button
+                                type="button"
+                                aria-label={`Remove ${nameOf(facts, id)} from the group`}
+                                title="Remove from the group"
+                                onClick={() => onChange!(withClusterMembers(facts, a.id, a.memberEntityIds.filter((m) => m !== id)))}
+                                className="text-muted-foreground hover:text-foreground"
+                              >
+                                <X className="h-2.5 w-2.5" />
+                              </button>
+                            </span>
+                          ))}
+                          {(() => {
+                            const candidates = shown.entities.filter(
+                              (e) => e.role !== 'Taxpayer' && !e.memberOfUnityId && !a.memberEntityIds.includes(e.id),
+                            );
+                            if (!candidates.length) return null;
+                            return (
+                              <Select value="" onValueChange={(id) => onChange!(withClusterMembers(facts, a.id, [...a.memberEntityIds, id]))}>
+                                <SelectTrigger className="h-5 w-auto gap-1 border-dashed px-1.5 text-[10.5px] text-muted-foreground">
+                                  <SelectValue placeholder="Add entity…" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {candidates.map((e) => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            );
+                          })()}
+                          {a.combinedPct != null && <span className="text-muted-foreground"> ≈ {pct(a.combinedPct)}</span>}
+                        </div>
+                      ) : (
+                        <>
+                          <span className="font-medium text-foreground">
+                            {a.memberEntityIds.map((id) => nameOf(facts, id)).join(' + ')}
+                          </span>
+                          {a.combinedPct != null && <span className="text-muted-foreground"> ≈ {pct(a.combinedPct)}</span>}
+                        </>
+                      )}
                     </div>
                     {editable && (
                       <ExcludeBtn
@@ -677,8 +718,25 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
                             <QualBadge status={effNlTaxStatus(e)} />
                           </span>
                         </td>
-                        <td className="pr-2 text-muted-foreground">
-                          {c ? `${nlQualificationLabel(local)}${c.homeState ? ` (${c.homeState})` : ''}` : 'To be determined'}
+                        <td className="pr-2 py-0.5 text-muted-foreground">
+                          <QuietCell
+                            display={<span>{c ? `${nlQualificationLabel(local)}${c.homeState ? ` (${c.homeState})` : ''}` : 'To be determined'}</span>}
+                            editing={editable && editLocalQual === e.id}
+                            onStartEdit={editable ? () => setEditLocalQual(e.id) : undefined}
+                          >
+                            <Select
+                              value={local === 'undetermined' ? undefined : (local === 'transparent' ? 'transparent' : 'opaque')}
+                              defaultOpen
+                              onOpenChange={(open) => { if (!open) setEditLocalQual(null); }}
+                              onValueChange={(v) => onChange!(withLocalQualification(facts, e.id, v as 'transparent' | 'opaque', effJurisdiction(e)))}
+                            >
+                              <SelectTrigger className={COMPACT_CONTROL}><SelectValue placeholder="Set…" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="transparent">Transparent</SelectItem>
+                                <SelectItem value="opaque">Non-transparent</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </QuietCell>
                         </td>
                         <td className={cn(mismatch ? 'font-medium text-amber-700 dark:text-amber-400' : 'text-muted-foreground')}>
                           {mismatch ? 'Yes' : 'No'}
@@ -689,7 +747,7 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
                 </tbody>
               </table>
               {outCount > 0 && (
-                <AccountedLine summary={`The remaining ${outCount} group ${outCount === 1 ? 'entity is' : 'entities are'} not party to a relevant flow and ${outCount === 1 ? 'carries' : 'carry'} no qualification difference.`} />
+                <AccountedLine summary={`The remaining ${outCount} group ${outCount === 1 ? 'entity is' : 'entities are'} not party to a relevant transaction and ${outCount === 1 ? 'carries' : 'carry'} no qualification difference.`} />
               )}
             </>
           );
@@ -699,10 +757,10 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
       {/* ------------------------------------------------------------------ */}
       {/* T - 4. Relevant flows                                                */}
       {/* ------------------------------------------------------------------ */}
-      <Exhibit tag="T" icon={<ArrowLeftRight className="h-4 w-4 text-muted-foreground" />} title="4 · Relevant flows" {...sectionProps('transactions')}>
+      <Exhibit tag="T" icon={<ArrowLeftRight className="h-4 w-4 text-muted-foreground" />} title="4 · Relevant transactions" {...sectionProps('transactions')}>
         <NarrativeLine narrative={narrative('flows')} onSave={saveNarrative?.('flows')} />
         {relevantTx.length === 0
-          ? <p className="text-xs text-muted-foreground">{generated ? 'No relevant intra-group flows identified.' : 'Not generated yet.'}</p>
+          ? <p className="text-xs text-muted-foreground">{generated ? 'No relevant intra-group transactions identified.' : 'Not generated yet.'}</p>
           : (
           <table className="w-full text-xs">
             <thead className="text-muted-foreground">
@@ -770,7 +828,7 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
           </table>
         )}
         {accountedTx.map((g) => (
-          <AccountedLine key={g.reason} summary={`${g.transactions.length} ${g.transactions.length === 1 ? 'flow' : 'flows'} not relevant: ${g.reason}`}>
+          <AccountedLine key={g.reason} summary={`${g.transactions.length} ${g.transactions.length === 1 ? 'transaction' : 'transactions'} not relevant: ${g.reason}`}>
             <div className="space-y-1">
               {g.transactions.map((t) => (
                 <div key={t.id} className="flex items-center gap-2">

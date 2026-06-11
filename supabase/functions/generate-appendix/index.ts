@@ -455,12 +455,20 @@ async function buildFacts(
       // per-level texts): a single likelihood + one prose paragraph.
       actingTogether: proposed.actingTogether.filter((a) => a.memberEntityIds.length >= 2).slice(0, 1).map((a, i) => {
         const likelihood = (a.likelihood && VALID_LIKELIHOODS.includes(a.likelihood as typeof VALID_LIKELIHOODS[number]) ? a.likelihood : "unclear") as ActingLikelihood;
+        const r = a.rationales ?? {};
+        const rationales: Partial<Record<ActingLikelihood, string>> = {};
+        for (const k of VALID_LIKELIHOODS) {
+          const text = noDashes(r[k]);
+          if (text) rationales[k] = text;
+        }
+        const reasoning = rationales[likelihood] ?? noDashes(a.reasoning) ?? "";
         return {
           id: `A${i + 1}`,
           memberEntityIds: a.memberEntityIds,
           combinedPct: a.combinedPct ?? null,
           likelihood,
-          reasoning: noDashes(a.reasoning) ?? "",
+          reasoning,
+          ...(Object.keys(rationales).length ? { rationales } : {}),
           excludedFromClient: false,
           source: "ai" as const,
         };
@@ -510,15 +518,18 @@ function mergeFacts(existing: AppendixFacts | null, fresh: AppendixFacts): Appen
     if (prev && (prev.status === "confirmed" || prev.source === "edited")) return prev;
     return { ...f, excludedFromClient: prev?.excludedFromClient ?? false };
   });
+  // Once the advisor edited the acting-together assessment (level, text or the
+  // membership itself), it is theirs: keep it wholesale. Membership edits change
+  // the member-set key, so key-based matching would silently drop them.
+  const advisorOwnsAt = existing.actingTogether.some((a) => a.source === "edited");
   const atKey = (a: { memberEntityIds: string[] }) => [...a.memberEntityIds].sort().join("|");
   const exAt = new Map(existing.actingTogether.map((a) => [atKey(a), a]));
-  const actingTogether = fresh.actingTogether.map((f) => {
-    const prev = exAt.get(atKey(f));
-    if (prev && prev.source === "edited") {
-      return { ...f, likelihood: prev.likelihood, reasoning: prev.reasoning, excludedFromClient: prev.excludedFromClient, source: "edited" as const };
-    }
-    return { ...f, excludedFromClient: prev?.excludedFromClient ?? false };
-  });
+  const actingTogether = advisorOwnsAt
+    ? existing.actingTogether
+    : fresh.actingTogether.map((f) => {
+      const prev = exAt.get(atKey(f));
+      return { ...f, excludedFromClient: prev?.excludedFromClient ?? false };
+    });
   // An edited sentence survives; the rest refreshes from the new AI output.
   const exNarr = existing.narratives ?? {};
   const narratives: AppendixFacts["narratives"] = { ...fresh.narratives };

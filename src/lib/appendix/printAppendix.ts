@@ -127,7 +127,7 @@ export function buildAppendixPrintHtml(
     const at = flags.likelyActingTogether;
     const strip =
       `<table>` +
-      `<tr><td>Cross-border flows with related parties</td><td>${flags.crossBorderRelatedFlows > 0 ? `${flags.crossBorderRelatedFlows} identified` : 'None identified'}</td></tr>` +
+      `<tr><td>Cross-border transactions with related parties</td><td>${flags.crossBorderRelatedFlows > 0 ? `${flags.crossBorderRelatedFlows} identified` : 'None identified'}</td></tr>` +
       `<tr><td>Hybrid qualification differences (NL vs local)</td><td>${flags.hybridDifferences > 0 ? `${flags.hybridDifferences} identified` : 'None identified'}</td></tr>` +
       `<tr><td>Acting-together group considered likely</td><td>${at > 0 ? `${at} ${at === 1 ? 'cluster' : 'clusters'}` : 'None'}</td></tr>` +
       `</table>`;
@@ -228,12 +228,12 @@ export function buildAppendixPrintHtml(
     const flowsNarrative = narrative('flows');
     const flowsTable = relevantRows
       ? `<table><tr>${txIdHeader}<th>Flow</th><th>Type</th><th>Instrument</th><th>Why relevant</th><th>Article(s)</th></tr>${relevantRows}</table>`
-      : ((accountedTx.length > 0 || flowsNarrative) ? `<p class="accounted">No relevant intra-group flows identified.</p>` : '');
+      : ((accountedTx.length > 0 || flowsNarrative) ? `<p class="accounted">No relevant intra-group transactions identified.</p>` : '');
     const accountedTxLines = accountedTx.map((g) =>
-      `<p class="accounted">${g.transactions.length} ${g.transactions.length === 1 ? 'flow' : 'flows'} not relevant: ${esc(g.reason)}</p>`,
+      `<p class="accounted">${g.transactions.length} ${g.transactions.length === 1 ? 'transaction' : 'transactions'} not relevant: ${esc(g.reason)}</p>`,
     ).join('');
     const flowsBlock = (!drop('transactions') && (flowsNarrative || flowsTable || accountedTxLines))
-      ? `<h2>A.4 · Relevant flows</h2>` + flowsNarrative + flowsTable + accountedTxLines
+      ? `<h2>A.4 · Relevant transactions</h2>` + flowsNarrative + flowsTable + accountedTxLines
       : '';
 
     // A.3 - Classification of the relevant entities only; the rest is accounted.
@@ -255,7 +255,7 @@ export function buildAppendixPrintHtml(
     }).join('');
     const outCount = f.entities.length - inScopeEnts.length;
     const outOfScopeLine = outCount > 0
-      ? `<p class="accounted">The remaining ${outCount} group ${outCount === 1 ? 'entity is' : 'entities are'} not party to a relevant flow and ${outCount === 1 ? 'carries' : 'carry'} no qualification difference.</p>`
+      ? `<p class="accounted">The remaining ${outCount} group ${outCount === 1 ? 'entity is' : 'entities are'} not party to a relevant transaction and ${outCount === 1 ? 'carries' : 'carry'} no qualification difference.</p>`
       : '';
     const classBlock = (!drop('classification') && clsRows)
       ? `<h2>A.3 · Classification of the relevant entities</h2>` + narrative('classification') +

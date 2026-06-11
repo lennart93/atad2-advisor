@@ -91,6 +91,8 @@ export interface ActingTogetherCluster {
   combinedPct: number | null;
   likelihood: ActingLikelihood;
   reasoning: string;
+  /** AI-prepared text per level, so the advisor can switch levels without a new call. */
+  rationales?: Partial<Record<ActingLikelihood, string>>;
   excludedFromClient: boolean;
   source: "ai" | "edited";
 }

@@ -30,6 +30,15 @@ export const FactsModelOutput = z.object({
     combinedPct: z.number().nullish(),
     likelihood: z.string().nullish(),
     reasoning: z.string().nullish(),
+    // One self-contained assessment text per level; switching the level in the
+    // app swaps the displayed text without a new AI call.
+    rationales: z.object({
+      highly_unlikely: z.string().nullish(),
+      unlikely: z.string().nullish(),
+      unclear: z.string().nullish(),
+      likely: z.string().nullish(),
+      highly_likely: z.string().nullish(),
+    }).partial().nullish(),
   })).optional().default([]),
   nlTaxStatusByEntityId: z.record(z.string(), z.string()).optional(),
   // Group entities only: one short clause per register id on how the entity

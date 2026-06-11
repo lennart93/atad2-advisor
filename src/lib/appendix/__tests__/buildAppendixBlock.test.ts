@@ -67,8 +67,8 @@ describe('buildAppendixBlock', () => {
     const block = buildAppendixBlock([], undefined, facts);
     expect(block).toContain('loan');
     expect(block).not.toContain('service');
-    expect(block).toContain('1 flow assessed as not relevant (Within the fiscal unity)');
-    expect(block).toContain('Cross-border flows with related parties: 1');
+    expect(block).toContain('1 transaction assessed as not relevant (Within the fiscal unity)');
+    expect(block).toContain('Cross-border transactions with related parties: 1');
   });
 });
 

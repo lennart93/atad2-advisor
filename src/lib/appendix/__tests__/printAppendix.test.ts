@@ -89,7 +89,7 @@ describe('buildAppendixPrintHtml', () => {
     expect(kept).toContain('A.1 · The group and the taxpayer');
     expect(kept).toContain('A.2 · Related parties');
     expect(kept).toContain('Acting together');
-    expect(kept).toContain('A.4 · Relevant flows');
+    expect(kept).toContain('A.4 · Relevant transactions');
     expect(kept).toContain('A.3 · Classification of the relevant entities');
 
     const allExcluded: AppendixSectionKey[] = ['entityRegister', 'relatedness', 'actingTogether', 'classification', 'transactions'];
@@ -138,9 +138,9 @@ describe('part A funnel export', () => {
 
   it('renders the summary strip, the narrative and the accounted line', () => {
     const html = buildAppendixPrintHtml([], 'dossier', undefined, baseFacts);
-    expect(html).toContain('Cross-border flows with related parties');
+    expect(html).toContain('Cross-border transactions with related parties');
     expect(html).toContain('The group narrative.');
-    expect(html).toContain('1 flow not relevant: Within the fiscal unity');
+    expect(html).toContain('1 transaction not relevant: Within the fiscal unity');
     expect(html).toContain('Why relevant');
     expect(html).toContain('Cross-border to a related party');
     expect(html).not.toContain('service'); // accounted flow not in the relevant table
@@ -176,6 +176,6 @@ describe('part A funnel export', () => {
     // which now precedes the flows section.
     const partA4 = html.slice(html.indexOf('A.3 ·'), html.indexOf('A.4 ·'));
     expect(partA4).not.toContain('Idle BV');
-    expect(html).toContain('The remaining 1 group entity is not party to a relevant flow');
+    expect(html).toContain('The remaining 1 group entity is not party to a relevant transaction');
   });
 });
