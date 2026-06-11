@@ -10,6 +10,7 @@ import { useOpenQuestionsView } from "@/hooks/useOpenQuestions";
 import { useRecheckOpenQuestions } from "@/hooks/useRecheckOpenQuestions";
 import { dismissedGateHint } from "@/lib/openQuestions/grouping";
 import type { OpenQuestionRow } from "@/lib/openQuestions/types";
+import { ComposeClientLetterDialog } from "./ComposeClientLetterDialog";
 import { OpenQuestionRowActions } from "./OpenQuestionRowActions";
 import { OpenQuestionRowCard } from "./OpenQuestionRowCard";
 import { OpenQuestionsExportActions } from "./OpenQuestionsExportActions";
@@ -97,6 +98,11 @@ export function OpenQuestionsPanel({
           resolveText={resolveText}
         />
         <div className="flex flex-wrap items-start gap-x-2 gap-y-2">
+          <ComposeClientLetterDialog
+            sessionId={sessionId}
+            groups={groups}
+            resolveText={resolveText}
+          />
           <PrepareClientQuestionsButton sessionId={sessionId} rows={view.rows} />
           <RecheckWithAiButton sessionId={sessionId} rows={view.rows} />
         </div>

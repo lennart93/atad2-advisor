@@ -209,12 +209,14 @@ export function useOpenQuestionActions(sessionId: string | null) {
   });
 
   /**
-   * After a successful "Copy as text" or "Export to Word": stamp the
-   * still-open exported rows as taken_to_client in one update (the status
-   * filter makes sure already-sent rows are never re-stamped), then write
-   * one audit event per included row. Callers run this strictly AFTER the
-   * clipboard write resolved or the docx download was triggered, so a
-   * failed export never flips anything.
+   * After a successful "Copy as text", "Export to Word" or composed-letter
+   * copy: stamp the still-open exported rows as taken_to_client in one update
+   * (the status filter makes sure already-sent rows are never re-stamped),
+   * then write one audit event per included row. Callers run this strictly
+   * AFTER the clipboard write resolved or the docx download was triggered, so
+   * a failed export never flips anything. The optional detail replaces the
+   * default { count } payload; the event vocabulary itself stays unchanged
+   * because the events CHECK constraint is live.
    */
   const recordExportSent = useCallback(
     async ({
@@ -222,11 +224,13 @@ export function useOpenQuestionActions(sessionId: string | null) {
       includedQuestionIds,
       event,
       count,
+      detail,
     }: {
       flipRowIds: string[];
       includedQuestionIds: string[];
       event: "copied" | "exported";
       count: number;
+      detail?: Json;
     }) => {
       if (flipRowIds.length > 0) {
         const { error } = await supabase
@@ -241,7 +245,7 @@ export function useOpenQuestionActions(sessionId: string | null) {
       }
       await Promise.all(
         includedQuestionIds.map((questionId) =>
-          logEvent(questionId, event, { count }),
+          logEvent(questionId, event, detail ?? { count }),
         ),
       );
       invalidate();
