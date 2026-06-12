@@ -502,12 +502,13 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
               value={localQual === 'undetermined' ? undefined : (localQual === 'transparent' ? 'transparent' : 'opaque')}
               defaultOpen
               onOpenChange={(open) => { if (!open) setEditLocalQual(null); }}
-              onValueChange={(v) => onChange!(withLocalQualification(facts, e.id, v as 'transparent' | 'opaque', effJurisdiction(e)))}
+              onValueChange={(v) => onChange!(withLocalQualification(facts, e.id, v as 'transparent' | 'opaque' | 'unknown', effJurisdiction(e)))}
             >
               <SelectTrigger className={COMPACT_CONTROL}><SelectValue placeholder="Set…" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="transparent">Transparent</SelectItem>
                 <SelectItem value="opaque">Non-transparent</SelectItem>
+                <SelectItem value="unknown">Not determined (-)</SelectItem>
               </SelectContent>
             </Select>
           </QuietCell>
@@ -629,6 +630,16 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
           </p>
         )}
 
+        {/* The relatedness story belongs to the table that shows it. */}
+        <div className="mt-2.5 text-xs">
+          <NarrativeLine narrative={narrative('related')} onSave={saveNarrative?.('related')} />
+          <p className="text-muted-foreground">
+            {relatedCount === 0
+              ? 'No entities outside the taxpayer qualify as related parties.'
+              : `${relatedCount} of ${others.length} entities outside the taxpayer qualify as related parties (the 25% test or a direct shareholding).`}
+          </p>
+        </div>
+
         {/* Classification findings live with the table that shows them. */}
         {(() => {
           const mismatches = shown.entities.filter((e) => hasMismatch(e));
@@ -678,13 +689,6 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
       {/* AT - 2. Acting together                                              */}
       {/* ------------------------------------------------------------------ */}
       <Exhibit tag="AT" icon={<Handshake className="h-4 w-4 text-muted-foreground" />} title="2 · Acting together" {...sectionProps('actingTogether')}>
-        <NarrativeLine narrative={narrative('related')} onSave={saveNarrative?.('related')} />
-        <p className="mb-2 text-xs text-muted-foreground">
-          {relatedCount === 0
-            ? 'No entities outside the taxpayer qualify as related parties.'
-            : `${relatedCount} of ${others.length} entities outside the taxpayer qualify as related parties (the 25% test or a direct shareholding); see the table above.`}
-        </p>
-
         <div>
           {shown.actingTogether.length === 0 ? (
             <p className="text-xs text-muted-foreground">

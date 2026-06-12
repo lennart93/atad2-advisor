@@ -290,7 +290,7 @@ export function AppendixTable({ rows, skeleton, showSources, relatedParties, onE
                           </TableCell>
                         )}
                       </TableRow>
-                      {sk.relatedView === 'inline' && (
+                      {sk.relatedView === 'inline' && relatedParties && (
                         <TableRow className={cn(excluded && 'opacity-55')}>
                           <TableCell colSpan={colSpan} className="pt-0">
                             <AssociationPanel data={relatedParties} />

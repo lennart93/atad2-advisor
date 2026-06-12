@@ -12,7 +12,6 @@ import {
 import type { StoredAppendix, AppendixRow, EditableField, AppendixFacts } from '@/lib/appendix/types';
 import { useAppendixSkeleton } from '@/lib/appendix/skeletonStore';
 import { loadChart } from '@/lib/structure/client';
-import { buildRelatedParties, type RelatedPartiesResult } from '@/lib/appendix/relatedParties';
 import { useUiBusySignal } from '@/stores/uiBusyStore';
 import { FactsPanel } from '@/components/appendix/FactsPanel';
 import { buildEntityRegister } from '@/lib/appendix/facts/entityRegister';
@@ -53,7 +52,6 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
   const [phase, setPhase] = useState<Phase>('loading');
   const showSources = true;
   const [confirming, setConfirming] = useState(false);
-  const [relatedParties, setRelatedParties] = useState<RelatedPartiesResult | null>(null);
   const [chart, setChart] = useState<{ entities: Parameters<typeof buildEntityRegister>[0]; edges: Parameters<typeof buildEntityRegister>[1]; groupings: Parameters<typeof buildEntityRegister>[2] } | null>(null);
   // Rows/facts the advisor edited this session, so a background refine poll does
   // not overwrite them on screen.
@@ -70,7 +68,6 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
     loadChart(sessionId)
       .then((c) => {
         if (!cancelled && c) {
-          setRelatedParties(buildRelatedParties(c.entities, c.edges));
           setChart({ entities: c.entities, edges: c.edges, groupings: c.groupings });
         }
       })
@@ -302,7 +299,9 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
             generated={!!appendix?.facts}
           />
         ) : (
-          <AppendixTable rows={appendix.rows} skeleton={skeleton} showSources={showSources} relatedParties={relatedParties} onEdit={handleEdit} onToggleExclude={handleToggleExclude} />
+          {/* The associated-enterprises panel is gone: the Part A master table
+              already shows every entity with relatedness and qualifications. */}
+          <AppendixTable rows={appendix.rows} skeleton={skeleton} showSources={showSources} relatedParties={null} onEdit={handleEdit} onToggleExclude={handleToggleExclude} />
         )}
       </div>
 

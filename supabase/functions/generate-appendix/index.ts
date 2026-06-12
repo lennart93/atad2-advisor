@@ -130,6 +130,14 @@ async function runGeneration(c: SupabaseClient, appendixId: string, sessionId: s
     });
 
     const structureBlock = await loadStructureBlock(c, sessionId);
+    // Free-text explanations the advisor gave with the answers: factual evidence
+    // the facts pass may rely on (e.g. how an entity is treated locally). The
+    // enum answers themselves stay out of Part A so the facts stay reusable.
+    const evidenceNotes = answers
+      .filter((a) => a.explanation && a.explanation.trim())
+      .map((a) => `- (Q${a.question_id}) ${a.explanation!.trim()}`)
+      .join("
+");
     const answersBlock = answers
       .map((a) => `Q${a.question_id} answer: ${a.answer}${a.explanation ? `\n  Explanation: ${a.explanation}` : ""}`)
       .join("\n");
@@ -146,7 +154,7 @@ async function runGeneration(c: SupabaseClient, appendixId: string, sessionId: s
     const { data: priorRow } = await c
       .from("atad2_appendix").select("facts, facts_input_hash").eq("id", appendixId).maybeSingle();
     const priorFacts = (priorRow?.facts as AppendixFacts | null) ?? null;
-    const factsHash = await computeFactsInputHash(c, sessionId, rawChart, session ?? null);
+    const factsHash = await computeFactsInputHash(c, sessionId, rawChart, session ?? null, evidenceNotes);
     const canReuseFacts = factEntities.length > 0
       && priorFacts !== null
       && Array.isArray(priorFacts.entities)
@@ -162,7 +170,7 @@ async function runGeneration(c: SupabaseClient, appendixId: string, sessionId: s
       factsHashToStore = factsHash;
       console.log(JSON.stringify({ level: "info", event: "appendix_facts_reused", appendixId }));
     } else {
-      const built = await buildFacts(c, sessionId, factEntities, session ?? null, structureBlock);
+      const built = await buildFacts(c, sessionId, factEntities, session ?? null, structureBlock, evidenceNotes);
       factsToStore = mergeFacts(priorFacts, built.facts);
       // Only fingerprint a COMPLETE Part A. A degraded fallback (the Claude/KB
       // call failed and left classifications/acting-together empty) must not be
@@ -180,7 +188,8 @@ async function runGeneration(c: SupabaseClient, appendixId: string, sessionId: s
       .replace("{{SESSION_ID}}", sessionId)
       .replace("{{FACTS_BLOCK}}", factsBlock)
       .replace("{{ANSWERS_BLOCK}}", answersBlock || "(no answers recorded)")
-      .replace("{{STRUCTURE_BLOCK}}", structureBlock || "(no structure chart available)");
+      .replace("{{STRUCTURE_BLOCK}}", structureBlock || "(no structure chart available)")
+      .replace("{{EVIDENCE_NOTES}}", evidenceNotes || "(none)");
 
     const sectionOf = (rowId: string) => rowId.slice(0, rowId.lastIndexOf("."));
     const sectionGroups = new Map<string, ServerSkeletonRow[]>();
@@ -323,6 +332,7 @@ async function computeFactsInputHash(
   sessionId: string,
   raw: { entities: RawEntity[]; edges: Array<RawEdge & { kind: string | null }>; groups: RawGroup[] },
   session: { taxpayer_name?: string | null; fiscal_year?: string | null } | null,
+  evidenceNotes: string,
 ): Promise<string> {
   const ents = raw.entities.map((e) => `${e.id}|${e.name}|${e.entity_type}|${e.jurisdiction_iso}|${e.is_taxpayer}`).sort();
   const edges = raw.edges.map((e) => `${e.from_entity_id}->${e.to_entity_id}|${e.ownership_pct}|${e.kind}`).sort();
@@ -338,7 +348,7 @@ async function computeFactsInputHash(
   const kbIds = (kb ?? []).map((r) => String((r as { id: unknown }).id)).sort();
   const pv = await factsPromptVersion(c);
   return sha256Hex(JSON.stringify({
-    ents, edges, groups, docMeta, kbIds,
+    ents, edges, groups, docMeta, kbIds, evidenceNotes,
     fy: session?.fiscal_year ?? "", name: session?.taxpayer_name ?? "", pv,
   }));
 }
@@ -350,6 +360,7 @@ async function buildFacts(
   entities: FactEntity[],
   session: { taxpayer_name?: string | null; fiscal_year?: string | null } | null,
   structureBlock: string,
+  evidenceNotes: string,
 ): Promise<{ facts: AppendixFacts; complete: boolean }> {
   const base: AppendixFacts = { entities, actingTogether: [], classifications: [], transactions: [] };
   if (!entities.length) return { facts: base, complete: false };
@@ -387,7 +398,8 @@ async function buildFacts(
       .replace("{{DOCUMENTS_BLOCK}}", docsBlock || "(no documents)")
       .replace("{{ENTITY_REGISTER}}", registerJson)
       .replace("{{KB_BLOCK}}", kbBlock || "(no knowledge base hits)")
-      .replace("{{STRUCTURE_BLOCK}}", structureBlock || "(no structure chart available)");
+      .replace("{{STRUCTURE_BLOCK}}", structureBlock || "(no structure chart available)")
+      .replace("{{EVIDENCE_NOTES}}", evidenceNotes || "(none)");
     // One retry, like the Part B sections: a single malformed model response must
     // not collapse the whole facts proposal to the empty base.
     const proposed = await (async () => {
