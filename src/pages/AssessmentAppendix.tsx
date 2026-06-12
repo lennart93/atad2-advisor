@@ -299,8 +299,8 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
             generated={!!appendix?.facts}
           />
         ) : (
-          {/* The associated-enterprises panel is gone: the Part A master table
-              already shows every entity with relatedness and qualifications. */}
+          // relatedParties is null on purpose: the associated-enterprises panel
+          // is gone, the Part A master table already carries that overview.
           <AppendixTable rows={appendix.rows} skeleton={skeleton} showSources={showSources} relatedParties={null} onEdit={handleEdit} onToggleExclude={handleToggleExclude} />
         )}
       </div>
