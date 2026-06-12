@@ -5,6 +5,7 @@ import { isSectionExcluded } from './facts/sections';
 import { effJurisdiction, effNlTaxStatus } from './facts/entityFields';
 import { nlQualification, nlQualificationLabel } from './facts/nlTaxStatus';
 import { actingLikelihoodLabel } from './facts/actingLikelihood';
+import { cleanReasoning } from './reasoningText';
 import { deriveConclusions } from './facts/conclusions';
 import { relevantTransactions, accountedTransactionGroups } from './facts/relevance';
 
@@ -76,7 +77,7 @@ export function buildAppendixBlock(rows: AppendixRow[], skeleton: SkeletonRow[] 
     .map((r) => {
       const sk = byId.get(r.rowId);
       const basis = sk ? `${sk.legalBasis} - ${sk.conditionTested}` : r.rowId;
-      return `- [${r.rowId}] ${esc(basis)} :: ${esc(r.status ?? '')} :: ${esc(r.reasoning ?? '')}`;
+      return `- [${r.rowId}] ${esc(basis)} :: ${esc(r.status ?? '')} :: ${esc(cleanReasoning(r.reasoning))}`;
     });
   const factsBlock = facts && facts.entities.length ? `${buildFactsSummary(facts)}\n` : '';
   const rowsBlock = lines.length ? `<confirmed_appendix>\n${lines.join('\n')}\n</confirmed_appendix>` : '';

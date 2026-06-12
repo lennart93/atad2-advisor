@@ -8,6 +8,7 @@ import { isSectionExcluded } from './facts/sections';
 import { effJurisdiction, effNlTaxStatus } from './facts/entityFields';
 import { nlQualification, nlQualificationLabel } from './facts/nlTaxStatus';
 import { actingLikelihoodLabel } from './facts/actingLikelihood';
+import { cleanReasoning } from './reasoningText';
 import { deriveConclusions, inScopeEntityIds, localQualification, entityHasQualificationDifference } from './facts/conclusions';
 import { relevantTransactions, accountedTransactionGroups } from './facts/relevance';
 import { countryName } from '@/lib/structure/countries';
@@ -88,7 +89,7 @@ export function buildAppendixPrintHtml(
             `<td class="c-basis">${esc(r.legalBasis)}</td>` +
             `<td>${esc(r.conditionTested)}</td>` +
             statusCell(r.status, r.kind, flags) +
-            `<td class="c-reason">${esc(r.reasoning)}</td>${prov}</tr>`
+            `<td class="c-reason">${esc(cleanReasoning(r.reasoning))}</td>${prov}</tr>`
           );
         })
         .join('');

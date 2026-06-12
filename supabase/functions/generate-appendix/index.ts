@@ -20,6 +20,15 @@ const VALID_LIKELIHOODS = ["highly_unlikely", "unlikely", "unclear", "likely", "
  * Replace the em/en dashes the model still emits despite the prompt with a comma.
  * Regular hyphens (co-investment, equity-and-loan) are U+002D and left untouched.
  */
+const REASONING_BOILERPLATE = new RegExp("^based on (?:the )?(?:currently )?(?:available|provided) (?:information|documents|documentation|inputs|facts)[,:]?\\s*", "i");
+function stripBoilerplate(s: string | null): string | null {
+  if (!s) return s;
+  const trimmed = s.trim();
+  const out = trimmed.replace(REASONING_BOILERPLATE, "");
+  if (!out || out === trimmed) return trimmed;
+  return out.charAt(0).toUpperCase() + out.slice(1);
+}
+
 function noDashes(s: string | null | undefined): string | null {
   if (s == null) return null;
   return s
@@ -216,7 +225,7 @@ async function runGeneration(c: SupabaseClient, appendixId: string, sessionId: s
       const m = byId.get(sk.rowId);
       const statusRaw = m?.status ?? "Insufficient information";
       const status = sk.allowedStates.includes(statusRaw) ? statusRaw : "Insufficient information";
-      const reasoning = noDashes(m?.reasoning) ?? "The model did not return a grounded answer for this row; confirm manually.";
+      const reasoning = stripBoilerplate(noDashes(m?.reasoning)) ?? "The model did not return a grounded answer for this row; confirm manually.";
       const provenance = m?.provenance ?? "";
       return {
         rowId: sk.rowId,
