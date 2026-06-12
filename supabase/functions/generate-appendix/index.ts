@@ -409,6 +409,7 @@ async function buildFacts(
     const hasExplicitFu = entities.some((e) => e.isFiscalUnity || e.memberOfUnityId);
     const fuMembers = new Set((proposed.fiscalUnityMemberEntityIds ?? []).filter((id) => id !== "E1"));
     const positions = proposed.positionByEntityId ?? {};
+    const jurById = new Map(entities.map((e) => [e.id, e.jurisdiction]));
     const statusReasons = proposed.nlTaxStatusReasonByEntityId ?? {};
     const shareholders = new Set((proposed.taxpayerShareholderEntityIds ?? []).filter((id) => id !== "E1"));
     const facts: AppendixFacts = {
@@ -439,18 +440,32 @@ async function buildFacts(
         hybrid: cl.hybrid ?? false,
         status: "proposed" as const, excludedFromClient: false, source: "ai" as const,
       })),
-      transactions: proposed.transactions.filter((t) => !!t.fromEntityId && !!t.toEntityId).map((t, i) => ({
-        id: `T${i + 1}`,
-        fromEntityId: t.fromEntityId as string,
-        toEntityId: t.toEntityId as string,
-        kind: t.kind ?? "",
-        instrument: t.instrument ?? null,
-        note: noDashes(t.note),
-        articlesTested: t.articlesTested ?? [],
-        relevant: t.relevant ?? true,
-        relevanceReason: t.relevanceReason ?? null,
-        status: "proposed" as const, excludedFromClient: false, source: "ai" as const,
-      })),
+      transactions: proposed.transactions.filter((t) => !!t.fromEntityId && !!t.toEntityId).map((t, i) => {
+        // Hard funnel rule, never left to the model: a transaction between two
+        // entities in the SAME jurisdiction is domestic and cannot be relevant
+        // for ATAD2 (no cross-border qualification difference is possible on
+        // it). The advisor can still flip it manually; that flip survives.
+        const fromJur = jurById.get(t.fromEntityId as string) ?? null;
+        const toJur = jurById.get(t.toEntityId as string) ?? null;
+        const domestic = !!fromJur && !!toJur && fromJur === toJur;
+        const aiRelevant = t.relevant ?? true;
+        const relevant = domestic ? false : aiRelevant;
+        const relevanceReason = domestic && aiRelevant
+          ? `Domestic transaction between two ${fromJur} entities; ATAD2 requires a cross-border element.`
+          : (noDashes(t.relevanceReason) ?? null);
+        return {
+          id: `T${i + 1}`,
+          fromEntityId: t.fromEntityId as string,
+          toEntityId: t.toEntityId as string,
+          kind: t.kind ?? "",
+          instrument: t.instrument ?? null,
+          note: noDashes(t.note),
+          articlesTested: t.articlesTested ?? [],
+          relevant,
+          relevanceReason,
+          status: "proposed" as const, excludedFromClient: false, source: "ai" as const,
+        };
+      }),
       // One acting-together assessment for the parents (not multiple clusters with
       // per-level texts): a single likelihood + one prose paragraph.
       actingTogether: proposed.actingTogether.filter((a) => a.memberEntityIds.length >= 2).slice(0, 1).map((a, i) => {
