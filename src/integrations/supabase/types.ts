@@ -130,6 +130,181 @@ export type Database = {
           },
         ]
       }
+      atad2_appendix: {
+        Row: {
+          id: string
+          session_id: string
+          review_status: string
+          generation_status: string
+          rows: Json
+          facts: Json | null
+          facts_input_hash: string | null
+          facts_skipped: boolean
+          checklist_skipped: boolean
+          model: string | null
+          prompt_version: number | null
+          error_message: string | null
+          generated_at: string | null
+          confirmed_at: string | null
+          confirmed_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          session_id: string
+          review_status?: string
+          generation_status?: string
+          rows?: Json
+          facts?: Json | null
+          facts_input_hash?: string | null
+          facts_skipped?: boolean
+          checklist_skipped?: boolean
+          model?: string | null
+          prompt_version?: number | null
+          error_message?: string | null
+          generated_at?: string | null
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          session_id?: string
+          review_status?: string
+          generation_status?: string
+          rows?: Json
+          facts?: Json | null
+          facts_input_hash?: string | null
+          facts_skipped?: boolean
+          checklist_skipped?: boolean
+          model?: string | null
+          prompt_version?: number | null
+          error_message?: string | null
+          generated_at?: string | null
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "atad2_appendix_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "atad2_sessions"
+            referencedColumns: ["session_id"]
+          },
+        ]
+      }
+      atad2_appendix_edits: {
+        Row: {
+          id: string
+          appendix_id: string
+          row_id: string
+          field: string
+          old_value: string | null
+          new_value: string | null
+          edited_by: string | null
+          edited_at: string
+        }
+        Insert: {
+          id?: string
+          appendix_id: string
+          row_id: string
+          field: string
+          old_value?: string | null
+          new_value?: string | null
+          edited_by?: string | null
+          edited_at?: string
+        }
+        Update: {
+          id?: string
+          appendix_id?: string
+          row_id?: string
+          field?: string
+          old_value?: string | null
+          new_value?: string | null
+          edited_by?: string | null
+          edited_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "atad2_appendix_edits_appendix_id_fkey"
+            columns: ["appendix_id"]
+            isOneToOne: false
+            referencedRelation: "atad2_appendix"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      atad2_appendix_skeleton: {
+        Row: {
+          id: string
+          row_id: string
+          section_id: string
+          section_title: string
+          legal_basis: string
+          condition_tested: string
+          kind: string | null
+          related_parties_view: boolean | null
+          related_view: string | null
+          legal_framework: string | null
+          effect: string | null
+          allowed_states: Json
+          driven_by_question_ids: Json
+          render_if: Json | null
+          flags: Json | null
+          sort_order: number
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          row_id: string
+          section_id: string
+          section_title: string
+          legal_basis: string
+          condition_tested: string
+          kind?: string | null
+          related_parties_view?: boolean | null
+          related_view?: string | null
+          legal_framework?: string | null
+          effect?: string | null
+          allowed_states?: Json
+          driven_by_question_ids?: Json
+          render_if?: Json | null
+          flags?: Json | null
+          sort_order: number
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          row_id?: string
+          section_id?: string
+          section_title?: string
+          legal_basis?: string
+          condition_tested?: string
+          kind?: string | null
+          related_parties_view?: boolean | null
+          related_view?: string | null
+          legal_framework?: string | null
+          effect?: string | null
+          allowed_states?: Json
+          driven_by_question_ids?: Json
+          render_if?: Json | null
+          flags?: Json | null
+          sort_order?: number
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       atad2_assessment_log: {
         Row: {
           id: string
@@ -959,6 +1134,9 @@ export type Database = {
           is_mismatch: boolean
           kind: string
           label: string | null
+          label_dx: number | null
+          label_dy: number | null
+          label_hidden: boolean
           label_t: number | null
           label_dx: number | null
           label_dy: number | null
@@ -981,6 +1159,9 @@ export type Database = {
           is_mismatch?: boolean
           kind: string
           label?: string | null
+          label_dx?: number | null
+          label_dy?: number | null
+          label_hidden?: boolean
           label_t?: number | null
           label_dx?: number | null
           label_dy?: number | null
@@ -1003,6 +1184,9 @@ export type Database = {
           is_mismatch?: boolean
           kind?: string
           label?: string | null
+          label_dx?: number | null
+          label_dy?: number | null
+          label_hidden?: boolean
           label_t?: number | null
           label_dx?: number | null
           label_dy?: number | null

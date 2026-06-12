@@ -37,9 +37,12 @@ import { useQuestionPrefill, usePrefillJob, useSessionDocuments } from "@/hooks/
 import { seededIndex } from "@/utils/random";
 import { motion } from "framer-motion";
 import { startExtraction } from "@/lib/structure/extraction";
+import { startAppendixGeneration, loadAppendix, pollAppendixUntilReady } from "@/lib/appendix/client";
+import { loadChart } from "@/lib/structure/client";
 import { AssessmentFooterSlot } from "@/components/assessment/AssessmentFooterSlot";
 import { useAssessmentSessionId } from "@/lib/assessment/useAssessmentSessionId";
 import { OpenQuestionsPanel } from "@/components/openQuestions/OpenQuestionsPanel";
+import { useAppendixPrewarm } from "@/hooks/useAppendixPrewarm";
 
 // Playful placeholders that rotate (seeded per session+question) when the user
 // picks "Unknown" and the explanation textarea is empty. Soften the moment by
@@ -233,6 +236,7 @@ const Assessment = () => {
   const [dontShowBeforeYouStartAgain, setDontShowBeforeYouStartAgain] = useState(false);
   const [sessionStarted, setSessionStarted] = useState(false);
   const [sessionId, setSessionId] = useState<string>("");
+  useAppendixPrewarm(sessionId || undefined);
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [selectedAnswer, setSelectedAnswer] = useState<string>("");
@@ -880,6 +884,50 @@ const Assessment = () => {
         if ((err as { status?: number })?.status === 409) return;
         console.warn('[Assessment] Phase B pre-fetch failed; Step 5 will retry', err);
       });
+
+      // Refresh the appendix/facts generation now that the Q&A answers exist.
+      // The prewarm hook fires once on the Phase A chart draft (before answers),
+      // so this explicit call folds the answers into the article rows and facts.
+      // startAppendixGeneration merges fresh AI output with any prior advisor
+      // edits/confirmations, so re-running is non-destructive. We first let any
+      // in-flight (answer-less) prewarm run finish: otherwise the edge function
+      // drops this invoke as a fresh duplicate, or races its final write, and
+      // the appendix lands "ready" with answer-less content.
+      void (async () => {
+        try {
+          const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+          // First let the just-dispatched Phase B refine settle, so this
+          // answer-bearing appendix run reads the refined chart instead of the
+          // docs-only one. Give the refine up to ~20s to actually start, then
+          // wait (bounded) until the chart leaves its extracting state.
+          const chartStatus = async () =>
+            (await loadChart(sessionId).catch(() => null))?.chart?.status ?? null;
+          for (let i = 0; i < 5; i++) {
+            const st = await chartStatus();
+            if (st && st.startsWith('extracting')) break;
+            await sleep(4000);
+          }
+          const refineDeadline = Date.now() + 240_000;
+          while (Date.now() < refineDeadline) {
+            const st = await chartStatus();
+            if (!st || !st.startsWith('extracting')) break;
+            await sleep(4000);
+          }
+          const cur = await loadAppendix(sessionId);
+          // Only wait when a FRESH prewarm run is still in flight: starting now
+          // would make the edge function drop our answer-bearing run as a
+          // duplicate. A stale 'generating' row (its work died) is not worth
+          // waiting on, and the edge function just restarts it on our call.
+          const freshRun =
+            cur?.generation_status === 'generating' &&
+            !!cur.updated_at &&
+            Date.now() - new Date(cur.updated_at).getTime() < 90_000;
+          if (freshRun) {
+            await pollAppendixUntilReady(sessionId, () => {}).catch(() => {});
+          }
+          await startAppendixGeneration(sessionId);
+        } catch { /* the appendix step has a cold-start backstop */ }
+      })();
 
       // Per-question suggestions are reviewed on the assessment report page,
       // where each answer can be edited inline. Skip the standalone review

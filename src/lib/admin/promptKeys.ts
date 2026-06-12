@@ -7,9 +7,10 @@ export type PromptKey =
   | "structure_stage1_refine"
   | "structure_stage2_initial"
   | "structure_stage2_refine"
-  | "memo_system";
+  | "memo_system"
+  | "appendix_system";
 
-export type PromptGroup = "Pre-fill" | "Structure chart" | "Memo";
+export type PromptGroup = "Pre-fill" | "Structure chart" | "Memo" | "Appendix";
 
 export interface PromptDescriptor {
   key: PromptKey;
@@ -65,9 +66,18 @@ export const PROMPT_DESCRIPTORS: PromptDescriptor[] = [
     group: "Memo",
     label: "Final memorandum (n8n)",
     placeholders:
-      "{{TAXPAYER_NAME}}, {{FISCAL_YEAR}}, {{SESSION_ID}}, {{TOTAL_RISK}}, {{ANSWERS_COUNT}}, {{UNKNOWN_COUNT}}, {{RISK_CATEGORY}}, {{CORE_LOGIC_BLOCK}}, {{OVERRIDE_BLOCK}}, {{OVERRIDE_INFO_BLOCK}}, {{DOCUMENTS_BLOCK_FORMATTED}}, {{QA_LIST}}, {{ADDITIONAL_CONTEXT_BLOCK}}",
+      "{{TAXPAYER_NAME}}, {{FISCAL_YEAR}}, {{SESSION_ID}}, {{TOTAL_RISK}}, {{ANSWERS_COUNT}}, {{UNKNOWN_COUNT}}, {{RISK_CATEGORY}}, {{CORE_LOGIC_BLOCK}}, {{OVERRIDE_BLOCK}}, {{OVERRIDE_INFO_BLOCK}}, {{DOCUMENTS_BLOCK_FORMATTED}}, {{CONFIRMED_APPENDIX_BLOCK}}, {{QA_LIST}}, {{ADDITIONAL_CONTEXT_BLOCK}}",
     description:
       "System prompt the AI Agent uses to draft the final ATAD2 memorandum. The n8n 'ATAD2' workflow fetches the active version at runtime; edits here go live on the next memo generation.",
+  },
+  {
+    key: "appendix_system",
+    group: "Appendix",
+    label: "Technical appendix (per-row)",
+    placeholders:
+      "{{TAXPAYER_NAME}}, {{FISCAL_YEAR}}, {{SESSION_ID}}, {{SKELETON_ROWS}}, {{ANSWERS_BLOCK}}, {{STRUCTURE_BLOCK}}",
+    description:
+      "Fills Decision + Reasoning + Reference for each fixed legal-framework row of the ATAD2 technical appendix. Decisions are limited to each row's allowed states; the Reference is internal-only and never reaches the client export.",
   },
 ];
 
@@ -82,4 +92,4 @@ export interface ExternalPrompt {
 
 export const EXTERNAL_PROMPTS: ExternalPrompt[] = [];
 
-export const PROMPT_GROUPS: PromptGroup[] = ["Pre-fill", "Structure chart", "Memo"];
+export const PROMPT_GROUPS: PromptGroup[] = ["Pre-fill", "Structure chart", "Memo", "Appendix"];

@@ -103,11 +103,11 @@ const AssessmentConfirmation = () => {
 
       if (error) throw error;
 
-      // If already confirmed, skip ahead to the structure step (the next step
+      // If already confirmed, skip ahead to the appendix step (the next step
       // in the flow). The report itself enforces "must be confirmed first" so
       // a deep-link to /assessment-report still ends up here if needed.
       if (data.outcome_confirmed) {
-        navigate(`/assessment/structure/${sessionId}`);
+        navigate(`/assessment-appendix/${sessionId}`);
         return;
       }
 
@@ -166,7 +166,7 @@ const AssessmentConfirmation = () => {
 
       if (error) throw error;
 
-      navigate(`/assessment/structure/${sessionId}`);
+      navigate(`/assessment-appendix/${sessionId}`);
     } catch (error) {
       console.error('Error confirming outcome:', error);
       toast.error("Error", { description: "Failed to confirm outcome" });

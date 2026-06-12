@@ -22,6 +22,7 @@ const AssessmentUpload = lazy(() => import("./pages/AssessmentUpload"));
 const AssessmentConfirmation = lazy(() => import("./pages/AssessmentConfirmation"));
 const AssessmentStructure = lazy(() => import("./pages/AssessmentStructure"));
 const AssessmentReport = lazy(() => import("./pages/AssessmentReport"));
+const AssessmentAppendix = lazy(() => import("./pages/AssessmentAppendix"));
 const ReportDetail = lazy(() => import("./pages/ReportDetail"));
 const EmailConfirmed = lazy(() => import("./pages/EmailConfirmed"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -41,6 +42,7 @@ const AdminAuditLogs = lazy(() => import("./pages/admin/AuditLogs"));
 const AdminAnalytics = lazy(() => import("./pages/admin/Analytics"));
 const AdminDataExplorer = lazy(() => import("./pages/admin/DataExplorer"));
 const AdminPrompts = lazy(() => import("./pages/admin/Prompts"));
+const AdminAppendixSkeleton = lazy(() => import("./pages/admin/AppendixSkeleton"));
 const AdminPrefillJobs = lazy(() => import("./pages/admin/PrefillJobs"));
 const AdminFeedback = lazy(() => import("./pages/admin/Feedback"));
 const NotAuthorized = lazy(() => import("./pages/NotAuthorized"));
@@ -80,6 +82,8 @@ const App = () => (
                       <Route path="/assessment/upload" element={<ProtectedRoute><AssessmentUpload /></ProtectedRoute>} />
                       <Route path="/assessment/structure/:sessionId" element={<ProtectedRoute><AssessmentStructure /></ProtectedRoute>} />
                       <Route path="/assessment-confirmation/:sessionId" element={<ProtectedRoute><AssessmentConfirmation /></ProtectedRoute>} />
+                      <Route path="/assessment-appendix/:sessionId" element={<ProtectedRoute><AssessmentAppendix page="facts" /></ProtectedRoute>} />
+                      <Route path="/assessment-appendix/:sessionId/checklist" element={<ProtectedRoute><AssessmentAppendix page="checklist" /></ProtectedRoute>} />
                       <Route path="/assessment-report/:sessionId" element={<ProtectedRoute><AssessmentReport /></ProtectedRoute>} />
                     </Route>
                     <Route path="/report/:reportId" element={<ProtectedRoute><ReportDetail /></ProtectedRoute>} />
@@ -98,6 +102,7 @@ const App = () => (
                       <Route path="analytics" element={<AdminAnalytics />} />
                       <Route path="explorer" element={<AdminDataExplorer />} />
                       <Route path="prompts" element={<AdminPrompts />} />
+                      <Route path="appendix-skeleton" element={<AdminAppendixSkeleton />} />
                       <Route path="prefill-jobs" element={<AdminPrefillJobs />} />
                       <Route path="feedback" element={<AdminFeedback />} />
                       <Route path="*" element={<NotAuthorized />} />

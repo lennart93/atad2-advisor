@@ -298,7 +298,7 @@ function SessionRow({
           )}
         </div>
         <div className="text-[11px] text-muted-foreground truncate mt-0.5">
-          <span className="font-mono text-xs">{session.session_id}</span> · FY <span className="font-mono">{session.fiscal_year}</span>
+          FY <span className="font-mono">{session.fiscal_year}</span>
           {session.owner && (
             <> · {session.owner.full_name ?? session.owner.email}</>
           )}

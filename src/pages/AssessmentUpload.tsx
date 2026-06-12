@@ -30,6 +30,7 @@ import { maybePrewarmPhaseA } from "@/lib/structure/phaseAPrewarm";
 import { DocumentQualityMeter } from "@/components/prefill/DocumentQualityMeter";
 import { LowQualityGateDialog } from "@/components/prefill/LowQualityGateDialog";
 import { computeQuality } from "@/lib/prefill/qualityMeter";
+import { useAppendixPrewarm } from "@/hooks/useAppendixPrewarm";
 
 export default function AssessmentUpload() {
   const sessionId = useAssessmentSessionId();
@@ -39,6 +40,11 @@ export default function AssessmentUpload() {
   const { data: docs } = useSessionDocuments(sessionId);
   const { data: job } = usePrefillJob(sessionId);
   const startAnalyze = useStartAnalyze(sessionId);
+
+  // Start appendix/facts generation as early as possible (right after upload),
+  // so the facts pass is usually done by the time the user reaches the
+  // appendix step. The hook early-returns when sessionId is undefined.
+  useAppendixPrewarm(sessionId);
 
   const [waiting, setWaiting] = useState(false);
 

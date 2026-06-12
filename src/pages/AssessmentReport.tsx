@@ -23,6 +23,9 @@ import MissingExplanationsPopover from "@/components/MissingExplanationsPopover"
 import { buildDocumentsBlock } from "@/lib/prefill/buildDocumentsBlock";
 import { AssessmentFooterSlot } from "@/components/assessment/AssessmentFooterSlot";
 import { loadChartSnapshot } from "@/lib/structure/client";
+import { loadAppendix } from "@/lib/appendix/client";
+import { appendixMemoBlock } from "@/lib/appendix/buildAppendixBlock";
+import { loadAppendixSkeleton } from "@/lib/appendix/skeletonStore";
 interface SessionData {
   session_id: string;
   taxpayer_name: string;
@@ -423,6 +426,18 @@ const AssessmentReport = () => {
       }
       console.log('[generate-report] documents_block bytes:', documentsBlock.length);
 
+      // Feed the confirmed technical appendix into the memo so the narrative
+      // agrees with the article-by-article analysis. Reference column is excluded.
+      let confirmedAppendix: string | null = null;
+      try {
+        const [appendix, appendixSkeleton] = await Promise.all([loadAppendix(sessionId), loadAppendixSkeleton()]);
+        if (appendix && appendix.review_status === 'confirmed') {
+          confirmedAppendix = appendixMemoBlock(appendix, appendixSkeleton);
+        }
+      } catch (e) {
+        console.warn('[generate-report] loadAppendix failed, continuing without appendix', e);
+      }
+
       // Call n8n webhook - n8n will process and the Edge Function will save the complete report
       // Using AbortController with 10 minute timeout to allow for long-running AI processing
       const controller = new AbortController();
@@ -444,6 +459,7 @@ const AssessmentReport = () => {
           override_outcome: sessionData?.override_outcome || null,
           preliminary_outcome: sessionData?.preliminary_outcome || null,
           documents_block: documentsBlock,
+          confirmed_appendix: confirmedAppendix,
         }),
         signal: controller.signal
       });

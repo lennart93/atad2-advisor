@@ -66,6 +66,20 @@ Run-command voert uit als `root`, dus paden zijn absoluut vanaf `/root/`.
 ## Deployment naar self-hosted Supabase
 Geen Supabase CLI tegen de VM — alles gaat via `az vm run-command` (run-command voert uit als root).
 
+**`az`-toegang (LEES DIT EERST, voorkomt veel gedoe)** — alles hieronder hangt op de Azure CLI:
+1. **PIM**: Lennart activeert zijn PIM-rol (VM-rechten) vóór elke VM-actie. Een venster verloopt na ~10-15 min. Bij `AuthorizationFailed` op `virtualMachines/read`, `runCommand/action` of `operations/read` (ook midden in een call): PIM opnieuw laten activeren en het commando nog eens draaien — alle deploy-scripts hier zijn idempotent.
+2. **`az` valt soms uit het PATH van de Claude-omgeving** (geen normale install op de machine). Er staat een werkende, uitgepakte kopie klaar — roep die met het VOLLEDIGE pad aan:
+   - `C:\Users\adn356\az-extracted\Microsoft SDKs\Azure\CLI2\wbin\az.cmd`
+   - PowerShell: `& "C:\Users\adn356\az-extracted\Microsoft SDKs\Azure\CLI2\wbin\az.cmd" vm run-command invoke ...`
+   - Lennart is al ingelogd (tokens in `%USERPROFILE%\.azure`), dus géén `az login` nodig.
+3. **Is die map weg?** Pak de CLI opnieuw uit ZONDER admin (een gewone winget/MSI-install vereist UAC en lukt niet vanuit de tool; de `/a` administratieve uitpak wél):
+   ```powershell
+   Invoke-WebRequest 'https://azcliprod.blob.core.windows.net/msi/azure-cli-2.87.0-x64.msi' -OutFile $env:TEMP\azcli.msi -UseBasicParsing
+   Start-Process msiexec.exe -ArgumentList '/a',"$env:TEMP\azcli.msi",'/qn','TARGETDIR=C:\Users\adn356\az-extracted' -Wait
+   # az.cmd staat daarna op C:\Users\adn356\az-extracted\Microsoft SDKs\Azure\CLI2\wbin\az.cmd
+   ```
+4. Run-command vanaf Windows met spaties in paden: gebruik `--scripts "@<absoluut pad>"` en `--query "value[0].message" -o tsv`. SSH naar de VM is dicht (poort 22), dus run-command is de enige remote-route.
+
 **DB-migraties** — tabellen zijn eigendom van `supabase_admin`, NIET `postgres`:
 ```bash
 docker exec -i $(docker ps --filter name=supabase-db -q) \
@@ -98,3 +112,14 @@ az vm run-command invoke \
 ```
 
 **Generated types-bestand** ([src/integrations/supabase/types.ts](src/integrations/supabase/types.ts)) wordt handmatig bijgehouden omdat er geen Supabase CLI gelinkt is aan de self-hosted instance. Bij DB-schema-wijzigingen: voeg de nieuwe kolom handmatig toe in Row/Insert/Update interfaces voor de betreffende tabel.
+
+## Technische bijlage (feature)
+Artikelsgewijze ATAD2-checklist (art. 2 + 12aa t/m 12ag Wet Vpb) als aparte stap **ná Structure, vóór Report**. Vast rechtskader (hard-coded skelet); de AI vult per rij beslissing + reden + referentie. De referentie is intern en valt weg in de export. Ontwerp: [docs/superpowers/specs/2026-06-07-atad2-technical-appendix-design.md](docs/superpowers/specs/2026-06-07-atad2-technical-appendix-design.md); skelet + prompt: [docs/technische-bijlage-v1-skelet.md](docs/technische-bijlage-v1-skelet.md).
+
+- **Tabellen**: `atad2_appendix` (1 rij per sessie, `rows` als JSONB, losse `review_status` + `generation_status`) en `atad2_appendix_edits` (append-only wijzigingslog). RLS = sessie-eigenaar, net als `atad2_answers`. Migraties: `supabase/migrations/20260607174300_appendix_tables.sql` + `..._appendix_prompt_v1.sql` + `..._appendix_prompt_wording.sql` (alle toegepast op de VM).
+- **Prompt**: key `appendix_system` in `atad2_prompts` (JSON-output, gevuld per sectie).
+- **Edge function**: `supabase/functions/generate-appendix/` — async met `generation_status`, **swarm** (parallelle Claude-call per sectie voor snelheid), schrijft via service role, bewaart handmatige edits bij hergenereren.
+- **Skelet staat DUBBEL**: `src/lib/appendix/skeleton.ts` (frontend) en `supabase/functions/generate-appendix/skeletonRows.ts` (Deno). Bij elke wijziging BEIDE bijwerken.
+- **Prewarm**: de Structure-stap start de generatie zodra het schema klaar is, zodat de bijlage meestal al klaar is bij aankomst.
+- **OPENSTAAND**: migratie `..._memo_prompt_v4_appendix_block.sql` (memo v4 met placeholder `{{CONFIRMED_APPENDIX_BLOCK}}`) is bewust NIET toegepast. Pas die pas toe samen met het aanpassen van de n8n-node "Build prompt + metrics", die `confirmed_appendix` uit de payload in die placeholder moet zetten — anders krijgen alle memo's een lege placeholder.
+- **Juridische review-punten** (de bijlage draagt een banner "Draft, pending tax review" tot afgetekend): zie §8.1 van [docs/technische-bijlage-plan.md](docs/technische-bijlage-plan.md), o.a. gelieerdheid >25% vs 50% voor hybride-lichaam-gevallen, art. 12ab alleen onderdeel a/b/c/e/f, post-FKR lidnummers art. 2, oorsprongseis bij onderdeel g, art. 12af lid 2/3.

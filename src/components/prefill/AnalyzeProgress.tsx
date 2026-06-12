@@ -89,9 +89,6 @@ export function AnalyzeProgress({ sessionId, onContinue, asOfLine }: Props) {
     ? "Still working in the background"
     : "Reading your documents…";
 
-  const countBadge = total != null && prefillCount > 0
-    ? `${prefillCount} / ${total}`
-    : null;
 
   // Only render a detail line for terminal states. While we're actively
   // reading the bar + status label + count badge already say everything,
@@ -130,7 +127,7 @@ export function AnalyzeProgress({ sessionId, onContinue, asOfLine }: Props) {
             <div className="flex items-baseline justify-between gap-3">
               <p className="text-sm font-medium tracking-tight">{statusLabel}</p>
               <span className="text-xs tabular-nums text-muted-foreground">
-                {countBadge ? `${countBadge}  ·  ` : ""}{Math.round(pct)}%
+                {Math.round(pct)}%
               </span>
             </div>
             <Progress value={pct} className="h-1.5" />

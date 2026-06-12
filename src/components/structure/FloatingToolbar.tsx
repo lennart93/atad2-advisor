@@ -12,6 +12,7 @@ interface Props {
   onAutoArrange: () => void;
   selectedEntityIds: string[];
   onCreateFiscalUnity: () => void;
+  hiddenInAppendixCount?: number;
 }
 
 export function FloatingToolbar({
@@ -26,6 +27,7 @@ export function FloatingToolbar({
   onAutoArrange,
   selectedEntityIds,
   onCreateFiscalUnity,
+  hiddenInAppendixCount,
 }: Props) {
   const canCreateFiscalUnity = selectedEntityIds.length >= 2;
   return (
@@ -68,6 +70,11 @@ export function FloatingToolbar({
           {orphanCount} disconnected · {orphansVisible ? 'Hide' : 'Show'}
         </button>
       )}
+      {hiddenInAppendixCount ? (
+        <span className="text-[11px] text-muted-foreground px-1">
+          {hiddenInAppendixCount} hidden in appendix
+        </span>
+      ) : null}
       {canCreateFiscalUnity && (
         <Button size="sm" variant="outline" onClick={onCreateFiscalUnity} disabled={busy || isExtracting}>
           Create fiscal unity ({selectedEntityIds.length})
