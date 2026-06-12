@@ -25,6 +25,64 @@ export interface TickerInputs {
   clientQuestionCount: number;
   /** Client-question text (or official fallback) of route-B rows, oldest first. */
   teasers: string[];
+  /** Session taxpayer name; a few domain lines mention it when known. */
+  taxpayerName?: string | null;
+}
+
+/**
+ * Semi-generic ATAD2 work lines that rotate between the grounded lines while
+ * the analysis runs. They describe the kind of checks the swarm really
+ * performs, never a specific finding, never a question id or number. All
+ * English, ASCII dots only, no em or en dashes.
+ */
+export const DOMAIN_ACTIVITY_LINES: readonly string[] = [
+  "Looking for hybrid entities in the structure...",
+  "Checking how each counterparty is classified for tax purposes...",
+  "Mapping the intercompany financing flows...",
+  "Checking for permanent establishments abroad...",
+  "Comparing the Dutch deduction with the pickup abroad...",
+  "Reviewing the fiscal unity composition...",
+  "Checking the ownership chain for associated enterprises...",
+  "Looking for double deduction risks...",
+  "Checking whether payments are picked up within a reasonable period...",
+  "Scanning for check-the-box elections...",
+  "Reviewing loan agreements for back-to-back patterns...",
+  "Checking the shareholder register...",
+  "Looking for transparent entities in the chain...",
+  "Verifying tax residency of the taxpayer...",
+  "Checking branch structures for internal dealings...",
+  "Tracing where each payment is included in a tax base...",
+  "Looking for deduction without inclusion mismatches...",
+  "Reviewing the group structure for reverse hybrids...",
+  "Checking for dual resident entities...",
+  "Matching interest and royalty flows against the tax treatment abroad...",
+  "Looking for imported mismatch chains...",
+  "Checking whether any mismatch arises between associated enterprises...",
+  "Reviewing cost allocations between head office and branch...",
+  "Checking the timing of deductions against the inclusion abroad...",
+  "Looking for structured arrangements around the financing...",
+  "Cross-checking entity classifications between jurisdictions...",
+  "Reviewing guarantees and on-lending within the group...",
+  "Checking whether dual inclusion income offsets a double deduction...",
+];
+
+/**
+ * The domain pool for a session: the fixed lines plus a few taxpayer-specific
+ * ones when the name is known. Only the trimmed name is ever interpolated.
+ */
+export function buildDomainPool(
+  taxpayerName?: string | null,
+): string[] {
+  const pool = [...DOMAIN_ACTIVITY_LINES];
+  const name = taxpayerName?.trim();
+  if (name) {
+    pool.push(
+      `Analysing the transactions around ${name}...`,
+      `Checking how ${name} is classified abroad...`,
+      `Mapping the payment flows around ${name}...`,
+    );
+  }
+  return pool;
 }
 
 /**
@@ -93,4 +151,52 @@ export function buildTickerPool(
 export function pickTickerLine(pool: string[], tick: number): string | null {
   if (pool.length === 0) return null;
   return pool[tick % pool.length];
+}
+
+function gcd(a: number, b: number): number {
+  return b === 0 ? a : gcd(b, a % b);
+}
+
+/**
+ * Step size through the domain pool. Any step coprime with the pool size
+ * walks every line exactly once before the order repeats, so the rotation
+ * feels shuffled while staying fully deterministic in the tick counter.
+ */
+function strideFor(poolSize: number): number {
+  for (const candidate of [11, 7, 13, 9, 3]) {
+    if (candidate < poolSize && gcd(candidate, poolSize) === 1) return candidate;
+  }
+  return 1;
+}
+
+/**
+ * The line for a rotation tick, phase-aware:
+ * - wording and composing keep their small grounded pools as before.
+ * - analyzing mixes the big domain pool with the grounded lines: every 3rd
+ *   tick shows a grounded line (real categories, counters, teasers) when any
+ *   exist, the other ticks walk the domain pool with a coprime stride.
+ * Adjacent ticks never repeat a line: grounded slots are never adjacent, and
+ * the stride walk never lands on the same domain line twice in a row.
+ */
+export function pickNarrativeLine(
+  phase: TickerPhase,
+  inputs: TickerInputs,
+  tick: number,
+): string | null {
+  if (phase !== "analyzing") {
+    return pickTickerLine(buildTickerPool(phase, inputs), tick);
+  }
+
+  const grounded = buildTickerPool("analyzing", inputs);
+  const domain = buildDomainPool(inputs.taxpayerName);
+
+  if (grounded.length > 0 && tick % 3 === 2) {
+    return grounded[Math.floor(tick / 3) % grounded.length];
+  }
+
+  // Domain ticks get their own counter: the tick minus the grounded slots
+  // already shown, so the stride walk advances by exactly one per domain line.
+  const domainTick =
+    grounded.length > 0 ? tick - Math.floor((tick + 1) / 3) : tick;
+  return domain[(domainTick * strideFor(domain.length)) % domain.length];
 }

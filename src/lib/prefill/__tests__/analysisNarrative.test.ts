@@ -2,7 +2,10 @@ import { describe, it, expect } from 'vitest';
 import {
   truncateForTicker,
   buildTickerPool,
+  buildDomainPool,
   pickTickerLine,
+  pickNarrativeLine,
+  DOMAIN_ACTIVITY_LINES,
   type TickerInputs,
   type TickerPhase,
 } from '../analysisNarrative';
@@ -195,6 +198,136 @@ describe('pickTickerLine', () => {
   });
 });
 
+describe('the domain activity pool', () => {
+  it('holds at least 25 distinct lines', () => {
+    expect(DOMAIN_ACTIVITY_LINES.length).toBeGreaterThanOrEqual(25);
+    expect(new Set(DOMAIN_ACTIVITY_LINES).size).toBe(
+      DOMAIN_ACTIVITY_LINES.length,
+    );
+  });
+
+  it('contains no em-dash or en-dash and ends every line with three dots', () => {
+    for (const line of DOMAIN_ACTIVITY_LINES) {
+      expect(line.includes('—')).toBe(false);
+      expect(line.includes('–')).toBe(false);
+      expect(line.endsWith('...')).toBe(true);
+    }
+  });
+
+  it('buildDomainPool returns only the fixed lines when no name is known', () => {
+    expect(buildDomainPool(null)).toEqual([...DOMAIN_ACTIVITY_LINES]);
+    expect(buildDomainPool(undefined)).toEqual([...DOMAIN_ACTIVITY_LINES]);
+    expect(buildDomainPool('   ')).toEqual([...DOMAIN_ACTIVITY_LINES]);
+  });
+
+  it('buildDomainPool appends distinct taxpayer lines when the name is known', () => {
+    const pool = buildDomainPool('Camden B.V.');
+    expect(pool.length).toBeGreaterThan(DOMAIN_ACTIVITY_LINES.length);
+    const nameLines = pool.filter((l) => l.includes('Camden B.V.'));
+    expect(nameLines.length).toBeGreaterThanOrEqual(2);
+    expect(new Set(pool).size).toBe(pool.length);
+  });
+});
+
+describe('pickNarrativeLine: analyzing', () => {
+  const grounded = inputs({
+    categories: ['tax_returns', 'memo'],
+    prefillCount: 12,
+    totalQuestions: 49,
+    clientQuestionCount: 3,
+    teasers: ['Could you confirm whether the CV is transparent?'],
+  });
+
+  function lines(over: TickerInputs, ticks: number): string[] {
+    const out: string[] = [];
+    for (let t = 0; t < ticks; t++) {
+      const line = pickNarrativeLine('analyzing', over, t);
+      expect(line).not.toBeNull();
+      out.push(line!);
+    }
+    return out;
+  }
+
+  it('always shows a line, even before any grounded data has landed', () => {
+    const line = pickNarrativeLine('analyzing', inputs(), 0);
+    expect(line).not.toBeNull();
+    expect(DOMAIN_ACTIVITY_LINES).toContain(line);
+  });
+
+  it('never repeats a line on adjacent ticks over 50 ticks', () => {
+    for (const variant of [inputs(), grounded]) {
+      const seen = lines(variant, 51);
+      for (let t = 0; t + 1 < seen.length; t++) {
+        expect(seen[t]).not.toBe(seen[t + 1]);
+      }
+    }
+  });
+
+  it('shows shuffle-like variety: many distinct lines over 50 ticks', () => {
+    const distinct = new Set(lines(inputs(), 50));
+    expect(distinct.size).toBeGreaterThanOrEqual(20);
+  });
+
+  it('shows a grounded line on every 3rd tick when grounded lines exist', () => {
+    const groundedPool = buildTickerPool('analyzing', grounded);
+    expect(groundedPool.length).toBeGreaterThan(0);
+    for (const t of [2, 5, 8, 11, 14]) {
+      expect(groundedPool).toContain(pickNarrativeLine('analyzing', grounded, t));
+    }
+  });
+
+  it('cycles through ALL grounded lines across the grounded slots', () => {
+    const groundedPool = buildTickerPool('analyzing', grounded);
+    const shown = new Set<string>();
+    for (let t = 0; t < groundedPool.length * 3 + 3; t++) {
+      if (t % 3 === 2) shown.add(pickNarrativeLine('analyzing', grounded, t)!);
+    }
+    expect(shown).toEqual(new Set(groundedPool));
+  });
+
+  it('mentions the taxpayer in some lines when the name is known', () => {
+    const named = inputs({ taxpayerName: 'Camden B.V.' });
+    const seen = lines(named, 80);
+    expect(seen.some((l) => l.includes('Camden B.V.'))).toBe(true);
+  });
+
+  it('never renders the literal words null or undefined without a name', () => {
+    for (const line of lines(inputs({ taxpayerName: null }), 80)) {
+      expect(line.includes('null')).toBe(false);
+      expect(line.includes('undefined')).toBe(false);
+    }
+  });
+
+  it('is deterministic in the tick counter', () => {
+    for (let t = 0; t < 20; t++) {
+      expect(pickNarrativeLine('analyzing', grounded, t)).toBe(
+        pickNarrativeLine('analyzing', grounded, t),
+      );
+    }
+  });
+});
+
+describe('pickNarrativeLine: wording and composing keep their phase pools', () => {
+  it('wording rotates the wording pool only', () => {
+    const wording = inputs({ clientQuestionCount: 2 });
+    const pool = buildTickerPool('wording', wording);
+    for (let t = 0; t < 6; t++) {
+      expect(pickNarrativeLine('wording', wording, t)).toBe(
+        pickTickerLine(pool, t),
+      );
+    }
+  });
+
+  it('composing rotates the fixed composing pool only', () => {
+    const pool = buildTickerPool('composing', inputs());
+    for (let t = 0; t < 6; t++) {
+      expect(pickNarrativeLine('composing', inputs(), t)).toBe(
+        pickTickerLine(pool, t),
+      );
+    }
+  });
+});
+
 describe('ticker never leaks question ids', () => {
   const phases: TickerPhase[] = ['analyzing', 'wording', 'composing'];
   const loaded = inputs({
@@ -212,6 +345,24 @@ describe('ticker never leaks question ids', () => {
   it('no line in any phase mentions a question followed by an id-like token', () => {
     for (const phase of phases) {
       for (const line of buildTickerPool(phase, loaded)) {
+        expect(line).not.toMatch(/question\s+(Q?\d|#|id)/i);
+      }
+    }
+  });
+
+  it('no domain activity line carries an id-like token either', () => {
+    for (const line of buildDomainPool('Camden B.V.')) {
+      expect(line).not.toMatch(/question\s+(Q?\d|#|id)/i);
+      expect(line).not.toMatch(/\bQ\d/i);
+    }
+  });
+
+  it('pickNarrativeLine never leaks an id-like token over a long run', () => {
+    const named = { ...loaded, taxpayerName: 'Camden B.V.' };
+    for (const phase of phases) {
+      for (let t = 0; t < 100; t++) {
+        const line = pickNarrativeLine(phase, named, t);
+        expect(line).not.toBeNull();
         expect(line).not.toMatch(/question\s+(Q?\d|#|id)/i);
       }
     }

@@ -220,6 +220,7 @@ function LetterFirstAnalysis({ sessionId }: { sessionId: string }) {
       {working && job?.status !== "failed" && (
         <AnalysisNarrative
           sessionId={sessionId}
+          taxpayerName={sessionMeta?.taxpayer_name ?? null}
           phase={
             phase === "wording"
               ? "wording"

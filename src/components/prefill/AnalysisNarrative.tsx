@@ -7,28 +7,32 @@ import {
 } from "@/hooks/usePrefill";
 import { useQuestionTexts } from "@/hooks/useOpenQuestions";
 import {
-  buildTickerPool,
-  pickTickerLine,
+  pickNarrativeLine,
   type TickerPhase,
 } from "@/lib/prefill/analysisNarrative";
 
 export interface AnalysisNarrativeProps {
   sessionId: string;
   phase?: TickerPhase;
+  /** Session taxpayer name; a few rotating lines mention it when known. */
+  taxpayerName?: string | null;
 }
 
 /**
- * The single rotating narrative line under AnalyzeProgress. Every line is
- * grounded in data already streaming in over existing realtime channels
+ * The single rotating narrative line under AnalyzeProgress. The grounded
+ * lines come from data already streaming in over existing realtime channels
  * (prefill rows, session documents): document categories being read, real
- * check counters, and id-free client-question teasers. The pipeline phase
- * decides which pool of lines rotates; the page controls mounting, so the
- * rotation timer simply runs while mounted. Exactly ONE line renders at a
- * time and the block never grows.
+ * check counters, and id-free client-question teasers. Between them rotates
+ * a fixed pool of ATAD2 work lines (see DOMAIN_ACTIVITY_LINES) so the ticker
+ * stays lively even while little data has landed yet. The pipeline phase
+ * decides what rotates; the page controls mounting, so the rotation timer
+ * simply runs while mounted. Exactly ONE line renders at a time and the
+ * block never grows.
  */
 export function AnalysisNarrative({
   sessionId,
   phase = "analyzing",
+  taxpayerName = null,
 }: AnalysisNarrativeProps) {
   const { data: prefills } = useAllPrefills(sessionId);
   const { data: documents } = useSessionDocuments(sessionId);
@@ -54,14 +58,16 @@ export function AnalysisNarrative({
     .map((p) => p.client_question ?? officialById.get(p.question_id) ?? "")
     .filter((t) => t.trim().length > 0);
 
-  const line = pickTickerLine(
-    buildTickerPool(phase, {
+  const line = pickNarrativeLine(
+    phase,
+    {
       categories: (documents ?? []).map((d) => d.category),
       prefillCount: prefills?.length ?? 0,
       totalQuestions: totalQuestions ?? null,
       clientQuestionCount: routeB.length,
       teasers,
-    }),
+      taxpayerName,
+    },
     tick,
   );
 
