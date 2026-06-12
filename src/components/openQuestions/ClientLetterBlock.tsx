@@ -25,7 +25,6 @@ import {
 import {
   allQuestionKeys,
   coveredQuestionIds,
-  formatAsOfLine,
   formatComposedLetterText,
   letterGroupViews,
   letterLeadIn,
@@ -39,8 +38,6 @@ import type { OpenQuestionRow } from "@/lib/openQuestions/types";
 export interface ClientLetterBlockProps {
   sessionId: string;
   letter: ComposedLetter;
-  /** ISO timestamp of the shown letter; drives the "as of" line. */
-  composedAt: string;
   /** Snapshot of the rows the letter was composed from; flips resolve here. */
   sentRows: OpenQuestionRow[];
   /** Off-path question ids already woven into the shown letter. */
@@ -75,8 +72,8 @@ export interface ClientLetterBlockProps {
  * { composed: true, question_ids, merged }). The block stays on screen after
  * copying.
  *
- * Below the questions, a collapsed "Add questions outside the expected path"
- * section offers the off-path open rows. Ticking one only STAGES it; staged
+ * Below the questions, a collapsed "Optional extra questions" section offers
+ * the off-path open rows. Ticking one only STAGES it; staged
  * questions enter the letter (and the copy text) exclusively through the
  * next Regenerate, which weaves them into a fitting group like any other
  * question.
@@ -84,7 +81,6 @@ export interface ClientLetterBlockProps {
 export function ClientLetterBlock({
   sessionId,
   letter,
-  composedAt,
   sentRows,
   addedQuestionIds,
   candidateRows,
@@ -204,143 +200,143 @@ export function ClientLetterBlock({
   const intro = letter.intro.trim();
 
   return (
-    <div className="space-y-2">
-      <Card className="space-y-4 p-5">
-        {busy ? (
-          <p className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Composing the letter...
-          </p>
-        ) : (
-          <div className="space-y-4">
-            {intro.length > 0 && (
-              <p className="whitespace-pre-line text-sm text-foreground">
-                {letter.intro}
-              </p>
-            )}
-            {letterLeadIn(letter, includedKeys) !== null && (
-              <p className="text-sm text-foreground">
-                Could you please confirm:
-              </p>
-            )}
-            <div className="space-y-3">
-              {groupViews.map((group, groupIndex) => (
-                <div key={groupIndex} className="space-y-2">
-                  {group.label !== null && group.title !== "" && (
-                    <p className="text-sm font-medium text-foreground">
-                      {group.label}. {group.title}
-                    </p>
-                  )}
-                  {group.questions.map((question) => (
-                    <div key={question.key} className="space-y-1.5">
-                      <label className="flex cursor-pointer items-start gap-2.5">
-                        <Checkbox
-                          className="mt-0.5"
-                          checked={question.included}
-                          onCheckedChange={(value) =>
-                            toggleIncluded(question.key, value === true)
-                          }
-                        />
-                        <span
-                          className={
-                            question.included
-                              ? "text-sm text-foreground"
-                              : "text-sm text-muted-foreground line-through"
-                          }
-                        >
-                          {question.number !== null && (
-                            <span className="font-medium">
-                              {question.number}.{" "}
-                            </span>
-                          )}
-                          {question.text}
-                        </span>
-                      </label>
-                      {question.table !== null && (
-                        <QuestionTable
-                          table={question.table}
-                          included={question.included}
-                        />
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
-            {candidateRows.length > 0 && (
-              <Collapsible className="border-t pt-3">
-                <CollapsibleTrigger className="group flex w-full items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
-                  <ChevronRight className="h-4 w-4 shrink-0 transition-transform group-data-[state=open]:rotate-90" />
-                  Add questions outside the expected path ({candidateRows.length})
-                </CollapsibleTrigger>
-                <CollapsibleContent className="overflow-hidden data-[state=open]:animate-collapsible-down data-[state=closed]:animate-collapsible-up">
-                  <div className="space-y-2 pt-2">
-                    {candidateRows.map((row) => (
-                      <label
-                        key={row.question_id}
-                        className="flex cursor-pointer items-start gap-2.5"
-                      >
-                        <Checkbox
-                          className="mt-0.5"
-                          checked={stagedIds.has(row.question_id)}
-                          onCheckedChange={(value) =>
-                            toggleStaged(row.question_id, value === true)
-                          }
-                        />
-                        <span className="text-sm text-muted-foreground">
-                          {resolveText(row)}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-            )}
-          </div>
-        )}
-
-        <div className="flex items-center justify-end gap-2">
-          {!busy && stagedQuestionIds.length > 0 && (
-            <p className="mr-auto text-xs text-muted-foreground">
-              {stagedQuestionIds.length === 1
-                ? "1 added question; Regenerate to weave it into the letter."
-                : `${stagedQuestionIds.length} added questions; Regenerate to weave them into the letter.`}
+    <Card className="space-y-4 p-5">
+      {busy ? (
+        <p className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Composing the letter...
+        </p>
+      ) : (
+        <div className="space-y-4">
+          {intro.length > 0 && (
+            <p className="whitespace-pre-line text-sm text-foreground">
+              {letter.intro}
             </p>
           )}
-          <Button
-            variant="outline"
-            disabled={regenerateDisabled}
-            onClick={() => {
-              // Covered register ids of the still-ticked letter questions:
-              // an added id stays only while the merged question covering it
-              // is still ticked.
-              const covered = coveredQuestionIds(letter, includedKeys);
-              onRegenerate(
-                covered,
-                nextAddedQuestionIds(
-                  addedQuestionIds,
-                  new Set(covered),
-                  stagedQuestionIds,
-                ),
-              );
-            }}
-          >
-            Regenerate
-          </Button>
-          <Button
-            disabled={copyDisabled || sessionMeta === undefined}
-            onClick={handleCopyLetter}
-          >
-            {copying && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
-            Copy letter ({includedCount}{" "}
-            {includedCount === 1 ? "question" : "questions"})
-          </Button>
+          {letterLeadIn(letter, includedKeys) !== null && (
+            <p className="text-sm text-foreground">
+              Could you please confirm:
+            </p>
+          )}
+          <div className="space-y-3">
+            {groupViews.map((group, groupIndex) => (
+              <div key={groupIndex} className="space-y-2">
+                {group.label !== null && group.title !== "" && (
+                  <p className="text-sm font-medium text-foreground">
+                    {group.label}. {group.title}
+                  </p>
+                )}
+                {group.questions.map((question) => (
+                  <div key={question.key} className="space-y-1.5">
+                    <label className="flex cursor-pointer items-start gap-2.5">
+                      <Checkbox
+                        className="mt-0.5"
+                        checked={question.included}
+                        onCheckedChange={(value) =>
+                          toggleIncluded(question.key, value === true)
+                        }
+                      />
+                      <span
+                        className={
+                          question.included
+                            ? "text-sm text-foreground"
+                            : "text-sm text-muted-foreground line-through"
+                        }
+                      >
+                        {question.number !== null && (
+                          <span className="font-medium">
+                            {question.number}.{" "}
+                          </span>
+                        )}
+                        {question.text}
+                      </span>
+                    </label>
+                    {question.table !== null && (
+                      <QuestionTable
+                        table={question.table}
+                        included={question.included}
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+          {candidateRows.length > 0 && (
+            <Collapsible className="border-t pt-3">
+              <CollapsibleTrigger className="group flex w-full items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
+                <ChevronRight className="h-4 w-4 shrink-0 transition-transform group-data-[state=open]:rotate-90" />
+                Optional extra questions ({candidateRows.length})
+              </CollapsibleTrigger>
+              <CollapsibleContent className="overflow-hidden data-[state=open]:animate-collapsible-down data-[state=closed]:animate-collapsible-up">
+                <div className="space-y-2 pt-2">
+                  <p className="text-xs text-muted-foreground">
+                    These questions fall outside the currently expected path of
+                    the questionnaire. Tick any you want and use Regenerate to
+                    weave them into the letter.
+                  </p>
+                  {candidateRows.map((row) => (
+                    <label
+                      key={row.question_id}
+                      className="flex cursor-pointer items-start gap-2.5"
+                    >
+                      <Checkbox
+                        className="mt-0.5"
+                        checked={stagedIds.has(row.question_id)}
+                        onCheckedChange={(value) =>
+                          toggleStaged(row.question_id, value === true)
+                        }
+                      />
+                      <span className="text-sm text-muted-foreground">
+                        {resolveText(row)}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          )}
         </div>
-      </Card>
-      <p className="px-1 text-xs text-muted-foreground">
-        {formatAsOfLine(composedAt)}
-      </p>
-    </div>
+      )}
+
+      <div className="flex items-center justify-end gap-2">
+        {!busy && stagedQuestionIds.length > 0 && (
+          <p className="mr-auto text-xs text-muted-foreground">
+            {stagedQuestionIds.length === 1
+              ? "1 added question; Regenerate to weave it into the letter."
+              : `${stagedQuestionIds.length} added questions; Regenerate to weave them into the letter.`}
+          </p>
+        )}
+        <Button
+          variant="outline"
+          disabled={regenerateDisabled}
+          onClick={() => {
+            // Covered register ids of the still-ticked letter questions:
+            // an added id stays only while the merged question covering it
+            // is still ticked.
+            const covered = coveredQuestionIds(letter, includedKeys);
+            onRegenerate(
+              covered,
+              nextAddedQuestionIds(
+                addedQuestionIds,
+                new Set(covered),
+                stagedQuestionIds,
+              ),
+            );
+          }}
+        >
+          Regenerate
+        </Button>
+        <Button
+          disabled={copyDisabled || sessionMeta === undefined}
+          onClick={handleCopyLetter}
+        >
+          {copying && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+          Copy letter ({includedCount}{" "}
+          {includedCount === 1 ? "question" : "questions"})
+        </Button>
+      </div>
+    </Card>
   );
 }
 

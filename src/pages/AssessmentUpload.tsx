@@ -18,6 +18,7 @@ import { ClientLetterBlock } from "@/components/openQuestions/ClientLetterBlock"
 import { DocumentUploadStep } from "@/components/assessment/DocumentUploadStep";
 import { Card } from "@/components/ui/card";
 import { useLetterPipeline } from "@/hooks/useLetterPipeline";
+import { formatAsOfLine } from "@/lib/openQuestions/letterShape";
 import { usePrefillStore } from "@/stores/prefillStore";
 import {
   useSessionDocuments, usePrefillJob, useStartAnalyze,
@@ -218,6 +219,7 @@ function LetterFirstAnalysis({ sessionId }: { sessionId: string }) {
       <AnalyzeProgress
         sessionId={sessionId}
         onContinue={() => navigate(`/assessment?session=${sessionId}`)}
+        asOfLine={composedAt ? formatAsOfLine(composedAt) : null}
       />
 
       {working && job?.status !== "failed" && (
@@ -234,11 +236,10 @@ function LetterFirstAnalysis({ sessionId }: { sessionId: string }) {
         />
       )}
 
-      {phase === "letter" && letter && composedAt && (
+      {phase === "letter" && letter && (
         <ClientLetterBlock
           sessionId={sessionId}
           letter={letter}
-          composedAt={composedAt}
           sentRows={sentRows}
           addedQuestionIds={addedQuestionIds}
           candidateRows={candidateRows}

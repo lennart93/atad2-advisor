@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { AssessmentFooterSlot } from "@/components/assessment/AssessmentFooterSlot";
 import { usePrefillJob, useAllPrefills, useQuestionCount } from "@/hooks/usePrefill";
 import { useUiBusySignal } from "@/stores/uiBusyStore";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, CheckCircle2 } from "lucide-react";
 
 // After this many ms we let the user start even if the job hasn't finished,
 // with a clear "anyway" label. Set well above the worst-case swarm time
@@ -16,9 +16,11 @@ const WAIT_TIMEOUT_MS = 180_000;
 interface Props {
   sessionId: string;
   onContinue: () => void;
+  /** Worklist "as of" line shown in the collapsed finished state. */
+  asOfLine?: string | null;
 }
 
-export function AnalyzeProgress({ sessionId, onContinue }: Props) {
+export function AnalyzeProgress({ sessionId, onContinue, asOfLine }: Props) {
   const { data: job } = usePrefillJob(sessionId);
   const { data: prefills } = useAllPrefills(sessionId);
 
@@ -102,19 +104,39 @@ export function AnalyzeProgress({ sessionId, onContinue }: Props) {
     ? "We didn't finish in time. You can start the questions now; remaining suggestions will appear inline as they arrive."
     : null;
 
+  // Once the suggestions are in, the card collapses to a single status line:
+  // bar, percentage, count badge and the ready detail all disappear. The
+  // failed and timed-out states keep the full card with their guidance lines.
+  const collapsed = ready && !failed;
+
   return (
     <>
       <Card className="p-5">
-        <div className="space-y-2">
-          <div className="flex items-baseline justify-between gap-3">
-            <p className="text-sm font-medium tracking-tight">{statusLabel}</p>
-            <span className="text-xs tabular-nums text-muted-foreground">
-              {countBadge ? `${countBadge}  ·  ` : ""}{Math.round(pct)}%
-            </span>
+        {collapsed ? (
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
+            <p className="text-sm font-medium tracking-tight">
+              Suggestions complete
+              {total != null ? ` · ${Math.min(prefillCount, total)}/${total}` : ""}
+            </p>
+            {asOfLine != null && (
+              <span className="ml-auto text-xs text-muted-foreground">
+                {asOfLine}
+              </span>
+            )}
           </div>
-          <Progress value={pct} className="h-1.5" />
-          {statusDetail && <p className="text-xs text-muted-foreground">{statusDetail}</p>}
-        </div>
+        ) : (
+          <div className="space-y-2">
+            <div className="flex items-baseline justify-between gap-3">
+              <p className="text-sm font-medium tracking-tight">{statusLabel}</p>
+              <span className="text-xs tabular-nums text-muted-foreground">
+                {countBadge ? `${countBadge}  ·  ` : ""}{Math.round(pct)}%
+              </span>
+            </div>
+            <Progress value={pct} className="h-1.5" />
+            {statusDetail && <p className="text-xs text-muted-foreground">{statusDetail}</p>}
+          </div>
+        )}
       </Card>
 
       <AssessmentFooterSlot
