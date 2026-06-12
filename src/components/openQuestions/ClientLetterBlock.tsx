@@ -8,6 +8,7 @@ import { useOpenQuestionActions } from "@/hooks/useOpenQuestionActions";
 import {
   flipIdsForLetter,
   formatComposedLetterText,
+  letterLeadIn,
   type ComposedLetter,
 } from "@/lib/openQuestions/composeLetter";
 import { formatAsOfLine } from "@/lib/openQuestions/letterStore";
@@ -141,6 +142,11 @@ export function ClientLetterBlock({
                   ))}
                 </ul>
               </div>
+            )}
+            {letterLeadIn(letter.questions, includedIds) !== null && (
+              <p className="text-sm text-foreground">
+                Could you please confirm:
+              </p>
             )}
             <div className="space-y-2">
               {letter.questions.map((question) => {

@@ -84,12 +84,40 @@ export function filterLetterQuestions(
   };
 }
 
+/** Regex that matches a polite-opener at the start of a question item. */
+const POLITE_OPENER_RE = /^(could you|can you|please)\b/i;
+
+/**
+ * Returns "Could you please confirm:" when the majority of the included
+ * questions do NOT start with a polite opener (i.e. v2-style direct clauses).
+ * Returns null for legacy v1 letters where most items open with their own
+ * polite phrase, so the lead-in is not rendered and the letter still reads
+ * correctly without a clashing duplicate.
+ *
+ * Only included questions (those present in includedIds) are considered; the
+ * majority is computed over that subset alone.
+ */
+export function letterLeadIn(
+  questions: ComposedLetter["questions"],
+  includedIds: Set<string>,
+): string | null {
+  const included = questions.filter((q) => includedIds.has(q.question_id));
+  if (included.length === 0) return null;
+  const politeCount = included.filter((q) =>
+    POLITE_OPENER_RE.test(q.text.trimStart()),
+  ).length;
+  // Majority = strictly more than half start with a polite opener => legacy.
+  return politeCount > included.length / 2 ? null : "Could you please confirm:";
+}
+
 /**
  * Plain-text letter for "Copy letter". Header, blank line, a bulleted
  * "We understand that:" block (omitted entirely when there are no non-blank
- * understandings), blank line, then the included questions renumbered 1..n
- * with one blank line between items. Joined with newlines and ending with
- * exactly one trailing newline, same convention as formatOpenQuestionsText.
+ * understandings), blank line, then an optional collective lead-in ("Could
+ * you please confirm:") when the questions are v2-style direct clauses,
+ * then the included questions renumbered 1..n with one blank line between
+ * items. Joined with newlines and ending with exactly one trailing newline,
+ * same convention as formatOpenQuestionsText.
  */
 export function formatComposedLetterText(
   letter: ComposedLetter,
@@ -108,6 +136,12 @@ export function formatComposedLetterText(
   if (understandings.length > 0) {
     lines.push("We understand that:");
     for (const entry of understandings) lines.push(`- ${entry}`);
+    lines.push("");
+  }
+
+  const leadIn = letterLeadIn(letter.questions, includedIds);
+  if (leadIn !== null) {
+    lines.push(leadIn);
     lines.push("");
   }
 

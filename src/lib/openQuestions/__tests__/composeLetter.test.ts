@@ -7,6 +7,7 @@ import {
   formatComposedLetterText,
   flipIdsForLetter,
   isNotDeployedMessage,
+  letterLeadIn,
   type ComposedLetter,
 } from "../composeLetter";
 import { groupOpenQuestions } from "../grouping";
@@ -188,6 +189,64 @@ describe("filterLetterQuestions", () => {
   });
 });
 
+describe("letterLeadIn", () => {
+  const v2Questions: ComposedLetter["questions"] = [
+    { question_id: "3", text: "whether KyNexis Inc is treated as a corporation for US tax purposes." },
+    { question_id: "4", text: "how S4 Energy B.V. classifies the loan for Dutch tax purposes." },
+    { question_id: "5", text: "in which country the management fees are subject to tax." },
+  ];
+  const v1Questions: ComposedLetter["questions"] = [
+    { question_id: "3", text: "Could you confirm the US tax classification of KyNexis Inc?" },
+    { question_id: "4", text: "Could you confirm whether a CV/BV structure is present?" },
+  ];
+
+  it("returns the lead-in when the majority of included items are v2-style (no polite opener)", () => {
+    const all = new Set(["3", "4", "5"]);
+    expect(letterLeadIn(v2Questions, all)).toBe("Could you please confirm:");
+  });
+
+  it("returns null when the majority of included items begin with a polite opener (v1 legacy)", () => {
+    const all = new Set(["3", "4"]);
+    expect(letterLeadIn(v1Questions, all)).toBeNull();
+  });
+
+  it("returns null for an empty included set", () => {
+    expect(letterLeadIn(v2Questions, new Set())).toBeNull();
+  });
+
+  it("only considers included questions for the majority calculation", () => {
+    // Include only one v2-style item: 1 of 1 = 100% direct -> lead-in present.
+    expect(letterLeadIn(v2Questions, new Set(["3"]))).toBe("Could you please confirm:");
+    // Include only v1 items from a mixed list: majority polite -> no lead-in.
+    const mixed: ComposedLetter["questions"] = [
+      { question_id: "A", text: "whether the entity is a corporation." },
+      { question_id: "B", text: "Could you confirm the tax treatment?" },
+      { question_id: "C", text: "Could you confirm whether the loan is arm's length?" },
+    ];
+    // B and C are polite (2/2 included) -> legacy.
+    expect(letterLeadIn(mixed, new Set(["B", "C"]))).toBeNull();
+    // A and B: 1 direct / 1 polite = tied -> not a strict majority polite -> lead-in.
+    expect(letterLeadIn(mixed, new Set(["A", "B"]))).toBe("Could you please confirm:");
+  });
+
+  it("is case-insensitive for the polite-opener detection", () => {
+    const questions: ComposedLetter["questions"] = [
+      { question_id: "1", text: "COULD YOU CONFIRM the amount?" },
+      { question_id: "2", text: "CAN YOU confirm whether the rate applies?" },
+    ];
+    // Both are polite openers -> legacy -> null.
+    expect(letterLeadIn(questions, new Set(["1", "2"]))).toBeNull();
+  });
+
+  it("treats 'Please confirm' at the start as a polite opener", () => {
+    const questions: ComposedLetter["questions"] = [
+      { question_id: "1", text: "Please confirm whether the entity is resident." },
+      { question_id: "2", text: "Please confirm the interest rate." },
+    ];
+    expect(letterLeadIn(questions, new Set(["1", "2"]))).toBeNull();
+  });
+});
+
 describe("formatComposedLetterText", () => {
   const letter: ComposedLetter = {
     understandings: [
@@ -259,6 +318,57 @@ describe("formatComposedLetterText", () => {
     const out = formatComposedLetterText(letter, new Set(["3", "4"]), meta);
     expect(out.endsWith("\n")).toBe(true);
     expect(out.endsWith("\n\n")).toBe(false);
+  });
+
+  it("v1-style questions: no collective lead-in added (legacy behaviour unchanged)", () => {
+    const out = formatComposedLetterText(letter, new Set(["3", "4"]), meta);
+    expect(out).not.toContain("Could you please confirm:");
+    // The individual questions are still present verbatim.
+    expect(out).toContain("1. Could you confirm the US tax classification of KyNexis Inc?");
+  });
+
+  describe("v2-style questions (direct clauses)", () => {
+    const v2Letter: ComposedLetter = {
+      understandings: ["Kynexis BV holds 100% of KyNexis Inc."],
+      questions: [
+        { question_id: "3", text: "how Kynexis Inc is treated for US tax purposes." },
+        { question_id: "4", text: "whether interest payments to Kynexis BV are deductible." },
+      ],
+    };
+
+    it("inserts the collective lead-in before the numbered list", () => {
+      const out = formatComposedLetterText(v2Letter, new Set(["3", "4"]), meta);
+      expect(out).toContain("Could you please confirm:\n\n1. how Kynexis Inc");
+    });
+
+    it("full plain-text snapshot for v2 letter with understandings", () => {
+      const out = formatComposedLetterText(v2Letter, new Set(["3", "4"]), meta);
+      expect(out).toBe(
+        "Questions for Camden B.V. (FY 2025)\n" +
+          "Recorded on 11 June 2026\n" +
+          "\n" +
+          "We understand that:\n" +
+          "- Kynexis BV holds 100% of KyNexis Inc.\n" +
+          "\n" +
+          "Could you please confirm:\n" +
+          "\n" +
+          "1. how Kynexis Inc is treated for US tax purposes.\n" +
+          "\n" +
+          "2. whether interest payments to Kynexis BV are deductible.\n",
+      );
+    });
+
+    it("lead-in still present when no understandings", () => {
+      const noUnder: ComposedLetter = { understandings: [], questions: v2Letter.questions };
+      const out = formatComposedLetterText(noUnder, new Set(["3", "4"]), meta);
+      expect(out).toContain("Could you please confirm:");
+      expect(out).not.toContain("We understand that:");
+    });
+
+    it("lead-in absent after excluding all v2 items (empty included set gives no lead-in)", () => {
+      const out = formatComposedLetterText(v2Letter, new Set(), meta);
+      expect(out).not.toContain("Could you please confirm:");
+    });
   });
 });
 
