@@ -74,7 +74,7 @@ export function buildAppendixPrintHtml(
   const header =
     `<tr><th class="c-num">#</th><th class="c-basis">Legal basis</th><th>Condition tested</th>` +
     `<th class="c-status">Status</th><th class="c-reason">Reasoning</th>` +
-    (internal ? `<th class="c-prov">Provenance (internal)</th>` : '') +
+    (internal ? `<th class="c-prov">Source (internal)</th>` : '') +
     `</tr>`;
 
   const body = sections

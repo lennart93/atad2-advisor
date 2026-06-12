@@ -51,14 +51,6 @@ function StatusIcon({ kind, className }: { kind: StatusKind; className?: string 
   return <CheckCircle2 className={cn('text-muted-foreground/50', className)} />;
 }
 
-/** Condition titles are labels, not statute text: one line, cut at a word. */
-function shortTitle(s: string, max = 64): string {
-  if (s.length <= max) return s;
-  const cut = s.slice(0, max);
-  const at = cut.lastIndexOf(' ');
-  return `${cut.slice(0, at > 32 ? at : max)}…`;
-}
-
 /**
  * Read mode is a normal paragraph; Edit reasoning swaps in an auto-growing
  * textarea (no fixed height, no inner scrollbox, commit on blur).
@@ -234,8 +226,8 @@ function SourcesPopover({
       <PopoverContent align="end" className="w-96 space-y-3 text-sm">
         {showRelated && relatedParties && <RelatedPartiesTable data={relatedParties} />}
         <div>
-          <p className="mb-1 text-xs font-medium text-foreground">Provenance <span className="font-normal text-muted-foreground">(internal)</span></p>
-          <p className="whitespace-pre-wrap text-xs text-muted-foreground">{provenance || 'No provenance recorded.'}</p>
+          <p className="mb-1 text-xs font-medium text-foreground">Source <span className="font-normal text-muted-foreground">(internal)</span></p>
+          <p className="whitespace-pre-wrap text-xs text-muted-foreground">{provenance || 'No source recorded.'}</p>
         </div>
       </PopoverContent>
     </Popover>
@@ -319,13 +311,12 @@ export function AppendixTable({ rows, skeleton, showSources, relatedParties, onE
                   >
                     <span className="w-7 shrink-0 tabular-nums text-xs text-muted-foreground">{sk.rowId}</span>
                     <StatusIcon kind={kind} className="h-3.5 w-3.5 shrink-0" />
-                    <span className="truncate text-muted-foreground">{shortTitle(sk.conditionTested)}</span>
+                    <span className="min-w-0 flex-1 text-muted-foreground">{sk.conditionTested}</span>
                     {row.stale && (
                       <Badge variant="outline" className="shrink-0 border-amber-400/50 text-[10px] font-normal text-amber-700 dark:text-amber-300">
                         review again
                       </Badge>
                     )}
-                    <span className="flex-1" />
                     <span className="shrink-0 text-xs text-muted-foreground/70">{STATUS_SHORT[kind]}</span>
                     <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
                   </button>
@@ -354,7 +345,7 @@ export function AppendixTable({ rows, skeleton, showSources, relatedParties, onE
                       >
                         <span className="w-7 shrink-0 tabular-nums text-xs text-muted-foreground">{sk.rowId}</span>
                         <StatusIcon kind={kind} className="h-4 w-4 shrink-0" />
-                        <span className="truncate text-sm font-medium text-foreground">{shortTitle(sk.conditionTested)}</span>
+                        <span className="min-w-0 text-sm font-medium text-foreground">{sk.conditionTested}</span>
                       </button>
                       <Select value={row.status ?? undefined} onValueChange={(v) => onEdit(sk.rowId, 'status', v)}>
                         <SelectTrigger
@@ -421,7 +412,6 @@ export function AppendixTable({ rows, skeleton, showSources, relatedParties, onE
                           </Badge>
                         )}
                       </p>
-                      <p className="text-xs leading-snug text-muted-foreground">{sk.conditionTested}</p>
                       <ReasoningBlock
                         value={reasoning}
                         label={`Reasoning for ${sk.rowId}`}
