@@ -5,7 +5,7 @@ import {
   decidePipelineStart,
   mergeFreshWording,
 } from "../letterPipeline";
-import type { StoredLetter } from "../letterStore";
+import type { StoredLetter } from "../letterShape";
 import type { OpenQuestionRow } from "../types";
 
 function makeRow(overrides: Partial<OpenQuestionRow> = {}): OpenQuestionRow {
@@ -30,12 +30,23 @@ function makeRow(overrides: Partial<OpenQuestionRow> = {}): OpenQuestionRow {
 }
 
 const stored: StoredLetter = {
-  v: 2,
+  v: 3,
   letter: {
-    understandings: ["The BV holds the loan."],
-    questions: [{ question_id: "3", text: "Could you confirm the terms?" }],
+    intro: "We understand that:\n- The BV holds the loan.",
+    groups: [
+      {
+        title: "Loan terms",
+        questions: [
+          {
+            question_ids: ["3"],
+            text: "whether the loan terms are at arm's length.",
+            table: null,
+          },
+        ],
+      },
+    ],
   },
-  includedIds: ["3"],
+  includedKeys: ["3"],
   addedQuestionIds: [],
   composedAt: "2026-06-11T14:32:00.000Z",
 };

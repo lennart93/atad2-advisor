@@ -21,7 +21,6 @@ import {
   buildComposeItems,
   selectAddCandidates,
   selectComposeSelectionFresh,
-  type ComposedLetter,
   type ComposeSelection,
 } from "@/lib/openQuestions/composeLetter";
 import type { QuestionBranchRow } from "@/lib/openQuestions/projectedPath";
@@ -33,11 +32,14 @@ import {
   mergeFreshWording,
 } from "@/lib/openQuestions/letterPipeline";
 import {
+  allQuestionKeys,
+  coveredQuestionIds,
   decodeStoredLetter,
   encodeStoredLetter,
   letterStorageKey,
+  type ComposedLetter,
   type StoredLetter,
-} from "@/lib/openQuestions/letterStore";
+} from "@/lib/openQuestions/letterShape";
 import type { OpenQuestionRow } from "@/lib/openQuestions/types";
 
 /**
@@ -88,6 +90,10 @@ export interface LetterPipeline {
   sessionMeta: SessionMeta | null | undefined;
   /** True while a compose call runs; the block disables its buttons on it. */
   composeBusy: boolean;
+  /**
+   * includedQuestionIds are REGISTER question ids: the union of question_ids
+   * over the output questions still ticked in the block (covered ids).
+   */
   regenerate: (
     includedQuestionIds: string[],
     addedQuestionIds: string[],
@@ -104,7 +110,11 @@ function readStoredLetter(sessionId: string): StoredLetter | null {
   }
 }
 
-/** Persists the letter; storage failures never block showing it. */
+/**
+ * Persists the letter; storage failures never block showing it. A fresh
+ * letter always starts fully included, so the stored includedKeys are simply
+ * all question keys (mirrors the block's seeding).
+ */
 function writeStoredLetter(
   sessionId: string,
   letter: ComposedLetter,
@@ -116,7 +126,7 @@ function writeStoredLetter(
       letterStorageKey(sessionId),
       encodeStoredLetter(
         letter,
-        letter.questions.map((q) => q.question_id),
+        allQuestionKeys(letter),
         addedQuestionIds,
         composedAt,
       ),
@@ -407,7 +417,10 @@ export function useLetterPipeline(sessionId: string): LetterPipeline {
   /**
    * Regenerate with the ticked questions plus the requested off-path
    * additions: re-runs JUST the compose step, but against a FRESH worklist
-   * selection. Ticked rows answered, dismissed or steered off the projected
+   * selection. includedQuestionIds arrives as the COVERED register ids of
+   * the included output questions (the block computes them), so the existing
+   * register-id filter works unchanged for merged questions too. Ticked rows
+   * answered, dismissed or steered off the projected
    * path since the letter was composed drop out here; added ids that are
    * meanwhile answered, dismissed or now on-path drop or dedupe naturally
    * because the fresh selection is the only source of rows. This is the only
@@ -473,10 +486,14 @@ export function useLetterPipeline(sessionId: string): LetterPipeline {
   }, [sessionId, startPipelineFresh]);
 
   // Candidates for "Add questions outside the expected path": live off-path
-  // open rows minus the questions already woven into the shown letter.
+  // open rows minus the questions already woven into the shown letter. With
+  // merged questions one letter item can cover several register ids; every
+  // covered id is excluded from the candidates.
   const candidateRows = useMemo(() => {
     const letterIds = new Set(
-      (letter?.questions ?? []).map((q) => q.question_id),
+      letter === null
+        ? []
+        : coveredQuestionIds(letter, new Set(allQuestionKeys(letter))),
     );
     return selectAddCandidates(view.groups.later, letterIds);
   }, [view.groups.later, letter]);

@@ -1,5 +1,5 @@
 import type { OpenQuestionRow } from "./types";
-import type { StoredLetter } from "./letterStore";
+import type { StoredLetter } from "./letterShape";
 
 /**
  * Pure decision logic for the letter-first analysis page pipeline: after the

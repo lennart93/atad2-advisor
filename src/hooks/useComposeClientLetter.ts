@@ -2,9 +2,12 @@ import { useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
   isNotDeployedMessage,
-  type ComposedLetter,
   type ComposeQuestionItem,
 } from "@/lib/openQuestions/composeLetter";
+import {
+  normalizeComposedLetter,
+  type ComposedLetter,
+} from "@/lib/openQuestions/letterShape";
 
 /**
  * The compose_client_letter action is not live on the VM yet: the deployed
@@ -73,7 +76,7 @@ export function useComposeClientLetter(sessionId: string) {
       const payload = data as {
         ok?: boolean;
         error?: string;
-        letter?: ComposedLetter;
+        letter?: unknown;
       } | null;
       if (payload?.ok === false) {
         throw classifyComposeError(
@@ -83,7 +86,18 @@ export function useComposeClientLetter(sessionId: string) {
       if (!payload?.letter) {
         throw new Error("The compose action returned no letter.");
       }
-      return payload.letter;
+      // The NEW edge returns the grouped { intro, groups } shape (and
+      // letter_version: 2); the OLD still-deployed edge returns
+      // { understandings, questions }. Both normalize to the canonical
+      // ComposedLetter; anything else is a plain error (Try again shows),
+      // never a not-deployed classification.
+      const letter = normalizeComposedLetter(payload.letter);
+      if (letter === null) {
+        throw new Error(
+          "The compose action returned a letter in an unexpected shape.",
+        );
+      }
+      return letter;
     },
   });
 }

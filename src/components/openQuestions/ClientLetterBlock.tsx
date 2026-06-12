@@ -9,15 +9,30 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { toast } from "@/components/ui/sonner";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { useOpenQuestionActions } from "@/hooks/useOpenQuestionActions";
 import {
   flipIdsForLetter,
-  formatComposedLetterText,
-  letterLeadIn,
   nextAddedQuestionIds,
-  type ComposedLetter,
 } from "@/lib/openQuestions/composeLetter";
-import { formatAsOfLine } from "@/lib/openQuestions/letterStore";
+import {
+  allQuestionKeys,
+  coveredQuestionIds,
+  formatAsOfLine,
+  formatComposedLetterText,
+  letterGroupViews,
+  letterLeadIn,
+  questionKey,
+  type ComposedLetter,
+  type LetterTable,
+} from "@/lib/openQuestions/letterShape";
 import type { OpenQuestionExportMeta } from "@/lib/openQuestions/exportText";
 import type { OpenQuestionRow } from "@/lib/openQuestions/types";
 
@@ -48,18 +63,23 @@ export interface ClientLetterBlockProps {
 
 /**
  * The composed client letter as a fixed page block: the end picture of the
- * letter-first analysis page. Same preview as the former compose dialog:
- * the merged "We understand that:" facts plus the numbered questions, each
- * with an include checkbox. Unticking renumbers immediately and changes the
- * letter only; the row stays on the worklist. "Copy letter" copies the plain
- * text and only then flips the included still-open rows to taken_to_client
- * with one 'copied' audit event per question (detail { composed: true,
- * question_ids }). The block stays on screen after copying.
+ * letter-first analysis page. A short prose intro, then the thematic groups
+ * ("A. Title" headers) with their questions numbered continuously across
+ * groups, each with an include checkbox. One letter question can COVER
+ * several register questions (question_ids is the merge mapping); unticking
+ * it excludes all of them. Unticking renumbers immediately and changes the
+ * letter only; the rows stay on the worklist. A question with a per-entity
+ * grid renders it as a table under the text. "Copy letter" copies the plain
+ * text and only then flips the covered still-open rows to taken_to_client
+ * with one 'copied' audit event per covered register question (detail
+ * { composed: true, question_ids, merged }). The block stays on screen after
+ * copying.
  *
  * Below the questions, a collapsed "Add questions outside the expected path"
  * section offers the off-path open rows. Ticking one only STAGES it; staged
  * questions enter the letter (and the copy text) exclusively through the
- * next Regenerate, which weaves them in like any other question.
+ * next Regenerate, which weaves them into a fitting group like any other
+ * question.
  */
 export function ClientLetterBlock({
   sessionId,
@@ -73,8 +93,8 @@ export function ClientLetterBlock({
   onRegenerate,
   sessionMeta,
 }: ClientLetterBlockProps) {
-  const [includedIds, setIncludedIds] = useState<Set<string>>(
-    () => new Set(letter.questions.map((q) => q.question_id)),
+  const [includedKeys, setIncludedKeys] = useState<Set<string>>(
+    () => new Set(allQuestionKeys(letter)),
   );
   const [stagedIds, setStagedIds] = useState<Set<string>>(new Set());
   const [copying, setCopying] = useState(false);
@@ -82,10 +102,10 @@ export function ClientLetterBlock({
   const { recordExportSent } = useOpenQuestionActions(sessionId);
 
   // Re-seed the include toggles whenever a fresh letter arrives (the server
-  // coverage guard guarantees the letter holds exactly the input ids), and
+  // coverage guard guarantees the letter covers exactly the input ids), and
   // clear the staging: a fresh letter already contains what was staged.
   useEffect(() => {
-    setIncludedIds(new Set(letter.questions.map((q) => q.question_id)));
+    setIncludedKeys(new Set(allQuestionKeys(letter)));
     setStagedIds(new Set());
   }, [letter]);
 
@@ -99,11 +119,11 @@ export function ClientLetterBlock({
     }),
   });
 
-  const toggleIncluded = (questionId: string, checked: boolean) => {
-    setIncludedIds((prev) => {
+  const toggleIncluded = (key: string, checked: boolean) => {
+    setIncludedKeys((prev) => {
       const next = new Set(prev);
-      if (checked) next.add(questionId);
-      else next.delete(questionId);
+      if (checked) next.add(key);
+      else next.delete(key);
       return next;
     });
   };
@@ -117,9 +137,14 @@ export function ClientLetterBlock({
     });
   };
 
-  const includedCount = letter.questions.filter((q) =>
-    includedIds.has(q.question_id),
-  ).length;
+  // Flattened letter questions in group order; the render views and the
+  // covered-id math both derive from this one letter.
+  const groupViews = letterGroupViews(letter, includedKeys);
+  const includedCount = groupViews.reduce(
+    (count, group) =>
+      count + group.questions.filter((question) => question.included).length,
+    0,
+  );
 
   // Staged ids restricted to the rows still offered as candidates, so a
   // staged question answered in the meantime never counts or regenerates.
@@ -131,7 +156,7 @@ export function ClientLetterBlock({
     if (includedCount === 0) return;
     setCopying(true);
     try {
-      const text = formatComposedLetterText(letter, includedIds, buildMeta());
+      const text = formatComposedLetterText(letter, includedKeys, buildMeta());
       try {
         await navigator.clipboard.writeText(text);
       } catch {
@@ -140,12 +165,24 @@ export function ClientLetterBlock({
         return;
       }
       try {
+        // Covered = the union of question_ids over the included letter
+        // questions: one 'copied' event per covered register question, the
+        // same in-list + status-open flip guard as before, and the merge
+        // mapping rides along in the detail.
+        const includedQuestions = letter.groups
+          .flatMap((group) => group.questions)
+          .filter((question) => includedKeys.has(questionKey(question)));
+        const covered = coveredQuestionIds(letter, includedKeys);
         await recordExportSent({
-          flipRowIds: flipIdsForLetter(sentRows, includedIds),
-          includedQuestionIds: [...includedIds],
+          flipRowIds: flipIdsForLetter(sentRows, new Set(covered)),
+          includedQuestionIds: covered,
           event: "copied",
           count: includedCount,
-          detail: { composed: true, question_ids: [...includedIds] },
+          detail: {
+            composed: true,
+            question_ids: covered,
+            merged: includedQuestions.map((question) => question.question_ids),
+          },
         });
       } catch (e) {
         console.warn("Could not mark composed questions as sent to client:", e);
@@ -164,7 +201,7 @@ export function ClientLetterBlock({
   const regenerateDisabled =
     busy || copying || (includedCount === 0 && stagedQuestionIds.length === 0);
 
-  let runningNumber = 0;
+  const intro = letter.intro.trim();
 
   return (
     <div className="space-y-2">
@@ -176,54 +213,59 @@ export function ClientLetterBlock({
           </p>
         ) : (
           <div className="space-y-4">
-            {letter.understandings.length > 0 && (
-              <div className="space-y-1.5">
-                <p className="text-sm font-medium text-foreground">
-                  We understand that:
-                </p>
-                <ul className="list-disc space-y-1 pl-5 text-sm text-foreground">
-                  {letter.understandings.map((entry, index) => (
-                    <li key={index}>{entry}</li>
-                  ))}
-                </ul>
-              </div>
+            {intro.length > 0 && (
+              <p className="whitespace-pre-line text-sm text-foreground">
+                {letter.intro}
+              </p>
             )}
-            {letterLeadIn(letter.questions, includedIds) !== null && (
+            {letterLeadIn(letter, includedKeys) !== null && (
               <p className="text-sm text-foreground">
                 Could you please confirm:
               </p>
             )}
-            <div className="space-y-2">
-              {letter.questions.map((question) => {
-                const included = includedIds.has(question.question_id);
-                const number = included ? ++runningNumber : null;
-                return (
-                  <label
-                    key={question.question_id}
-                    className="flex cursor-pointer items-start gap-2.5"
-                  >
-                    <Checkbox
-                      className="mt-0.5"
-                      checked={included}
-                      onCheckedChange={(value) =>
-                        toggleIncluded(question.question_id, value === true)
-                      }
-                    />
-                    <span
-                      className={
-                        included
-                          ? "text-sm text-foreground"
-                          : "text-sm text-muted-foreground line-through"
-                      }
-                    >
-                      {number !== null && (
-                        <span className="font-medium">{number}. </span>
+            <div className="space-y-3">
+              {groupViews.map((group, groupIndex) => (
+                <div key={groupIndex} className="space-y-2">
+                  {group.label !== null && group.title !== "" && (
+                    <p className="text-sm font-medium text-foreground">
+                      {group.label}. {group.title}
+                    </p>
+                  )}
+                  {group.questions.map((question) => (
+                    <div key={question.key} className="space-y-1.5">
+                      <label className="flex cursor-pointer items-start gap-2.5">
+                        <Checkbox
+                          className="mt-0.5"
+                          checked={question.included}
+                          onCheckedChange={(value) =>
+                            toggleIncluded(question.key, value === true)
+                          }
+                        />
+                        <span
+                          className={
+                            question.included
+                              ? "text-sm text-foreground"
+                              : "text-sm text-muted-foreground line-through"
+                          }
+                        >
+                          {question.number !== null && (
+                            <span className="font-medium">
+                              {question.number}.{" "}
+                            </span>
+                          )}
+                          {question.text}
+                        </span>
+                      </label>
+                      {question.table !== null && (
+                        <QuestionTable
+                          table={question.table}
+                          included={question.included}
+                        />
                       )}
-                      {question.text}
-                    </span>
-                  </label>
-                );
-              })}
+                    </div>
+                  ))}
+                </div>
+              ))}
             </div>
             {candidateRows.length > 0 && (
               <Collapsible className="border-t pt-3">
@@ -268,16 +310,20 @@ export function ClientLetterBlock({
           <Button
             variant="outline"
             disabled={regenerateDisabled}
-            onClick={() =>
+            onClick={() => {
+              // Covered register ids of the still-ticked letter questions:
+              // an added id stays only while the merged question covering it
+              // is still ticked.
+              const covered = coveredQuestionIds(letter, includedKeys);
               onRegenerate(
-                [...includedIds],
+                covered,
                 nextAddedQuestionIds(
                   addedQuestionIds,
-                  includedIds,
+                  new Set(covered),
                   stagedQuestionIds,
                 ),
-              )
-            }
+              );
+            }}
           >
             Regenerate
           </Button>
@@ -286,13 +332,54 @@ export function ClientLetterBlock({
             onClick={handleCopyLetter}
           >
             {copying && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
-            Copy letter
+            Copy letter ({includedCount}{" "}
+            {includedCount === 1 ? "question" : "questions"})
           </Button>
         </div>
       </Card>
       <p className="px-1 text-xs text-muted-foreground">
         {formatAsOfLine(composedAt)}
       </p>
+    </div>
+  );
+}
+
+/**
+ * The per-entity grid under a question (one row per entity). When the
+ * question is excluded the whole table dims, deliberately without
+ * strikethrough across the cells.
+ */
+function QuestionTable({
+  table,
+  included,
+}: {
+  table: LetterTable;
+  included: boolean;
+}) {
+  return (
+    <div
+      className={
+        included ? "pl-7" : "pl-7 text-muted-foreground opacity-60"
+      }
+    >
+      <Table>
+        <TableHeader>
+          <TableRow>
+            {table.columns.map((column, columnIndex) => (
+              <TableHead key={columnIndex}>{column}</TableHead>
+            ))}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {table.rows.map((row, rowIndex) => (
+            <TableRow key={rowIndex}>
+              {row.map((cell, cellIndex) => (
+                <TableCell key={cellIndex}>{cell}</TableCell>
+              ))}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </div>
   );
 }
