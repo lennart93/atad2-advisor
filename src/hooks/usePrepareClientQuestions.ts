@@ -1,20 +1,23 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
-import { toast } from "@/components/ui/sonner";
 import { buildDocumentsBlock } from "@/lib/prefill/buildDocumentsBlock";
 import { invokePrefillFn } from "@/hooks/usePrefill";
-import { useOpenQuestionActions } from "@/hooks/useOpenQuestionActions";
 import { runAnalyzePool } from "@/lib/openQuestions/analyzePool";
 import { WORDING_PROMPT_VERSION } from "@/lib/openQuestions/letterPipeline";
 import type { OpenQuestionRow } from "@/lib/openQuestions/types";
+
+// The wording round now runs inside the letter pipeline (useLetterPipeline):
+// analysis completion triggers runWordingRound before the letter is composed.
+// The "Prepare client questions" panel button is gone; this file keeps the
+// toast-free core plus the prompt-version gate the pipeline relies on.
 
 /**
  * First swarm prompt version that emits the client_question field
  * (migration 20260610220100_swarm_prompt_v12_client_question.sql).
  * Under older prompts the wording round would burn tokens without producing
- * any client wording, so both the button and the letter pipeline gate on
- * this version. Single source: WORDING_PROMPT_VERSION in the pure lib.
+ * any client wording, so the letter pipeline gates on this version.
+ * Single source: WORDING_PROMPT_VERSION in the pure lib.
  */
 export const CLIENT_QUESTION_PROMPT_VERSION = WORDING_PROMPT_VERSION;
 
@@ -61,11 +64,6 @@ export function useActivePromptVersionQuery(): {
   return { version: query.data ?? null, isLoading: query.isLoading };
 }
 
-/** Loading-blind view of the live prompt version, kept for the button. */
-export function useActivePromptVersion(): number | null {
-  return useActivePromptVersionQuery().version;
-}
-
 export interface PrepareClientQuestionsResult {
   /** True when there was nothing to prepare; no side effects happened. */
   aborted: boolean;
@@ -85,11 +83,11 @@ export interface PrepareClientQuestionsResult {
  * atad2_question_prefills copies the fresh client_question into still-open
  * register rows and realtime streams it in; nothing else to wire.
  *
- * TOAST-FREE by contract: both the button mutation and the letter pipeline
- * call this and decide their own messaging. Per-row failures never throw,
- * they only count into the result (the letter composes those rows from the
- * official-text fallback). Only setup errors throw: the register row select,
- * the documents bundle, and the official question select.
+ * TOAST-FREE by contract: the letter pipeline calls this and decides its own
+ * messaging. Per-row failures never throw, they only count into the result
+ * (the letter composes those rows from the official-text fallback). Only
+ * setup errors throw: the register row select, the documents bundle, and the
+ * official question select.
  */
 export async function runWordingRound(
   sessionId: string,
@@ -158,46 +156,4 @@ export async function runWordingRound(
   });
 
   return { aborted: false, total: targets.length, failed: failures.length };
-}
-
-/**
- * "Prepare client questions" button mutation: delegates the actual work to
- * runWordingRound and owns the toasts and cache invalidations. Kept alive
- * until the button itself is removed; the letter pipeline calls
- * runWordingRound directly instead.
- */
-export function usePrepareClientQuestions(sessionId: string | null) {
-  const qc = useQueryClient();
-  const { logEvent } = useOpenQuestionActions(sessionId);
-
-  return useMutation({
-    mutationFn: async (): Promise<PrepareClientQuestionsResult> => {
-      if (!sessionId) throw new Error("No session id");
-      return runWordingRound(sessionId, logEvent);
-    },
-    onSuccess: (result) => {
-      if (result.aborted) {
-        toast.error("All open questions already have client wording.");
-        return;
-      }
-      qc.invalidateQueries({ queryKey: ["question-prefills", sessionId] });
-      qc.invalidateQueries({ queryKey: ["open-questions", sessionId] });
-      qc.invalidateQueries({ queryKey: ["suggested-answer-map", sessionId] });
-      const plural = result.total === 1 ? "" : "s";
-      if (result.failed > 0) {
-        toast.error(
-          `Prepared client questions for ${result.total - result.failed} of ${result.total} question${plural}.`,
-        );
-      } else {
-        toast.success(
-          `Prepared client questions for ${result.total} question${plural}.`,
-        );
-      }
-    },
-    onError: (e: Error) => {
-      toast.error("Could not prepare client questions", {
-        description: e.message,
-      });
-    },
-  });
 }

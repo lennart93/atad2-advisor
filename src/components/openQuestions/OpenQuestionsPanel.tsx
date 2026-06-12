@@ -10,11 +10,8 @@ import { useOpenQuestionsView } from "@/hooks/useOpenQuestions";
 import { useRecheckOpenQuestions } from "@/hooks/useRecheckOpenQuestions";
 import { dismissedGateHint } from "@/lib/openQuestions/grouping";
 import type { OpenQuestionRow } from "@/lib/openQuestions/types";
-import { ComposeClientLetterDialog } from "./ComposeClientLetterDialog";
 import { OpenQuestionRowActions } from "./OpenQuestionRowActions";
 import { OpenQuestionRowCard } from "./OpenQuestionRowCard";
-import { OpenQuestionsExportActions } from "./OpenQuestionsExportActions";
-import { PrepareClientQuestionsButton } from "./PrepareClientQuestionsButton";
 
 // The analysis page renders the composed client letter instead of a list,
 // so the panel only knows page and sheet.
@@ -91,21 +88,10 @@ export function OpenQuestionsPanel({
     <div className={panelGap}>
       {variant === "page" && <PageHeading />}
 
-      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
-        <OpenQuestionsExportActions
-          sessionId={sessionId}
-          groups={groups}
-          resolveText={resolveText}
-        />
-        <div className="flex flex-wrap items-start gap-x-2 gap-y-2">
-          <ComposeClientLetterDialog
-            sessionId={sessionId}
-            groups={groups}
-            resolveText={resolveText}
-          />
-          <PrepareClientQuestionsButton sessionId={sessionId} rows={view.rows} />
-          <RecheckWithAiButton sessionId={sessionId} rows={view.rows} />
-        </div>
+      {/* Answering-only header: exporting and letter composition live on the
+          analysis page, so the panel keeps just the re-check action. */}
+      <div className="flex justify-end">
+        <RecheckWithAiButton sessionId={sessionId} rows={view.rows} />
       </div>
 
       {groups.needsAttention.length > 0 && (
