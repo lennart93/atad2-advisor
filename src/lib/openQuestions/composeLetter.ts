@@ -1,4 +1,8 @@
-import type { OpenQuestionGroups } from "./grouping";
+import { groupOpenQuestions, type OpenQuestionGroups } from "./grouping";
+import {
+  computeProjectedPath,
+  type QuestionBranchRow,
+} from "./projectedPath";
 import type { OpenQuestionExportMeta } from "./exportText";
 import type { OpenQuestionRow } from "./types";
 
@@ -29,6 +33,24 @@ export function selectComposeRows(groups: OpenQuestionGroups): OpenQuestionRow[]
   return [...groups.needsAttention, ...groups.active].filter(
     (row) => row.status === "open" || row.status === "taken_to_client",
   );
+}
+
+/**
+ * Same selection as selectComposeRows, but computed entirely from data the
+ * caller fetched FRESH from the database: register rows, the recorded answer
+ * map, the AI suggested-answer map and the questionnaire branch rows. Walks
+ * the projected path from those maps and groups the rows on it, so a stale
+ * react-query cache (whose missing suggestions would widen the path to
+ * wildcards) can never put off-path questions into the letter.
+ */
+export function selectComposeRowsFresh(
+  rows: OpenQuestionRow[],
+  answers: Map<string, string>,
+  suggestions: Map<string, string | null>,
+  branches: QuestionBranchRow[],
+): OpenQuestionRow[] {
+  const projectedIds = computeProjectedPath(branches, answers, suggestions);
+  return selectComposeRows(groupOpenQuestions(rows, projectedIds));
 }
 
 /**

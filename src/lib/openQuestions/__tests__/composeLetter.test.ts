@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   selectComposeRows,
+  selectComposeRowsFresh,
   buildComposeItems,
   filterLetterQuestions,
   formatComposedLetterText,
@@ -9,6 +10,7 @@ import {
   type ComposedLetter,
 } from "../composeLetter";
 import { groupOpenQuestions } from "../grouping";
+import type { QuestionBranchRow } from "../projectedPath";
 import type { OpenQuestionRow } from "../types";
 
 function makeRow(overrides: Partial<OpenQuestionRow> = {}): OpenQuestionRow {
@@ -70,6 +72,84 @@ describe("selectComposeRows", () => {
     expect(ids).not.toContain("hist-resolved");
     expect(ids).not.toContain("hist-dismissed");
     expect(ids).not.toContain("hist-answered");
+  });
+});
+
+describe("selectComposeRowsFresh", () => {
+  // Questionnaire: 1 -yes-> 2, 1 -no-> 3; 2 and 3 both end.
+  const branches: QuestionBranchRow[] = [
+    { question_id: "1", answer_option: "Yes", next_question_id: "2" },
+    { question_id: "1", answer_option: "No", next_question_id: "3" },
+    { question_id: "2", answer_option: "Yes", next_question_id: "end" },
+    { question_id: "2", answer_option: "No", next_question_id: "end" },
+    { question_id: "3", answer_option: "Yes", next_question_id: "end" },
+    { question_id: "3", answer_option: "No", next_question_id: "end" },
+  ];
+  const rows = [
+    makeRow({ id: "row-2", question_id: "2", status: "open" }),
+    makeRow({ id: "row-3", question_id: "3", status: "open" }),
+  ];
+
+  it("keeps only rows on the path projected from the fresh suggestions", () => {
+    const selected = selectComposeRowsFresh(
+      rows,
+      new Map(),
+      new Map([["1", "yes"]]),
+      branches,
+    );
+    expect(selected.map((r) => r.id)).toEqual(["row-2"]);
+  });
+
+  it("a recorded answer beats the suggestion when steering the path", () => {
+    const selected = selectComposeRowsFresh(
+      rows,
+      new Map([["1", "No"]]),
+      new Map([["1", "yes"]]),
+      branches,
+    );
+    expect(selected.map((r) => r.id)).toEqual(["row-3"]);
+  });
+
+  it("missing suggestions widen to wildcards: the off-path bug mechanics", () => {
+    // This is exactly what the stale query cache produced at the completion
+    // transition: no suggestions yet, every branch explored, every question
+    // "active". The fix is feeding this function FRESH maps, not changing
+    // the walk.
+    const selected = selectComposeRowsFresh(rows, new Map(), new Map(), branches);
+    expect(selected.map((r) => r.id)).toEqual(["row-2", "row-3"]);
+  });
+
+  it("reopen rows stay selected even when off the projected path", () => {
+    const withReopen = [
+      ...rows,
+      makeRow({ id: "row-reopen", question_id: "3", source: "reopen" }),
+    ];
+    const selected = selectComposeRowsFresh(
+      withReopen,
+      new Map(),
+      new Map([["1", "yes"]]),
+      branches,
+    );
+    expect(selected.map((r) => r.id)).toEqual(["row-reopen", "row-2"]);
+  });
+
+  it("excludes terminal rows regardless of the path", () => {
+    const withHistory = [
+      ...rows,
+      makeRow({ id: "row-done", question_id: "2", status: "answered" }),
+      makeRow({ id: "row-gone", question_id: "2", status: "dismissed" }),
+    ];
+    const selected = selectComposeRowsFresh(
+      withHistory,
+      new Map(),
+      new Map([["1", "yes"]]),
+      branches,
+    );
+    expect(selected.map((r) => r.id)).toEqual(["row-2"]);
+  });
+
+  it("returns empty for genuinely empty fresh rows", () => {
+    expect(selectComposeRowsFresh([], new Map(), new Map(), branches)).toEqual([]);
   });
 });
 

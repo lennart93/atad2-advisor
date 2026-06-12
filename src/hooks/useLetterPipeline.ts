@@ -19,9 +19,10 @@ import {
 } from "@/hooks/usePrefill";
 import {
   buildComposeItems,
-  selectComposeRows,
+  selectComposeRowsFresh,
   type ComposedLetter,
 } from "@/lib/openQuestions/composeLetter";
+import type { QuestionBranchRow } from "@/lib/openQuestions/projectedPath";
 import {
   decidePipelineStart,
   type LetterPipelinePhase,
@@ -49,6 +50,14 @@ import type { OpenQuestionRow } from "@/lib/openQuestions/types";
  *  - a settled-ready visit without a decodable stored letter.
  * A settled-ready visit WITH a stored letter shows it without any calls.
  * A failed analysis never starts the pipeline.
+ *
+ * Every compose DECISION (auto-run, retry, regenerate, the empty verdict)
+ * selects its rows from data fetched fresh out of the database, never from
+ * the react-query cache: at the completion transition the cached
+ * suggested-answer map can lag behind the just-finished analysis, the
+ * projected-path walker then treats those questions as wildcards, and the
+ * letter would include every off-path question. Rendering keeps using the
+ * cache as before.
  */
 
 export interface SessionMeta {
@@ -98,6 +107,56 @@ function writeStoredLetter(
   } catch {
     // Storage unavailable (private mode, quota): the letter still shows.
   }
+}
+
+/**
+ * The compose-decision worklist, selected from FRESH database reads: the
+ * register rows, the recorded answers, the AI suggested answers and the
+ * questionnaire branch rows, all in one parallel round trip. The projected
+ * path is computed from exactly these reads (selectComposeRowsFresh), so the
+ * selection can never be widened by a query cache that has not refetched yet.
+ * Throws on any read error; callers turn that into the error phase instead
+ * of ever deciding "empty" on data they do not actually have.
+ */
+async function fetchFreshComposeRows(
+  sessionId: string,
+): Promise<OpenQuestionRow[]> {
+  const [rowsRes, answersRes, suggestionsRes, branchesRes] = await Promise.all([
+    supabase
+      .from("atad2_open_questions")
+      .select("*")
+      .eq("session_id", sessionId),
+    supabase
+      .from("atad2_answers")
+      .select("question_id, answer")
+      .eq("session_id", sessionId),
+    supabase
+      .from("atad2_question_prefills")
+      .select("question_id, suggested_answer")
+      .eq("session_id", sessionId),
+    supabase
+      .from("atad2_questions")
+      .select("question_id, answer_option, next_question_id"),
+  ]);
+  if (rowsRes.error) throw new Error(rowsRes.error.message);
+  if (answersRes.error) throw new Error(answersRes.error.message);
+  if (suggestionsRes.error) throw new Error(suggestionsRes.error.message);
+  if (branchesRes.error) throw new Error(branchesRes.error.message);
+
+  const answers = new Map<string, string>();
+  for (const row of answersRes.data ?? []) {
+    answers.set(row.question_id, row.answer);
+  }
+  const suggestions = new Map<string, string | null>();
+  for (const row of suggestionsRes.data ?? []) {
+    suggestions.set(row.question_id, row.suggested_answer);
+  }
+  return selectComposeRowsFresh(
+    (rowsRes.data ?? []) as OpenQuestionRow[],
+    answers,
+    suggestions,
+    (branchesRes.data ?? []) as QuestionBranchRow[],
+  );
 }
 
 export function useLetterPipeline(sessionId: string): LetterPipeline {
@@ -182,25 +241,26 @@ export function useLetterPipeline(sessionId: string): LetterPipeline {
   );
 
   const runPipeline = useCallback(
-    async (start: PipelineStart) => {
+    async (start: PipelineStart, freshRows: OpenQuestionRow[]) => {
       if (start.kind === "empty") {
-        // Zero open path questions: the documents covered everything.
+        // Zero open path questions ON FRESH DATA: the documents covered
+        // everything. The empty verdict is never taken from the query cache.
         setPhase("empty");
         return;
       }
       if (start.kind === "letter") {
-        // Visit with a stored letter: show it, no calls. Flips on copy
-        // resolve against the CURRENT worklist snapshot, so rows answered
-        // since the letter was composed are never flipped back.
+        // Visit with a stored letter: show it, no compose call. Flips on
+        // copy resolve against the freshly selected worklist, so rows
+        // answered since the letter was composed are never flipped back.
         setLetter(start.stored.letter);
         setComposedAt(start.stored.composedAt);
-        setSentRows(selectComposeRows(view.groups));
+        setSentRows(freshRows);
         setError(null);
         setPhase("letter");
         return;
       }
 
-      let rows = selectComposeRows(view.groups);
+      let rows = freshRows;
       if (start.kind === "wording") {
         setPhase("wording");
         try {
@@ -237,7 +297,34 @@ export function useLetterPipeline(sessionId: string): LetterPipeline {
 
       await composeAndShow(rows);
     },
-    [composeAndShow, logEvent, qc, sessionId, view.groups],
+    [composeAndShow, logEvent, qc, sessionId],
+  );
+
+  /**
+   * Every compose decision starts here: fetch the worklist fresh from the
+   * database, decide the first pipeline step from THAT data, then run the
+   * pipeline with the same fresh rows. A failed fetch lands on the error
+   * phase with Try again; it is never mistaken for an empty worklist.
+   */
+  const startPipelineFresh = useCallback(
+    async (completionTransition: boolean, storedLetter: StoredLetter | null) => {
+      try {
+        const freshRows = await fetchFreshComposeRows(sessionId);
+        await runPipeline(
+          decidePipelineStart({
+            completionTransition,
+            storedLetter,
+            composeRows: freshRows,
+            promptVersion: promptVersion.version,
+          }),
+          freshRows,
+        );
+      } catch (e) {
+        setError({ message: (e as Error).message, notDeployed: false });
+        setPhase("error");
+      }
+    },
+    [promptVersion.version, runPipeline, sessionId],
   );
 
   // Settle gate + completion-transition detection + the one-shot auto-run.
@@ -262,38 +349,33 @@ export function useLetterPipeline(sessionId: string): LetterPipeline {
     if (failed || !ready || autoRanRef.current) return;
 
     autoRanRef.current = true;
-    void runPipeline(
-      decidePipelineStart({
-        completionTransition,
-        storedLetter: readStoredLetter(sessionId),
-        composeRows: selectComposeRows(view.groups),
-        promptVersion: promptVersion.version,
-      }),
-    );
+    void startPipelineFresh(completionTransition, readStoredLetter(sessionId));
   }, [
     jobQuery.isSuccess,
     jobQuery.isError,
     view.isLoading,
-    view.groups,
     promptVersion.isLoading,
-    promptVersion.version,
     ready,
     failed,
     sessionId,
-    runPipeline,
+    startPipelineFresh,
   ]);
 
   /**
-   * Regenerate with the ticked questions only: re-runs JUST the compose step
-   * against the sent snapshot. Failures toast and keep the previous letter
-   * usable; the phase never flips to error here.
+   * Regenerate with the ticked questions only: re-runs JUST the compose step,
+   * but against a FRESH worklist selection intersected with the ticked ids.
+   * Rows answered, dismissed or steered off the projected path since the
+   * letter was composed drop out here; nothing new is ever added. Failures
+   * toast and keep the previous letter usable; the phase never flips to
+   * error here.
    */
   const regenerate = useCallback(
     async (includedQuestionIds: string[]) => {
       const included = new Set(includedQuestionIds);
-      const rows = sentRows.filter((row) => included.has(row.question_id));
-      if (rows.length === 0) return;
       try {
+        const freshRows = await fetchFreshComposeRows(sessionId);
+        const rows = freshRows.filter((row) => included.has(row.question_id));
+        if (rows.length === 0) return;
         const composed = await composeLetter({
           items: buildComposeItems(rows, view.resolveText),
           taxpayerName: sessionMeta?.taxpayer_name || "Taxpayer",
@@ -301,6 +383,7 @@ export function useLetterPipeline(sessionId: string): LetterPipeline {
         });
         const now = new Date().toISOString();
         writeStoredLetter(sessionId, composed, now);
+        setSentRows(rows);
         setLetter(composed);
         setComposedAt(now);
       } catch (e) {
@@ -314,25 +397,21 @@ export function useLetterPipeline(sessionId: string): LetterPipeline {
         }
       }
     },
-    [composeLetter, sentRows, sessionId, sessionMeta, view.resolveText],
+    [composeLetter, sessionId, sessionMeta, view.resolveText],
   );
 
   /**
    * Try again after a hard error: always recomposes fresh, including a new
    * wording attempt when rows still miss client wording (completion-
-   * transition semantics, the stored letter is deliberately ignored).
+   * transition semantics, the stored letter is deliberately ignored). The
+   * phase flips to composing right away so the working lines show while the
+   * fresh data loads; the pipeline corrects it to wording when needed.
    */
   const retry = useCallback(() => {
     setError(null);
-    void runPipeline(
-      decidePipelineStart({
-        completionTransition: true,
-        storedLetter: null,
-        composeRows: selectComposeRows(view.groups),
-        promptVersion: promptVersion.version,
-      }),
-    );
-  }, [promptVersion.version, runPipeline, view.groups]);
+    setPhase("composing");
+    void startPipelineFresh(true, null);
+  }, [startPipelineFresh]);
 
   return {
     phase,
