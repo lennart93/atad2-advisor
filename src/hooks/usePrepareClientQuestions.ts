@@ -12,14 +12,6 @@ import type { OpenQuestionRow } from "@/lib/openQuestions/types";
 // The "Prepare client questions" panel button is gone; this file keeps the
 // toast-free core plus the prompt-version gate the pipeline relies on.
 
-/**
- * First swarm prompt version that emits the client_question field
- * (migration 20260610220100_swarm_prompt_v12_client_question.sql).
- * Under older prompts the wording round would burn tokens without producing
- * any client wording, so the letter pipeline gates on this version.
- * Single source: WORDING_PROMPT_VERSION in the pure lib.
- */
-export const CLIENT_QUESTION_PROMPT_VERSION = WORDING_PROMPT_VERSION;
 
 /** Rows the action targets: still in front of the advisor, no client wording yet. */
 export function needsClientQuestion(row: OpenQuestionRow): boolean {

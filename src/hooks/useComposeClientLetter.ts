@@ -9,8 +9,8 @@ import {
 /**
  * The compose_client_letter action is not live on the VM yet: the deployed
  * index.ts answers "Unknown action: ..." or loadActivePrompt reports
- * "No active prompt ...". The dialog turns this into exactly one
- * "Letter composition is not deployed yet." toast and closes.
+ * "No active prompt ...". This error is caught by the calling letter block,
+ * which handles display and messaging inline.
  */
 export class ComposeNotDeployedError extends Error {}
 
@@ -42,7 +42,7 @@ function classifyComposeError(msg: string): Error {
  * ONE compose call to the compose_client_letter edge action: the per-question
  * drafts go in, one merged letter comes out. The action writes nothing, so
  * there is nothing to invalidate; flips and audit events happen client-side
- * after a successful copy. No toasts here, the dialog decides what to show.
+ * after a successful copy. No toasts here, the letter block handles messaging.
  */
 export function useComposeClientLetter(sessionId: string) {
   return useMutation({
