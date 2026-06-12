@@ -1,22 +1,31 @@
-import { DOCUMENT_CATEGORIES, type QuestionPrefill } from "@/lib/prefill/types";
+import { DOCUMENT_CATEGORIES } from "@/lib/prefill/types";
 
 /**
- * Pure helpers for the analysis narrative ticker shown under AnalyzeProgress.
- * Every line is derived from REAL prefill rows and REAL document categories;
- * nothing here fabricates progress. The component layer only decides when to
- * call these and how often to advance the rotation tick.
+ * Pure helpers for the single rotating narrative line shown during the
+ * analysis wait and the follow-up letter pipeline. Every line is derived
+ * from REAL inputs (document categories, prefill counts, client-question
+ * teaser text); nothing here fabricates progress.
+ *
+ * By construction no line can leak a question id: TickerInputs carries no
+ * id field, so the builder never even sees one.
  */
 
-/** Slice of a prefill row the narrative needs; keeps tests dependency-free. */
-export type NarrativePrefill = Pick<
-  QuestionPrefill,
-  | "question_id"
-  | "created_at"
-  | "suggested_toelichting"
-  | "contextual_hint"
-  | "client_question"
-  | "suggested_answer"
->;
+/** Pipeline phase the ticker narrates. */
+export type TickerPhase = "analyzing" | "wording" | "composing";
+
+/** Grounded, id-free inputs the ticker pool is built from. */
+export interface TickerInputs {
+  /** Raw category values of the session documents (may repeat). */
+  categories: string[];
+  /** Prefill rows landed so far. */
+  prefillCount: number;
+  /** Distinct questions in the questionnaire, null while loading. */
+  totalQuestions: number | null;
+  /** Route-B prefills so far (rows that need the client). */
+  clientQuestionCount: number;
+  /** Client-question text (or official fallback) of route-B rows, oldest first. */
+  teasers: string[];
+}
 
 /**
  * Trims and caps text for a single-height ticker line. Over the limit, cuts
@@ -30,60 +39,58 @@ export function truncateForTicker(text: string, max = 80): string {
 }
 
 /**
- * One narrative line for a landed prefill row, or null when the row carries
- * neither route's data yet.
- *
- * Route B (needs the client): contextual_hint is set. Shows the start of the
- * ready-to-send client question, falling back to the official question text.
- * Route A (answered from documents): a definitive suggestion landed.
+ * The pool of lines the ticker rotates through for a phase. All grounded:
+ * analyzing names the REAL document categories and real counts, wording and
+ * composing describe the step that is actually running. Empty pool means
+ * there is nothing real to say yet; the component renders nothing.
  */
-export function narrativeLineFor(
-  p: NarrativePrefill,
-  officialText: string | undefined,
-): string | null {
-  if (p.contextual_hint !== null) {
-    const text = truncateForTicker(p.client_question ?? officialText ?? "");
-    if (text.length === 0) return `Question ${p.question_id} needs the client`;
-    return `Question ${p.question_id} needs the client: ${text}`;
-  }
-  if (p.suggested_toelichting !== null || p.suggested_answer !== null) {
-    return `Looked into question ${p.question_id}: enough in the documents`;
-  }
-  return null;
-}
-
-/**
- * Narrative lines for the most recent prefill rows, oldest first, capped at
- * the last `limit` so the ticker block never grows past a fixed height.
- */
-export function buildNarrativeLines(
-  prefills: NarrativePrefill[],
-  officialById: Map<string, string>,
-  limit = 5,
+export function buildTickerPool(
+  phase: TickerPhase,
+  inputs: TickerInputs,
 ): string[] {
-  const lines = [...prefills]
-    .sort(
-      (a, b) =>
-        new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
-    )
-    .map((p) => narrativeLineFor(p, officialById.get(p.question_id)))
-    .filter((line): line is string => line !== null);
-  return lines.slice(-limit);
+  const questionCounter =
+    inputs.clientQuestionCount > 0
+      ? `${inputs.clientQuestionCount} client question${
+          inputs.clientQuestionCount === 1 ? "" : "s"
+        } so far`
+      : null;
+
+  if (phase === "wording") {
+    const pool = ["Writing client questions..."];
+    if (questionCounter) pool.push(questionCounter);
+    return pool;
+  }
+
+  if (phase === "composing") {
+    return ["Merging shared context...", "Drafting your client letter..."];
+  }
+
+  const pool: string[] = [];
+  for (const value of [...new Set(inputs.categories)]) {
+    const label =
+      DOCUMENT_CATEGORIES.find((c) => c.value === value)?.label.toLowerCase() ??
+      "documents";
+    pool.push(`Reading the ${label}...`);
+  }
+  if (inputs.totalQuestions != null && inputs.prefillCount > 0) {
+    pool.push(`${inputs.prefillCount} of ${inputs.totalQuestions} checks done`);
+  }
+  if (questionCounter) pool.push(questionCounter);
+  const teasers = inputs.teasers
+    .map((t) => t.trim())
+    .filter((t) => t.length > 0)
+    .slice(-3);
+  for (const teaser of teasers) {
+    pool.push(`Found something for the client: ${truncateForTicker(teaser)}`);
+  }
+  return pool;
 }
 
 /**
- * Rotating "Now reading" line over the session's REAL document categories.
- * Order-preserving dedupe; unknown values fall back to "Documents". Pure in
- * (categories, tick) so the rotation is fully testable.
+ * The single line to show for a rotation tick: pool[tick % length], null on
+ * an empty pool. Pure in (pool, tick) so the rotation is fully testable.
  */
-export function nowReadingLine(
-  categories: string[],
-  tick: number,
-): string | null {
-  const unique = [...new Set(categories)];
-  if (unique.length === 0) return null;
-  const value = unique[tick % unique.length];
-  const label =
-    DOCUMENT_CATEGORIES.find((c) => c.value === value)?.label ?? "Documents";
-  return `Now reading: ${label}...`;
+export function pickTickerLine(pool: string[], tick: number): string | null {
+  if (pool.length === 0) return null;
+  return pool[tick % pool.length];
 }

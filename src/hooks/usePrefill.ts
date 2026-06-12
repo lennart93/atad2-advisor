@@ -95,6 +95,25 @@ export function useAllPrefills(sessionId: string | null) {
   return query;
 }
 
+/**
+ * Total distinct question count from the questions table. Drives *real*
+ * progress in AnalyzeProgress and the grounded counters in the analysis
+ * narrative ticker; static data, cached 1h.
+ */
+export function useQuestionCount() {
+  return useQuery({
+    queryKey: ["atad2-question-count"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("atad2_questions")
+        .select("question_id");
+      if (!data) return null;
+      return new Set(data.map((q) => q.question_id)).size;
+    },
+    staleTime: 60 * 60 * 1000,
+  });
+}
+
 export function useQuestionPrefill(sessionId: string | null, questionId: string | null) {
   const all = useAllPrefills(sessionId);
   const prefill = all.data?.find((p) => p.question_id === questionId) ?? null;

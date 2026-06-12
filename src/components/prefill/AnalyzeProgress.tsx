@@ -1,11 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { AssessmentFooterSlot } from "@/components/assessment/AssessmentFooterSlot";
-import { usePrefillJob, useAllPrefills } from "@/hooks/usePrefill";
+import { usePrefillJob, useAllPrefills, useQuestionCount } from "@/hooks/usePrefill";
 import { useUiBusySignal } from "@/stores/uiBusyStore";
 import { ArrowRight } from "lucide-react";
 
@@ -29,17 +27,7 @@ export function AnalyzeProgress({ sessionId, onContinue }: Props) {
   // looked plausible but unlocked the Continue button as soon as a single
   // prefill landed (1 of 49 = "ready"), which is why users routinely
   // outran the swarm and saw empty suggestions on Q1-Q3.
-  const { data: totalQuestions } = useQuery({
-    queryKey: ["atad2-question-count"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("atad2_questions")
-        .select("question_id");
-      if (!data) return null;
-      return new Set(data.map((q) => q.question_id)).size;
-    },
-    staleTime: 60 * 60 * 1000,
-  });
+  const { data: totalQuestions } = useQuestionCount();
 
   const [timedOut, setTimedOut] = useState(false);
   const startedAtRef = useRef<number>(Date.now());

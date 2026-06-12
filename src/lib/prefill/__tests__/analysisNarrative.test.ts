@@ -1,20 +1,19 @@
 import { describe, it, expect } from 'vitest';
 import {
   truncateForTicker,
-  narrativeLineFor,
-  buildNarrativeLines,
-  nowReadingLine,
-  type NarrativePrefill,
+  buildTickerPool,
+  pickTickerLine,
+  type TickerInputs,
+  type TickerPhase,
 } from '../analysisNarrative';
 
-function prefill(overrides: Partial<NarrativePrefill> = {}): NarrativePrefill {
+function inputs(overrides: Partial<TickerInputs> = {}): TickerInputs {
   return {
-    question_id: 'Q1',
-    created_at: '2026-06-11T10:00:00Z',
-    suggested_toelichting: null,
-    contextual_hint: null,
-    client_question: null,
-    suggested_answer: null,
+    categories: [],
+    prefillCount: 0,
+    totalQuestions: null,
+    clientQuestionCount: 0,
+    teasers: [],
     ...overrides,
   };
 }
@@ -38,118 +37,193 @@ describe('truncateForTicker', () => {
   });
 });
 
-describe('narrativeLineFor', () => {
-  it('Route B uses client_question when present', () => {
-    const p = prefill({
-      question_id: 'Q7',
-      contextual_hint: 'docs do not say',
-      client_question: 'We understand that the BV holds 100%. Could you please confirm?',
-    });
-    expect(narrativeLineFor(p, 'Official text')).toBe(
-      'Question Q7 needs the client: We understand that the BV holds 100%. Could you please confirm?',
-    );
-  });
-
-  it('Route B falls back to the official question text', () => {
-    const p = prefill({ question_id: 'Q7', contextual_hint: 'docs do not say' });
-    expect(narrativeLineFor(p, 'Is the entity a reverse hybrid?')).toBe(
-      'Question Q7 needs the client: Is the entity a reverse hybrid?',
-    );
-  });
-
-  it('Route B truncates long question text to about 80 chars', () => {
-    const p = prefill({
-      question_id: 'Q7',
-      contextual_hint: 'hint',
-      client_question: 'b'.repeat(120),
-    });
-    expect(narrativeLineFor(p, undefined)).toBe(
-      'Question Q7 needs the client: ' + 'b'.repeat(77) + '...',
-    );
-  });
-
-  it('Route B without any text drops the colon tail', () => {
-    const p = prefill({ question_id: 'Q7', contextual_hint: 'hint' });
-    expect(narrativeLineFor(p, undefined)).toBe('Question Q7 needs the client');
-  });
-
-  it('Route A via suggested_toelichting', () => {
-    const p = prefill({ question_id: 'Q3', suggested_toelichting: 'Found in the FS.' });
-    expect(narrativeLineFor(p, undefined)).toBe(
-      'Looked into question Q3: enough in the documents',
-    );
-  });
-
-  it('Route A via suggested_answer when toelichting is null', () => {
-    const p = prefill({ question_id: 'Q3', suggested_answer: 'yes' });
-    expect(narrativeLineFor(p, undefined)).toBe(
-      'Looked into question Q3: enough in the documents',
-    );
-  });
-
-  it('returns null when neither route is populated', () => {
-    expect(narrativeLineFor(prefill(), 'Official text')).toBeNull();
-  });
-});
-
-describe('buildNarrativeLines', () => {
-  it('sorts by created_at ascending and returns only the last 5 of 7', () => {
-    const prefills: NarrativePrefill[] = [7, 3, 5, 1, 6, 2, 4].map((n) =>
-      prefill({
-        question_id: `Q${n}`,
-        created_at: `2026-06-11T10:0${n}:00Z`,
-        suggested_answer: 'yes',
+describe('buildTickerPool: analyzing', () => {
+  it('maps known categories to lowercased labels with order-preserving dedupe', () => {
+    const pool = buildTickerPool(
+      'analyzing',
+      inputs({
+        categories: [
+          'tax_returns',
+          'financial_statements',
+          'tax_returns',
+          'memo',
+        ],
       }),
     );
-    const lines = buildNarrativeLines(prefills, new Map());
-    expect(lines).toEqual([
-      'Looked into question Q3: enough in the documents',
-      'Looked into question Q4: enough in the documents',
-      'Looked into question Q5: enough in the documents',
-      'Looked into question Q6: enough in the documents',
-      'Looked into question Q7: enough in the documents',
+    expect(pool).toEqual([
+      'Reading the tax returns...',
+      'Reading the financial statements...',
+      'Reading the memo...',
     ]);
   });
 
-  it('drops rows without a narrative line and uses official text from the map', () => {
-    const prefills: NarrativePrefill[] = [
-      prefill({ question_id: 'Q1', created_at: '2026-06-11T10:01:00Z' }),
-      prefill({
-        question_id: 'Q2',
-        created_at: '2026-06-11T10:02:00Z',
-        contextual_hint: 'hint',
-      }),
-    ];
-    const lines = buildNarrativeLines(
-      prefills,
-      new Map([['Q2', 'Official wording of Q2']]),
+  it('falls back to the documents label for unknown category values', () => {
+    const pool = buildTickerPool(
+      'analyzing',
+      inputs({ categories: ['something_else'] }),
     );
-    expect(lines).toEqual(['Question Q2 needs the client: Official wording of Q2']);
+    expect(pool).toEqual(['Reading the documents...']);
+  });
+
+  it('returns an empty pool when there is nothing real to report', () => {
+    expect(buildTickerPool('analyzing', inputs())).toEqual([]);
+  });
+
+  it('adds the checks counter only when total is known and prefills landed', () => {
+    expect(
+      buildTickerPool(
+        'analyzing',
+        inputs({ prefillCount: 7, totalQuestions: 49 }),
+      ),
+    ).toContain('7 of 49 checks done');
+    expect(
+      buildTickerPool(
+        'analyzing',
+        inputs({ prefillCount: 0, totalQuestions: 49 }),
+      ),
+    ).toEqual([]);
+    expect(
+      buildTickerPool(
+        'analyzing',
+        inputs({ prefillCount: 7, totalQuestions: null }),
+      ),
+    ).toEqual([]);
+  });
+
+  it('adds the client question counter with singular and plural forms', () => {
+    expect(
+      buildTickerPool('analyzing', inputs({ clientQuestionCount: 1 })),
+    ).toContain('1 client question so far');
+    expect(
+      buildTickerPool('analyzing', inputs({ clientQuestionCount: 3 })),
+    ).toContain('3 client questions so far');
+    expect(
+      buildTickerPool('analyzing', inputs({ clientQuestionCount: 0 })),
+    ).toEqual([]);
+  });
+
+  it('keeps only the last 3 non-empty teasers, truncated, after the fixed prefix', () => {
+    const pool = buildTickerPool(
+      'analyzing',
+      inputs({ teasers: ['one', '', '  ', 'two', 'three', 'c'.repeat(120)] }),
+    );
+    expect(pool).toEqual([
+      'Found something for the client: two',
+      'Found something for the client: three',
+      'Found something for the client: ' + 'c'.repeat(77) + '...',
+    ]);
+  });
+
+  it('orders the pool: categories, checks counter, question counter, teasers', () => {
+    const pool = buildTickerPool(
+      'analyzing',
+      inputs({
+        categories: ['memo'],
+        prefillCount: 2,
+        totalQuestions: 10,
+        clientQuestionCount: 1,
+        teasers: ['Could you confirm the CV is transparent?'],
+      }),
+    );
+    expect(pool).toEqual([
+      'Reading the memo...',
+      '2 of 10 checks done',
+      '1 client question so far',
+      'Found something for the client: Could you confirm the CV is transparent?',
+    ]);
   });
 });
 
-describe('nowReadingLine', () => {
-  it('returns null for an empty list', () => {
-    expect(nowReadingLine([], 0)).toBeNull();
+describe('buildTickerPool: wording', () => {
+  it('always writes the wording line', () => {
+    expect(buildTickerPool('wording', inputs())).toEqual([
+      'Writing client questions...',
+    ]);
   });
 
-  it('maps known category values to their labels', () => {
-    expect(nowReadingLine(['financial_statements'], 0)).toBe(
-      'Now reading: Financial statements...',
-    );
-    expect(nowReadingLine(['trial_balance'], 0)).toBe('Now reading: Trial balance...');
+  it('adds the question counter when positive', () => {
+    expect(
+      buildTickerPool('wording', inputs({ clientQuestionCount: 2 })),
+    ).toEqual(['Writing client questions...', '2 client questions so far']);
   });
 
-  it('falls back to Documents for unknown values', () => {
-    expect(nowReadingLine(['something_else'], 0)).toBe('Now reading: Documents...');
+  it('ignores categories and teasers in the wording phase', () => {
+    expect(
+      buildTickerPool(
+        'wording',
+        inputs({ categories: ['memo'], teasers: ['something'] }),
+      ),
+    ).toEqual(['Writing client questions...']);
+  });
+});
+
+describe('buildTickerPool: composing', () => {
+  it('returns the fixed composing lines regardless of inputs', () => {
+    const expected = [
+      'Merging shared context...',
+      'Drafting your client letter...',
+    ];
+    expect(buildTickerPool('composing', inputs())).toEqual(expected);
+    expect(
+      buildTickerPool(
+        'composing',
+        inputs({
+          categories: ['memo'],
+          prefillCount: 5,
+          totalQuestions: 10,
+          clientQuestionCount: 2,
+          teasers: ['something'],
+        }),
+      ),
+    ).toEqual(expected);
+  });
+});
+
+describe('pickTickerLine', () => {
+  it('returns null for an empty pool', () => {
+    expect(pickTickerLine([], 0)).toBeNull();
+    expect(pickTickerLine([], 5)).toBeNull();
   });
 
-  it('dedupes categories preserving first-seen order and rotates by tick', () => {
-    const cats = ['tax_returns', 'financial_statements', 'tax_returns', 'memo'];
-    expect(nowReadingLine(cats, 0)).toBe('Now reading: Tax returns...');
-    expect(nowReadingLine(cats, 1)).toBe('Now reading: Financial statements...');
-    expect(nowReadingLine(cats, 2)).toBe('Now reading: Memo...');
-    // 3 unique categories: tick wraps back to the first label.
-    expect(nowReadingLine(cats, 3)).toBe(nowReadingLine(cats, 0));
+  it('rotates through the pool and wraps around', () => {
+    const pool = ['a', 'b', 'c'];
+    expect(pickTickerLine(pool, 0)).toBe('a');
+    expect(pickTickerLine(pool, 1)).toBe('b');
+    expect(pickTickerLine(pool, 2)).toBe('c');
+    expect(pickTickerLine(pool, 3)).toBe('a');
+    expect(pickTickerLine(pool, 7)).toBe('b');
+  });
+});
+
+describe('ticker never leaks question ids', () => {
+  const phases: TickerPhase[] = ['analyzing', 'wording', 'composing'];
+  const loaded = inputs({
+    categories: ['tax_returns', 'unknown_value', 'memo'],
+    prefillCount: 12,
+    totalQuestions: 49,
+    clientQuestionCount: 4,
+    teasers: [
+      'We understand that the BV holds the loan. Could you please confirm?',
+      'Could you confirm whether the CV is treated as transparent in the US?',
+      'Please share the intercompany loan agreement for FY2025.',
+    ],
+  });
+
+  it('no line in any phase mentions a question followed by an id-like token', () => {
+    for (const phase of phases) {
+      for (const line of buildTickerPool(phase, loaded)) {
+        expect(line).not.toMatch(/question\s+(Q?\d|#|id)/i);
+      }
+    }
+  });
+
+  it('teaser lines only ever embed teaser text after the fixed prefix', () => {
+    const pool = buildTickerPool('analyzing', loaded);
+    const teaserLines = pool.filter((l) => l.startsWith('Found something'));
+    expect(teaserLines.length).toBe(3);
+    for (const line of teaserLines) {
+      const tail = line.replace('Found something for the client: ', '');
+      expect(loaded.teasers).toContain(tail);
+    }
   });
 });
