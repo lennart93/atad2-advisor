@@ -16,25 +16,17 @@
 --      and atad2_structure_charts (verified owner-only until now), so admin
 --      screens see truthful statuses through the view.
 --
--- !!!! REPO HYGIENE WARNING, READ BEFORE LINTING OR REPLAYING LOCALLY !!!!
+-- Historical note (feat/technical-appendix has now merged; warning is obsolete):
 -- ----------------------------------------------------------------------------
--- This migration references public.atad2_appendix. That table EXISTS ON THE
--- VM (applied there on 2026-06-07) but its CREATE TABLE migration
--- (20260607174300_appendix_tables.sql) lives on the feat/technical-appendix
--- branch, NOT in this checkout. Consequences:
---   * This file applies cleanly on the VM, but it CANNOT be validated against
---     this repo's migration set alone: a fresh database built from only this
---     branch's migrations fails here with
---     'relation "public.atad2_appendix" does not exist'.
---   * Columns relied on (SUBSET; the VM table meanwhile has more columns,
---     e.g. facts / facts_skipped / checklist_skipped / facts_input_hash from
---     later branch migrations), verified against the branch on 2026-06-10:
+-- This migration references public.atad2_appendix. That table was created by
+-- (20260607174300_appendix_tables.sql) from the feat/technical-appendix branch,
+-- which was NOT in this checkout when this migration was first written.
+-- Columns relied on (verified 2026-06-10):
 --       atad2_appendix.id                uuid PK
 --       atad2_appendix.session_id        text, unique per session
 --       atad2_appendix.generation_status text in ('generating','ready','error')
 --       atad2_appendix.review_status     text in ('draft','confirmed')
 --       atad2_appendix.updated_at        timestamptz
---   * This warning becomes obsolete when feat/technical-appendix merges.
 -- ----------------------------------------------------------------------------
 --
 -- Depends on earlier migrations of this slice (apply M1..M4 first):
@@ -292,7 +284,7 @@ SELECT
 FROM public.atad2_sessions s
 LEFT JOIN public.atad2_prefill_jobs j     ON j.session_id  = s.session_id
 LEFT JOIN public.atad2_structure_charts c ON c.session_id  = s.session_id
-LEFT JOIN public.atad2_appendix ap        ON ap.session_id = s.session_id  -- VM-only table, see header
+LEFT JOIN public.atad2_appendix ap        ON ap.session_id = s.session_id  -- table from feat/technical-appendix (merged)
 LEFT JOIN LATERAL (
   SELECT count(*) AS docs_count,
          max(d.created_at) AS last_doc_at
@@ -437,9 +429,9 @@ BEGIN
   END IF;
 
   -- Blockers 5/6: the technical appendix is missing or not confirmed.
-  -- atad2_appendix is the VM-only table documented in the header. There is
-  -- deliberately no whole-appendix 'skipped' status: a dossier without
-  -- appendix content uses per-page Skip followed by Confirm (on name).
+  -- atad2_appendix was introduced by feat/technical-appendix (now merged).
+  -- There is deliberately no whole-appendix 'skipped' status: a dossier
+  -- without appendix content uses per-page Skip followed by Confirm.
   SELECT review_status, generation_status
   INTO v_appendix
   FROM public.atad2_appendix

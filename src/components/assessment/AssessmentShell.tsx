@@ -52,13 +52,19 @@ export default function AssessmentShell() {
     [fromOverview, onOverview, overviewIndex, structureIndex, sessionId, navigate],
   );
 
-  // On the finalized Overview, the intake-through-confirmation steps can't be
-  // revisited — surface that on hover so users don't try to click them.
-  // Structure stays untagged: it's the one earlier step that can be revisited.
+  // On the finalized Overview, every step except Structure and Overview itself
+  // can't be revisited — surface that on hover so users don't try to click them.
+  // Derived from the steps registry so newly inserted steps are locked
+  // automatically without updating this list by hand.
   const lockedTooltip = onOverview
     ? "Locked. This step can't be revisited once the assessment is finalized."
     : undefined;
-  const lockedIndexes = onOverview ? [0, 1, 2, 3] : undefined;
+  const lockedIndexes = onOverview
+    ? ASSESSMENT_STEPS.reduce<number[]>((acc, _, idx) => {
+        if (idx !== structureIndex && idx !== overviewIndex) acc.push(idx);
+        return acc;
+      }, [])
+    : undefined;
 
   // Footer portal target — state-backed so context consumers re-render once
   // the node mounts (one-frame gap on first paint; footer has min-height).

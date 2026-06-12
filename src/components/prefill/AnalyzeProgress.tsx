@@ -51,8 +51,8 @@ export function AnalyzeProgress({ sessionId, onContinue, asOfLine }: Props) {
     : null;
 
   // Time-based curve runs to 100% over the full WAIT_TIMEOUT window so the
-  // bar never visually hangs between prefill writes. The "honesty signal"
-  // is the X/Y count badge in the corner; the bar's job is to feel alive.
+  // bar never visually hangs between prefill writes. The running view shows
+  // the label and a percentage; the bar's job is to feel alive.
   // Real progress can push pct higher (e.g. swarm finishes fast) but the
   // curve keeps the floor moving so users don't think we've frozen.
   const [fallbackPct, setFallbackPct] = useState(0);
@@ -91,7 +91,7 @@ export function AnalyzeProgress({ sessionId, onContinue, asOfLine }: Props) {
 
 
   // Only render a detail line for terminal states. While we're actively
-  // reading the bar + status label + count badge already say everything,
+  // reading the bar + status label + percentage already say everything,
   // so we keep that area quiet.
   const statusDetail = failed
     ? "You can start the questions now; suggestions may still appear inline if the analysis recovers in the background."
@@ -101,8 +101,8 @@ export function AnalyzeProgress({ sessionId, onContinue, asOfLine }: Props) {
     ? "We didn't finish in time. You can start the questions now; remaining suggestions will appear inline as they arrive."
     : null;
 
-  // Once the suggestions are in, the card collapses to a single status line:
-  // bar, percentage, count badge and the ready detail all disappear. The
+  // Once the suggestions are in, the card collapses to a single done-line
+  // showing a check icon, "Suggestions complete" and the X/Y count. The
   // failed and timed-out states keep the full card with their guidance lines.
   const collapsed = ready && !failed;
 

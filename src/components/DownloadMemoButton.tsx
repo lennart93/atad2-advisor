@@ -355,10 +355,14 @@ export default function DownloadMemoButton({
         const hasStructureChart = !!structureChartBase64;
 
         // Confirmed technical appendix -> native Word tables (Reference column dropped).
+        // A checklist page that the advisor explicitly skipped stays out of the
+        // export (matches the UI promise and mirrors the memo narrative path in
+        // appendixMemoBlock). Facts are not rendered in the DOCX at all, so
+        // facts_skipped has no effect here.
         let appendixSections: ReturnType<typeof toAppendixSections> = [];
         try {
           const [appendix, appendixSkeleton] = await Promise.all([loadAppendix(sessionId), loadAppendixSkeleton()]);
-          if (appendix && appendix.review_status === 'confirmed') {
+          if (appendix && appendix.review_status === 'confirmed' && !appendix.checklist_skipped) {
             appendixSections = toAppendixSections(appendix.rows, appendixSkeleton);
           }
         } catch (e) {
