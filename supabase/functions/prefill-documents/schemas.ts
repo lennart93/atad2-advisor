@@ -66,22 +66,73 @@ export const SwarmPrefill = SwarmPrefillRaw.transform((raw) => {
 );
 export type SwarmPrefillType = z.infer<typeof SwarmPrefill>;
 
-// compose_client_letter v1: ONE composed client letter assembled from the
-// per-question client_question drafts. understandings = shared "We understand
-// that ..." facts merged across questions (each stated exactly once);
-// questions = one numbered ask per input question_id, without repeating the
-// merged context. understandings may be empty (sparse inputs share no facts);
-// questions must not be. The 1200-char cap per ask is deliberately generous
-// (the per-question drafts are <=450 chars; merged rephrasing stays well
-// under it) but still bounds a runaway model.
+// compose_client_letter schema v2 (prompt v3): ONE composed client letter
+// with a short prose intro and 2-4 thematic groups. Each output question may
+// MERGE several input drafts; question_ids carries the source register
+// question ids it covers (the merge mapping the coverage guard checks). An
+// optional table renders a per-entity grid (one row per entity, one column
+// per sub-question). Caps are deliberately generous per house precedent:
+// per-question text cap raised to 2000 because merged questions carry
+// sub-asks; groups capped at 6 while the prompt demands 2-4; title allows ""
+// (no min) so the legacy-normalized unnamed group below validates.
+const LetterTableSchema = z.object({
+  columns: z.array(z.string().min(1)).min(1),
+  rows: z.array(z.array(z.string())).min(1),
+});
 export const ComposedLetterSchema = z.object({
+  intro: z.string().max(2500),
+  groups: z.array(z.object({
+    title: z.string().max(150),
+    questions: z.array(z.object({
+      question_ids: z.array(z.string().min(1)).min(1),
+      text: z.string().min(1).max(2000),
+      table: LetterTableSchema.nullish().default(null),
+    })).min(1),
+  })).min(1).max(6),
+});
+export type ComposedLetterType = z.infer<typeof ComposedLetterSchema>;
+
+// compose_client_letter v1 (legacy): the flat shape the deployed prompt v1/v2
+// still emits. The edge parses the new shape FIRST and falls back to this +
+// normalizeLegacyComposedLetter, which makes the VM deploy order-safe (new
+// edge with the old prompt still composes).
+export const ComposedLetterLegacySchema = z.object({
   understandings: z.array(z.string().min(1)),
   questions: z.array(z.object({
     question_id: z.string().min(1),
     text: z.string().min(1).max(1200),
   })).min(1),
 });
-export type ComposedLetterType = z.infer<typeof ComposedLetterSchema>;
+export type ComposedLetterLegacyType = z.infer<typeof ComposedLetterLegacySchema>;
+
+/**
+ * Normalizes a legacy (v1-shape) letter into the v2 shape using EXACTLY the
+ * same rule as the frontend old-shape branch (letterShape.ts): understandings
+ * become a "We understand that:" bullet block in the intro (trimmed, blank
+ * entries dropped; "" when none remain) and the questions become ONE unnamed
+ * group (title "") of single-id questions without tables.
+ */
+export function normalizeLegacyComposedLetter(
+  legacy: ComposedLetterLegacyType,
+): ComposedLetterType {
+  const bullets = legacy.understandings
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+  const intro = bullets.length > 0
+    ? `We understand that:\n${bullets.map((entry) => `- ${entry}`).join("\n")}`
+    : "";
+  return {
+    intro,
+    groups: [{
+      title: "",
+      questions: legacy.questions.map((q) => ({
+        question_ids: [q.question_id],
+        text: q.text,
+        table: null,
+      })),
+    }],
+  };
+}
 
 export const TokenUsage = z.object({
   input_tokens: z.number(),
