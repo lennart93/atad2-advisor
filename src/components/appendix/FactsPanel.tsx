@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { AlertTriangle, Check, ChevronDown, ChevronRight, Eye, EyeOff, Info, Users, Network, Layers, ArrowLeftRight, Handshake, X } from 'lucide-react';
+import { AlertTriangle, Check, ChevronDown, ChevronRight, Eye, EyeOff, Info, Users, ArrowLeftRight, Handshake, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { AppendixFacts, FactEntity, AppendixSectionKey, NarrativeKey, Narrative } from '@/lib/appendix/types';
 import { visibleFacts } from '@/lib/appendix/facts/visibleFacts';
@@ -628,31 +628,64 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
             </button>
           </p>
         )}
+
+        {/* Classification findings live with the table that shows them. */}
+        {(() => {
+          const mismatches = shown.entities.filter((e) => hasMismatch(e));
+          const tbd = shown.entities.filter((e) => {
+            if (isTaxpayerSide(e) || hasMismatch(e) || !inScope.has(e.id)) return false;
+            const c = clsByEntity.get(e.id);
+            return (c ? localQualification(c.homeClass) : 'undetermined') === 'undetermined';
+          });
+          if (!mismatches.length && !tbd.length) return null;
+          return (
+            <div className="mt-2.5 space-y-1.5 text-xs">
+              <NarrativeLine narrative={narrative('classification')} onSave={saveNarrative?.('classification')} />
+              {mismatches.map((e) => {
+                const c = clsByEntity.get(e.id);
+                const localQ = c ? localQualification(c.homeClass) : 'undetermined';
+                return (
+                  <div key={e.id} className="flex items-start gap-2 rounded-md border border-amber-400/30 bg-amber-50/40 px-2.5 py-1.5 dark:border-amber-500/20 dark:bg-amber-950/15">
+                    <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                    <span>
+                      <span className="font-mono text-sky-700 dark:text-sky-300">{e.id}</span>{' '}
+                      <span className="font-medium text-foreground">{e.name}</span>
+                      <span className="text-muted-foreground">
+                        {': '}
+                        {nlQualificationLabel(nlQualification(effNlTaxStatus(e))).toLowerCase()} for Dutch purposes, {nlQualificationLabel(localQ).toLowerCase()}
+                        {c?.homeState ? ` in ${c.homeState}` : ' locally'}; hybrid classification difference.
+                      </span>
+                    </span>
+                  </div>
+                );
+              })}
+              {tbd.map((e) => (
+                <div key={e.id} className="flex items-start gap-2 rounded-md border border-dashed border-[hsl(var(--border-subtle))] px-2.5 py-1.5 text-muted-foreground">
+                  <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <span>
+                    <span className="font-mono text-sky-700 dark:text-sky-300">{e.id}</span>{' '}
+                    <span className="font-medium text-foreground">{e.name}</span>
+                    {': '}party to a relevant transaction, but the local qualification is still to be determined. Set it in the Local column above.
+                  </span>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
       </Exhibit>
 
       {/* ------------------------------------------------------------------ */}
-      {/* REL - 2. Related parties (incl. acting together)                     */}
+      {/* AT - 2. Acting together                                              */}
       {/* ------------------------------------------------------------------ */}
-      <Exhibit tag="REL" icon={<Network className="h-4 w-4 text-muted-foreground" />} title="2 · Related parties" {...sectionProps('relatedness')}>
+      <Exhibit tag="AT" icon={<Handshake className="h-4 w-4 text-muted-foreground" />} title="2 · Acting together" {...sectionProps('actingTogether')}>
         <NarrativeLine narrative={narrative('related')} onSave={saveNarrative?.('related')} />
-        <p className="text-xs text-muted-foreground">
+        <p className="mb-2 text-xs text-muted-foreground">
           {relatedCount === 0
             ? 'No entities outside the taxpayer qualify as related parties.'
             : `${relatedCount} of ${others.length} entities outside the taxpayer qualify as related parties (the 25% test or a direct shareholding); see the table above.`}
         </p>
 
-        <div className="mt-3 border-t border-[hsl(var(--border-subtle))] pt-2.5">
-          <div className="mb-1.5 flex items-center gap-2 text-xs font-medium text-foreground">
-            <Handshake className="h-3.5 w-3.5 text-muted-foreground" />
-            Acting together (on top of direct relatedness)
-            <span className="flex-1" />
-            {editable && (
-              <ExcludeBtn
-                excluded={isSectionExcluded(facts, 'actingTogether')}
-                onClick={() => onChange!(withSectionExcluded(facts, 'actingTogether', !isSectionExcluded(facts, 'actingTogether')))}
-              />
-            )}
-          </div>
+        <div>
           {shown.actingTogether.length === 0 ? (
             <p className="text-xs text-muted-foreground">
               {generated ? 'No entities that could form an acting-together group.' : 'Not assessed yet.'}
@@ -765,65 +798,9 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
       </Exhibit>
 
       {/* ------------------------------------------------------------------ */}
-      {/* CLS - 3. Classification of the relevant entities                     */}
+      {/* T - 3. Relevant transactions                                         */}
       {/* ------------------------------------------------------------------ */}
-      <Exhibit tag="CLS" icon={<Layers className="h-4 w-4 text-muted-foreground" />} title="3 · Classification findings" {...sectionProps('classification')}>
-        <NarrativeLine narrative={narrative('classification')} onSave={saveNarrative?.('classification')} />
-        {(() => {
-          const mismatches = shown.entities.filter((e) => hasMismatch(e));
-          const tbd = shown.entities.filter((e) => {
-            if (isTaxpayerSide(e) || hasMismatch(e) || !inScope.has(e.id)) return false;
-            const c = clsByEntity.get(e.id);
-            return (c ? localQualification(c.homeClass) : 'undetermined') === 'undetermined';
-          });
-          if (!mismatches.length && !tbd.length) {
-            return (
-              <p className="text-xs text-muted-foreground">
-                {generated
-                  ? 'No classification differences identified; every entity is treated the same way in the Netherlands and locally. The per-entity qualifications are in the table above.'
-                  : 'Not assessed yet.'}
-              </p>
-            );
-          }
-          return (
-            <div className="space-y-1.5 text-xs">
-              {mismatches.map((e) => {
-                const c = clsByEntity.get(e.id);
-                const localQ = c ? localQualification(c.homeClass) : 'undetermined';
-                return (
-                  <div key={e.id} className="flex items-start gap-2 rounded-md border border-amber-400/30 bg-amber-50/40 px-2.5 py-1.5 dark:border-amber-500/20 dark:bg-amber-950/15">
-                    <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
-                    <span>
-                      <span className="font-mono text-sky-700 dark:text-sky-300">{e.id}</span>{' '}
-                      <span className="font-medium text-foreground">{e.name}</span>
-                      <span className="text-muted-foreground">
-                        {': '}
-                        {nlQualificationLabel(nlQualification(effNlTaxStatus(e))).toLowerCase()} for Dutch purposes, {nlQualificationLabel(localQ).toLowerCase()}
-                        {c?.homeState ? ` in ${c.homeState}` : ' locally'}; hybrid classification difference.
-                      </span>
-                    </span>
-                  </div>
-                );
-              })}
-              {tbd.map((e) => (
-                <div key={e.id} className="flex items-start gap-2 rounded-md border border-dashed border-[hsl(var(--border-subtle))] px-2.5 py-1.5 text-muted-foreground">
-                  <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                  <span>
-                    <span className="font-mono text-sky-700 dark:text-sky-300">{e.id}</span>{' '}
-                    <span className="font-medium text-foreground">{e.name}</span>
-                    {': '}party to a relevant transaction, but the local qualification is still to be determined. Set it in the Local column above.
-                  </span>
-                </div>
-              ))}
-            </div>
-          );
-        })()}
-      </Exhibit>
-
-      {/* ------------------------------------------------------------------ */}
-      {/* T - 4. Relevant transactions                                         */}
-      {/* ------------------------------------------------------------------ */}
-      <Exhibit tag="T" icon={<ArrowLeftRight className="h-4 w-4 text-muted-foreground" />} title="4 · Relevant transactions" {...sectionProps('transactions')}>
+      <Exhibit tag="T" icon={<ArrowLeftRight className="h-4 w-4 text-muted-foreground" />} title="3 · Relevant transactions" {...sectionProps('transactions')}>
         <NarrativeLine narrative={narrative('flows')} onSave={saveNarrative?.('flows')} />
         {relevantTx.length === 0
           ? <p className="text-xs text-muted-foreground">{generated ? 'No relevant intra-group transactions identified.' : 'Not generated yet.'}</p>
