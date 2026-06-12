@@ -136,8 +136,7 @@ async function runGeneration(c: SupabaseClient, appendixId: string, sessionId: s
     const evidenceNotes = answers
       .filter((a) => a.explanation && a.explanation.trim())
       .map((a) => `- (Q${a.question_id}) ${a.explanation!.trim()}`)
-      .join("
-");
+      .join("\n");
     const answersBlock = answers
       .map((a) => `Q${a.question_id} answer: ${a.answer}${a.explanation ? `\n  Explanation: ${a.explanation}` : ""}`)
       .join("\n");
