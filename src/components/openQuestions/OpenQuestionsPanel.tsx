@@ -16,8 +16,8 @@ import { OpenQuestionRowCard } from "./OpenQuestionRowCard";
 import { OpenQuestionsExportActions } from "./OpenQuestionsExportActions";
 import { PrepareClientQuestionsButton } from "./PrepareClientQuestionsButton";
 
-// The compact analysis-phase list is a dedicated component
-// (OpenQuestionsStream), so the panel only knows page and sheet.
+// The analysis page renders the composed client letter instead of a list,
+// so the panel only knows page and sheet.
 export type OpenQuestionsPanelVariant = "page" | "sheet";
 
 export interface OpenQuestionsPanelProps {

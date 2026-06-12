@@ -14,8 +14,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { AnalyzeProgress } from "@/components/prefill/AnalyzeProgress";
 import { AnalysisNarrative } from "@/components/prefill/AnalysisNarrative";
-import { OpenQuestionsStream } from "@/components/openQuestions/OpenQuestionsStream";
+import { ClientLetterBlock } from "@/components/openQuestions/ClientLetterBlock";
 import { DocumentUploadStep } from "@/components/assessment/DocumentUploadStep";
+import { Card } from "@/components/ui/card";
+import { useLetterPipeline } from "@/hooks/useLetterPipeline";
 import { usePrefillStore } from "@/stores/prefillStore";
 import {
   useSessionDocuments, usePrefillJob, useStartAnalyze,
@@ -84,23 +86,12 @@ export default function AssessmentUpload() {
 
   if (!sessionId) return <div className="p-8">Missing session.</div>;
 
-  if (waiting) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <h2 className="text-xl font-semibold tracking-tight">Reading your documents</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Pre-filling answers where possible. The questions open as soon as suggestions start arriving.
-          </p>
-        </div>
-        <AnalyzeProgress
-          sessionId={sessionId}
-          onContinue={() => navigate(`/assessment?session=${sessionId}`)}
-        />
-        <AnalysisNarrative sessionId={sessionId} />
-        <OpenQuestionsStream sessionId={sessionId} />
-      </div>
-    );
+  // Once the analysis has started (this visit or an earlier one), the page is
+  // the letter-first view: returning with a finished analysis lands on the
+  // letter directly, never on the locked upload screen.
+  const analysisStarted = waiting || locked;
+  if (analysisStarted) {
+    return <LetterFirstAnalysis sessionId={sessionId} />;
   }
 
   return (
@@ -168,6 +159,115 @@ export default function AssessmentUpload() {
         missingTypes={quality.missingTypes}
         onConfirm={confirmFromGate}
       />
+    </div>
+  );
+}
+
+/**
+ * The letter-first analysis view: a calm working screen (progress card plus
+ * exactly one rotating narrative line) that ends in the composed client
+ * letter rendered inline. The pipeline hook owns all sequencing; this
+ * component only maps its phase to what is on screen. AnalyzeProgress stays
+ * mounted in every phase: it owns the failed/timeout paths and the footer
+ * "Start questions" navigation that every end state reuses.
+ */
+function LetterFirstAnalysis({ sessionId }: { sessionId: string }) {
+  const navigate = useNavigate();
+  const { data: job } = usePrefillJob(sessionId);
+  const {
+    phase,
+    error,
+    letter,
+    composedAt,
+    sentRows,
+    sessionMeta,
+    composeBusy,
+    regenerate,
+    retry,
+  } = useLetterPipeline(sessionId);
+
+  const working =
+    phase === "analyzing" || phase === "wording" || phase === "composing";
+
+  const heading = working
+    ? {
+        title: "Reading your documents",
+        sub: "Pre-filling answers where possible. We will draft the client letter when the analysis is done.",
+      }
+    : phase === "letter"
+      ? {
+          title: "Client letter",
+          sub: "Questions the documents could not answer, ready to send to the client.",
+        }
+      : phase === "empty"
+        ? { title: "All covered", sub: null }
+        : { title: "Client letter", sub: null };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-xl font-semibold tracking-tight">{heading.title}</h2>
+        {heading.sub && (
+          <p className="mt-1 text-sm text-muted-foreground">{heading.sub}</p>
+        )}
+      </div>
+
+      <AnalyzeProgress
+        sessionId={sessionId}
+        onContinue={() => navigate(`/assessment?session=${sessionId}`)}
+      />
+
+      {working && job?.status !== "failed" && (
+        <AnalysisNarrative
+          sessionId={sessionId}
+          phase={
+            phase === "wording"
+              ? "wording"
+              : phase === "composing"
+                ? "composing"
+                : "analyzing"
+          }
+        />
+      )}
+
+      {phase === "letter" && letter && composedAt && (
+        <ClientLetterBlock
+          sessionId={sessionId}
+          letter={letter}
+          composedAt={composedAt}
+          sentRows={sentRows}
+          busy={composeBusy}
+          onRegenerate={regenerate}
+          sessionMeta={sessionMeta}
+        />
+      )}
+
+      {phase === "empty" && (
+        <Card className="p-5">
+          <p className="text-sm text-foreground">
+            No client questions; the documents covered everything we needed.
+          </p>
+        </Card>
+      )}
+
+      {phase === "error" &&
+        (error?.notDeployed ? (
+          <p className="text-sm text-muted-foreground">
+            Letter composition is not deployed yet.
+          </p>
+        ) : (
+          <Card className="space-y-3 p-5">
+            <p className="text-sm font-medium tracking-tight">
+              We could not finish the client letter.
+            </p>
+            {error?.message && (
+              <p className="text-xs text-muted-foreground">{error.message}</p>
+            )}
+            <Button variant="outline" onClick={retry}>
+              Try again
+            </Button>
+          </Card>
+        ))}
     </div>
   );
 }
