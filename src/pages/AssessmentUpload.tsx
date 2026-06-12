@@ -180,6 +180,9 @@ function LetterFirstAnalysis({ sessionId }: { sessionId: string }) {
     letter,
     composedAt,
     sentRows,
+    addedQuestionIds,
+    candidateRows,
+    resolveText,
     sessionMeta,
     composeBusy,
     regenerate,
@@ -237,6 +240,9 @@ function LetterFirstAnalysis({ sessionId }: { sessionId: string }) {
           letter={letter}
           composedAt={composedAt}
           sentRows={sentRows}
+          addedQuestionIds={addedQuestionIds}
+          candidateRows={candidateRows}
+          resolveText={resolveText}
           busy={composeBusy}
           onRegenerate={regenerate}
           sessionMeta={sessionMeta}

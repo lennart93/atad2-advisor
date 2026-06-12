@@ -2,6 +2,9 @@ import { describe, it, expect } from "vitest";
 import {
   selectComposeRows,
   selectComposeRowsFresh,
+  selectComposeSelectionFresh,
+  selectAddCandidates,
+  nextAddedQuestionIds,
   buildComposeItems,
   filterLetterQuestions,
   formatComposedLetterText,
@@ -151,6 +154,177 @@ describe("selectComposeRowsFresh", () => {
 
   it("returns empty for genuinely empty fresh rows", () => {
     expect(selectComposeRowsFresh([], new Map(), new Map(), branches)).toEqual([]);
+  });
+
+  describe("with extraQuestionIds (advisor-added off-path questions)", () => {
+    // Suggestion 1=yes puts question 2 on the path; question 3 is off-path.
+
+    it("additionally includes the targeted off-path open row, after the base", () => {
+      const selected = selectComposeRowsFresh(
+        rows,
+        new Map(),
+        new Map([["1", "yes"]]),
+        branches,
+        ["3"],
+      );
+      expect(selected.map((r) => r.id)).toEqual(["row-2", "row-3"]);
+    });
+
+    it("includes an added off-path row that is already taken_to_client", () => {
+      const withSent = [
+        rows[0],
+        makeRow({ id: "row-3-sent", question_id: "3", status: "taken_to_client" }),
+      ];
+      const selected = selectComposeRowsFresh(
+        withSent,
+        new Map(),
+        new Map([["1", "yes"]]),
+        branches,
+        ["3"],
+      );
+      expect(selected.map((r) => r.id)).toEqual(["row-2", "row-3-sent"]);
+    });
+
+    it("ignores unknown ids", () => {
+      const selected = selectComposeRowsFresh(
+        rows,
+        new Map(),
+        new Map([["1", "yes"]]),
+        branches,
+        ["99"],
+      );
+      expect(selected.map((r) => r.id)).toEqual(["row-2"]);
+    });
+
+    it("drops added ids whose row is meanwhile answered or dismissed", () => {
+      const settled = [
+        rows[0],
+        makeRow({ id: "row-3-done", question_id: "3", status: "answered" }),
+        makeRow({ id: "row-4-gone", question_id: "4", status: "dismissed" }),
+      ];
+      const selected = selectComposeRowsFresh(
+        settled,
+        new Map(),
+        new Map([["1", "yes"]]),
+        branches,
+        ["3", "4"],
+      );
+      expect(selected.map((r) => r.id)).toEqual(["row-2"]);
+    });
+
+    it("never duplicates a row when an extra id is meanwhile on-path", () => {
+      const selected = selectComposeRowsFresh(
+        rows,
+        new Map(),
+        new Map([["1", "yes"]]),
+        branches,
+        ["2"],
+      );
+      expect(selected.map((r) => r.id)).toEqual(["row-2"]);
+    });
+  });
+});
+
+describe("selectComposeSelectionFresh", () => {
+  const branches: QuestionBranchRow[] = [
+    { question_id: "1", answer_option: "Yes", next_question_id: "2" },
+    { question_id: "1", answer_option: "No", next_question_id: "3" },
+    { question_id: "2", answer_option: "Yes", next_question_id: "end" },
+    { question_id: "2", answer_option: "No", next_question_id: "end" },
+    { question_id: "3", answer_option: "Yes", next_question_id: "end" },
+    { question_id: "3", answer_option: "No", next_question_id: "end" },
+  ];
+  const rows = [
+    makeRow({ id: "row-2", question_id: "2", status: "open" }),
+    makeRow({ id: "row-3", question_id: "3", status: "open" }),
+  ];
+
+  it("reports only the extras that actually landed off-path and open", () => {
+    const selection = selectComposeSelectionFresh(
+      rows,
+      new Map(),
+      new Map([["1", "yes"]]),
+      branches,
+      ["3", "2", "99"],
+    );
+    expect(selection.rows.map((r) => r.id)).toEqual(["row-2", "row-3"]);
+    // "2" is on-path (already in the base) and "99" is unknown: both cleaned.
+    expect(selection.addedQuestionIds).toEqual(["3"]);
+  });
+
+  it("reports no added ids without extras", () => {
+    const selection = selectComposeSelectionFresh(
+      rows,
+      new Map(),
+      new Map([["1", "yes"]]),
+      branches,
+    );
+    expect(selection.rows.map((r) => r.id)).toEqual(["row-2"]);
+    expect(selection.addedQuestionIds).toEqual([]);
+  });
+});
+
+describe("selectAddCandidates", () => {
+  const later = [
+    makeRow({ id: "cand-open", question_id: "8", status: "open" }),
+    makeRow({ id: "cand-sent", question_id: "9", status: "taken_to_client" }),
+    makeRow({ id: "cand-in-letter", question_id: "10", status: "open" }),
+  ];
+
+  it("offers off-path open and taken_to_client rows not already in the letter", () => {
+    const candidates = selectAddCandidates(later, new Set(["10"]));
+    expect(candidates.map((r) => r.id)).toEqual(["cand-open", "cand-sent"]);
+  });
+
+  it("offers everything when the letter holds none of them", () => {
+    expect(selectAddCandidates(later, new Set()).map((r) => r.id)).toEqual([
+      "cand-open",
+      "cand-sent",
+      "cand-in-letter",
+    ]);
+  });
+
+  it("defensively drops rows in other statuses", () => {
+    const mixed = [
+      ...later,
+      makeRow({ id: "cand-done", question_id: "11", status: "answered" }),
+    ];
+    expect(selectAddCandidates(mixed, new Set()).map((r) => r.id)).not.toContain(
+      "cand-done",
+    );
+  });
+
+  it("returns empty for an empty later group", () => {
+    expect(selectAddCandidates([], new Set())).toEqual([]);
+  });
+});
+
+describe("nextAddedQuestionIds", () => {
+  it("keeps still-ticked added ids and appends the staged ids", () => {
+    expect(
+      nextAddedQuestionIds(["8", "9"], new Set(["8", "9", "3"]), ["10"]),
+    ).toEqual(["8", "9", "10"]);
+  });
+
+  it("drops added ids the advisor unticked in the main list", () => {
+    expect(nextAddedQuestionIds(["8", "9"], new Set(["9"]), [])).toEqual(["9"]);
+  });
+
+  it("dedupes a staged id that is already among the kept added ids", () => {
+    expect(nextAddedQuestionIds(["8"], new Set(["8"]), ["8", "10"])).toEqual([
+      "8",
+      "10",
+    ]);
+  });
+
+  it("dedupes duplicates inside the inputs themselves", () => {
+    expect(
+      nextAddedQuestionIds(["8", "8"], new Set(["8"]), ["10", "10"]),
+    ).toEqual(["8", "10"]);
+  });
+
+  it("returns just the staged ids when nothing was added before", () => {
+    expect(nextAddedQuestionIds([], new Set(["3"]), ["8"])).toEqual(["8"]);
   });
 });
 

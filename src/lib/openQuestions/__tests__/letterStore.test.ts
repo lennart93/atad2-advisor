@@ -23,13 +23,19 @@ describe("letterStorageKey", () => {
 });
 
 describe("encode/decode round-trip", () => {
-  it("preserves all fields through the v1 envelope", () => {
-    const raw = encodeStoredLetter(letter, ["3"], "2026-06-11T14:32:00.000Z");
+  it("preserves all fields through the v2 envelope", () => {
+    const raw = encodeStoredLetter(
+      letter,
+      ["3"],
+      ["7"],
+      "2026-06-11T14:32:00.000Z",
+    );
     const decoded = decodeStoredLetter(raw);
     expect(decoded).toEqual({
-      v: 1,
+      v: 2,
       letter,
       includedIds: ["3"],
+      addedQuestionIds: ["7"],
       composedAt: "2026-06-11T14:32:00.000Z",
     } satisfies StoredLetter);
   });
@@ -37,18 +43,47 @@ describe("encode/decode round-trip", () => {
   it("round-trips an empty letter", () => {
     const empty: ComposedLetter = { understandings: [], questions: [] };
     const decoded = decodeStoredLetter(
-      encodeStoredLetter(empty, [], "2026-06-11T14:32:00.000Z"),
+      encodeStoredLetter(empty, [], [], "2026-06-11T14:32:00.000Z"),
     );
     expect(decoded?.letter).toEqual(empty);
     expect(decoded?.includedIds).toEqual([]);
+    expect(decoded?.addedQuestionIds).toEqual([]);
+  });
+
+  it("decodes a legacy v1 envelope with empty addedQuestionIds", () => {
+    const v1 = JSON.stringify({
+      v: 1,
+      letter,
+      includedIds: ["3"],
+      composedAt: "2026-06-11T14:32:00.000Z",
+    });
+    expect(decodeStoredLetter(v1)).toEqual({
+      v: 2,
+      letter,
+      includedIds: ["3"],
+      addedQuestionIds: [],
+      composedAt: "2026-06-11T14:32:00.000Z",
+    } satisfies StoredLetter);
+  });
+
+  it("a v1 envelope with a stray addedQuestionIds field still decodes as empty", () => {
+    const v1 = JSON.stringify({
+      v: 1,
+      letter,
+      includedIds: ["3"],
+      addedQuestionIds: ["7"],
+      composedAt: "2026-06-11T14:32:00.000Z",
+    });
+    expect(decodeStoredLetter(v1)?.addedQuestionIds).toEqual([]);
   });
 });
 
 describe("decodeStoredLetter fail-closed", () => {
   const valid = (): Record<string, unknown> => ({
-    v: 1,
+    v: 2,
     letter,
     includedIds: ["3"],
+    addedQuestionIds: [],
     composedAt: "2026-06-11T14:32:00.000Z",
   });
 
@@ -66,7 +101,20 @@ describe("decodeStoredLetter fail-closed", () => {
   });
 
   it("returns null for an unknown envelope version", () => {
-    expect(decodeStoredLetter(JSON.stringify({ ...valid(), v: 2 }))).toBeNull();
+    expect(decodeStoredLetter(JSON.stringify({ ...valid(), v: 3 }))).toBeNull();
+    expect(decodeStoredLetter(JSON.stringify({ ...valid(), v: "2" }))).toBeNull();
+  });
+
+  it("returns null for a v2 envelope whose addedQuestionIds is not a string array", () => {
+    expect(
+      decodeStoredLetter(JSON.stringify({ ...valid(), addedQuestionIds: "7" })),
+    ).toBeNull();
+    expect(
+      decodeStoredLetter(JSON.stringify({ ...valid(), addedQuestionIds: [7] })),
+    ).toBeNull();
+    const missing = valid();
+    delete missing.addedQuestionIds;
+    expect(decodeStoredLetter(JSON.stringify(missing))).toBeNull();
   });
 
   it("returns null when the letter is missing or malformed", () => {

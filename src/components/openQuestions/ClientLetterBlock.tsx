@@ -1,14 +1,20 @@
 import { useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { ChevronRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { toast } from "@/components/ui/sonner";
 import { useOpenQuestionActions } from "@/hooks/useOpenQuestionActions";
 import {
   flipIdsForLetter,
   formatComposedLetterText,
   letterLeadIn,
+  nextAddedQuestionIds,
   type ComposedLetter,
 } from "@/lib/openQuestions/composeLetter";
 import { formatAsOfLine } from "@/lib/openQuestions/letterStore";
@@ -22,9 +28,18 @@ export interface ClientLetterBlockProps {
   composedAt: string;
   /** Snapshot of the rows the letter was composed from; flips resolve here. */
   sentRows: OpenQuestionRow[];
+  /** Off-path question ids already woven into the shown letter. */
+  addedQuestionIds: string[];
+  /** Off-path open rows not in the letter yet: the add candidates. */
+  candidateRows: OpenQuestionRow[];
+  /** Display text for a candidate row (client wording fallback chain). */
+  resolveText: (row: OpenQuestionRow) => string;
   /** True while a compose call runs; replaces the preview with a spinner. */
   busy: boolean;
-  onRegenerate: (includedQuestionIds: string[]) => void;
+  onRegenerate: (
+    includedQuestionIds: string[],
+    addedQuestionIds: string[],
+  ) => void;
   sessionMeta:
     | { taxpayer_name: string | null; fiscal_year: string | null }
     | null
@@ -40,12 +55,20 @@ export interface ClientLetterBlockProps {
  * text and only then flips the included still-open rows to taken_to_client
  * with one 'copied' audit event per question (detail { composed: true,
  * question_ids }). The block stays on screen after copying.
+ *
+ * Below the questions, a collapsed "Add questions outside the expected path"
+ * section offers the off-path open rows. Ticking one only STAGES it; staged
+ * questions enter the letter (and the copy text) exclusively through the
+ * next Regenerate, which weaves them in like any other question.
  */
 export function ClientLetterBlock({
   sessionId,
   letter,
   composedAt,
   sentRows,
+  addedQuestionIds,
+  candidateRows,
+  resolveText,
   busy,
   onRegenerate,
   sessionMeta,
@@ -53,14 +76,17 @@ export function ClientLetterBlock({
   const [includedIds, setIncludedIds] = useState<Set<string>>(
     () => new Set(letter.questions.map((q) => q.question_id)),
   );
+  const [stagedIds, setStagedIds] = useState<Set<string>>(new Set());
   const [copying, setCopying] = useState(false);
 
   const { recordExportSent } = useOpenQuestionActions(sessionId);
 
   // Re-seed the include toggles whenever a fresh letter arrives (the server
-  // coverage guard guarantees the letter holds exactly the input ids).
+  // coverage guard guarantees the letter holds exactly the input ids), and
+  // clear the staging: a fresh letter already contains what was staged.
   useEffect(() => {
     setIncludedIds(new Set(letter.questions.map((q) => q.question_id)));
+    setStagedIds(new Set());
   }, [letter]);
 
   const buildMeta = (): OpenQuestionExportMeta => ({
@@ -82,9 +108,24 @@ export function ClientLetterBlock({
     });
   };
 
+  const toggleStaged = (questionId: string, checked: boolean) => {
+    setStagedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(questionId);
+      else next.delete(questionId);
+      return next;
+    });
+  };
+
   const includedCount = letter.questions.filter((q) =>
     includedIds.has(q.question_id),
   ).length;
+
+  // Staged ids restricted to the rows still offered as candidates, so a
+  // staged question answered in the meantime never counts or regenerates.
+  const stagedQuestionIds = candidateRows
+    .filter((row) => stagedIds.has(row.question_id))
+    .map((row) => row.question_id);
 
   const handleCopyLetter = async () => {
     if (includedCount === 0) return;
@@ -117,7 +158,11 @@ export function ClientLetterBlock({
     }
   };
 
-  const actionsDisabled = busy || copying || includedCount === 0;
+  const copyDisabled = busy || copying || includedCount === 0;
+  // Regenerate also works from staged additions alone, e.g. after the
+  // advisor unticked every composed question but added an off-path one.
+  const regenerateDisabled =
+    busy || copying || (includedCount === 0 && stagedQuestionIds.length === 0);
 
   let runningNumber = 0;
 
@@ -180,19 +225,64 @@ export function ClientLetterBlock({
                 );
               })}
             </div>
+            {candidateRows.length > 0 && (
+              <Collapsible className="border-t pt-3">
+                <CollapsibleTrigger className="group flex w-full items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
+                  <ChevronRight className="h-4 w-4 shrink-0 transition-transform group-data-[state=open]:rotate-90" />
+                  Add questions outside the expected path ({candidateRows.length})
+                </CollapsibleTrigger>
+                <CollapsibleContent className="overflow-hidden data-[state=open]:animate-collapsible-down data-[state=closed]:animate-collapsible-up">
+                  <div className="space-y-2 pt-2">
+                    {candidateRows.map((row) => (
+                      <label
+                        key={row.question_id}
+                        className="flex cursor-pointer items-start gap-2.5"
+                      >
+                        <Checkbox
+                          className="mt-0.5"
+                          checked={stagedIds.has(row.question_id)}
+                          onCheckedChange={(value) =>
+                            toggleStaged(row.question_id, value === true)
+                          }
+                        />
+                        <span className="text-sm text-muted-foreground">
+                          {resolveText(row)}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            )}
           </div>
         )}
 
-        <div className="flex justify-end gap-2">
+        <div className="flex items-center justify-end gap-2">
+          {!busy && stagedQuestionIds.length > 0 && (
+            <p className="mr-auto text-xs text-muted-foreground">
+              {stagedQuestionIds.length === 1
+                ? "1 added question; Regenerate to weave it into the letter."
+                : `${stagedQuestionIds.length} added questions; Regenerate to weave them into the letter.`}
+            </p>
+          )}
           <Button
             variant="outline"
-            disabled={actionsDisabled}
-            onClick={() => onRegenerate([...includedIds])}
+            disabled={regenerateDisabled}
+            onClick={() =>
+              onRegenerate(
+                [...includedIds],
+                nextAddedQuestionIds(
+                  addedQuestionIds,
+                  includedIds,
+                  stagedQuestionIds,
+                ),
+              )
+            }
           >
             Regenerate
           </Button>
           <Button
-            disabled={actionsDisabled || sessionMeta === undefined}
+            disabled={copyDisabled || sessionMeta === undefined}
             onClick={handleCopyLetter}
           >
             {copying && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}

@@ -36,21 +36,116 @@ export function selectComposeRows(groups: OpenQuestionGroups): OpenQuestionRow[]
 }
 
 /**
+ * A fresh compose selection: the rows to compose from, plus the question ids
+ * of the off-path rows that are only present because the advisor explicitly
+ * added them. addedQuestionIds is the CLEANED set: extra ids that are
+ * unknown, answered, dismissed or meanwhile on the projected path never
+ * appear in it, so persisting it keeps the stored state tidy.
+ */
+export interface ComposeSelection {
+  rows: OpenQuestionRow[];
+  addedQuestionIds: string[];
+}
+
+/**
  * Same selection as selectComposeRows, but computed entirely from data the
  * caller fetched FRESH from the database: register rows, the recorded answer
  * map, the AI suggested-answer map and the questionnaire branch rows. Walks
  * the projected path from those maps and groups the rows on it, so a stale
  * react-query cache (whose missing suggestions would widen the path to
  * wildcards) can never put off-path questions into the letter.
+ *
+ * extraQuestionIds additionally pulls in off-path rows (the later group,
+ * still open/taken_to_client) the advisor explicitly added to the letter.
+ * Unknown ids are ignored, terminal rows stay dropped, and an extra id that
+ * is meanwhile on the projected path is already in the base selection, so
+ * the result never holds duplicates.
  */
+export function selectComposeSelectionFresh(
+  rows: OpenQuestionRow[],
+  answers: Map<string, string>,
+  suggestions: Map<string, string | null>,
+  branches: QuestionBranchRow[],
+  extraQuestionIds: string[] = [],
+): ComposeSelection {
+  const projectedIds = computeProjectedPath(branches, answers, suggestions);
+  const groups = groupOpenQuestions(rows, projectedIds);
+  const base = selectComposeRows(groups);
+  const wanted = new Set(extraQuestionIds);
+  const extras =
+    wanted.size === 0
+      ? []
+      : groups.later.filter(
+          (row) =>
+            wanted.has(row.question_id) &&
+            (row.status === "open" || row.status === "taken_to_client"),
+        );
+  return {
+    rows: [...base, ...extras],
+    addedQuestionIds: extras.map((row) => row.question_id),
+  };
+}
+
+/** Row-only view of selectComposeSelectionFresh, for callers without extras. */
 export function selectComposeRowsFresh(
   rows: OpenQuestionRow[],
   answers: Map<string, string>,
   suggestions: Map<string, string | null>,
   branches: QuestionBranchRow[],
+  extraQuestionIds: string[] = [],
 ): OpenQuestionRow[] {
-  const projectedIds = computeProjectedPath(branches, answers, suggestions);
-  return selectComposeRows(groupOpenQuestions(rows, projectedIds));
+  return selectComposeSelectionFresh(
+    rows,
+    answers,
+    suggestions,
+    branches,
+    extraQuestionIds,
+  ).rows;
+}
+
+/**
+ * Candidate rows for the "Add questions outside the expected path" section:
+ * off-path (later group) rows that are still open/taken_to_client and not
+ * already woven into the shown letter. Once a question is part of the letter
+ * its include checkbox lives in the main list, so it never shows here twice.
+ */
+export function selectAddCandidates(
+  later: OpenQuestionRow[],
+  letterQuestionIds: Set<string>,
+): OpenQuestionRow[] {
+  return later.filter(
+    (row) =>
+      (row.status === "open" || row.status === "taken_to_client") &&
+      !letterQuestionIds.has(row.question_id),
+  );
+}
+
+/**
+ * The addedQuestionIds to request on the next regenerate: previously added
+ * ids that are still ticked in the main letter list, plus the newly staged
+ * candidate ids, deduped in that order. Added ids the advisor unticked drop
+ * out here, so the persisted state never accumulates dead entries.
+ */
+export function nextAddedQuestionIds(
+  currentAdded: string[],
+  includedIds: Set<string>,
+  stagedIds: string[],
+): string[] {
+  const next: string[] = [];
+  const seen = new Set<string>();
+  for (const id of currentAdded) {
+    if (includedIds.has(id) && !seen.has(id)) {
+      seen.add(id);
+      next.push(id);
+    }
+  }
+  for (const id of stagedIds) {
+    if (!seen.has(id)) {
+      seen.add(id);
+      next.push(id);
+    }
+  }
+  return next;
 }
 
 /**

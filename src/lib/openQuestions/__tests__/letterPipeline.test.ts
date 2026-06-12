@@ -30,12 +30,13 @@ function makeRow(overrides: Partial<OpenQuestionRow> = {}): OpenQuestionRow {
 }
 
 const stored: StoredLetter = {
-  v: 1,
+  v: 2,
   letter: {
     understandings: ["The BV holds the loan."],
     questions: [{ question_id: "3", text: "Could you confirm the terms?" }],
   },
   includedIds: ["3"],
+  addedQuestionIds: [],
   composedAt: "2026-06-11T14:32:00.000Z",
 };
 

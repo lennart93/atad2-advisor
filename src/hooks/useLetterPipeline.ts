@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/sonner";
@@ -19,8 +19,10 @@ import {
 } from "@/hooks/usePrefill";
 import {
   buildComposeItems,
-  selectComposeRowsFresh,
+  selectAddCandidates,
+  selectComposeSelectionFresh,
   type ComposedLetter,
+  type ComposeSelection,
 } from "@/lib/openQuestions/composeLetter";
 import type { QuestionBranchRow } from "@/lib/openQuestions/projectedPath";
 import {
@@ -73,10 +75,23 @@ export interface LetterPipeline {
   composedAt: string | null;
   /** Snapshot of the rows the letter was composed from; flips resolve here. */
   sentRows: OpenQuestionRow[];
+  /** Off-path question ids explicitly added to the shown letter. */
+  addedQuestionIds: string[];
+  /**
+   * Off-path open/taken_to_client rows not yet in the letter: the candidates
+   * for "Add questions outside the expected path". Display only, from the
+   * live view; compose decisions re-select everything fresh.
+   */
+  candidateRows: OpenQuestionRow[];
+  /** Display text: client wording, else official text, else fixed sentence. */
+  resolveText: (row: OpenQuestionRow) => string;
   sessionMeta: SessionMeta | null | undefined;
   /** True while a compose call runs; the block disables its buttons on it. */
   composeBusy: boolean;
-  regenerate: (includedQuestionIds: string[]) => Promise<void>;
+  regenerate: (
+    includedQuestionIds: string[],
+    addedQuestionIds: string[],
+  ) => Promise<void>;
   retry: () => void;
 }
 
@@ -93,6 +108,7 @@ function readStoredLetter(sessionId: string): StoredLetter | null {
 function writeStoredLetter(
   sessionId: string,
   letter: ComposedLetter,
+  addedQuestionIds: string[],
   composedAt: string,
 ): void {
   try {
@@ -101,6 +117,7 @@ function writeStoredLetter(
       encodeStoredLetter(
         letter,
         letter.questions.map((q) => q.question_id),
+        addedQuestionIds,
         composedAt,
       ),
     );
@@ -113,14 +130,20 @@ function writeStoredLetter(
  * The compose-decision worklist, selected from FRESH database reads: the
  * register rows, the recorded answers, the AI suggested answers and the
  * questionnaire branch rows, all in one parallel round trip. The projected
- * path is computed from exactly these reads (selectComposeRowsFresh), so the
- * selection can never be widened by a query cache that has not refetched yet.
+ * path is computed from exactly these reads (selectComposeSelectionFresh), so
+ * the selection can never be widened by a query cache that has not refetched
+ * yet.
  * Throws on any read error; callers turn that into the error phase instead
  * of ever deciding "empty" on data they do not actually have.
+ *
+ * extraQuestionIds carries the advisor's explicit off-path additions; the
+ * returned selection holds their rows too, plus the CLEANED list of added
+ * ids (extras meanwhile answered, dismissed or on-path drop out of it).
  */
 async function fetchFreshComposeRows(
   sessionId: string,
-): Promise<OpenQuestionRow[]> {
+  extraQuestionIds: string[],
+): Promise<ComposeSelection> {
   const [rowsRes, answersRes, suggestionsRes, branchesRes] = await Promise.all([
     supabase
       .from("atad2_open_questions")
@@ -151,11 +174,12 @@ async function fetchFreshComposeRows(
   for (const row of suggestionsRes.data ?? []) {
     suggestions.set(row.question_id, row.suggested_answer);
   }
-  return selectComposeRowsFresh(
+  return selectComposeSelectionFresh(
     (rowsRes.data ?? []) as OpenQuestionRow[],
     answers,
     suggestions,
     (branchesRes.data ?? []) as QuestionBranchRow[],
+    extraQuestionIds,
   );
 }
 
@@ -188,6 +212,7 @@ export function useLetterPipeline(sessionId: string): LetterPipeline {
   const [letter, setLetter] = useState<ComposedLetter | null>(null);
   const [composedAt, setComposedAt] = useState<string | null>(null);
   const [sentRows, setSentRows] = useState<OpenQuestionRow[]>([]);
+  const [addedQuestionIds, setAddedQuestionIds] = useState<string[]>([]);
 
   /** The auto-run happened (or a stored letter was shown); never re-fires. */
   const autoRanRef = useRef(false);
@@ -209,7 +234,7 @@ export function useLetterPipeline(sessionId: string): LetterPipeline {
 
   /** The compose step shared by all paths; persists and lands on "letter". */
   const composeAndShow = useCallback(
-    async (rows: OpenQuestionRow[]) => {
+    async (rows: OpenQuestionRow[], addedIds: string[]) => {
       setPhase("composing");
       setSentRows(rows);
       try {
@@ -219,9 +244,10 @@ export function useLetterPipeline(sessionId: string): LetterPipeline {
           fiscalYear: sessionMeta?.fiscal_year || "",
         });
         const now = new Date().toISOString();
-        writeStoredLetter(sessionId, composed, now);
+        writeStoredLetter(sessionId, composed, addedIds, now);
         setLetter(composed);
         setComposedAt(now);
+        setAddedQuestionIds(addedIds);
         setError(null);
         setPhase("letter");
       } catch (e) {
@@ -241,7 +267,7 @@ export function useLetterPipeline(sessionId: string): LetterPipeline {
   );
 
   const runPipeline = useCallback(
-    async (start: PipelineStart, freshRows: OpenQuestionRow[]) => {
+    async (start: PipelineStart, freshSelection: ComposeSelection) => {
       if (start.kind === "empty") {
         // Zero open path questions ON FRESH DATA: the documents covered
         // everything. The empty verdict is never taken from the query cache.
@@ -250,17 +276,20 @@ export function useLetterPipeline(sessionId: string): LetterPipeline {
       }
       if (start.kind === "letter") {
         // Visit with a stored letter: show it, no compose call. Flips on
-        // copy resolve against the freshly selected worklist, so rows
-        // answered since the letter was composed are never flipped back.
+        // copy resolve against the freshly selected worklist (which includes
+        // the stored added off-path rows), so rows answered since the letter
+        // was composed are never flipped back. The added ids come from the
+        // CLEANED fresh selection, not the raw stored list.
         setLetter(start.stored.letter);
         setComposedAt(start.stored.composedAt);
-        setSentRows(freshRows);
+        setSentRows(freshSelection.rows);
+        setAddedQuestionIds(freshSelection.addedQuestionIds);
         setError(null);
         setPhase("letter");
         return;
       }
 
-      let rows = freshRows;
+      let rows = freshSelection.rows;
       if (start.kind === "wording") {
         setPhase("wording");
         try {
@@ -295,7 +324,7 @@ export function useLetterPipeline(sessionId: string): LetterPipeline {
         }
       }
 
-      await composeAndShow(rows);
+      await composeAndShow(rows, freshSelection.addedQuestionIds);
     },
     [composeAndShow, logEvent, qc, sessionId],
   );
@@ -307,17 +336,24 @@ export function useLetterPipeline(sessionId: string): LetterPipeline {
    * phase with Try again; it is never mistaken for an empty worklist.
    */
   const startPipelineFresh = useCallback(
-    async (completionTransition: boolean, storedLetter: StoredLetter | null) => {
+    async (
+      completionTransition: boolean,
+      storedLetter: StoredLetter | null,
+      extraQuestionIds: string[],
+    ) => {
       try {
-        const freshRows = await fetchFreshComposeRows(sessionId);
+        const freshSelection = await fetchFreshComposeRows(
+          sessionId,
+          extraQuestionIds,
+        );
         await runPipeline(
           decidePipelineStart({
             completionTransition,
             storedLetter,
-            composeRows: freshRows,
+            composeRows: freshSelection.rows,
             promptVersion: promptVersion.version,
           }),
-          freshRows,
+          freshSelection,
         );
       } catch (e) {
         setError({ message: (e as Error).message, notDeployed: false });
@@ -349,7 +385,14 @@ export function useLetterPipeline(sessionId: string): LetterPipeline {
     if (failed || !ready || autoRanRef.current) return;
 
     autoRanRef.current = true;
-    void startPipelineFresh(completionTransition, readStoredLetter(sessionId));
+    const storedLetter = readStoredLetter(sessionId);
+    // The persisted added off-path questions ride along on every auto
+    // decision, so they survive revisits and the completion recompose.
+    void startPipelineFresh(
+      completionTransition,
+      storedLetter,
+      storedLetter?.addedQuestionIds ?? [],
+    );
   }, [
     jobQuery.isSuccess,
     jobQuery.isError,
@@ -362,19 +405,23 @@ export function useLetterPipeline(sessionId: string): LetterPipeline {
   ]);
 
   /**
-   * Regenerate with the ticked questions only: re-runs JUST the compose step,
-   * but against a FRESH worklist selection intersected with the ticked ids.
-   * Rows answered, dismissed or steered off the projected path since the
-   * letter was composed drop out here; nothing new is ever added. Failures
-   * toast and keep the previous letter usable; the phase never flips to
-   * error here.
+   * Regenerate with the ticked questions plus the requested off-path
+   * additions: re-runs JUST the compose step, but against a FRESH worklist
+   * selection. Ticked rows answered, dismissed or steered off the projected
+   * path since the letter was composed drop out here; added ids that are
+   * meanwhile answered, dismissed or now on-path drop or dedupe naturally
+   * because the fresh selection is the only source of rows. This is the only
+   * place staged additions enter the letter. Failures toast and keep the
+   * previous letter usable; the phase never flips to error here.
    */
   const regenerate = useCallback(
-    async (includedQuestionIds: string[]) => {
-      const included = new Set(includedQuestionIds);
+    async (includedQuestionIds: string[], addedIds: string[]) => {
+      const included = new Set([...includedQuestionIds, ...addedIds]);
       try {
-        const freshRows = await fetchFreshComposeRows(sessionId);
-        const rows = freshRows.filter((row) => included.has(row.question_id));
+        const freshSelection = await fetchFreshComposeRows(sessionId, addedIds);
+        const rows = freshSelection.rows.filter((row) =>
+          included.has(row.question_id),
+        );
         if (rows.length === 0) return;
         const composed = await composeLetter({
           items: buildComposeItems(rows, view.resolveText),
@@ -382,10 +429,16 @@ export function useLetterPipeline(sessionId: string): LetterPipeline {
           fiscalYear: sessionMeta?.fiscal_year || "",
         });
         const now = new Date().toISOString();
-        writeStoredLetter(sessionId, composed, now);
+        writeStoredLetter(
+          sessionId,
+          composed,
+          freshSelection.addedQuestionIds,
+          now,
+        );
         setSentRows(rows);
         setLetter(composed);
         setComposedAt(now);
+        setAddedQuestionIds(freshSelection.addedQuestionIds);
       } catch (e) {
         const err = e as Error;
         if (err instanceof ComposeNotDeployedError) {
@@ -410,8 +463,23 @@ export function useLetterPipeline(sessionId: string): LetterPipeline {
   const retry = useCallback(() => {
     setError(null);
     setPhase("composing");
-    void startPipelineFresh(true, null);
-  }, [startPipelineFresh]);
+    // The stored letter is ignored as a letter, but the advisor's explicit
+    // off-path additions persist through the retry.
+    void startPipelineFresh(
+      true,
+      null,
+      readStoredLetter(sessionId)?.addedQuestionIds ?? [],
+    );
+  }, [sessionId, startPipelineFresh]);
+
+  // Candidates for "Add questions outside the expected path": live off-path
+  // open rows minus the questions already woven into the shown letter.
+  const candidateRows = useMemo(() => {
+    const letterIds = new Set(
+      (letter?.questions ?? []).map((q) => q.question_id),
+    );
+    return selectAddCandidates(view.groups.later, letterIds);
+  }, [view.groups.later, letter]);
 
   return {
     phase,
@@ -419,6 +487,9 @@ export function useLetterPipeline(sessionId: string): LetterPipeline {
     letter,
     composedAt,
     sentRows,
+    addedQuestionIds,
+    candidateRows,
+    resolveText: view.resolveText,
     sessionMeta,
     composeBusy,
     regenerate,

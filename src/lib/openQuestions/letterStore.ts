@@ -12,9 +12,11 @@ import type { ComposedLetter } from "./composeLetter";
 
 /** Versioned envelope for a persisted letter. */
 export interface StoredLetter {
-  v: 1;
+  v: 2;
   letter: ComposedLetter;
   includedIds: string[];
+  /** Off-path questions the advisor explicitly added to the letter. */
+  addedQuestionIds: string[];
   composedAt: string;
 }
 
@@ -23,13 +25,20 @@ export function letterStorageKey(sessionId: string): string {
   return `client-letter:${sessionId}`;
 }
 
-/** Serializes the v1 envelope. composedAt should be an ISO timestamp. */
+/** Serializes the v2 envelope. composedAt should be an ISO timestamp. */
 export function encodeStoredLetter(
   letter: ComposedLetter,
   includedIds: string[],
+  addedQuestionIds: string[],
   composedAt: string,
 ): string {
-  const envelope: StoredLetter = { v: 1, letter, includedIds, composedAt };
+  const envelope: StoredLetter = {
+    v: 2,
+    letter,
+    includedIds,
+    addedQuestionIds,
+    composedAt,
+  };
   return JSON.stringify(envelope);
 }
 
@@ -52,9 +61,11 @@ function isComposedLetter(value: unknown): value is ComposedLetter {
 }
 
 /**
- * Parses a raw stored value back into the envelope. Returns null on: null
- * input, invalid JSON, a non-v1 envelope, a malformed letter, a non-string
- * includedIds array, or an unparseable composedAt.
+ * Parses a raw stored value back into the envelope. Accepts v2 envelopes and
+ * legacy v1 envelopes (which carry no addedQuestionIds: decoded as []).
+ * Returns null on: null input, invalid JSON, any other envelope version, a
+ * malformed letter, a non-string includedIds array, a non-string
+ * addedQuestionIds array on v2, or an unparseable composedAt.
  */
 export function decodeStoredLetter(raw: string | null): StoredLetter | null {
   if (raw === null) return null;
@@ -66,15 +77,21 @@ export function decodeStoredLetter(raw: string | null): StoredLetter | null {
   }
   if (typeof parsed !== "object" || parsed === null) return null;
   const envelope = parsed as Record<string, unknown>;
-  if (envelope.v !== 1) return null;
+  if (envelope.v !== 1 && envelope.v !== 2) return null;
   if (!isComposedLetter(envelope.letter)) return null;
   if (!isStringArray(envelope.includedIds)) return null;
   if (typeof envelope.composedAt !== "string") return null;
   if (Number.isNaN(new Date(envelope.composedAt).getTime())) return null;
+  let addedQuestionIds: string[] = [];
+  if (envelope.v === 2) {
+    if (!isStringArray(envelope.addedQuestionIds)) return null;
+    addedQuestionIds = envelope.addedQuestionIds;
+  }
   return {
-    v: 1,
+    v: 2,
     letter: envelope.letter,
     includedIds: envelope.includedIds,
+    addedQuestionIds,
     composedAt: envelope.composedAt,
   };
 }
