@@ -28,6 +28,7 @@ import {
   type OwnershipEdgeType,
 } from './edges/OwnershipEdge';
 import { NODE_WIDTH, NODE_HEIGHT } from '@/lib/structure/labelMeasure';
+import { taxpayerCenteredViewport, type ChartBounds } from '@/lib/structure/viewportFraming';
 import { computeConvergingLabelCounts } from '@/lib/structure/labelLayout';
 import { FiscalUnityOverlay } from './overlays/FiscalUnityOverlay';
 import type { FrameLayout } from '@/lib/structure/fiscalUnityLayout';
@@ -120,6 +121,7 @@ function StructureChartInner(props: StructureChartProps) {
           entity_type: e.entity_type,
           is_taxpayer: e.is_taxpayer,
           source: e.source as EntityNodeData['source'],
+          color: e.color ?? null,
           focused: false,
         } satisfies EntityNodeData,
       };
@@ -267,16 +269,52 @@ function StructureChartInner(props: StructureChartProps) {
     [initialNodes],
   );
   const lastFitSig = useRef<string>('');
+  const hasFramedRef = useRef(false);
+  // Frame the chart so the TAXPAYER is horizontally centred (it is rarely the
+  // UPE, so a plain bounding-box fit drifts it off to one side). The zoom still
+  // keeps every entity visible. Falls back to a plain fitView if there is no
+  // taxpayer or the pane hasn't been measured yet.
   useEffect(() => {
     if (initialNodes.length === 0) return;
     if (positionSig === lastFitSig.current) return;
     lastFitSig.current = positionSig;
+    // First framing snaps (duration 0); later re-frames animate.
+    const duration = hasFramedRef.current ? 250 : 0;
     // Defer to next frame so xyflow has applied the new node positions first.
-    const id = requestAnimationFrame(() =>
-      reactFlow.fitView({ padding: 0.05, minZoom: 0.3, maxZoom: 1.0, duration: 250 }),
-    );
+    const id = requestAnimationFrame(() => {
+      const pane = wrapperRef.current?.getBoundingClientRect();
+      const taxpayer = props.entities.find((e) => e.is_taxpayer);
+      // Bounding box of every rendered node: entities, cluster placeholders and
+      // fiscal-unity frames. Computed from props (top-left coords) so it does
+      // not depend on React Flow having measured the DOM nodes yet.
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      const grow = (x: number, y: number, w: number, h: number) => {
+        if (x < minX) minX = x;
+        if (y < minY) minY = y;
+        if (x + w > maxX) maxX = x + w;
+        if (y + h > maxY) maxY = y + h;
+      };
+      for (const e of props.entities) grow(e.position_x, e.position_y, NODE_WIDTH, NODE_HEIGHT);
+      for (const c of props.clusterNodes) grow(c.position.x, c.position.y, NODE_WIDTH, NODE_HEIGHT);
+      for (const f of props.frameLayouts) grow(f.x, f.y, f.width, f.height);
+
+      if (!pane || !taxpayer || !Number.isFinite(minX)) {
+        reactFlow.fitView({ padding: 0.1, minZoom: 0.3, maxZoom: 1.0, duration });
+        hasFramedRef.current = true;
+        return;
+      }
+      const bounds: ChartBounds = { minX, minY, maxX, maxY };
+      const vp = taxpayerCenteredViewport({
+        bounds,
+        taxpayerCenterX: taxpayer.position_x + NODE_WIDTH / 2,
+        viewportWidth: pane.width,
+        viewportHeight: pane.height,
+      });
+      reactFlow.setViewport(vp, { duration });
+      hasFramedRef.current = true;
+    });
     return () => cancelAnimationFrame(id);
-  }, [positionSig, initialNodes.length, reactFlow]);
+  }, [positionSig, initialNodes.length, reactFlow, props.entities, props.clusterNodes, props.frameLayouts]);
 
   const handleNodesChange = useCallback(
     (changes: NodeChange<ChartNodeType>[]) => {
@@ -327,7 +365,7 @@ function StructureChartInner(props: StructureChartProps) {
         />
         <Background
           gap={props.gridVisible ? 8 : 40}
-          color={props.gridVisible ? 'rgba(0,0,0,0.08)' : 'rgba(0,0,0,0.04)'}
+          color={props.gridVisible ? 'rgba(0,0,0,0.05)' : 'rgba(0,0,0,0.03)'}
           variant={props.gridVisible ? BackgroundVariant.Lines : BackgroundVariant.Dots}
         />
         <Controls />

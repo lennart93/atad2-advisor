@@ -1227,6 +1227,7 @@ export type Database = {
       atad2_structure_entities: {
         Row: {
           chart_id: string
+          color: string | null
           created_at: string
           entity_type: Database["public"]["Enums"]["entity_type_enum"]
           id: string
@@ -1241,6 +1242,7 @@ export type Database = {
         }
         Insert: {
           chart_id: string
+          color?: string | null
           created_at?: string
           entity_type: Database["public"]["Enums"]["entity_type_enum"]
           id?: string
@@ -1255,6 +1257,7 @@ export type Database = {
         }
         Update: {
           chart_id?: string
+          color?: string | null
           created_at?: string
           entity_type?: Database["public"]["Enums"]["entity_type_enum"]
           id?: string
