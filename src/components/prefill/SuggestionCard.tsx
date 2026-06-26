@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ds";
 import { Textarea } from "@/components/ui/textarea";
 import type { QuestionPrefill } from "@/lib/prefill/types";
 import { useUpdatePrefillAction } from "@/hooks/usePrefill";
@@ -100,7 +100,7 @@ export function SuggestionCard({
   };
 
   return (
-    <div className="border-l-2 border-primary/40 bg-primary/5 pl-4 py-3 my-2 text-sm leading-relaxed space-y-2">
+    <div className="border-l-2 border-ds-hairline bg-ds-fill-muted pl-4 pr-3 py-3 my-2 text-[13px] leading-relaxed space-y-2">
       {!editMode ? (
         <p className="whitespace-pre-wrap">{suggested}</p>
       ) : (
@@ -108,17 +108,17 @@ export function SuggestionCard({
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           rows={5}
-          className="bg-background"
+          className="bg-ds-card"
         />
       )}
 
       <div className="flex gap-2.5 pt-1">
         {!editMode ? (
           <>
-            <Button size="sm" onClick={accept} className="transition-all duration-fast">Accept</Button>
+            <Button size="sm" variant="secondary" onClick={accept} className="transition-all duration-fast">Accept</Button>
             <Button
               size="sm"
-              variant="outline"
+              variant="ghost"
               className="transition-all duration-fast"
               onClick={() => {
                 setDraft(suggested);
@@ -131,7 +131,7 @@ export function SuggestionCard({
           </>
         ) : (
           <>
-            <Button size="sm" onClick={commitEdit} className="transition-all duration-fast">Save</Button>
+            <Button size="sm" variant="secondary" onClick={commitEdit} className="transition-all duration-fast">Save</Button>
             <Button size="sm" variant="ghost" className="transition-all duration-fast" onClick={() => setEditMode(false)}>Cancel</Button>
           </>
         )}

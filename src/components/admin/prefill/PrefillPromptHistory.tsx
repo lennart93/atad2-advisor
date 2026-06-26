@@ -47,7 +47,7 @@ export function PrefillPromptHistory({ promptKey, onClose }: Props) {
               <div className="flex-1 min-w-0">
                 <div className="text-sm">
                   <strong>v{v.version}</strong>
-                  {v.is_active && <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">active</span>}
+                  {v.is_active && <span className="ml-2 text-xs bg-ds-fill-muted text-ds-ink px-2 py-0.5 rounded">active</span>}
                 </div>
                 <div className="text-xs text-muted-foreground">{new Date(v.created_at).toLocaleString()}</div>
                 {v.notes && <div className="text-xs mt-1">{v.notes}</div>}

@@ -19,7 +19,7 @@ export function SearchFilterBar({
   search, onSearchChange, searchPlaceholder = "Search…", filters, actions, viewMode, onViewModeChange,
 }: SearchFilterBarProps) {
   return (
-    <div className="sticky top-0 z-10 bg-white/90 backdrop-blur border border-[#ececec] rounded-[12px] p-3 flex flex-wrap items-center gap-2 mb-4">
+    <div className="sticky top-0 z-10 bg-ds-card/90 backdrop-blur border border-ds-hairline rounded-[12px] p-3 flex flex-wrap items-center gap-2 mb-4">
       <div className="relative flex-1 min-w-[240px]">
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
         <Input
@@ -37,7 +37,7 @@ export function SearchFilterBar({
             onClick={() => onViewModeChange("list")}
             className={cn(
               "inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium",
-              viewMode === "list" ? "bg-white shadow-sm text-foreground" : "text-muted-foreground"
+              viewMode === "list" ? "bg-ds-card shadow-sm text-foreground" : "text-muted-foreground"
             )}
           >
             <List size={14} /> List
@@ -47,7 +47,7 @@ export function SearchFilterBar({
             onClick={() => onViewModeChange("flow")}
             className={cn(
               "inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium",
-              viewMode === "flow" ? "bg-white shadow-sm text-foreground" : "text-muted-foreground"
+              viewMode === "flow" ? "bg-ds-card shadow-sm text-foreground" : "text-muted-foreground"
             )}
           >
             <GitBranch size={14} /> Flow

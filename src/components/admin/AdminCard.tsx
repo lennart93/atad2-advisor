@@ -10,7 +10,7 @@ export const AdminCard = forwardRef<HTMLDivElement, AdminCardProps>(
     <div
       ref={ref}
       className={cn(
-        "bg-white border border-[#ececec] rounded-[14px] p-4",
+        "bg-ds-card border border-ds-hairline rounded-[14px] p-4",
         interactive && "cursor-pointer transition-shadow hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)]",
         className
       )}

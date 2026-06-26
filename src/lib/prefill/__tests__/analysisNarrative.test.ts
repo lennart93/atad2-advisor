@@ -72,37 +72,22 @@ describe('buildTickerPool: analyzing', () => {
     expect(buildTickerPool('analyzing', inputs())).toEqual([]);
   });
 
-  it('adds the checks counter only when total is known and prefills landed', () => {
-    expect(
-      buildTickerPool(
-        'analyzing',
-        inputs({ prefillCount: 7, totalQuestions: 49 }),
-      ),
-    ).toContain('7 of 49 checks done');
-    expect(
-      buildTickerPool(
-        'analyzing',
-        inputs({ prefillCount: 0, totalQuestions: 49 }),
-      ),
-    ).toEqual([]);
-    expect(
-      buildTickerPool(
-        'analyzing',
-        inputs({ prefillCount: 7, totalQuestions: null }),
-      ),
-    ).toEqual([]);
+  it('never renders an internal checks counter, whatever the run state', () => {
+    for (const variant of [
+      inputs({ prefillCount: 7, totalQuestions: 49 }),
+      inputs({ prefillCount: 0, totalQuestions: 49 }),
+      inputs({ prefillCount: 7, totalQuestions: null }),
+    ]) {
+      expect(buildTickerPool('analyzing', variant)).toEqual([]);
+    }
   });
 
-  it('adds the client question counter with singular and plural forms', () => {
-    expect(
-      buildTickerPool('analyzing', inputs({ clientQuestionCount: 1 })),
-    ).toContain('1 client question so far');
-    expect(
-      buildTickerPool('analyzing', inputs({ clientQuestionCount: 3 })),
-    ).toContain('3 client questions so far');
-    expect(
-      buildTickerPool('analyzing', inputs({ clientQuestionCount: 0 })),
-    ).toEqual([]);
+  it('never renders a client question counter, whatever the count', () => {
+    for (const count of [0, 1, 3]) {
+      expect(
+        buildTickerPool('analyzing', inputs({ clientQuestionCount: count })),
+      ).toEqual([]);
+    }
   });
 
   it('keeps only the last 3 non-empty teasers, truncated, after the fixed prefix', () => {
@@ -117,7 +102,7 @@ describe('buildTickerPool: analyzing', () => {
     ]);
   });
 
-  it('orders the pool: categories, checks counter, question counter, teasers', () => {
+  it('orders the pool: categories, then teasers', () => {
     const pool = buildTickerPool(
       'analyzing',
       inputs({
@@ -130,8 +115,6 @@ describe('buildTickerPool: analyzing', () => {
     );
     expect(pool).toEqual([
       'Reading the memo...',
-      '2 of 10 checks done',
-      '1 client question so far',
       'Found something for the client: Could you confirm the CV is transparent?',
     ]);
   });
@@ -144,10 +127,10 @@ describe('buildTickerPool: wording', () => {
     ]);
   });
 
-  it('adds the question counter when positive', () => {
+  it('never adds a question counter, whatever the count', () => {
     expect(
       buildTickerPool('wording', inputs({ clientQuestionCount: 2 })),
-    ).toEqual(['Writing client questions...', '2 client questions so far']);
+    ).toEqual(['Writing client questions...']);
   });
 
   it('ignores categories and teasers in the wording phase', () => {
@@ -161,12 +144,8 @@ describe('buildTickerPool: wording', () => {
 });
 
 describe('buildTickerPool: composing', () => {
-  it('returns the fixed composing lines regardless of inputs', () => {
-    const expected = [
-      'Merging shared context...',
-      'Drafting your client letter...',
-    ];
-    expect(buildTickerPool('composing', inputs())).toEqual(expected);
+  it('returns an empty pool regardless of inputs', () => {
+    expect(buildTickerPool('composing', inputs())).toEqual([]);
     expect(
       buildTickerPool(
         'composing',
@@ -178,7 +157,7 @@ describe('buildTickerPool: composing', () => {
           teasers: ['something'],
         }),
       ),
-    ).toEqual(expected);
+    ).toEqual([]);
   });
 });
 
@@ -318,12 +297,9 @@ describe('pickNarrativeLine: wording and composing keep their phase pools', () =
     }
   });
 
-  it('composing rotates the fixed composing pool only', () => {
-    const pool = buildTickerPool('composing', inputs());
+  it('composing renders nothing (empty pool, null line)', () => {
     for (let t = 0; t < 6; t++) {
-      expect(pickNarrativeLine('composing', inputs(), t)).toBe(
-        pickTickerLine(pool, t),
-      );
+      expect(pickNarrativeLine('composing', inputs(), t)).toBeNull();
     }
   });
 });
@@ -362,8 +338,11 @@ describe('ticker never leaks question ids', () => {
     for (const phase of phases) {
       for (let t = 0; t < 100; t++) {
         const line = pickNarrativeLine(phase, named, t);
-        expect(line).not.toBeNull();
-        expect(line).not.toMatch(/question\s+(Q?\d|#|id)/i);
+        // composing renders nothing; the other phases always show a line.
+        if (phase !== 'composing') expect(line).not.toBeNull();
+        if (line !== null) {
+          expect(line).not.toMatch(/question\s+(Q?\d|#|id)/i);
+        }
       }
     }
   });

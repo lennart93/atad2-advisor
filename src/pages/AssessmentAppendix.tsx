@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, Eye, EyeOff, Loader2, RefreshCw } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Loader2 } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
-import { Button } from '@/components/ui/button';
+import { Button, ProcessChecklist, type ProcessStep } from '@/components/ds';
 import { useAuth } from '@/hooks/useAuth';
 import { AssessmentFooterSlot } from '@/components/assessment/AssessmentFooterSlot';
 import { AppendixTable } from '@/components/appendix/AppendixTable';
@@ -15,7 +15,6 @@ import { loadChart } from '@/lib/structure/client';
 import { useUiBusySignal } from '@/stores/uiBusyStore';
 import { FactsPanel } from '@/components/appendix/FactsPanel';
 import { buildEntityRegister } from '@/lib/appendix/facts/entityRegister';
-import { registerMatchesChart } from '@/lib/appendix/facts/registerSync';
 import { emptyFacts } from '@/lib/appendix/facts/emptyFacts';
 
 type Phase = 'loading' | 'generating' | 'ready' | 'error';
@@ -216,35 +215,52 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
   // a full-screen loader. Only the very first, content-less pass blocks.
   const hasContent = !!appendix && (appendix.rows.length > 0 || appendix.facts !== null);
   const refining = phase === 'generating';
-  // The chart data can change after generation (Phase B refine, advisor edits in
-  // the structure step). Compare the stored register with the chart-derived one;
-  // position-only edits do not count.
-  const structureChanged = useMemo(() => {
-    if (!appendix?.facts || !chart || refining) return false;
-    const fromChart = buildEntityRegister(chart.entities, chart.edges, chart.groupings);
-    if (!fromChart.length) return false;
-    return !registerMatchesChart(appendix.facts.entities, fromChart);
-  }, [appendix?.facts, chart, refining]);
 
   if (phase === 'loading' || (phase === 'generating' && !hasContent)) {
+    const rowCount = appendix?.rows.length ?? 0;
+    const steps: ProcessStep[] = [
+      {
+        id: 'register',
+        label: 'Load entity register',
+        status: appendix || phase === 'generating' ? 'done' : 'current',
+      },
+      {
+        id: 'sections',
+        label: 'Draft appendix sections',
+        status: phase === 'generating' ? 'current' : 'pending',
+        detail: rowCount > 0 ? `${rowCount} rows` : undefined,
+      },
+    ];
     return (
-      <div className="flex flex-col items-center justify-center gap-3 py-24 text-center">
-        <p className="text-muted-foreground">
-          Generating the technical appendix. This can take a few minutes.
-        </p>
+      <div className="flex flex-col items-center justify-center gap-3 py-24">
+        <ProcessChecklist steps={steps} className="min-w-56 text-left" />
+        <p className="text-[13px] text-ds-ink-secondary">This can take a few minutes.</p>
       </div>
     );
   }
 
   if (phase === 'error' || !appendix) {
+    const errorSteps: ProcessStep[] = [
+      {
+        id: 'register',
+        label: 'Load entity register',
+        status: appendix ? 'done' : 'error',
+      },
+      {
+        id: 'sections',
+        label: 'Draft appendix sections',
+        status: appendix ? 'error' : 'pending',
+      },
+    ];
     return (
       <div className="flex flex-col items-center justify-center gap-4 py-24 text-center">
-        <p className="text-muted-foreground">
+        <ProcessChecklist steps={errorSteps} className="min-w-56 text-left" />
+        <p className="text-[13px] text-ds-ink-secondary">
           {appendix?.error_message
             ? `Appendix generation failed: ${appendix.error_message}`
             : 'Appendix generation failed.'}
         </p>
-        <Button variant="outline" onClick={handleRetry}>Try again</Button>
+        <Button variant="secondary" onClick={handleRetry}>Try again</Button>
       </div>
     );
   }
@@ -263,28 +279,6 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
 
   return (
     <div className="space-y-4">
-      {structureChanged && (
-        <div className="flex items-center gap-2 rounded-md border border-amber-400/40 bg-amber-50/60 px-3 py-2 text-xs text-amber-800 dark:border-amber-500/30 dark:bg-amber-950/20 dark:text-amber-200">
-          <span className="flex-1">
-            The structure chart changed after this appendix was generated. Regenerate to bring the facts in line; your edits are kept.
-          </span>
-          <Button variant="outline" size="sm" className="gap-2" onClick={handleRetry}>
-            <RefreshCw className="h-3.5 w-3.5" />
-            Regenerate
-          </Button>
-        </div>
-      )}
-      <div className="flex items-center justify-end gap-2">
-        <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground" onClick={handleToggleSkip}>
-          {skipped ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-          {skipped ? 'Unskip page' : 'Skip page'}
-        </Button>
-        <Button variant="outline" size="sm" className="gap-2" onClick={handleRetry}>
-          <RefreshCw className="h-3.5 w-3.5" />
-          Regenerate
-        </Button>
-      </div>
-
       {skipped && (
         <p className="rounded-md border border-[hsl(var(--border-subtle))] bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
           This page is skipped and will be left out of the report. The content is kept and can be restored with Unskip.
@@ -307,33 +301,38 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
 
       <AssessmentFooterSlot
         left={
-          <Button
-            variant="outline"
-            onClick={() =>
-              navigate(
-                page === 'facts'
-                  ? `/assessment-confirmation/${sessionId}`
-                  : `/assessment-appendix/${sessionId}`,
-              )
-            }
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Previous
-          </Button>
+          <>
+            <Button
+              variant="secondary"
+              onClick={() =>
+                navigate(
+                  page === 'facts'
+                    ? `/assessment-confirmation/${sessionId}`
+                    : `/assessment-appendix/${sessionId}`,
+                )
+              }
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Previous
+            </Button>
+            <Button variant="secondary" onClick={handleToggleSkip}>
+              {skipped ? 'Unskip page' : 'Skip page'}
+            </Button>
+          </>
         }
         right={
           page === 'facts' ? (
-            <Button variant="outline" onClick={() => navigate(`/assessment-appendix/${sessionId}/checklist`)}>
+            <Button variant="secondary" onClick={() => navigate(`/assessment-appendix/${sessionId}/checklist`)}>
               Next
-              <ArrowRight className="ml-2 h-4 w-4" />
+              <ArrowRight className="h-4 w-4" />
             </Button>
           ) : (
-            <Button variant="outline" onClick={handleConfirm} disabled={confirming || refining}>
+            <Button variant="primary" onClick={handleConfirm} disabled={confirming || refining}>
               {confirming || refining ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : null}
               {refining ? 'Finishing' : 'Confirm appendix'}
-              <ArrowRight className="ml-2 h-4 w-4" />
+              <ArrowRight className="h-4 w-4" />
             </Button>
           )
         }

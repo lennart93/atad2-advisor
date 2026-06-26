@@ -10,7 +10,7 @@ export interface ServerSkeletonRow {
   renderIfQuestionEquals?: { questionId: string; equals: string };
 }
 
-const S = ["Not triggered", "Triggered", "Insufficient information"];
+const S = ["Not triggered", "N/A", "Triggered", "Insufficient information"];
 const inbound = { questionId: "Q2", equals: "Yes" };
 
 export const SKELETON_ROWS: ServerSkeletonRow[] = [

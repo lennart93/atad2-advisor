@@ -10,9 +10,9 @@ interface SecurityAlertProps {
 
 export const SecurityAlert = ({ type, title, message, className }: SecurityAlertProps) => {
   const variants = {
-    info: 'border-blue-200 bg-blue-50 text-blue-800',
-    warning: 'border-yellow-200 bg-yellow-50 text-yellow-800',
-    error: 'border-red-200 bg-red-50 text-red-800'
+    info: 'border-ds-hairline bg-ds-fill-muted text-ds-ink-secondary',
+    warning: 'border-ds-hairline bg-ds-fill-muted text-ds-ink-secondary',
+    error: 'border-ds-hairline bg-ds-fill-muted text-ds-ink-secondary'
   };
 
   const icons = {

@@ -69,9 +69,14 @@ export async function captureChartSnapshot(
       maxWidth: 2400,
       maxHeight: 2400,
     });
+    // Target a ~2300px-wide raster (clamped to 2-4x) so the chart embeds well above
+    // 200 dpi at its placed size, regardless of how large the chart is on screen.
+    // The old default device ratio produced a soft ~89 dpi bitmap in the memo.
+    const pixelRatio = Math.min(4, Math.max(2, 2300 / Math.max(vp.width, 1)));
     const dataUrl = await toPng(viewportEl, {
       backgroundColor: undefined, // transparent
       cacheBust: true,
+      pixelRatio,
       width: vp.width,
       height: vp.height,
       style: {

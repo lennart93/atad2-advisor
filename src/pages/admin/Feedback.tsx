@@ -30,15 +30,18 @@ const CATEGORY_LABELS: Record<Category, string> = {
   other: "Other",
 };
 
+// 'new' is a procedural inbox state, not an ATAD2 risk, so it reads neutral
+// (not amber). 'done' is a real done-state, so it keeps green.
 const STATUS_TONE: Record<Status, StatusTone> = {
-  new: "warning",
+  new: "neutral",
   triaged: "neutral",
   done: "success",
 };
 
+// Category is decorative labelling, so every category reads neutral.
 const CATEGORY_TONE: Record<Category, StatusTone> = {
-  bug: "danger",
-  idea: "success",
+  bug: "neutral",
+  idea: "neutral",
   question: "neutral",
   other: "neutral",
 };
@@ -140,7 +143,7 @@ const Feedback = () => {
           <h1 className="text-2xl font-semibold tracking-tight">Feedback</h1>
         </div>
         {newCount > 0 && (
-          <StatusChip label={`${newCount} new`} tone="warning" />
+          <StatusChip label={`${newCount} new`} tone="neutral" />
         )}
       </div>
 
@@ -300,7 +303,7 @@ function FeedbackDetail({
         <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-1.5">
           Message
         </div>
-        <div className="text-sm whitespace-pre-wrap rounded-md bg-muted/50 p-3 border border-[#ececec]">
+        <div className="text-sm whitespace-pre-wrap rounded-md bg-muted/50 p-3 border border-ds-hairline">
           {row.message}
         </div>
       </div>
@@ -362,13 +365,13 @@ function FeedbackDetail({
         />
       </div>
 
-      <div className="pt-2 border-t border-[#ececec]">
+      <div className="pt-2 border-t border-ds-hairline">
         <Button
           variant="ghost"
           size="sm"
           onClick={onDelete}
           disabled={deleting}
-          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+          className="text-ds-red hover:text-ds-red-hover hover:bg-ds-red-bg"
         >
           <Trash2 className="size-4 mr-2" />
           {deleting ? "Deleting…" : "Delete"}

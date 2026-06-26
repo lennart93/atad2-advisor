@@ -1,4 +1,5 @@
 import { useAssessmentProgress } from "@/stores/assessmentProgressStore";
+import { cn } from "@/lib/utils";
 
 export function AssessmentProgressIndicator() {
   const active = useAssessmentProgress((s) => s.active);
@@ -18,9 +19,12 @@ export function AssessmentProgressIndicator() {
       aria-valuenow={pct}
       className="hidden md:flex flex-1 items-center justify-center px-6 min-w-0"
     >
-      <div className="relative h-[2px] w-full max-w-[260px] overflow-hidden rounded-full bg-[hsl(var(--border-subtle))]">
+      <div className="relative h-[2px] w-full max-w-[260px] overflow-hidden rounded-full bg-ds-fill-muted">
         <div
-          className="absolute inset-y-0 left-0 w-full origin-left rounded-full bg-foreground/40 transition-transform duration-500 ease-out motion-reduce:transition-none"
+          className={cn(
+            "absolute inset-y-0 left-0 w-full origin-left rounded-full transition-transform duration-500 ease-out motion-reduce:transition-none",
+            pct >= 100 ? "bg-ds-green" : "bg-ds-ink-secondary",
+          )}
           style={{ transform: `scaleX(${pct / 100})` }}
         />
       </div>

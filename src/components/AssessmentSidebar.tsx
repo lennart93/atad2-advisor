@@ -1,5 +1,6 @@
 import { Check, X, HelpCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { StatusPill } from "@/components/ds";
 import { useEffect, useRef } from "react";
 
 interface AssessmentSidebarProps {
@@ -43,12 +44,19 @@ export function AssessmentSidebar({
     }
   }, [questionHistory.length]);
 
+  // Only render when there is something to show: at least one answered item
+  // or a pending item. Otherwise the thin header progress line carries the
+  // progress signal on its own.
+  if (questionHistory.length === 0 && !pendingQuestion) {
+    return null;
+  }
+
   return (
-    <div className="sticky top-6 flex max-h-[calc(100vh-200px)] w-full flex-col overflow-hidden rounded-lg border border-border bg-muted/30">
+    <div className="sticky top-6 flex max-h-[calc(100vh-200px)] w-full flex-col overflow-hidden rounded-ds-card border border-ds-hairline bg-ds-card">
       {/* Sticky header */}
-      <div className="sticky top-0 z-10 border-b border-[hsl(var(--border-subtle))] bg-muted/30 p-6 pb-4">
-        <h3 className="text-lg font-semibold tracking-tight text-foreground">ATAD2 progress</h3>
-        <p className="mt-1 text-sm text-muted-foreground">{totalAnswered} questions answered</p>
+      <div className="sticky top-0 z-10 border-b border-ds-hairline bg-ds-card p-5 pb-4">
+        <h3 className="text-[15px] font-medium tracking-tight text-ds-ink">ATAD2 progress</h3>
+        <p className="mt-1 text-[13px] text-ds-ink-secondary ds-tabular-nums">{totalAnswered} questions answered</p>
       </div>
 
       {/* Scrollable content */}
@@ -63,24 +71,24 @@ export function AssessmentSidebar({
                   type="button"
                   onClick={() => onQuestionClick?.(index)}
                   className={cn(
-                    "group w-full rounded-[10px] border bg-card px-3.5 py-3 text-left shadow-xs animate-fade-in",
-                    "transition-[border-color,box-shadow,background-color] duration-fast ease-emphasized",
-                    "focus:outline-none focus-visible:ring-2 focus-visible:ring-foreground/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                    "group w-full rounded-ds-control border bg-ds-card px-3.5 py-3 text-left animate-fade-in",
+                    "transition-colors duration-fast ease-emphasized",
+                    "focus:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                     isActive
-                      ? "border-foreground/25 shadow-sm ring-[3px] ring-foreground/5"
-                      : "border-[hsl(var(--border-default))] hover:border-[hsl(var(--border-strong))] hover:shadow-sm",
+                      ? "border-ds-ink"
+                      : "border-ds-hairline hover:bg-ds-fill-muted",
                   )}
                   aria-current={isActive ? "step" : undefined}
                   aria-label={`Review answer: ${label || "previous question"}. Current answer: ${entry.answer}`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="inline-flex h-[18px] w-[18px] flex-shrink-0 items-center justify-center rounded-full bg-foreground text-background">
+                    <span className="inline-flex h-[18px] w-[18px] flex-shrink-0 items-center justify-center rounded-full bg-ds-ink text-ds-card">
                       <Check className="h-[11px] w-[11px]" strokeWidth={2.5} />
                     </span>
                     <AnswerPill answer={entry.answer} />
                   </div>
                   {label && (
-                    <h4 className="mt-2 break-words text-[13px] font-medium leading-snug tracking-[-0.005em] text-foreground">
+                    <h4 className="mt-2 break-words text-[13px] font-medium leading-snug tracking-[-0.005em] text-ds-ink">
                       {label}
                     </h4>
                   )}
@@ -96,21 +104,18 @@ export function AssessmentSidebar({
                   type="button"
                   onClick={() => onPendingQuestionClick?.()}
                   className={cn(
-                    "group w-full rounded-[10px] border border-dashed border-[hsl(var(--border-default))] bg-muted/40 px-3.5 py-3 text-left animate-fade-in",
+                    "group w-full rounded-ds-control border border-ds-hairline bg-ds-fill-muted px-3.5 py-3 text-left animate-fade-in",
                     "transition-colors duration-fast ease-emphasized",
-                    "hover:border-[hsl(var(--border-strong))] hover:bg-muted/60",
-                    "focus:outline-none focus-visible:ring-2 focus-visible:ring-foreground/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                    "focus:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                   )}
                   aria-label={`Pending question${pendingQuestion.question_title ? `: ${pendingQuestion.question_title}` : ""}`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="inline-flex h-[18px] w-[18px] flex-shrink-0 items-center justify-center rounded-full border-[1.5px] border-dashed border-[hsl(var(--border-strong))]" />
-                    <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground bg-muted">
-                      Pending
-                    </span>
+                    <span className="inline-flex h-[18px] w-[18px] flex-shrink-0 items-center justify-center rounded-full border-[1.5px] border-ds-hairline" />
+                    <StatusPill status="neutral">Pending</StatusPill>
                   </div>
                   {pendingQuestion.question_title && (
-                    <h4 className="mt-2 break-words text-[13px] font-medium leading-snug tracking-[-0.005em] text-muted-foreground">
+                    <h4 className="mt-2 break-words text-[13px] font-medium leading-snug tracking-[-0.005em] text-ds-ink-secondary">
                       {pendingQuestion.question_title}
                     </h4>
                   )}
@@ -127,14 +132,7 @@ function AnswerPill({ answer }: { answer: string }) {
   const isYes = answer === "Yes";
   const isNo = answer === "No";
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium tabular-nums",
-        isYes && "bg-emerald-500/[0.08] text-emerald-700 dark:text-emerald-400",
-        isNo && "bg-red-500/[0.08] text-red-700 dark:text-red-400",
-        !isYes && !isNo && "bg-blue-500/[0.08] text-blue-700 dark:text-blue-400",
-      )}
-    >
+    <StatusPill status={!isYes && !isNo ? "insufficient" : "neutral"}>
       {isYes ? (
         <Check className="h-[11px] w-[11px]" strokeWidth={2.5} />
       ) : isNo ? (
@@ -143,6 +141,6 @@ function AnswerPill({ answer }: { answer: string }) {
         <HelpCircle className="h-[11px] w-[11px]" strokeWidth={2.5} />
       )}
       {answer}
-    </span>
+    </StatusPill>
   );
 }

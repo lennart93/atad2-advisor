@@ -181,7 +181,7 @@ function QuestionList({
             onClick={() => onRowClick(q.question_id)}
             className={`flex items-start gap-3 py-2.5 transition-all duration-normal ease-emphasized hover:shadow-sm hover:border-foreground/20 ${
               activeId === q.question_id
-                ? "ring-2 ring-[#c7d2fe] border-[#c7d2fe]"
+                ? "ring-2 ring-ds-ink border-ds-ink"
                 : ""
             }`}
           >
@@ -190,7 +190,7 @@ function QuestionList({
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[11px] font-mono font-semibold text-[#4f46e5]">
+                <span className="text-[11px] font-mono font-semibold text-ds-ink-secondary">
                   {q.question_id}
                 </span>
                 {q.question_title && (
@@ -199,7 +199,7 @@ function QuestionList({
                   </span>
                 )}
                 {q.outOfSync && (
-                  <span className="inline-flex items-center gap-1 rounded bg-amber-100 text-amber-800 text-[9px] px-1.5 py-0.5">
+                  <span className="inline-flex items-center gap-1 rounded bg-ds-fill-muted text-ds-ink-secondary text-[9px] px-1.5 py-0.5">
                     <AlertTriangle className="h-2.5 w-2.5" /> Branches out of sync
                   </span>
                 )}

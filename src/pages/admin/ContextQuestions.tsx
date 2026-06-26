@@ -140,7 +140,7 @@ const ContextQuestions = () => {
             >
               <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-border">
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="font-mono text-xs font-semibold text-[#0891b2]">
+                  <span className="font-mono text-xs font-semibold text-ds-ink-secondary">
                     Q{g.question_id}
                   </span>
                   <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
@@ -170,7 +170,7 @@ const ContextQuestions = () => {
                       <button
                         type="button"
                         onClick={() => openNew({ qid: g.question_id, trigger: t.trigger })}
-                        className={`text-[10px] text-[#0891b2] hover:underline ${
+                        className={`text-[10px] text-ds-ink-secondary hover:underline ${
                           !canEdit ? "opacity-60 cursor-help" : ""
                         }`}
                       >
@@ -184,7 +184,7 @@ const ContextQuestions = () => {
                           interactive
                           onClick={() => openEdit(r.id)}
                           className={`flex items-center gap-3 py-2 ${
-                            id === r.id ? "ring-2 ring-[#67e8f9] border-[#67e8f9]" : ""
+                            id === r.id ? "ring-2 ring-ds-ink border-ds-ink" : ""
                           }`}
                         >
                           <div className="text-[12px] text-foreground min-w-0 flex-1">

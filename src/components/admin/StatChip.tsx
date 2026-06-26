@@ -30,10 +30,12 @@ export interface StatusChipProps {
 }
 
 const TONE_CLASSES: Record<StatusTone, string> = {
-  neutral: "bg-gray-100 text-gray-700",
-  success: "bg-green-100 text-green-800",
-  warning: "bg-amber-100 text-amber-800",
-  danger:  "bg-red-100 text-red-800",
+  neutral: "bg-ds-fill-muted text-ds-ink-secondary",
+  success: "bg-ds-green-bg text-ds-green-text",
+  warning: "bg-ds-amber-bg text-ds-amber-text",
+  // 'danger' here labels statuses like deleted/bug, not a destructive action,
+  // so it reads neutral rather than red.
+  danger:  "bg-ds-fill-muted text-ds-ink-secondary",
 };
 
 export function StatusChip({ label, tone = "neutral", className }: StatusChipProps) {

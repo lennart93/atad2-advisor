@@ -10,7 +10,7 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-gradient-to-b from-slate-800 to-slate-900 text-primary-foreground border border-slate-950 shadow-btn-primary hover:from-slate-700 hover:to-slate-800 dark:from-zinc-100 dark:to-zinc-200 dark:border-zinc-300 dark:hover:from-white dark:hover:to-zinc-100 motion-safe:hover:-translate-y-px",
+          "bg-gradient-to-b from-zinc-800 to-zinc-900 text-primary-foreground border border-zinc-950 shadow-btn-primary hover:from-zinc-700 hover:to-zinc-800 dark:from-zinc-100 dark:to-zinc-200 dark:border-zinc-300 dark:hover:from-white dark:hover:to-zinc-100 motion-safe:hover:-translate-y-px",
         destructive:
           "bg-destructive text-destructive-foreground hover:bg-destructive/90",
         outline:

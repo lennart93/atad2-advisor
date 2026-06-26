@@ -10,30 +10,44 @@ import { useAssessmentStore } from "@/stores/assessmentStore";
 import { useAssessmentProgress } from "@/stores/assessmentProgressStore";
 import { aiHasExplanationForAnswer as computeAiHasExplanationForAnswer } from "@/lib/assessment/autoAdvanceGate";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  FormField,
+  StatusPill,
+} from "@/components/ds";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { InfoIcon, HelpCircle, CalendarIcon } from "lucide-react";
+import {
+  HelpCircle,
+  CalendarIcon,
+  Check,
+  X,
+  Lightbulb,
+  BookOpen,
+  ArrowLeft,
+  ArrowRight,
+} from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format, parse, isValid } from "date-fns";
-import { cn } from "@/lib/utils";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AssessmentSidebar } from "@/components/AssessmentSidebar";
 import { QuestionExplanationInline } from "@/components/QuestionExplanationInline";
-import { Textarea } from "@/components/ui/textarea";
+import { CommentModeToggle, type CommentMode } from "@/components/assessment/CommentModeToggle";
 import { AutoGrowTextarea } from "@/components/ui/AutoGrowTextarea";
 import { ContextSkeleton, ContextEmptyState, ContextErrorState } from "@/components/ContextPanelStates";
 import { ContextPanelFallback } from "@/components/ContextPanelFallback";
 import { SuggestionCard } from "@/components/prefill/SuggestionCard";
-import { useQuestionPrefill, usePrefillJob, useSessionDocuments } from "@/hooks/usePrefill";
+import { useQuestionPrefill, usePrefillJob } from "@/hooks/usePrefill";
 import { seededIndex } from "@/utils/random";
 import { motion } from "framer-motion";
 import { startExtraction } from "@/lib/structure/extraction";
@@ -113,18 +127,18 @@ const QuestionText = ({ question, difficultTerm, termExplanation, exampleText }:
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <span className="font-semibold text-blue-800 hover:bg-blue-50 rounded-sm px-1 cursor-pointer transition-colors duration-200">
+                    <span className="font-medium text-ds-ink underline decoration-dotted decoration-ds-ink-tertiary underline-offset-2 hover:bg-ds-fill-muted rounded-sm px-1 cursor-pointer transition-colors duration-200">
                       {matches[index]}
                     </span>
                   </TooltipTrigger>
-                  <TooltipContent className="max-w-sm p-3 bg-popover text-popover-foreground border shadow-md rounded">
+                  <TooltipContent className="max-w-sm p-3 bg-popover text-popover-foreground border rounded">
                     <div className="flex items-start gap-2">
-                      <span className="text-lg">💡</span>
+                      <Lightbulb className="h-4 w-4 mt-0.5 shrink-0 text-ds-ink-secondary" />
                       <div>
-                        <span className="font-semibold text-slate-800 block mb-1">
+                        <span className="font-medium text-ds-ink block mb-1">
                           {difficultTerm}
                         </span>
-                        <p className="text-sm leading-relaxed text-slate-700">
+                        <p className="text-[13px] leading-relaxed text-ds-ink-secondary">
                           {termExplanation}
                         </p>
                       </div>
@@ -148,10 +162,11 @@ const QuestionText = ({ question, difficultTerm, termExplanation, exampleText }:
             <TooltipTrigger asChild>
               <button
                 onClick={() => setShowExample(!showExample)}
-                className="ml-2 text-blue-700 text-base cursor-pointer hover:bg-blue-50 rounded-sm px-1 transition-colors duration-200"
+                className="ml-2 align-middle text-ds-ink-secondary cursor-pointer hover:text-ds-ink hover:bg-ds-fill-muted rounded-sm px-1 transition-colors duration-200"
                 type="button"
+                aria-label="View example"
               >
-                📘
+                <BookOpen className="h-4 w-4" />
               </button>
             </TooltipTrigger>
             <TooltipContent>
@@ -160,22 +175,22 @@ const QuestionText = ({ question, difficultTerm, termExplanation, exampleText }:
           </Tooltip>
         </TooltipProvider>
       )}
-      
+
       {showExample && exampleText && (
-        <div className="w-full bg-amber-50 border-l-4 border-yellow-400 rounded-md p-4 mt-4">
+        <div className="w-full rounded-ds-control border border-ds-hairline bg-ds-fill-muted p-4 mt-4">
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-start gap-2 flex-1">
-              <span className="text-lg">📘</span>
+              <BookOpen className="h-4 w-4 mt-0.5 shrink-0 text-ds-ink-secondary" />
               <div className="flex-1">
-                <span className="font-semibold text-amber-800 block mb-2">Example</span>
-                <p className="text-sm leading-relaxed text-amber-700">
+                <span className="font-medium text-ds-ink block mb-2">Example</span>
+                <p className="text-[13px] leading-relaxed text-ds-ink-secondary">
                   {exampleText}
                 </p>
               </div>
             </div>
             <button
               onClick={() => setShowExample(false)}
-              className="text-amber-600 hover:text-amber-800 text-sm font-medium transition"
+              className="text-ds-ink-secondary hover:underline text-[13px] font-medium transition"
               type="button"
             >
               Close
@@ -199,6 +214,9 @@ const Assessment = () => {
   // When the user picks a non-suggested answer, the rationale doesn't apply
   // and we auto-advance like any other vanilla answer (no flashing button).
   function canAutoAdvance(selectedOption?: { requires_explanation?: boolean }) {
+    // "Always" comment mode keeps the comment field on every question, so never
+    // auto-skip past one — the user must get the chance to type and click Next.
+    if (commentMode === "always") return false;
     if (selectedOption?.requires_explanation === true) return false;
     if (
       currentPrefill?.suggested_answer &&
@@ -255,6 +273,10 @@ const Assessment = () => {
   });
   const [pendingAnswerChange, setPendingAnswerChange] = useState<{answer: string, newNextQuestionId: string | null} | null>(null);
   const [autoAdvance, setAutoAdvance] = useState(true);
+  // Per-session comment mode. "smart" lets the system decide which questions
+  // ask for a comment; "always" reveals the comment field on every question.
+  // Persisted per session (see effect below) and defaulting to "smart".
+  const [commentMode, setCommentMode] = useState<CommentMode>("smart");
   const [pendingQuestion, setPendingQuestion] = useState<Question | null>(null);
   
   // Friendly explanation reminder state
@@ -273,6 +295,29 @@ const Assessment = () => {
   useEffect(() => {
     setCommittingExplanation(false);
   }, [currentQuestion?.question_id]);
+
+  // Hydrate the comment mode for this session. Persisted per session so the
+  // choice holds while moving between questions and survives a reload of the
+  // same session; a fresh session (no stored value) defaults to Smart.
+  useEffect(() => {
+    if (!sessionId) return;
+    try {
+      const stored = window.localStorage.getItem(`atad2:commentMode:${sessionId}`);
+      setCommentMode(stored === "always" ? "always" : "smart");
+    } catch {
+      /* localStorage unavailable — keep the in-memory default */
+    }
+  }, [sessionId]);
+
+  const handleCommentModeChange = (mode: CommentMode) => {
+    setCommentMode(mode);
+    if (!sessionId) return;
+    try {
+      window.localStorage.setItem(`atad2:commentMode:${sessionId}`, mode);
+    } catch {
+      /* ignore persistence failure; the in-memory choice still applies */
+    }
+  };
 
   // Resolve ?clientId= to a client folder owned by the current user. The
   // ownership filter runs in the query itself and RLS enforces it server-side.
@@ -310,9 +355,9 @@ const Assessment = () => {
   // Friendly reminder messages for empty explanations
   const friendlyReminders = [
     "Some further context would be really helpful",
-    "Don't leave me empty, just a few words?",
-    "Please don't forget about me",
-    "Even a little context makes my answers smarter!",
+    "Don't leave this empty, just a few words?",
+    "Please don't skip this one",
+    "Even a little context makes the answers smarter!",
     "Your thoughts here would make this much clearer",
     "A tiny bit of context would help a lot",
     "Don't be shy, even one line is enough"
@@ -344,8 +389,6 @@ const Assessment = () => {
   // gate the textarea visibility on a suggestion existing (not only on the
   // static `requires_explanation` field).
   const { data: currentPrefillForGate } = useQuestionPrefill(sessionId || null, qId || null);
-  const { data: sessionDocuments } = useSessionDocuments(sessionId || null);
-  const docsCount = sessionDocuments?.length ?? 0;
   const {
     shouldRender: shouldShowContextPanel,
     paneKey,
@@ -356,6 +399,13 @@ const Assessment = () => {
     contextStatus,
     contextPrompts
   } = usePanelController(sessionId, qId, answerOptionText, dbRequiresExplanation, !!currentPrefillForGate);
+
+  // "Always" reveals the comment field on every question; once anything has
+  // been typed the field stays visible even back in Smart mode so a comment is
+  // never hidden or stranded. Computed once here so the panel render guard and
+  // the footer proceed-button logic share one source of truth.
+  const forceComment = commentMode === "always";
+  const hasTypedComment = (contextValue?.trim().length ?? 0) > 0;
 
   // Hardened context loader
   const { loadContextQuestions: hardenedLoadContext } = useHardenedContextLoader();
@@ -1354,7 +1404,7 @@ const Assessment = () => {
     // this answer (neither the Route A gate nor the Route B Unknown companion),
     // auto-advance immediately. Otherwise the user needs to see/accept/edit
     // the suggested explanation first.
-    if (!requiresExplanation && !blockAutoAdvance) {
+    if (!requiresExplanation && !blockAutoAdvance && commentMode !== "always") {
       console.log(`🚫 Answer ${answer} for Q${questionId} does not require explanation - auto-advancing`);
       store.setQuestionState(sessionId, questionId, answer, {
         shouldShowContext: false,
@@ -1423,7 +1473,7 @@ const Assessment = () => {
       // Only auto-advance when not navigating, auto-advance is enabled, no
       // explanation is required, and nothing has staged an explanation for
       // this answer (otherwise the user must see/accept/edit it first).
-      if (autoAdvance && !requiresExplanation && !blockAutoAdvance) {
+      if (autoAdvance && !requiresExplanation && !blockAutoAdvance && commentMode !== "always") {
         console.log(`⏩ Auto-advancing to next question after ${answer} selection`);
         setTimeout(async () => {
           await submitAnswerDirectly(answer);
@@ -1841,7 +1891,7 @@ const Assessment = () => {
   if (!sessionStarted && resumeSessionId) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-sm text-muted-foreground">Loading session…</p>
+        <p className="text-[13px] text-ds-ink-secondary">Loading session…</p>
       </div>
     );
   }
@@ -1858,20 +1908,7 @@ const Assessment = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <div className="flex items-center">
-                    <Label htmlFor="taxpayer_name">Taxpayer name</Label>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="text-red-500 text-sm ml-1 cursor-default">*</span>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>This field is required</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
+                <FormField label="Taxpayer name" htmlFor="taxpayer_name" required>
                   <Input
                     id="taxpayer_name"
                     value={sessionInfo.taxpayer_name}
@@ -1879,27 +1916,14 @@ const Assessment = () => {
                     placeholder="Enter taxpayer name"
                     required
                   />
-                </div>
-                
-                <div className="space-y-2">
-                  <div className="flex items-center">
-                    <Label htmlFor="tax_year">Tax year</Label>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="text-red-500 text-sm ml-1 cursor-default">*</span>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>This field is required</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                  <Select 
-                    value={sessionInfo.tax_year} 
+                </FormField>
+
+                <FormField label="Tax year" htmlFor="tax_year" required>
+                  <Select
+                    value={sessionInfo.tax_year}
                     onValueChange={(value) => setSessionInfo({...sessionInfo, tax_year: value})}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id="tax_year">
                       <SelectValue placeholder="Select tax year" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1913,7 +1937,7 @@ const Assessment = () => {
                       })}
                     </SelectContent>
                   </Select>
-                </div>
+                </FormField>
 
                 <OptionToggle
                   id="tax-year-different"
@@ -1928,20 +1952,7 @@ const Assessment = () => {
                   })}
                 >
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <div className="flex items-center">
-                          <Label htmlFor="period_start">Start date</Label>
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span className="text-red-500 text-sm ml-1 cursor-default">*</span>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>This field is required</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </div>
+                      <FormField label="Start date" htmlFor="period_start" required>
                         <div className="flex gap-2">
                           <Input
                             id="period_start"
@@ -1968,7 +1979,7 @@ const Assessment = () => {
                           />
                           <Popover>
                             <PopoverTrigger asChild>
-                              <Button type="button" variant="outline" size="icon" aria-label="Pick a date">
+                              <Button type="button" variant="secondary" size="icon" aria-label="Pick a date">
                                 <CalendarIcon className="h-4 w-4" />
                               </Button>
                             </PopoverTrigger>
@@ -1995,22 +2006,9 @@ const Assessment = () => {
                             </PopoverContent>
                           </Popover>
                         </div>
-                      </div>
+                      </FormField>
 
-                      <div className="space-y-2">
-                        <div className="flex items-center">
-                          <Label htmlFor="period_end">End date</Label>
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span className="text-red-500 text-sm ml-1 cursor-default">*</span>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>This field is required</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </div>
+                      <FormField label="End date" htmlFor="period_end" required>
                         <div className="flex gap-2">
                           <Input
                             id="period_end"
@@ -2037,7 +2035,7 @@ const Assessment = () => {
                           />
                           <Popover>
                             <PopoverTrigger asChild>
-                              <Button type="button" variant="outline" size="icon" aria-label="Pick a date">
+                              <Button type="button" variant="secondary" size="icon" aria-label="Pick a date">
                                 <CalendarIcon className="h-4 w-4" />
                               </Button>
                             </PopoverTrigger>
@@ -2064,17 +2062,18 @@ const Assessment = () => {
                             </PopoverContent>
                           </Popover>
                         </div>
-                      </div>
+                      </FormField>
                     </div>
                 </OptionToggle>
 
-                <Button
-                  disabled={loading}
-                  className="w-full"
-                  onClick={validateAndShowWarning}
-                >
-                  {loading ? "Starting assessment..." : "Start assessment"}
-                </Button>
+                <div className="flex justify-end pt-2">
+                  <Button
+                    disabled={loading}
+                    onClick={validateAndShowWarning}
+                  >
+                    {loading ? "Starting assessment..." : "Start assessment"}
+                  </Button>
+                </div>
               </CardContent>
             </Card>
         </div>
@@ -2088,67 +2087,67 @@ const Assessment = () => {
         }}>
           <DialogContent className="sm:max-w-lg">
             <DialogHeader>
-              <DialogTitle>Before you start</DialogTitle>
-              <DialogDescription>
+              <DialogTitle className="text-[18px] font-medium leading-snug tracking-tight text-ds-ink">Before you start</DialogTitle>
+              <DialogDescription className="text-[13px] text-ds-ink-secondary">
                 Please confirm the following before proceeding with the ATAD2 risk assessment.
               </DialogDescription>
             </DialogHeader>
-            
+
             <div className="space-y-4 py-4">
               <div className="flex items-start space-x-3">
-                <Checkbox 
-                  id="advisory" 
+                <Checkbox
+                  id="advisory"
                   checked={confirmations.advisory}
                   onCheckedChange={(checked) => setConfirmations(prev => ({ ...prev, advisory: checked === true }))}
                 />
-                <label htmlFor="advisory" className="text-sm leading-relaxed cursor-pointer">
-                  <span className="font-medium">Advisory tool & responsibility</span>
+                <label htmlFor="advisory" className="text-[13px] leading-relaxed cursor-pointer">
+                  <span className="font-medium text-ds-ink">Advisory tool & responsibility</span>
                   <br />
-                  <span className="text-muted-foreground">I understand that this tool is an analytical aid only and does not replace professional judgement. I remain fully responsible for the accuracy, completeness, and interpretation of the assessment.</span>
+                  <span className="text-ds-ink-secondary">I understand that this tool is an analytical aid only and does not replace professional judgement. I remain fully responsible for the accuracy, completeness, and interpretation of the assessment.</span>
                 </label>
               </div>
-              
+
               <div className="flex items-start space-x-3">
-                <Checkbox 
-                  id="highLevel" 
+                <Checkbox
+                  id="highLevel"
                   checked={confirmations.highLevel}
                   onCheckedChange={(checked) => setConfirmations(prev => ({ ...prev, highLevel: checked === true }))}
                 />
-                <label htmlFor="highLevel" className="text-sm leading-relaxed cursor-pointer">
-                  <span className="font-medium">High-level ATAD2 risk indication</span>
+                <label htmlFor="highLevel" className="text-[13px] leading-relaxed cursor-pointer">
+                  <span className="font-medium text-ds-ink">High-level ATAD2 risk indication</span>
                   <br />
-                  <span className="text-muted-foreground">I understand that the assessment provides a high-level indication of potential ATAD2 risk only and does not determine whether a mismatch actually exists or whether a tax adjustment, denial of deduction, or reassessment will occur.</span>
+                  <span className="text-ds-ink-secondary">I understand that the assessment provides a high-level indication of potential ATAD2 risk only and does not determine whether a mismatch actually exists or whether a tax adjustment, denial of deduction, or reassessment will occur.</span>
                 </label>
               </div>
-              
+
               <div className="flex items-start space-x-3">
-                <Checkbox 
-                  id="factDriven" 
+                <Checkbox
+                  id="factDriven"
                   checked={confirmations.factDriven}
                   onCheckedChange={(checked) => setConfirmations(prev => ({ ...prev, factDriven: checked === true }))}
                 />
-                <label htmlFor="factDriven" className="text-sm leading-relaxed cursor-pointer">
-                  <span className="font-medium">Completeness of information</span>
+                <label htmlFor="factDriven" className="text-[13px] leading-relaxed cursor-pointer">
+                  <span className="font-medium text-ds-ink">Completeness of information</span>
                   <br />
-                  <span className="text-muted-foreground">I understand that the quality of the assessment depends entirely on the completeness and accuracy of the information I provide. The more relevant context I include, the more reliable the outcome will be.</span>
+                  <span className="text-ds-ink-secondary">I understand that the quality of the assessment depends entirely on the completeness and accuracy of the information I provide. The more relevant context I include, the more reliable the outcome will be.</span>
                 </label>
               </div>
             </div>
-            
-            <div className="flex items-start space-x-3 pt-1 border-t">
+
+            <div className="flex items-start space-x-3 pt-1 border-t border-ds-hairline">
               <Checkbox
                 id="dont_show_before_you_start"
                 checked={dontShowBeforeYouStartAgain}
                 onCheckedChange={(checked) => setDontShowBeforeYouStartAgain(checked === true)}
               />
-              <label htmlFor="dont_show_before_you_start" className="text-sm text-muted-foreground cursor-pointer">
+              <label htmlFor="dont_show_before_you_start" className="text-[13px] text-ds-ink-secondary cursor-pointer">
                 Don't show this again
               </label>
             </div>
 
-            <DialogFooter className="gap-2 sm:gap-0">
+            <DialogFooter className="gap-2 sm:gap-2">
               <Button
-                variant="outline"
+                variant="secondary"
                 onClick={() => {
                   setShowStartWarningDialog(false);
                   setConfirmations({ advisory: false, highLevel: false, factDriven: false });
@@ -2185,7 +2184,7 @@ const Assessment = () => {
       <div className="max-w-3xl mx-auto space-y-4">
         <div>
           <Button
-            variant="outline"
+            variant="secondary"
             onClick={() => {
               const next = new URLSearchParams(searchParams);
               next.delete("focus");
@@ -2213,8 +2212,8 @@ const Assessment = () => {
 
   if (!currentQuestion) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <p>Loading question...</p>
+      <div className="min-h-screen flex items-center justify-center bg-ds-page">
+        <p className="text-[13px] text-ds-ink-secondary">Loading question...</p>
       </div>
     );
   }
@@ -2244,9 +2243,16 @@ const Assessment = () => {
   
   const isViewingAnsweredQuestion = navigationIndex !== -1;
 
+  // The progress sidebar only mounts when it has content (an answered item or
+  // a pending item). When empty, the thin progress line in the header (under
+  // the stepper area) is the only progress signal and the question column
+  // takes the full width.
+  const showSidebar = questionFlow.length > 0 || !!pendingQuestion;
+
   return (
     <div>
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div className={showSidebar ? "grid grid-cols-1 lg:grid-cols-4 gap-6" : undefined}>
+          {showSidebar && (
           <div className="lg:col-span-1">
             <AssessmentSidebar
               answers={answers}
@@ -2272,10 +2278,11 @@ const Assessment = () => {
               onPendingQuestionClick={goToPendingQuestion}
             />
           </div>
-          
-          <div className="lg:col-span-3">
-            <Card className="border-0 shadow-lg">
-              <CardContent className="p-6">
+          )}
+
+          <div className={showSidebar ? "lg:col-span-3" : undefined}>
+            <Card>
+              <CardContent className="p-5">
                 <motion.div
                   key={currentQuestion.question_id}
                   initial={{ opacity: 0, x: 8 }}
@@ -2283,15 +2290,11 @@ const Assessment = () => {
                   transition={{ duration: 0.32, ease: [0.2, 0, 0, 1] }}
                   className="max-w-[640px] mx-auto"
                 >
-                  {currentQuestion.question_title && (
-                    <div className="mb-3">
-                      <h2 className="text-sm uppercase tracking-[0.14em] font-medium text-muted-foreground">
-                        {currentQuestion.question_title}
-                      </h2>
-                    </div>
-                  )}
                   <div className="mb-6">
-                    <p className="text-xl sm:text-2xl font-medium tracking-tight leading-snug text-left text-foreground">
+                    {currentQuestion.question_title && (
+                      <h2 className="mb-2 text-[13px] font-medium text-ds-ink-secondary">{currentQuestion.question_title}</h2>
+                    )}
+                    <p className="text-[22px] font-medium tracking-tight leading-snug text-left text-ds-ink">
                       <QuestionText
                         question={currentQuestion.question}
                         difficultTerm={questionWithTerms.difficult_term}
@@ -2318,44 +2321,15 @@ const Assessment = () => {
                            : null;
                        const isLockedOut = !!lockedReason;
 
-                       // Get styling based on answer type
-                       const getAnswerStyle = () => {
-                         switch (answerType) {
-                           case 'yes':
-                             return {
-                               emoji: '✅',
-                               selectedBg: 'border-green-500 bg-green-500/10 shadow-md ring-2 ring-green-500/20',
-                               hoverBg: 'hover:border-green-400 hover:bg-green-500/5'
-                             };
-                           case 'no':
-                             return {
-                               emoji: '❌',
-                               selectedBg: 'border-red-500 bg-red-500/10 shadow-md ring-2 ring-red-500/20',
-                               hoverBg: 'hover:border-red-400 hover:bg-red-500/5'
-                             };
-                            case 'unknown':
-                              return {
-                                emoji: 'icon',
-                                selectedBg: 'border-blue-600 bg-blue-500/10 shadow-md ring-2 ring-blue-600/20',
-                                hoverBg: 'hover:border-blue-500 hover:bg-blue-500/5'
-                              };
-                            default:
-                              return {
-                                emoji: 'icon',
-                                selectedBg: 'border-blue-600 bg-blue-500/10 shadow-md ring-2 ring-blue-600/20',
-                                hoverBg: 'hover:border-blue-500 hover:bg-blue-500/5'
-                              };
-                         }
-                       };
-                       
-                       const { emoji, selectedBg, hoverBg } = getAnswerStyle();
-
                        const isSuggestedAnswer = !!currentPrefill?.suggested_answer
                          && option.answer_option.toLowerCase() === currentPrefill.suggested_answer
                          && (currentPrefill.confidence_pct ?? 0) >= 40;
                        const rationaleTooltip = isSuggestedAnswer
                          ? currentPrefill?.answer_rationale ?? null
                          : null;
+
+                       const OptionIcon =
+                         answerType === 'yes' ? Check : answerType === 'no' ? X : HelpCircle;
 
                        const answerButton = (
                          <button
@@ -2366,32 +2340,28 @@ const Assessment = () => {
                            aria-disabled={isLockedOut || undefined}
                            title={lockedReason ?? undefined}
                            className={`
-                             w-full p-4 rounded-lg border-2 transition-all duration-normal ease-emphasized text-left
+                             w-full p-4 rounded-ds-control border transition-colors duration-normal ease-emphasized text-left
                              ${isLockedOut
-                               ? 'border-dashed border-[hsl(var(--border-default))] bg-muted/40 opacity-60 cursor-not-allowed'
+                               ? 'border-ds-hairline bg-ds-fill-muted opacity-60 cursor-not-allowed'
                                : isSelected
-                               ? selectedBg
-                               : `border-border ${hoverBg}`
+                               ? 'border-ds-ink bg-ds-fill-muted'
+                               : isSuggestedAnswer
+                               ? 'border-ds-ink-tertiary bg-ds-card hover:bg-ds-fill-muted'
+                               : 'border-ds-hairline bg-ds-card hover:bg-ds-fill-muted'
                              }
                              ${!isLockedOut && (loading || isTransitioning) ? 'opacity-50 cursor-not-allowed' : ''}
-                             focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
+                             focus:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent
                            `}
                          >
                             <div className="flex items-center gap-3">
-                              {answerType === 'unknown' ? (
-                                <HelpCircle className="w-5 h-5 text-blue-600" />
-                              ) : (
-                                <span className="text-xl">{emoji}</span>
-                              )}
-                               <span className={`text-base font-medium ${
-                                 answerType === 'unknown' ? 'text-foreground' : ''
-                               }`}>
+                              <OptionIcon className="w-5 h-5 text-ds-ink-secondary" />
+                               <span className="text-[15px] font-medium text-ds-ink">
                                  {option.answer_option}
                                </span>
                                {isSuggestedAnswer && (
-                                 <span className="ml-2 text-[10px] uppercase tracking-wide bg-primary/10 text-primary px-1.5 py-0.5 rounded">
-                                   Suggested (<span className="font-mono text-[10px]">{currentPrefill!.confidence_pct}%</span>)
-                                 </span>
+                                 <StatusPill status="triggered" className="ml-2 ds-tabular-nums">
+                                   suggested · {currentPrefill!.confidence_pct}%
+                                 </StatusPill>
                                )}
                                {/* Show "Previously answered" only for original submitted answers, not modified ones */}
                                {isSelected && isViewingAnsweredQuestion && (() => {
@@ -2400,14 +2370,14 @@ const Assessment = () => {
                                  )?.answer;
                                  const isOriginalAnswer = selectedAnswer === originalAnswer;
                                  return isOriginalAnswer && (
-                                   <span className="ml-auto text-sm text-muted-foreground font-medium">
+                                   <span className="ml-auto text-[13px] text-ds-ink-secondary font-medium">
                                      Previously answered
                                    </span>
                                  );
                                })()}
                              </div>
                              {lockedReason && (
-                               <p className="mt-2 text-xs italic text-muted-foreground">
+                               <p className="mt-2 text-xs italic text-ds-ink-secondary">
                                  {lockedReason}
                                </p>
                              )}
@@ -2429,22 +2399,6 @@ const Assessment = () => {
                        })}
                     </div>
 
-                    {/* Playful no-suggestion note. Fires when the session has docs,
-                        analysis is done, this question has no prefill, and the user
-                        already picked an answer. The Unknown route B case (no
-                        suggested_answer but a companion suggested_toelichting_unknown
-                        ready to show) counts as having a suggestion — silence the
-                        note there so it doesn't contradict the SuggestionCard below. */}
-                    {docsCount > 0
-                      && prefillJob?.status === "completed"
-                      && !currentPrefill?.suggested_answer
-                      && selectedAnswer
-                      && !(selectedAnswer === "Unknown" && currentPrefill?.suggested_toelichting_unknown) && (
-                      <div className="text-xs italic text-muted-foreground mt-3 ml-1 mb-3">
-                        No suggestion for this one. You're on your own here.
-                      </div>
-                    )}
-
                       {/* The AI's per-question prefill (suggestion + contextual hint
                           + committed text) only applies when the user picked the
                           answer the AI suggested. If they pick a different branch,
@@ -2460,6 +2414,12 @@ const Assessment = () => {
                         key={currentQuestion.question_id}
                         explanation={currentQuestion.question_explanation}
                         contextualHint={currentPrefill?.contextual_hint ?? null}
+                        rowStart={
+                          <CommentModeToggle
+                            value={commentMode}
+                            onChange={handleCommentModeChange}
+                          />
+                        }
                       />
 
                       {/* Context section - NEW hardened state machine */}
@@ -2489,12 +2449,19 @@ const Assessment = () => {
                           : unknownToelichtingApplies && currentPrefill
                           ? { ...currentPrefill, suggested_toelichting: currentPrefill.suggested_toelichting_unknown }
                           : null;
+                        // forceComment / hasTypedComment are hoisted to the
+                        // component scope so this guard and the footer buttons
+                        // agree: "Always" shows the field on every question, and
+                        // a non-empty comment keeps it visible even back in Smart
+                        // mode (only empty fields are hidden).
                         const shouldRender =
                           selectedQuestionOption?.requires_explanation
                           || !!effectivePrefill?.suggested_toelichting
                           || !!effectivePrefill?.committed_text
                           || effectivePrefill?.user_action === "accepted"
-                          || effectivePrefill?.user_action === "edited";
+                          || effectivePrefill?.user_action === "edited"
+                          || forceComment
+                          || hasTypedComment;
                         if (!shouldRender) return null;
                         // Once the SuggestionCard is committed it disappears,
                         // so the Textarea owns the full explanation — AI text
@@ -2506,7 +2473,7 @@ const Assessment = () => {
                         return (
                         <div
                           key={paneKey}
-                          className="bg-muted/40 rounded-lg px-4 py-3 mb-8 border border-border"
+                          className="bg-ds-fill-muted rounded-ds-control px-4 py-3 mb-8 border border-ds-hairline"
                         >
                           {contextStatus === 'loading' && <ContextSkeleton />}
 
@@ -2517,11 +2484,11 @@ const Assessment = () => {
                               atad2_context_questions, so contextStatus is often
                               'none' for these rows — we still want to render the
                               card. */}
-                          {(contextStatus === 'ready' || contextStatus === 'idle' || !!effectivePrefill) && (
+                          {(contextStatus === 'ready' || contextStatus === 'idle' || !!effectivePrefill || forceComment || hasTypedComment) && (
                             <>
                               <div className="flex items-center mb-3">
-                                <div className="flex items-center text-sm text-foreground">
-                                  <span className="text-lg mr-2">💡</span>
+                                <div className="flex items-center text-[13px] text-ds-ink">
+                                  <Lightbulb className="h-4 w-4 mr-2 text-ds-ink-secondary" />
                                   <span>Explanation</span>
                                 </div>
                               </div>
@@ -2534,7 +2501,7 @@ const Assessment = () => {
                                 />
                               )}
                               {prefillJob?.status === "failed" && !effectivePrefill && (
-                                <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm mb-3">
+                                <div className="rounded-ds-control bg-ds-amber-bg p-3 text-[13px] text-ds-amber-text mb-3">
                                   Couldn't generate suggestions. Continue without them.
                                 </div>
                               )}
@@ -2561,18 +2528,18 @@ const Assessment = () => {
                                       )
                                     : "Provide context for your answer..."
                                 }
-                                className={`min-h-[120px] resize-none mt-3 transition-all duration-200 ${showExplanationShake ? 'explanation-shake' : ''} ${committingExplanation ? 'border-foreground/40 bg-foreground/[0.08] disabled:opacity-100 disabled:cursor-default' : 'border-border bg-background'}`}
+                                className={`min-h-[120px] resize-none mt-3 transition-all duration-200 ${showExplanationShake ? 'explanation-shake' : ''} ${committingExplanation ? 'border-ds-ink bg-ds-fill-muted disabled:opacity-100 disabled:cursor-default' : 'border-ds-hairline bg-ds-card'}`}
                               />
                               {/* Friendly reminder message */}
                               {reminderMessage && (
-                                <div className="mt-2 text-sm text-primary/80 italic animate-fade-in">
+                                <div className="mt-2 text-[13px] text-ds-ink-secondary italic animate-fade-in">
                                   {reminderMessage}
                                 </div>
                               )}
                             </>
                           )}
 
-                          {contextStatus === 'none' && !effectivePrefill && (
+                          {contextStatus === 'none' && !effectivePrefill && !forceComment && !hasTypedComment && (
                             <ContextEmptyState text="No context questions available for this answer." />
                           )}
 
@@ -2605,10 +2572,11 @@ const Assessment = () => {
           <Button
             onClick={goToPreviousQuestion}
             disabled={questionFlow.length === 0 || (navigationIndex !== -1 && navigationIndex === 0) || loading || isTransitioning}
-            variant="outline"
+            variant="secondary"
             className="transition-all duration-fast disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            ← Previous
+            <ArrowLeft className="h-4 w-4" />
+            Previous
           </Button>
         }
         right={
@@ -2618,10 +2586,11 @@ const Assessment = () => {
               <Button
                 onClick={goToNextQuestion}
                 disabled={loading || isTransitioning || isWaitingForPrefill}
-                variant="outline"
+                variant="secondary"
                 className="transition-all duration-fast disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Next →
+                Next
+                <ArrowRight className="h-4 w-4" />
               </Button>
             )}
 
@@ -2630,10 +2599,11 @@ const Assessment = () => {
               <Button
                 onClick={continueToNextUnanswered}
                 disabled={loading || isTransitioning || isWaitingForPrefill}
-                variant="outline"
+                variant="secondary"
                 className="transition-all duration-fast disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Next →
+                Next
+                <ArrowRight className="h-4 w-4" />
               </Button>
             )}
 
@@ -2651,9 +2621,11 @@ const Assessment = () => {
             {/* Show Submit/Continue button when (a) the context panel is visible
                 AND it actually has content for the chosen answer (requires_explanation
                 forces the textarea, or the AI suggestion applies to this answer)
-                OR (b) the AI made a >=40% suggestion that pre-selected this
-                answer and the question doesn't require explanation (the rationale
-                strip is rendered above and the user must click Continue).
+                OR (b) the AI made a >=40% suggestion matching this answer
+                (the suggested option is highlighted, never pre-selected; the
+                user clicked it) and the question doesn't require explanation
+                (the rationale strip is rendered above and the user must click
+                Continue).
                 The aiAppliesToAnswer gate prevents a Continue-button flash when
                 the user picks a non-suggested answer that auto-advances. */}
             {(() => {
@@ -2683,6 +2655,12 @@ const Assessment = () => {
                     && !selectedQuestionOption?.requires_explanation
                   )
                   || unknownRouteBStaged
+                  // Whenever the comment field is forced up while the controller
+                  // panel is also up (a prefill exists for a different branch),
+                  // surface a proceed button — both for "Always" mode and for a
+                  // kept comment in Smart mode — so the visible field is never a
+                  // dead-end.
+                  || (shouldShowContextPanel && (commentMode === "always" || hasTypedComment))
                 );
               if (!showContinue) return null;
               return (
@@ -2703,8 +2681,11 @@ const Assessment = () => {
                 q.answer_option === selectedAnswer
               );
 
-              // If we're in normal flow (navigationIndex === -1) and auto-advance would happen, don't show button
-              if (navigationIndex === -1 && canAutoAdvance(selectedQuestionOption)) {
+              // If we're in normal flow (navigationIndex === -1) and auto-advance
+              // would happen, don't show the button — UNLESS a comment has been
+              // typed (e.g. typed in Always then switched back to Smart): the
+              // kept field must keep its proceed button so it's never stranded.
+              if (navigationIndex === -1 && canAutoAdvance(selectedQuestionOption) && !hasTypedComment) {
                 return null;
               }
 
@@ -2742,12 +2723,23 @@ const Assessment = () => {
                       }
                     }
 
-                    await submitAnswerDirectly(selectedAnswer);
+                    // In "Always" mode canAutoAdvance is false, so bypass the
+                    // internal auto-advance gate — this is an explicit Next click
+                    // and must proceed (the optional comment is already saved via
+                    // the store).
+                    await submitAnswerDirectly(selectedAnswer, commentMode === "always");
                   }}
                   disabled={loading || isTransitioning}
                   className="transition-all duration-fast disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {navigationIndex === -1 ? 'Next →' : 'Update answer'}
+                  {navigationIndex === -1 ? (
+                    <>
+                      Next
+                      <ArrowRight className="h-4 w-4" />
+                    </>
+                  ) : (
+                    'Update answer'
+                  )}
                 </Button>
               );
             })()}

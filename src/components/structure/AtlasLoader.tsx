@@ -1,4 +1,5 @@
 // src/components/structure/AtlasLoader.tsx
+import { ProcessChecklist, type ProcessStep } from '@/components/ds';
 import type { ChartStatus } from '@/lib/structure/types';
 import { useUiBusySignal } from '@/stores/uiBusyStore';
 
@@ -26,13 +27,33 @@ interface Props {
   onResumeFromPhaseA?: () => void;
 }
 
-export function AtlasLoader(_props: Props) {
-  // Top-left AppLayout logo spins while this loader is on screen, so we don't
-  // render a second spinner here — just the textual status.
+export function AtlasLoader({ status }: Props) {
+  // Top-left AppLayout logo spins while this loader is on screen; the
+  // checklist's own row spinner is the only other motion.
   useUiBusySignal(true);
+  const stage = stageOf(status);
+  const steps: ProcessStep[] = [
+    {
+      id: 'reading',
+      label: 'Reading documents',
+      status: stage >= 2 ? 'done' : stage === 1 ? 'current' : 'pending',
+    },
+    {
+      id: 'building',
+      label: 'Building the chart',
+      status: stage >= 3 ? 'done' : stage === 2 ? 'current' : 'pending',
+    },
+    {
+      id: 'refining',
+      label: 'Refining details',
+      // At stage 3+ the parent unmounts this loader, so this row never needs
+      // a spinner of its own; it simply stays pending until then.
+      status: stage >= 4 ? 'done' : stage === 3 ? 'current' : 'pending',
+    },
+  ];
   return (
     <div className="text-sm text-muted-foreground text-center">
-      Loading chart…
+      <ProcessChecklist steps={steps} className="text-left" />
     </div>
   );
 }

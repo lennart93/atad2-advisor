@@ -15,8 +15,8 @@ function LiveOnlyPlaceholder({ label }: { label: string }) {
           {label}
         </div>
         <p className="mt-0.5 text-[13px] leading-relaxed text-foreground/80">
-          The live screen here is only shown in a real, completed assessment of your own — we don’t
-          mock it in the tour to avoid showing fictional outcomes.
+          The live screen here is only shown in a real, completed assessment of your own. The tour
+          doesn’t mock it, to avoid showing fictional outcomes.
         </p>
       </div>
     </div>
@@ -73,7 +73,7 @@ export const CHAPTERS: Chapter[] = [
       {
         heading: "About this tour",
         caption: [
-          "We’ll go through the app in the same order you’d use it: sign in, start an assessment, upload documents, answer questions, confirm an outcome, map the structure, and read the memo.",
+          "This tour goes through the app in the same order you’d use it: sign in, start an assessment, upload documents, answer questions, confirm an outcome, map the structure, and read the memo.",
           "Each chapter is short. Use the chapter list on the left, or the arrows below, to move at your own pace. Press Esc any time to return home.",
         ],
         bullets: [

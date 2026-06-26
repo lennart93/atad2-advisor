@@ -10,3 +10,13 @@ export function formatDate(input: string | Date | null | undefined): string {
   if (Number.isNaN(date.getTime())) return "-";
   return format(date, "d MMM yyyy");
 }
+
+/**
+ * Canonical timestamp format across the app: "12 Mar 2026, 17:17".
+ */
+export function formatDateTime(input: string | Date | null | undefined): string {
+  if (!input) return "-";
+  const date = typeof input === "string" ? new Date(input) : input;
+  if (Number.isNaN(date.getTime())) return "-";
+  return format(date, "d MMM yyyy, HH:mm");
+}

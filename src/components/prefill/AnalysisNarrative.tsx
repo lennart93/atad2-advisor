@@ -19,7 +19,7 @@ export interface AnalysisNarrativeProps {
 }
 
 /**
- * The single rotating narrative line under AnalyzeProgress. The grounded
+ * The single rotating narrative line under AnalyzingScreen. The grounded
  * lines come from data already streaming in over existing realtime channels
  * (prefill rows, session documents): document categories being read, real
  * check counters, and id-free client-question teasers. Between them rotates
@@ -76,7 +76,7 @@ export function AnalysisNarrative({
   return (
     <p
       aria-live="polite"
-      className="truncate text-xs italic text-muted-foreground px-1"
+      className="truncate px-1 text-[13px] text-ds-ink-secondary"
     >
       {line}
     </p>

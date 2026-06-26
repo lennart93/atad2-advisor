@@ -38,29 +38,26 @@ export interface TickerInputs {
 export const DOMAIN_ACTIVITY_LINES: readonly string[] = [
   "Looking for hybrid entities in the structure...",
   "Checking how each counterparty is classified for tax purposes...",
-  "Mapping the intercompany financing flows...",
+  "Mapping intercompany financing flows...",
   "Checking for permanent establishments abroad...",
   "Comparing the Dutch deduction with the pickup abroad...",
-  "Reviewing the fiscal unity composition...",
   "Checking the ownership chain for associated enterprises...",
   "Looking for double deduction risks...",
   "Checking whether payments are picked up within a reasonable period...",
   "Scanning for check-the-box elections...",
-  "Reviewing loan agreements for back-to-back patterns...",
+  "Scanning for back-to-back patterns...",
   "Checking the shareholder register...",
   "Looking for transparent entities in the chain...",
   "Verifying tax residency of the taxpayer...",
-  "Checking branch structures for internal dealings...",
   "Tracing where each payment is included in a tax base...",
   "Looking for deduction without inclusion mismatches...",
   "Reviewing the group structure for reverse hybrids...",
   "Checking for dual resident entities...",
-  "Matching interest and royalty flows against the tax treatment abroad...",
+  "Matching payments against the tax treatment abroad...",
   "Looking for imported mismatch chains...",
   "Checking whether any mismatch arises between associated enterprises...",
-  "Reviewing cost allocations between head office and branch...",
   "Checking the timing of deductions against the inclusion abroad...",
-  "Looking for structured arrangements around the financing...",
+  "Looking for structured arrangements...",
   "Cross-checking entity classifications between jurisdictions...",
   "Reviewing guarantees and on-lending within the group...",
   "Checking whether dual inclusion income offsets a double deduction...",
@@ -77,7 +74,7 @@ export function buildDomainPool(
   const name = taxpayerName?.trim();
   if (name) {
     pool.push(
-      `Analysing the transactions around ${name}...`,
+      `Analysing transactions around ${name}...`,
       `Checking how ${name} is classified abroad...`,
       `Mapping the payment flows around ${name}...`,
     );
@@ -106,21 +103,14 @@ export function buildTickerPool(
   phase: TickerPhase,
   inputs: TickerInputs,
 ): string[] {
-  const questionCounter =
-    inputs.clientQuestionCount > 0
-      ? `${inputs.clientQuestionCount} client question${
-          inputs.clientQuestionCount === 1 ? "" : "s"
-        } so far`
-      : null;
-
   if (phase === "wording") {
-    const pool = ["Writing client questions..."];
-    if (questionCounter) pool.push(questionCounter);
-    return pool;
+    return ["Writing client questions..."];
   }
 
+  // The composing phase deliberately shows no rotating line; the page renders
+  // nothing while the client letter is being drafted.
   if (phase === "composing") {
-    return ["Merging shared context...", "Drafting your client letter..."];
+    return [];
   }
 
   const pool: string[] = [];
@@ -130,10 +120,8 @@ export function buildTickerPool(
       "documents";
     pool.push(`Reading the ${label}...`);
   }
-  if (inputs.totalQuestions != null && inputs.prefillCount > 0) {
-    pool.push(`${inputs.prefillCount} of ${inputs.totalQuestions} checks done`);
-  }
-  if (questionCounter) pool.push(questionCounter);
+  // Deliberately NO counter lines (neither "x of N checks done" nor "x client
+  // questions so far"): internal run counters never render on the documents step.
   const teasers = inputs.teasers
     .map((t) => t.trim())
     .filter((t) => t.length > 0)

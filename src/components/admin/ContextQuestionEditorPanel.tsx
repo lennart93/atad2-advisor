@@ -61,7 +61,7 @@ export function ContextQuestionEditorPanel({
       >
         <div className="space-y-3">
           {lockedQuestionId ? (
-            <div className="rounded-md border border-[#ececec] bg-muted/40 px-3 py-2 flex items-center gap-2">
+            <div className="rounded-md border border-ds-hairline bg-muted/40 px-3 py-2 flex items-center gap-2">
               <Link2 className="h-3.5 w-3.5 text-muted-foreground" />
               <div className="text-[11px]">
                 <span className="text-muted-foreground">Linked to question</span>{" "}
@@ -125,13 +125,13 @@ export function ContextQuestionEditorPanel({
           )} />
         </div>
 
-        <div className="border-t border-[#ececec] pt-4">
+        <div className="border-t border-ds-hairline pt-4">
           <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-2 font-semibold">
             Preview
           </div>
-          <div className="rounded-xl bg-gradient-to-b from-[#cffafe] to-[#f3f4f6] p-4">
-            <div className="rounded-lg bg-white shadow-sm p-4">
-              <div className="text-[10px] font-semibold text-[#0891b2] mb-1">
+          <div className="rounded-xl bg-ds-fill-muted p-4">
+            <div className="rounded-lg bg-ds-card shadow-sm p-4">
+              <div className="text-[10px] font-semibold text-ds-ink-secondary mb-1">
                 Shown when answer = "{watchedTrigger}"
               </div>
               <div className="text-[12px] text-foreground">
@@ -150,7 +150,7 @@ export function ContextQuestionEditorPanel({
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="text-[#991b1b] border-[#fecaca]"
+                    className="text-ds-red border-ds-red"
                   >
                     <Trash2 className="mr-1 h-3.5 w-3.5" /> Delete
                   </Button>

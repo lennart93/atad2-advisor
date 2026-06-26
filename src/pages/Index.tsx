@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Clock, FileText, Trash2 } from "lucide-react";
+import { Copy, FileText, Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, Card, EmptyState, PageHeader, StatusPill } from "@/components/ds";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   AlertDialog,
@@ -22,7 +21,39 @@ import { toast } from "@/components/ui/sonner";
 import { FadeIn, MotionPage, StaggerChildren, staggerItem } from "@/components/motion";
 import { formatDate } from "@/utils/formatDate";
 import { resumeUrlForSession } from "@/lib/assessment/resumeUrl";
+import { readLastStep } from "@/lib/assessment/lastStep";
+import { stepUrlForKey } from "@/lib/assessment/steps";
 import { groupSessionFacts } from "@/lib/dashboard/sessionFacts";
+
+/** Steps that only exist once the Questions step is finished (completed=true). */
+const POST_QUESTIONS_STEPS = new Set([
+  "confirmation",
+  "appendix",
+  "structure",
+  "report",
+]);
+
+/**
+ * The remembered last step for a session as a route, or null when nothing
+ * usable is stored. Resolved synchronously from localStorage so resume lands on
+ * the exact last step the user left from, for any step, with no intermediate
+ * page; the data-derived fallback covers a brand-new session, a different
+ * browser, or a stale value.
+ *
+ * A stored step that is ahead of where the session actually is (a post-questions
+ * step on a session that is no longer marked completed, e.g. after an admin
+ * revert or cleared answers) is treated as stale and ignored, so resume never
+ * drops the user onto a step the session state can't support.
+ */
+function resumeUrlFromLastStep(
+  sessionId: string,
+  completed: boolean,
+): string | null {
+  const key = readLastStep(sessionId);
+  if (!key) return null;
+  if (!completed && POST_QUESTIONS_STEPS.has(key)) return null;
+  return stepUrlForKey(key, sessionId);
+}
 
 interface SessionListItem {
   id: string;
@@ -107,16 +138,19 @@ const Index = () => {
         (sessionsData || []).map(async (session) => {
           const sessionFacts = facts.get(session.session_id)!;
 
-          // Where this card should take the user when clicked:
-          //  - in-progress → resume at the right step (derived from data)
-          //  - completed → report (existing behavior)
-          const destination = session.completed
-            ? `/assessment-report/${session.session_id}`
-            : await resumeUrlForSession({
-                session_id: session.session_id,
-                completed: session.completed,
-                outcome_confirmed: session.outcome_confirmed,
-              });
+          // Where this card should take the user when clicked: the exact step
+          // they left from (stored), for any step. Falls back to the report for
+          // a finished session, or the data-derived step for an in-progress one
+          // (brand-new session, another browser, or a stale stored value).
+          const destination =
+            resumeUrlFromLastStep(session.session_id, session.completed) ??
+            (session.completed
+              ? `/assessment-report/${session.session_id}`
+              : await resumeUrlForSession({
+                  session_id: session.session_id,
+                  completed: session.completed,
+                  outcome_confirmed: session.outcome_confirmed,
+                }));
 
           return {
             ...session,
@@ -187,11 +221,20 @@ const Index = () => {
     }
   };
 
+  const copySessionId = async (sessionId: string) => {
+    try {
+      await navigator.clipboard.writeText(sessionId);
+      toast.success("Session id copied");
+    } catch {
+      // Clipboard unavailable; nothing else to do.
+    }
+  };
+
 
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-muted-foreground">Loading...</p>
+        <p className="text-[13px] text-ds-ink-secondary">Loading...</p>
       </div>
     );
   }
@@ -200,150 +243,144 @@ const Index = () => {
 
   return (
     <MotionPage>
-      <div className="flex flex-col gap-10">
-        {/* Get started */}
-        <section className="rounded-lg border border-border bg-background p-5 sm:p-6 flex flex-col gap-4">
-          <div className="flex flex-col gap-1">
-            <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Get started</span>
-            <h2 className="text-xl sm:text-2xl font-semibold tracking-tight">Start new assessment</h2>
-            <p className="text-sm text-muted-foreground">Begin a new ATAD2 risk assessment for a Dutch corporate taxpayer.</p>
-          </div>
-          <Button
-            onClick={() => navigate("/assessment")}
-            size="lg"
-            className="self-start"
-          >
-            Start assessment
+      <PageHeader
+        title="Assessments"
+        subtitle="Run ATAD2 risk assessments for Dutch corporate taxpayers."
+        actions={
+          <Button onClick={() => navigate("/assessment")}>
+            New assessment
           </Button>
-        </section>
+        }
+      />
 
-        {/* History */}
-        <section className="rounded-lg border border-border bg-background p-5 sm:p-6 flex flex-col gap-4">
-          <div className="flex flex-col gap-1">
-            <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">History</span>
-            <h2 className="text-xl sm:text-2xl font-semibold tracking-tight">Your assessments</h2>
-            <p className="text-sm text-muted-foreground">View, resume or delete your assessments.</p>
+      <section className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-[18px] font-medium tracking-tight text-ds-ink">
+            Your assessments
+          </h2>
+          <p className="text-[13px] text-ds-ink-secondary">
+            View, resume or delete your assessments.
+          </p>
+        </div>
+        {loading ? (
+          <div className="flex flex-col gap-3">
+            <Skeleton className="h-[76px] w-full rounded-ds-card" />
+            <Skeleton className="h-[76px] w-full rounded-ds-card" />
+            <Skeleton className="h-[76px] w-full rounded-ds-card" />
           </div>
-          {loading ? (
-            <div className="flex flex-col gap-3">
-              <Skeleton className="h-[88px] w-full rounded-lg" />
-              <Skeleton className="h-[88px] w-full rounded-lg" />
-              <Skeleton className="h-[88px] w-full rounded-lg" />
-            </div>
-          ) : sessions.length === 0 ? (
-            <FadeIn>
-              <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed border-border py-16 px-6 text-center">
-                <div className="flex flex-col gap-1">
-                  <h3 className="text-lg font-semibold tracking-tight">
-                    No assessments yet
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    Start your first ATAD2 assessment to see it here.
-                  </p>
-                </div>
-              </div>
-            </FadeIn>
-          ) : (
-            <StaggerChildren stagger={0.04} className="flex flex-col gap-3">
-              {sessions.map((session) => {
-                const ready = session.completed && Boolean(session.has_memorandum);
-                const inProgress = !session.completed;
-                const accentClass = ready
-                  ? "border-l-emerald-500/70"
-                  : "border-l-amber-500/60";
-                const shortId = session.session_id.slice(0, 8);
-                const dateLabel = inProgress ? "Started" : "Completed";
-                const ariaLabel = inProgress
-                  ? `Resume assessment for ${session.taxpayer_name}`
-                  : `Open report for ${session.taxpayer_name}`;
+        ) : sessions.length === 0 ? (
+          <FadeIn>
+            <Card>
+              <EmptyState
+                icon={FileText}
+                action={
+                  <Button variant="secondary" onClick={() => navigate("/assessment")}>
+                    New assessment
+                  </Button>
+                }
+              >
+                Start your first ATAD2 assessment to see it here.
+              </EmptyState>
+            </Card>
+          </FadeIn>
+        ) : (
+          <StaggerChildren stagger={0.04} className="flex flex-col gap-3">
+            {sessions.map((session) => {
+              const ready = session.completed && Boolean(session.has_memorandum);
+              const inProgress = !session.completed;
+              const dateLabel = inProgress ? "started" : "completed";
+              const ariaLabel = inProgress
+                ? `Resume assessment for ${session.taxpayer_name}`
+                : `Open report for ${session.taxpayer_name}`;
 
-                return (
-                  <motion.div key={session.id} variants={staggerItem}>
-                    <div
-                      className={`group relative flex items-center gap-4 rounded-lg border border-border border-l-4 ${accentClass} bg-background p-4 sm:p-5 transition-all duration-normal ease-emphasized hover:border-foreground/20 hover:shadow-sm`}
-                    >
-                      <Link
-                        to={session.destination_url}
-                        className="absolute inset-0 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        aria-label={ariaLabel}
-                      />
-                      <div className="relative flex-1 min-w-0 pointer-events-none">
-                        <div className="flex items-center gap-3 mb-1.5">
-                          <h3 className="text-base font-medium tracking-tight truncate">
-                            {session.taxpayer_name}
-                          </h3>
-                          {ready ? (
-                            <Badge variant="live">Ready</Badge>
-                          ) : inProgress ? (
-                            <Badge variant="secondary" className="gap-1">
-                              <Clock className="h-3 w-3" />
-                              In progress
-                            </Badge>
-                          ) : (
-                            <Badge variant="secondary" className="gap-1">
-                              <Clock className="h-3 w-3" />
-                              Memo pending
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          <span className="font-mono">FY{session.fiscal_year}</span>
-                          <span className="mx-1.5 text-muted-foreground/50">·</span>
-                          <span className="font-mono">session {shortId}</span>
-                          <span className="mx-1.5 text-muted-foreground/50">·</span>
-                          <span>{dateLabel} {formatDate(session.created_at)}</span>
-                        </div>
+              return (
+                <motion.div key={session.id} variants={staggerItem}>
+                  <div className="group relative flex items-center gap-4 rounded-ds-card border border-ds-hairline bg-ds-card p-4 sm:p-5 transition-colors duration-150 hover:bg-ds-fill-muted">
+                    <Link
+                      to={session.destination_url}
+                      className="absolute inset-0 rounded-ds-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent"
+                      aria-label={ariaLabel}
+                    />
+                    <div className="pointer-events-none relative min-w-0 flex-1">
+                      <div className="mb-1.5 flex items-center gap-3">
+                        <h3 className="truncate text-[15px] font-medium tracking-tight text-ds-ink">
+                          {session.taxpayer_name}
+                        </h3>
+                        {ready ? (
+                          <StatusPill status="complete">Ready</StatusPill>
+                        ) : inProgress ? (
+                          <StatusPill status="neutral">In progress</StatusPill>
+                        ) : (
+                          <StatusPill status="neutral">Memo pending</StatusPill>
+                        )}
                       </div>
-                      <div className="relative flex items-center gap-2 z-10">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(session.destination_url);
-                          }}
-                        >
-                          <FileText className="h-4 w-4 mr-2" />
-                          {inProgress ? "Resume" : "View report"}
-                        </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <button
-                              onClick={(e) => e.stopPropagation()}
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                              aria-label="Delete assessment"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete assessment</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Are you sure you want to permanently delete this assessment for {session.taxpayer_name}?
-                                This will delete all answers and cannot be undone.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => deleteSession(session.session_id, session.id)}
-                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                              >
-                                Delete permanently
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
+                      <p className="tabular text-[13px] text-ds-ink-secondary">
+                        FY{session.fiscal_year} · {dateLabel} {formatDate(session.created_at)}
+                      </p>
                     </div>
-                  </motion.div>
-                );
-              })}
-            </StaggerChildren>
-          )}
-        </section>
-      </div>
+                    <div className="relative z-10 flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Copy session id"
+                        className="text-ds-ink-secondary"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          copySessionId(session.session_id);
+                        }}
+                      >
+                        <Copy />
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(session.destination_url);
+                        }}
+                      >
+                        <FileText />
+                        {inProgress ? "Resume" : "View report"}
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label="Delete assessment"
+                            className="text-ds-ink-secondary hover:text-ds-red"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Trash2 />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete assessment</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Are you sure you want to permanently delete this assessment for {session.taxpayer_name}?
+                              This will delete all answers and cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => deleteSession(session.session_id, session.id)}
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                              Delete permanently
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </StaggerChildren>
+        )}
+      </section>
     </MotionPage>
   );
 };

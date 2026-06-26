@@ -51,9 +51,9 @@ describe('buildAppendixPrintHtml', () => {
     const internal = buildAppendixPrintHtml([row('3.2', 'Not triggered', 'x', { provenance: 'Q26=No' })], 'internal');
     const dossier = buildAppendixPrintHtml([row('3.2', 'Not triggered', 'x', { provenance: 'Q26=No' })], 'dossier');
     expect(internal).toContain('3.2');
-    expect(internal).toContain('Provenance (internal)');
+    expect(internal).toContain('Source (internal)');
     expect(internal).toContain('Q26=No');
-    expect(dossier).not.toContain('Provenance (internal)');
+    expect(dossier).not.toContain('Source (internal)');
     expect(dossier).not.toContain('Q26=No');
   });
 

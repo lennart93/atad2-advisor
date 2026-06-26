@@ -11,12 +11,12 @@ interface Props {
 export function CategoryDropdown({ value, disabled, onChange }: Props) {
   return (
     <Select value={value} onValueChange={(v) => onChange(v as DocumentCategory)} disabled={disabled}>
-      <SelectTrigger className="h-7 w-[180px] text-xs">
+      <SelectTrigger className="h-7 w-[180px] text-[13px]">
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
         {DOCUMENT_CATEGORIES.map((c) => (
-          <SelectItem key={c.value} value={c.value} className="text-xs">
+          <SelectItem key={c.value} value={c.value} className="text-[13px]">
             {c.label}
           </SelectItem>
         ))}

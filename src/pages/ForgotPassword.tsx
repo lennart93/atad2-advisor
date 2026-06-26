@@ -79,8 +79,8 @@ const ForgotPassword = () => {
           <div className="mx-auto h-px w-16 bg-primary/40" />
           <p className="text-base text-muted-foreground leading-relaxed">
             {submitted
-              ? "If an account exists for this email, we've sent a reset link."
-              : "Enter your email and we'll send you a reset link."}
+              ? "If an account exists for this email, a reset link has been sent."
+              : "Enter your email and a reset link will be sent."}
           </p>
         </div>
 

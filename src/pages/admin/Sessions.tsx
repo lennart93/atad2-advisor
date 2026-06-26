@@ -23,19 +23,20 @@ import { exportAssessmentsToExcel } from "@/lib/admin/exportAssessments";
 
 type StatusFilter = "all" | "completed" | "in_progress" | "deleted";
 
-function statusTone(status: string, completed: boolean | null): "success" | "warning" | "neutral" {
+function statusTone(status: string, completed: boolean | null): "success" | "neutral" {
+  // Completed is a clean done-state (green). 'In progress' and everything else
+  // are procedural, not risk, so they stay neutral.
   if (completed || status === "completed") return "success";
-  if (status === "in_progress") return "warning";
   return "neutral";
 }
 
 // final_score is the sum of per-answer risk_points and lives on the
-// 0.0–~2.0 fractional scale. Tones match getRiskOutcome() in
-// AssessmentReport: ≥1.0 = risk identified (danger), ≥0.2 = insufficient
-// information (warning), below 0.2 = low risk (success).
-function scoreTone(score: number | null): "success" | "warning" | "danger" | "neutral" {
+// 0.0–~2.0 fractional scale. Both the risk-identified (≥1.0) and the
+// insufficient-information (≥0.2) outcomes are real ATAD2 attention, so they
+// share the amber (warning) tone; below 0.2 = low risk, a clean outcome
+// (success / green).
+function scoreTone(score: number | null): "success" | "warning" | "neutral" {
   if (score == null) return "neutral";
-  if (score >= 1.0) return "danger";
   if (score >= 0.2) return "warning";
   return "success";
 }
@@ -181,7 +182,7 @@ const Sessions = () => {
       />
 
       {!isLoading && totals.hasLive && (
-        <div className="mb-4 flex items-stretch overflow-hidden rounded-[14px] border border-[#ececec] bg-white">
+        <div className="mb-4 flex items-stretch overflow-hidden rounded-[14px] border border-ds-hairline bg-ds-card">
           <SummaryStat
             label="Booked"
             amount={totals.booked}
@@ -189,7 +190,7 @@ const Sessions = () => {
             countLabel="sold"
             tone="booked"
           />
-          <div className="w-px bg-[#ececec]" />
+          <div className="w-px bg-ds-hairline" />
           <SummaryStat
             label="Pipeline"
             amount={totals.pipeline}
@@ -246,7 +247,7 @@ function SummaryStat({
         <span
           className={cn(
             "inline-block size-1.5 rounded-full",
-            tone === "booked" ? "bg-emerald-500" : "bg-amber-400"
+            tone === "booked" ? "bg-ds-green" : "bg-ds-ink-tertiary"
           )}
         />
         <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground font-medium">
@@ -341,18 +342,18 @@ function RevenuePill({
   sold: boolean;
   revenue: number | null;
 }) {
-  // Booked (sold): solid emerald with a check. Open (quote, not yet sold):
-  // dashed amber outline to signal "potential, not booked".
+  // Booked (sold): solid green with a check, real booked revenue. Open (quote,
+  // not yet sold): neutral dashed outline to signal "potential, not booked".
   if (sold) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-md bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800 tabular-nums">
+      <span className="inline-flex items-center gap-1 rounded-md bg-ds-green-bg px-2 py-0.5 text-xs font-medium text-ds-green-text tabular-nums">
         <Check className="size-3" />
         {revenue != null ? formatEur(revenue) : "Sold"}
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center rounded-md border border-dashed border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 tabular-nums">
+    <span className="inline-flex items-center rounded-md border border-dashed border-ds-hairline bg-ds-fill-muted px-2 py-0.5 text-xs font-medium text-ds-ink-secondary tabular-nums">
       {revenue != null ? formatEur(revenue) : ""}
     </span>
   );

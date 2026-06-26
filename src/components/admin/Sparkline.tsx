@@ -10,7 +10,7 @@ export function Sparkline({
   values,
   width = 80,
   height = 36,
-  color = "#4f46e5",
+  color = "var(--ds-ink-tertiary)",
   fillOpacity = 0.08,
 }: SparklineProps) {
   if (values.length === 0) return <svg width={width} height={height} />;

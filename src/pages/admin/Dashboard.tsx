@@ -215,7 +215,7 @@ const Dashboard = () => {
                     </div>
                     {badge > 0 && (
                       <span
-                        className="absolute top-2 right-2 inline-flex items-center justify-center min-w-[20px] h-[20px] rounded-full bg-[#db2777] text-white text-[10px] font-semibold px-1.5"
+                        className="absolute top-2 right-2 inline-flex items-center justify-center min-w-[20px] h-[20px] rounded-full bg-ds-ink text-ds-card text-[10px] font-semibold px-1.5"
                         aria-label={`${badge} new`}
                       >
                         {badge > 99 ? "99+" : badge}

@@ -2,8 +2,16 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Button,
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+  FormField,
+  StatusPill,
+} from "@/components/ds";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
@@ -20,21 +28,24 @@ interface SessionData {
   outcome_confirmed: boolean;
 }
 
-const outcomeConfig: Record<OutcomeType, { label: string; icon: typeof AlertTriangle; colorClass: string }> = {
+const outcomeConfig: Record<
+  OutcomeType,
+  { label: string; icon: typeof AlertTriangle; status: "triggered" | "insufficient" | "complete" }
+> = {
   risk_identified: {
     label: "ATAD2 risk identified",
     icon: AlertTriangle,
-    colorClass: "text-red-700 dark:text-red-400"
+    status: "triggered"
   },
   insufficient_information: {
     label: "Insufficient information",
     icon: Info,
-    colorClass: "text-amber-700 dark:text-amber-400"
+    status: "insufficient"
   },
   low_risk: {
     label: "Low ATAD2 risk",
     icon: CheckCircle,
-    colorClass: "text-emerald-700 dark:text-emerald-400"
+    status: "complete"
   }
 };
 
@@ -46,25 +57,26 @@ const AssessmentConfirmation = () => {
   const [sessionData, setSessionData] = useState<SessionData | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  
+
   // Override flow state
   const [showOverrideForm, setShowOverrideForm] = useState(false);
   const [overrideReason, setOverrideReason] = useState("");
   const [selectedOverrideOutcome, setSelectedOverrideOutcome] = useState<OutcomeType | null>(null);
-  
+
   // Additional context flow state
   const [showContextForm, setShowContextForm] = useState(false);
   const [additionalContext, setAdditionalContext] = useState("");
   const [pendingConfirmType, setPendingConfirmType] = useState<'confirm' | 'override' | null>(null);
   const [suggestedAdditionalContext, setSuggestedAdditionalContext] = useState<string | null>(null);
   const [suggestedAccepted, setSuggestedAccepted] = useState(false);
-  
-  
+
+
   // Validation
   const MIN_REASON_LENGTH = 100;
   const reasonCharCount = overrideReason.trim().length;
   const isReasonValid = reasonCharCount >= MIN_REASON_LENGTH;
   const isOverrideValid = isReasonValid && selectedOverrideOutcome && selectedOverrideOutcome !== sessionData?.preliminary_outcome;
+  const contextCharCount = additionalContext.trim().length;
 
   useEffect(() => {
     if (!user) {
@@ -201,17 +213,17 @@ const AssessmentConfirmation = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
-        <p className="text-muted-foreground">Loading...</p>
+        <p className="text-[13px] text-ds-ink-secondary">Loading...</p>
       </div>
     );
   }
 
   if (!sessionData || !sessionData.preliminary_outcome) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="min-h-screen flex items-center justify-center bg-ds-page">
         <div className="text-center">
-          <p className="text-muted-foreground">Session not found</p>
-          <Button variant="outline" onClick={() => navigate("/")} className="mt-4">
+          <p className="text-[13px] text-ds-ink-secondary">Session not found</p>
+          <Button variant="secondary" onClick={() => navigate("/")} className="mt-4">
             Return to dashboard
           </Button>
         </div>
@@ -232,23 +244,21 @@ const AssessmentConfirmation = () => {
     <div className="max-w-2xl mx-auto">
       <Card>
           <CardHeader>
-            <CardTitle className="text-xl font-medium">
+            <CardTitle>
               Preliminary ATAD2 assessment
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
             {/* Intro text */}
-            <p className="text-muted-foreground">
-              Thank you for completing the ATAD2 questionnaire for{" "}
-              <span className="text-foreground font-medium">{sessionData.taxpayer_name}</span>.
-              Based on your responses, a preliminary assessment has been determined 
-              using predefined rule-based logic. This serves as a checkpoint before 
-              generating the assessment report.
+            <p className="text-[13px] text-ds-ink-secondary">
+              This preliminary outcome for{" "}
+              <span className="text-ds-ink font-medium">{sessionData.taxpayer_name}</span>{" "}
+              was determined from the responses, ahead of the assessment report.
             </p>
 
-            {/* Preliminary outcome - with color, matching report style */}
-            <div className="py-4 border-y border-border">
-              <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
+            {/* Preliminary outcome */}
+            <div className="py-4 border-y border-ds-hairline">
+              <p className="text-[13px] text-ds-ink-secondary mb-2">
                 Preliminary outcome
               </p>
               {pendingConfirmType === 'override' && selectedOverrideOutcome ? (
@@ -258,42 +268,40 @@ const AssessmentConfirmation = () => {
                   const OverrideIcon = overrideConfig.icon;
                   return (
                     <div className="flex items-center gap-2">
-                      <OverrideIcon className={`h-4 w-4 ${overrideConfig.colorClass}`} />
-                      <span className={`font-medium ${overrideConfig.colorClass}`}>
+                      <StatusPill status={overrideConfig.status}>
+                        <OverrideIcon />
                         {overrideConfig.label}
-                      </span>
-                      <span className="text-xs text-muted-foreground ml-1">(adjusted)</span>
+                      </StatusPill>
+                      <span className="text-[13px] text-ds-ink-secondary">(adjusted)</span>
                     </div>
                   );
                 })()
               ) : (
-                <div className="flex items-center gap-2">
-                  <OutcomeIcon className={`h-4 w-4 ${config.colorClass}`} />
-                  <span className={`font-medium ${config.colorClass}`}>
-                    {config.label}
-                  </span>
-                </div>
+                <StatusPill status={config.status}>
+                  <OutcomeIcon />
+                  {config.label}
+                </StatusPill>
               )}
             </div>
 
             {/* Context Form - shown after confirm or override */}
             {showContextForm ? (
               <div className="space-y-5 animate-in fade-in-50 duration-300">
-                <p className="text-muted-foreground">
-                  Great! Before we proceed, is there anything you'd like to add? 
-                  The more context you provide, the more tailored the memorandum will be.
+                <p className="text-[13px] text-ds-ink-secondary">
+                  Add any context that should shape the memorandum.
                 </p>
 
                 {suggestedAdditionalContext && !suggestedAccepted && (
-                  <Card className="border-primary/30 bg-primary/5">
-                    <CardContent className="space-y-3 pt-4 text-sm">
-                      <div className="font-medium text-xs uppercase tracking-wide text-muted-foreground">
+                  <Card className="bg-ds-fill-muted">
+                    <CardContent className="space-y-3 pt-5">
+                      <p className="text-[13px] font-medium text-ds-ink-secondary">
                         Suggested context from your documents
-                      </div>
-                      <p className="whitespace-pre-wrap">{suggestedAdditionalContext}</p>
+                      </p>
+                      <p className="whitespace-pre-wrap text-[13px] text-ds-ink">{suggestedAdditionalContext}</p>
                       <div className="flex gap-2">
                         <Button
                           size="sm"
+                          variant="secondary"
                           onClick={() => {
                             const next = additionalContext.trim().length === 0
                               ? suggestedAdditionalContext
@@ -316,60 +324,67 @@ const AssessmentConfirmation = () => {
                   </Card>
                 )}
 
-                <div className="space-y-2">
-                  <Textarea
-                    placeholder="Any additional considerations, background information, or specific points you'd like addressed..."
-                    value={additionalContext}
-                    onChange={(e) => setAdditionalContext(e.target.value)}
-                    className="min-h-[100px] resize-none"
-                  />
-                  {additionalContext.trim().length < 100 && additionalContext.trim().length > 0 && (
-                    <p className="text-xs text-muted-foreground">
-                      {100 - additionalContext.trim().length} more characters needed
-                    </p>
+                <FormField
+                  label="Additional context"
+                  error={
+                    contextCharCount > 0 && contextCharCount < 100
+                      ? `${100 - contextCharCount} more characters needed`
+                      : undefined
+                  }
+                >
+                  {({ id, describedBy, invalid }) => (
+                    <Textarea
+                      id={id}
+                      aria-describedby={describedBy}
+                      aria-invalid={invalid}
+                      placeholder="Background, considerations, or specific points to address. At least 100 characters, or use Skip."
+                      value={additionalContext}
+                      onChange={(e) => setAdditionalContext(e.target.value)}
+                      className="min-h-[100px] resize-none text-[15px]"
+                    />
                   )}
-                </div>
+                </FormField>
               </div>
             ) : !showOverrideForm ? (
               /* Confirmation section */
               <div className="space-y-5">
-                <p className="text-muted-foreground">
-                  Before we continue, please confirm whether this preliminary outcome
+                <p className="text-[13px] text-ds-ink-secondary">
+                  Before continuing, please confirm whether this preliminary outcome
                   aligns with your own expectations.
                 </p>
               </div>
             ) : (
               /* Override Form - inline */
               <div className="space-y-5">
-                <p className="text-muted-foreground">
-                  Please explain why you do not agree with the preliminary outcome 
+                <p className="text-[13px] text-ds-ink-secondary">
+                  Please explain why you do not agree with the preliminary outcome
                   and select the outcome you consider more appropriate.
                 </p>
 
                 {/* Reason textarea */}
-                <div className="space-y-2">
-                  <Label htmlFor="override-reason" className="text-sm text-muted-foreground">
-                    Your reasoning
-                  </Label>
-                  <Textarea
-                    id="override-reason"
-                    placeholder="Share your reasoning here..."
-                    value={overrideReason}
-                    onChange={(e) => setOverrideReason(e.target.value)}
-                    className="min-h-[100px] resize-none"
-                  />
-                  {reasonCharCount < MIN_REASON_LENGTH && (
-                    <p className="text-xs text-muted-foreground">
-                      {MIN_REASON_LENGTH - reasonCharCount} more characters needed
-                    </p>
+                <FormField
+                  label="Your reasoning"
+                  error={
+                    reasonCharCount > 0 && reasonCharCount < MIN_REASON_LENGTH
+                      ? `${MIN_REASON_LENGTH - reasonCharCount} more characters needed`
+                      : undefined
+                  }
+                >
+                  {({ id, describedBy, invalid }) => (
+                    <Textarea
+                      id={id}
+                      aria-describedby={describedBy}
+                      aria-invalid={invalid}
+                      placeholder="Why the preliminary outcome does not fit, in at least 100 characters."
+                      value={overrideReason}
+                      onChange={(e) => setOverrideReason(e.target.value)}
+                      className="min-h-[100px] resize-none text-[15px]"
+                    />
                   )}
-                </div>
+                </FormField>
 
                 {/* Alternative outcome selection */}
-                <div className="space-y-3">
-                  <Label className="text-sm text-muted-foreground">
-                    Alternative outcome
-                  </Label>
+                <FormField label="Alternative outcome">
                   <RadioGroup
                     value={selectedOverrideOutcome || ""}
                     onValueChange={(value) => setSelectedOverrideOutcome(value as OutcomeType)}
@@ -380,27 +395,27 @@ const AssessmentConfirmation = () => {
                       return (
                         <div
                           key={key}
-                          className={`flex items-center space-x-3 p-3 rounded border cursor-pointer transition-colors ${
+                          className={`flex items-center space-x-3 p-3 rounded-ds-control border cursor-pointer transition-colors ${
                             selectedOverrideOutcome === key
-                              ? "border-foreground bg-muted/30"
-                              : "border-border hover:border-muted-foreground/50"
+                              ? "border-ds-ink bg-ds-fill-muted"
+                              : "border-ds-hairline hover:bg-ds-fill-muted"
                           }`}
                           onClick={() => setSelectedOverrideOutcome(key as OutcomeType)}
                         >
                           <RadioGroupItem value={key} id={key} />
-                          <Icon className={`h-4 w-4 ${cfg.colorClass}`} />
-                          <Label htmlFor={key} className="cursor-pointer flex-1 font-normal">
+                          <Icon className="h-4 w-4 text-ds-ink-tertiary" />
+                          <Label htmlFor={key} className="cursor-pointer flex-1 text-[13px] font-normal text-ds-ink">
                             {cfg.label}
                           </Label>
                         </div>
                       );
                     })}
                   </RadioGroup>
-                </div>
+                </FormField>
 
                 {/* Confirmation note - only when valid */}
                 {isOverrideValid && (
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-[13px] text-ds-ink-secondary">
                     Your explanation will be taken into account when generating the
                     assessment report and memorandum.
                   </p>
@@ -408,36 +423,16 @@ const AssessmentConfirmation = () => {
               </div>
             )}
           </CardContent>
-        </Card>
-
-        <AssessmentFooterSlot
-          left={
-            showOverrideForm ? (
-              <Button
-                variant="ghost"
-                onClick={handleCancelOverride}
-                disabled={submitting}
-              >
-                Cancel
-              </Button>
-            ) : (
-              <Button variant="outline" onClick={() => navigate(`/assessment?session=${sessionId}`)}>
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Previous
-              </Button>
-            )
-          }
-          right={
-            showOverrideForm ? (
-              <Button
-                variant="outline"
-                onClick={handleConfirmOverride}
-                disabled={!isOverrideValid || submitting}
-              >
-                Confirm and continue
-              </Button>
-            ) : showContextForm ? (
+          <CardFooter>
+            {showContextForm ? (
               <>
+                <Button
+                  variant="primary"
+                  onClick={() => handleFinalConfirm(false)}
+                  disabled={submitting || additionalContext.trim().length < 100}
+                >
+                  Continue
+                </Button>
                 <Button
                   variant="ghost"
                   onClick={() => handleFinalConfirm(true)}
@@ -445,32 +440,51 @@ const AssessmentConfirmation = () => {
                 >
                   Skip
                 </Button>
+              </>
+            ) : showOverrideForm ? (
+              <>
                 <Button
-                  variant="outline"
-                  onClick={() => handleFinalConfirm(false)}
-                  disabled={submitting || additionalContext.trim().length < 100}
+                  variant="primary"
+                  onClick={handleConfirmOverride}
+                  disabled={!isOverrideValid || submitting}
                 >
-                  Continue
+                  Confirm and continue
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={handleCancelOverride}
+                  disabled={submitting}
+                >
+                  Cancel
                 </Button>
               </>
             ) : (
               <>
                 <Button
-                  variant="outline"
+                  variant="primary"
                   onClick={handleConfirm}
                   disabled={submitting}
                 >
                   Confirm outcome
                 </Button>
                 <Button
-                  variant="outline"
+                  variant="secondary"
                   onClick={handleAdjust}
                   disabled={submitting}
                 >
-                  Adjust outcome
+                  Adjust
                 </Button>
               </>
-            )
+            )}
+          </CardFooter>
+        </Card>
+
+        <AssessmentFooterSlot
+          left={
+            <Button variant="secondary" onClick={() => navigate(`/assessment?session=${sessionId}`)}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Previous
+            </Button>
           }
         />
     </div>

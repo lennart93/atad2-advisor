@@ -10,9 +10,9 @@ export async function captureChartPng(opts: { rootSelector?: string; pixelRatio?
   if (!root) throw new Error('No react-flow root found in DOM');
 
   const dataUrl = await toPng(root, {
-    pixelRatio: opts.pixelRatio ?? 2,
+    pixelRatio: opts.pixelRatio ?? 3,
     cacheBust: true,
-    backgroundColor: '#ebe5dc',
+    backgroundColor: '#ffffff',
     filter: (node) => {
       // Don't capture the controls panel — we want a clean export
       return !(node instanceof HTMLElement && node.classList.contains('react-flow__controls'));

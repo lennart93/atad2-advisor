@@ -97,7 +97,7 @@ export function useAllPrefills(sessionId: string | null) {
 
 /**
  * Total distinct question count from the questions table. Drives *real*
- * progress in AnalyzeProgress and the grounded counters in the analysis
+ * progress in AnalyzingScreen and the grounded counters in the analysis
  * narrative ticker; static data, cached 1h.
  */
 export function useQuestionCount() {

@@ -127,7 +127,7 @@ const SessionDetail = () => {
           {canEdit ? (
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="outline" size="sm" className="text-[#991b1b] border-[#fecaca]">
+                <Button variant="outline" size="sm" className="text-ds-red border-ds-red">
                   <Trash2 className="mr-1 h-3.5 w-3.5" /> Delete session
                 </Button>
               </AlertDialogTrigger>
@@ -155,7 +155,7 @@ const SessionDetail = () => {
             <Button
               variant="outline"
               size="sm"
-              className="text-[#991b1b] border-[#fecaca] opacity-60 cursor-help"
+              className="text-ds-red border-ds-red opacity-60 cursor-help"
               onClick={() => setAccessDialog(true)}
             >
               <Trash2 className="mr-1 h-3.5 w-3.5" /> Delete session
@@ -174,7 +174,7 @@ const SessionDetail = () => {
             )}
           </div>
           <div className="flex flex-col items-end gap-2 text-right">
-            <StatusChip label={completed ? "Completed" : session.status} tone={completed ? "success" : "warning"} />
+            <StatusChip label={completed ? "Completed" : session.status} tone={completed ? "success" : "neutral"} />
             {session.final_score != null && (
               <div className="text-2xl font-semibold tracking-tight tabular-nums">
                 {session.final_score.toFixed(1)}
@@ -364,10 +364,10 @@ function DossierTab({
                     {report.archived_at ? (
                       <StatusChip
                         label={`Archived ${new Date(report.archived_at).toLocaleDateString()}`}
-                        tone="warning"
+                        tone="neutral"
                       />
                     ) : (
-                      <StatusChip label="Active" tone="success" />
+                      <StatusChip label="Active" tone="neutral" />
                     )}
                     {report.total_risk != null && (
                       <StatusChip label={`Total risk ${report.total_risk.toFixed(1)}`} tone="neutral" />
@@ -419,7 +419,7 @@ function JourneyTab({ answers, loading }: { answers: AdminAnswerRow[]; loading: 
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-mono text-muted-foreground">{e.question_id}</span>
                 {e.gapMs > 300_000 && (
-                  <StatusChip label={`${Math.round(e.gapMs / 60_000)} min gap`} tone="warning" />
+                  <StatusChip label={`${Math.round(e.gapMs / 60_000)} min gap`} tone="neutral" />
                 )}
               </div>
               <div className="text-[12px] font-medium">{e.question_text}</div>
@@ -445,19 +445,16 @@ function AuditTab({ logs }: { logs: AuditLogRow[] }) {
     );
   }
 
-  const actionTone = (a: string): "success" | "warning" | "danger" | "neutral" => {
-    if (a === "INSERT") return "success";
-    if (a === "UPDATE") return "warning";
-    if (a === "DELETE") return "danger";
-    return "neutral";
-  };
+  // Audit action labels are neutral metadata, not risk or done-state signals,
+  // so they all read as plain neutral chips.
+  const actionTone = (): "neutral" => "neutral";
 
   return (
     <div className="pt-4 space-y-1.5">
       {logs.map((log) => (
         <AdminCard key={log.id} className="py-2.5">
           <div className="flex items-center gap-3">
-            <StatusChip label={log.action} tone={actionTone(log.action)} />
+            <StatusChip label={log.action} tone={actionTone()} />
             <span className="text-[11px] font-mono text-muted-foreground truncate flex-1">
               {log.table_name}
             </span>

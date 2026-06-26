@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from "react";
-import { Button } from "@/components/ui/button";
+import { Button, Card, CardContent } from "@/components/ds";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent } from "@/components/ui/card";
 import { Loader2, X } from "lucide-react";
 import {
   Tooltip,
@@ -211,47 +210,46 @@ const MemoFeedbackEditor: React.FC<MemoFeedbackEditorProps> = ({
   return (
     <div className="space-y-4">
       {/* Compact Feedback Panel */}
-      <div className={`relative ${hasParagraphFeedback ? 'border-l-2 border-primary/30 pl-4' : ''}`}>
+      <div className={`relative ${hasParagraphFeedback ? 'border-l-2 border-ds-hairline pl-4' : ''}`}>
         {/* Dot connector for general feedback */}
         {hasParagraphFeedback && (
-          <div className="absolute -left-[5px] top-6 w-2 h-2 rounded-full bg-primary/50" />
+          <div className="absolute -left-[5px] top-6 w-2 h-2 rounded-full bg-ds-ink-secondary" />
         )}
-        <Card className="border border-border rounded-lg shadow-sm bg-primary/5">
+        <Card className="bg-ds-fill-muted">
           <CardContent className="p-4 space-y-2">
             {/* Feedback Textarea */}
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">
+              <label className="text-[13px] font-medium text-ds-ink">
                 Feedback
               </label>
               <Textarea
                 value={generalFeedback}
                 onChange={(e) => setGeneralFeedback(e.target.value)}
-                placeholder="Share any feedback here - technical, substantive, style, or general impressions."
-                className={`min-h-[100px] resize-y bg-background ${hasGeneralFeedback ? 'italic' : ''}`}
+                placeholder="Technical, substantive, style, or general impressions."
+                className={`min-h-[100px] resize-y text-[15px] bg-background ${hasGeneralFeedback ? 'italic' : ''}`}
                 disabled={isSubmitting}
               />
             </div>
 
             {/* Helper text + Action Buttons */}
             <div className="flex items-center justify-between">
-              <p className="text-xs text-muted-foreground">
-                You can leave general feedback, comment on specific paragraphs, or both.
+              <p className="text-[13px] text-ds-ink-secondary">
+                Leave general feedback, comment on specific paragraphs, or both.
               </p>
               <div className="flex items-center gap-3">
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
                   onClick={onCancel}
                   disabled={isSubmitting}
-                  className="transition-all duration-fast"
                 >
                   Cancel
                 </Button>
                 <Button
+                  variant="secondary"
                   size="sm"
                   onClick={handleSubmit}
                   disabled={isSubmitting}
-                  className="transition-all duration-fast"
                 >
                   {isSubmitting ? (
                     <>
@@ -269,7 +267,7 @@ const MemoFeedbackEditor: React.FC<MemoFeedbackEditorProps> = ({
       </div>
 
       {/* Memo Text with Interactive Paragraphs */}
-      <div className={`space-y-1 ${hasParagraphFeedback ? 'border-l-2 border-primary/30 pl-4' : ''}`}>
+      <div className={`space-y-1 ${hasParagraphFeedback ? 'border-l-2 border-ds-hairline pl-4' : ''}`}>
         {paragraphs.map((paragraph, index) => {
           const hasFeedback = (feedbackByParagraph[index] || "").trim().length > 0;
           const isActive = activeParagraphIndex === index;
@@ -283,12 +281,12 @@ const MemoFeedbackEditor: React.FC<MemoFeedbackEditorProps> = ({
                     <div
                       onClick={() => handleParagraphClick(index)}
                       className={`
-                        relative px-4 py-3 rounded-lg cursor-pointer transition-all duration-200
-                        ${isActive 
-                          ? 'bg-primary/10' 
-                          : hasFeedback 
-                            ? 'bg-primary/5 hover:bg-primary/10' 
-                            : 'hover:bg-muted/50'
+                        relative px-4 py-3 rounded-ds-control cursor-pointer transition-all duration-200
+                        ${isActive
+                          ? 'bg-ds-fill-muted'
+                          : hasFeedback
+                            ? 'bg-ds-fill-muted'
+                            : 'hover:bg-ds-fill-muted'
                         }
                       `}
                     >
@@ -300,9 +298,9 @@ const MemoFeedbackEditor: React.FC<MemoFeedbackEditorProps> = ({
                               <span className="underline" style={{ textDecorationLine: 'underline', textUnderlineOffset: '3px' }}>{children}</span>
                             ),
                             p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-                            h1: ({ children }) => <h1 className="font-bold text-base mb-2">{children}</h1>,
-                            h2: ({ children }) => <h2 className="font-bold text-base mb-2">{children}</h2>,
-                            h3: ({ children }) => <h3 className="font-bold text-sm mb-2">{children}</h3>,
+                            h1: ({ children }) => <h1 className="font-medium text-base mb-2">{children}</h1>,
+                            h2: ({ children }) => <h2 className="font-medium text-base mb-2">{children}</h2>,
+                            h3: ({ children }) => <h3 className="font-medium text-sm mb-2">{children}</h3>,
                             ul: ({ children }) => <ul className="list-disc list-inside mt-1 mb-2">{children}</ul>,
                             li: ({ children }) => <li className="ml-2">{children}</li>,
                           }}
@@ -313,7 +311,7 @@ const MemoFeedbackEditor: React.FC<MemoFeedbackEditorProps> = ({
                     </div>
                   </TooltipTrigger>
                   {!isActive && !hasFeedback && (
-                    <TooltipContent side="top" className="text-xs">
+                    <TooltipContent side="top" className="text-[13px]">
                       Click to add paragraph-specific feedback (optional)
                     </TooltipContent>
                   )}
@@ -322,9 +320,9 @@ const MemoFeedbackEditor: React.FC<MemoFeedbackEditorProps> = ({
 
               {/* Inline Feedback Box (editing mode) */}
               {isActive && (
-                <div className="mt-2 py-3 px-3 bg-muted/30 rounded-lg animate-in slide-in-from-top-2 duration-200">
+                <div className="mt-2 py-3 px-3 bg-ds-fill-muted rounded-ds-control animate-in slide-in-from-top-2 duration-200">
                   <div className="flex items-center justify-between mb-2">
-                    <label className="text-xs font-medium text-muted-foreground">
+                    <label className="text-[13px] font-medium text-ds-ink-secondary">
                       Feedback on this paragraph (optional)
                     </label>
                     <button
@@ -332,7 +330,7 @@ const MemoFeedbackEditor: React.FC<MemoFeedbackEditorProps> = ({
                         e.stopPropagation();
                         closeParagraphFeedback(index);
                       }}
-                      className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
+                      className="text-[13px] text-ds-ink-secondary hover:text-ds-ink flex items-center gap-1"
                     >
                       <X className="h-3 w-3" />
                       Hide
@@ -348,7 +346,7 @@ const MemoFeedbackEditor: React.FC<MemoFeedbackEditorProps> = ({
                       }
                     }}
                     placeholder="Type feedback and press Enter to save (Shift+Enter for new line)"
-                    className="min-h-[60px] resize-y text-sm bg-background"
+                    className="min-h-[60px] resize-y text-[15px] bg-background"
                     disabled={isSubmitting}
                     autoFocus
                     onClick={(e) => e.stopPropagation()}
@@ -360,17 +358,17 @@ const MemoFeedbackEditor: React.FC<MemoFeedbackEditorProps> = ({
               {!isActive && hasFeedback && (
                 <div className="relative mt-1">
                   {/* Dot at connection point on the main line */}
-                  <div className="absolute -left-[21px] top-4 w-2 h-2 rounded-full bg-primary/50" />
-                  
-                  <div 
-                    className={`py-2 px-3 bg-primary/5 rounded-md transition-colors ${isSubmitting ? 'cursor-default' : 'cursor-pointer hover:bg-primary/10'}`}
+                  <div className="absolute -left-[21px] top-4 w-2 h-2 rounded-full bg-ds-ink-secondary" />
+
+                  <div
+                    className={`py-2 px-3 bg-ds-fill-muted rounded-ds-control transition-colors ${isSubmitting ? 'cursor-default' : 'cursor-pointer'}`}
                     onClick={() => !isSubmitting && handleParagraphClick(index)}
                   >
-                    <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1.5">
+                    <p className="text-[13px] text-ds-ink-secondary mb-1 flex items-center gap-1.5">
                       {isSubmitting && <Loader2 className="h-3 w-3 animate-spin" />}
                       Paragraph-specific feedback:
                     </p>
-                    <p className="text-sm text-foreground whitespace-pre-wrap italic">{feedbackByParagraph[index]}</p>
+                    <p className="text-[13px] text-ds-ink whitespace-pre-wrap italic">{feedbackByParagraph[index]}</p>
                   </div>
                 </div>
               )}

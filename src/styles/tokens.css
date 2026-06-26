@@ -1,0 +1,112 @@
+/* Design system tokens (Phase 1).
+ *
+ * Additive on top of the shadcn HSL variables in index.css: nothing here
+ * overrides an existing variable, so importing this file changes no screen.
+ * The ds/ component library consumes these; in Phase 2 the screens (and
+ * eventually the shadcn vars) move over to them.
+ *
+ * Values are final colors (hex/rgba), not HSL triplets: they are never
+ * composed with Tailwind opacity modifiers. Tailwind exposes them under the
+ * `ds` namespace (bg-ds-card, text-ds-ink-secondary, border-ds-hairline, ...).
+ */
+
+:root {
+  /* Neutrals */
+  --ds-ink: #1a1a1a;            /* primary text */
+  --ds-ink-hover: #2e2e2b;      /* solid (ink) button hover */
+  --ds-ink-secondary: #5f5e5a;  /* secondary text; lightest tone that may carry readable text (AA) */
+  --ds-ink-tertiary: #8a8980;   /* icons + decoration only: below 4.5:1 on card/page, not for text */
+  --ds-hairline: rgba(0, 0, 0, 0.12);
+  --ds-page: #fafaf8;           /* page background */
+  --ds-card: #ffffff;           /* card / control background */
+  --ds-fill-muted: rgba(0, 0, 0, 0.05); /* neutral pill + icon-circle fill */
+
+  /* The one accent (monochrome near-black). Reserved for exactly two places:
+   * the active wizard step and the structure-chart focus node. Nowhere else.
+   * Everything that used to be blue (links, focus rings, FY tag, suggested
+   * answers, selected rows) is now neutral ink/grey. Kept as a token so the
+   * two sanctioned uses, and any focus ring that resolves to it, live in one
+   * place: flip this trio to a tinted hue here to reintroduce a colored accent. */
+  --ds-accent: #1a1a1a;
+  --ds-accent-bg: rgba(0, 0, 0, 0.05);
+  --ds-accent-text: #1a1a1a;
+
+  /* Semantic: amber = the real ATAD2 risk outcome (and genuine blocking /
+   * insufficient-information attention). Rare by design, never decoration. */
+  --ds-amber: #ba7517;
+  --ds-amber-bg: #faeeda;
+  --ds-amber-text: #854f0b;
+
+  /* Semantic: green = complete */
+  --ds-green: #0f6e56;
+  --ds-green-bg: #e1f5ee;
+  --ds-green-text: #0f6e56;
+
+  /* Red: destructive actions only (never status decoration) */
+  --ds-red: #b42318;
+  --ds-red-hover: #9b1e14;
+  --ds-red-bg: #fdecea;
+  --ds-red-text: #8e1c13;
+
+  /* Radius. One tight value for all small chrome (chips, tags, status pills,
+   * stepper hit areas): crisp corners, never stadium/fully-rounded. Controls
+   * (buttons/inputs) and cards keep their slightly larger radii. */
+  --ds-radius-chip: 6px;
+  --ds-radius-control: 8px;
+  --ds-radius-card: 12px;
+
+  /* Type scale: 13px dense UI body, 15px forms, 18/22px headings.
+   * Weights 400 and 500 only. */
+  --ds-text-dense: 13px;
+  --ds-text-form: 15px;
+  --ds-text-heading: 18px;
+  --ds-text-heading-lg: 22px;
+}
+
+.dark {
+  --ds-ink: #f4f4f2;
+  --ds-ink-hover: #ffffff;
+  --ds-ink-secondary: #a8a7a1;
+  --ds-ink-tertiary: #7c7b74;
+  --ds-hairline: rgba(255, 255, 255, 0.14);
+  --ds-page: #111110;
+  --ds-card: #191918;
+  --ds-fill-muted: rgba(255, 255, 255, 0.07);
+
+  --ds-accent: #f4f4f2;
+  --ds-accent-bg: rgba(255, 255, 255, 0.07);
+  --ds-accent-text: #f4f4f2;
+
+  --ds-amber: #d99b45;
+  --ds-amber-bg: rgba(186, 117, 23, 0.18);
+  --ds-amber-text: #e8b369;
+
+  --ds-green: #3fae90;
+  --ds-green-bg: rgba(15, 110, 86, 0.2);
+  --ds-green-text: #5cc4a7;
+
+  --ds-red: #c4453a;
+  --ds-red-hover: #b93c31;
+  --ds-red-bg: rgba(180, 35, 24, 0.2);
+  --ds-red-text: #ef8d84;
+}
+
+/* Numbers, percentages, dates and counts line up. (index.css already ships
+ * a `.tabular` utility; ds components set this on numeric spans.) */
+.ds-tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Kill the browser's blue/yellow autofill wash inside ds form fields.
+ * Scoped to .ds-field (set by the FormField component) so existing screens
+ * keep their current autofill look until they migrate in Phase 2. */
+.ds-field input:-webkit-autofill,
+.ds-field input:-webkit-autofill:hover,
+.ds-field input:-webkit-autofill:focus,
+.ds-field textarea:-webkit-autofill,
+.ds-field select:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px var(--ds-card) inset;
+  -webkit-text-fill-color: var(--ds-ink);
+  caret-color: var(--ds-ink);
+  transition: background-color 9999s ease-out;
+}

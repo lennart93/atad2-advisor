@@ -2,8 +2,8 @@ import { APPENDIX_SKELETON } from './skeleton';
 import type { AppendixFacts, AppendixRow, SkeletonRow, StoredAppendix } from './types';
 import { factsForClient } from './factsExport';
 import { isSectionExcluded } from './facts/sections';
-import { effJurisdiction, effNlTaxStatus } from './facts/entityFields';
-import { nlQualification, nlQualificationLabel } from './facts/nlTaxStatus';
+import { effJurisdiction, effNlQualification } from './facts/entityFields';
+import { nlQualificationLabel } from './facts/nlTaxStatus';
 import { actingLikelihoodLabel } from './facts/actingLikelihood';
 import { cleanReasoning } from './reasoningText';
 import { deriveConclusions } from './facts/conclusions';
@@ -22,8 +22,7 @@ function buildFactsSummary(facts: AppendixFacts): string {
   const ents = ex('entityRegister') ? '' : f.entities
     .map((e) => {
       const jur = effJurisdiction(e);
-      const status = effNlTaxStatus(e);
-      const nlQual = nlQualificationLabel(nlQualification(status));
+      const nlQual = nlQualificationLabel(effNlQualification(e));
       return `- ${esc(nameOf(e.id))} (${jur ?? '?'}, ${e.role}${e.ownershipPct != null ? `, ${e.ownershipPct}%` : ''}${showRelated && e.related ? ', related' : ''}, NL: ${esc(nlQual)})`;
     })
     .join('\n');

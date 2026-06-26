@@ -46,18 +46,13 @@ export function KpiCard({
             <div className="text-[10px] text-muted-foreground mt-1.5 font-mono">{subLabel}</div>
           )}
           {trend && (
-            <div
-              className={cn(
-                "text-[11px] font-medium mt-1",
-                trend.direction === "up" ? "text-[#10b981]" : "text-[#ef4444]"
-              )}
-            >
+            <div className="text-[11px] font-medium mt-1 text-ds-ink-secondary">
               {trend.direction === "up" ? "↑" : "↓"} {trend.label}
             </div>
           )}
         </div>
         {sparkline && size === "lg" && (
-          <Sparkline values={sparkline} color="hsl(var(--muted-foreground))" />
+          <Sparkline values={sparkline} color="var(--ds-ink-tertiary)" />
         )}
       </div>
     </AdminCard>

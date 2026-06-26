@@ -138,14 +138,14 @@ export function QuestionEditorPanel({
     return parts.map((p, i) => {
       if (p.added) {
         return (
-          <span key={i} className="bg-green-100 text-green-900 rounded px-0.5">
+          <span key={i} className="text-ds-ink italic rounded px-0.5">
             {p.value}
           </span>
         );
       }
       if (p.removed) {
         return (
-          <span key={i} className="bg-red-100 text-red-900 line-through rounded px-0.5">
+          <span key={i} className="text-ds-ink-tertiary line-through rounded px-0.5">
             {p.value}
           </span>
         );
@@ -161,14 +161,14 @@ export function QuestionEditorPanel({
         onSubmit={form.handleSubmit(async (v) => { await onSave(v); })}
       >
         {question && question.outOfSync && question.conflicts.length > 0 && (
-          <div className="border border-amber-300 bg-amber-50 rounded-lg p-4">
+          <div className="border border-ds-hairline bg-ds-fill-muted rounded-lg p-4">
             <div className="flex items-center gap-2 mb-2">
-              <AlertTriangle className="h-4 w-4 text-amber-700" />
-              <div className="text-[13px] font-semibold text-amber-900">
+              <AlertTriangle className="h-4 w-4 text-ds-ink-tertiary" />
+              <div className="text-[13px] font-semibold text-ds-ink">
                 Branches out of sync
               </div>
             </div>
-            <div className="text-[11px] text-amber-800 mb-3">
+            <div className="text-[11px] text-ds-ink-secondary mb-3">
               The {question.branches.length} rows for this question hold different values
               on the fields below. The form shows the first non-empty value. Saving will
               overwrite all branches with the form values.
@@ -180,9 +180,9 @@ export function QuestionEditorPanel({
                 const [baseAnswer, baseValue] = baseEntry;
                 const currentFormValue = form.watch(c.field);
                 return (
-                  <div key={c.field} className="bg-white border border-amber-200 rounded-md p-2">
+                  <div key={c.field} className="bg-ds-card border border-ds-hairline rounded-md p-2">
                     <div className="flex items-center justify-between mb-1">
-                      <div className="text-[10px] uppercase tracking-wide text-amber-900 font-semibold">
+                      <div className="text-[10px] uppercase tracking-wide text-ds-ink-secondary font-semibold">
                         {FIELD_LABELS[c.field] ?? c.field}
                       </div>
                       {canEdit && (
@@ -191,7 +191,7 @@ export function QuestionEditorPanel({
                           onClick={() =>
                             form.setValue(c.field, "" as never, { shouldDirty: true })
                           }
-                          className="text-[10px] text-amber-900 underline hover:no-underline"
+                          className="text-[10px] text-ds-ink-secondary underline hover:no-underline"
                         >
                           Clear field
                         </button>
@@ -210,8 +210,8 @@ export function QuestionEditorPanel({
                         return (
                           <div
                             key={ans}
-                            className={`border-t border-amber-100 pt-1.5 first:border-t-0 first:pt-0 ${
-                              isSelected ? "bg-green-50/60 -mx-2 px-2 rounded" : ""
+                            className={`border-t border-ds-hairline pt-1.5 first:border-t-0 first:pt-0 ${
+                              isSelected ? "bg-ds-fill-muted -mx-2 px-2 rounded" : ""
                             }`}
                           >
                             <div className="flex items-center justify-between mb-0.5">
@@ -223,7 +223,7 @@ export function QuestionEditorPanel({
                                   </span>
                                 )}
                                 {isSelected && (
-                                  <span className="ml-2 inline-flex items-center gap-0.5 text-[9px] text-green-700 font-semibold">
+                                  <span className="ml-2 inline-flex items-center gap-0.5 text-[9px] text-ds-ink-secondary font-semibold">
                                     <Check className="h-2.5 w-2.5" /> currently in form
                                   </span>
                                 )}
@@ -236,7 +236,7 @@ export function QuestionEditorPanel({
                                       shouldDirty: true,
                                     })
                                   }
-                                  className="text-[10px] text-amber-900 underline hover:no-underline"
+                                  className="text-[10px] text-ds-ink-secondary underline hover:no-underline"
                                 >
                                   Use this
                                 </button>
@@ -329,12 +329,12 @@ export function QuestionEditorPanel({
         </div>
 
         {/* User info panel (shared explanation) */}
-        <div className="border border-blue-200 bg-blue-50/40 rounded-lg p-4">
+        <div className="border border-ds-hairline bg-ds-fill-muted rounded-lg p-4">
           <div className="flex items-center gap-2 mb-2">
-            <Info className="h-4 w-4 text-blue-700" />
+            <Info className="h-4 w-4 text-ds-ink-tertiary" />
             <div>
-              <div className="text-[13px] font-semibold text-blue-900">User info panel</div>
-              <div className="text-[11px] text-blue-700/80">
+              <div className="text-[13px] font-semibold text-ds-ink">User info panel</div>
+              <div className="text-[11px] text-ds-ink-secondary">
                 Collapsible explanation shown to users beneath the question
               </div>
             </div>
@@ -348,7 +348,7 @@ export function QuestionEditorPanel({
                   disabled={!canEdit}
                   rows={10}
                   placeholder="Guidance shown to users when they click the info icon. Supports bullet lists (lines starting with -) and blank-line paragraphs."
-                  className="bg-white border-blue-200 focus-visible:ring-blue-300 font-normal"
+                  className="bg-ds-card border-ds-hairline font-normal"
                 />
               </FormControl>
               <FormMessage />
@@ -357,7 +357,7 @@ export function QuestionEditorPanel({
         </div>
 
         {/* Answer branches (Yes / No / Unknown) */}
-        <div className="border border-[#ececec] rounded-lg p-4">
+        <div className="border border-ds-hairline rounded-lg p-4">
           <div className="text-[13px] font-semibold mb-1">Answer branches</div>
           <div className="text-[11px] text-muted-foreground mb-3">
             Each answer has its own risk score and follow-up question.
@@ -366,7 +366,7 @@ export function QuestionEditorPanel({
             {branchFields.map((fld, idx) => {
               const answerLabel = form.getValues(`branches.${idx}.answer_option`);
               return (
-                <div key={fld.id} className="border border-[#ececec] rounded-md p-3 bg-muted/20">
+                <div key={fld.id} className="border border-ds-hairline rounded-md p-3 bg-muted/20">
                   <div className="text-[11px] font-semibold text-foreground mb-2">
                     {answerLabel}
                   </div>
@@ -428,7 +428,7 @@ export function QuestionEditorPanel({
 
         {/* Context variants linked to this question */}
         {!isNew && currentId && (
-          <div className="border border-[#ececec] rounded-lg p-4">
+          <div className="border border-ds-hairline rounded-lg p-4">
             <div className="flex items-center justify-between mb-2">
               <div>
                 <div className="text-[13px] font-semibold">Context variants</div>
@@ -458,7 +458,7 @@ export function QuestionEditorPanel({
                     key={cq.id}
                     type="button"
                     onClick={() => navigate(`/admin/context-questions/${cq.id}`)}
-                    className="w-full text-left border border-[#ececec] rounded-md px-3 py-2 hover:bg-muted/40 flex items-start gap-2"
+                    className="w-full text-left border border-ds-hairline rounded-md px-3 py-2 hover:bg-muted/40 flex items-start gap-2"
                   >
                     <span className="text-[10px] rounded bg-muted px-1.5 py-0.5 shrink-0 mt-0.5">
                       on: {cq.answer_trigger}
@@ -475,7 +475,7 @@ export function QuestionEditorPanel({
         )}
 
         {/* Flow context */}
-        <div className="border-t border-[#ececec] pt-4">
+        <div className="border-t border-ds-hairline pt-4">
           <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-2 font-semibold">
             Flow context
           </div>
@@ -515,13 +515,13 @@ export function QuestionEditorPanel({
         </div>
 
         {/* Preview */}
-        <div className="border-t border-[#ececec] pt-4">
+        <div className="border-t border-ds-hairline pt-4">
           <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-2 font-semibold">
             Preview
           </div>
-          <div className="rounded-xl bg-gradient-to-b from-[#eff6ff] to-[#f3f4f6] p-4">
-            <div className="rounded-lg bg-white shadow-sm p-4">
-              <div className="text-[10px] font-semibold text-[#4f46e5] mb-1">
+          <div className="rounded-xl bg-ds-fill-muted p-4">
+            <div className="rounded-lg bg-ds-card shadow-sm p-4">
+              <div className="text-[10px] font-semibold text-ds-ink-secondary mb-1">
                 Question · max risk {previewMaxRisk.toFixed(1)}
               </div>
               {watchedTitle && (
@@ -531,8 +531,8 @@ export function QuestionEditorPanel({
                 {watchedQuestion || <span className="text-muted-foreground italic">(empty)</span>}
               </div>
               {watchedExplanation && (
-                <div className="mb-3 p-3 bg-blue-50/50 border border-blue-100 rounded-md">
-                  <div className="flex items-center gap-1.5 text-[9px] uppercase tracking-wide text-blue-700 font-semibold mb-1.5">
+                <div className="mb-3 p-3 bg-ds-fill-muted border border-ds-hairline rounded-md">
+                  <div className="flex items-center gap-1.5 text-[9px] uppercase tracking-wide text-ds-ink-secondary font-semibold mb-1.5">
                     <Info className="h-3 w-3" /> Info panel
                   </div>
                   <div className="text-[11px] text-foreground whitespace-pre-line">
@@ -568,7 +568,7 @@ export function QuestionEditorPanel({
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="text-[#991b1b] border-[#fecaca]"
+                    className="text-ds-red border-ds-red"
                   >
                     <Trash2 className="mr-1 h-3.5 w-3.5" /> Delete
                   </Button>

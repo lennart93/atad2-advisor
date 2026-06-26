@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { MessageCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Textarea } from '@/components/ui/textarea';
 import { seededIndex } from '@/utils/random';
@@ -85,21 +86,21 @@ export const ContextPanelFallback = ({
 
   if (loading) {
     return (
-      <div className="space-y-3 p-4 border rounded-lg bg-card">
+      <div className="space-y-3 p-4 border border-ds-hairline rounded-ds-control bg-ds-card">
         <div className="flex items-center gap-2">
-          <span className="text-lg">💬</span>
-          <h3 className="font-semibold">Context</h3>
+          <MessageCircle className="h-4 w-4 text-ds-ink-secondary" aria-hidden="true" />
+          <h3 className="font-medium text-ds-ink">Context</h3>
         </div>
-        <div className="h-20 bg-muted animate-pulse rounded" />
+        <div className="h-20 bg-ds-fill-muted animate-pulse rounded-ds-control" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-3 p-4 border rounded-lg bg-card">
+    <div className="space-y-3 p-4 border border-ds-hairline rounded-ds-control bg-ds-card">
       <div className="flex items-center gap-2">
-        <span className="text-lg">💬</span>
-        <h3 className="font-semibold">Context</h3>
+        <MessageCircle className="h-4 w-4 text-ds-ink-secondary" aria-hidden="true" />
+        <h3 className="font-medium text-ds-ink">Context</h3>
       </div>
       <Textarea
         placeholder={suggestion || 'Provide context…'}

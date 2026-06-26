@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ds';
 import { AssessmentFooterSlot } from '@/components/assessment/AssessmentFooterSlot';
 import { StructureChart } from './StructureChart';
 import { FloatingPalette } from './FloatingPalette';
@@ -825,11 +825,10 @@ const [busy, setBusy] = useState(false);
         left={
           editFromOverview ? null : (
             <Button
-              variant="outline"
+              variant="secondary"
               onClick={() => { maybeResyncAppendix(); navigate(`/assessment-appendix/${sessionId}`); }}
-              className="transition-all duration-fast"
             >
-              <ArrowLeft className="mr-2 h-4 w-4" />
+              <ArrowLeft />
               Previous
             </Button>
           )
@@ -837,24 +836,23 @@ const [busy, setBusy] = useState(false);
         right={
           <div className="flex items-center gap-2">
             <Button
-              variant="outline"
+              variant="secondary"
               onClick={skipNext}
               disabled={status === 'loading' || isExtracting}
-              className="transition-all duration-fast"
             >
               Continue without structure chart
             </Button>
             <Button
+              variant="primary"
               onClick={goNext}
               disabled={status === 'loading' || isExtracting}
-              className="transition-all duration-fast"
             >
               {editFromOverview ? (
                 'Save structure chart and return to overview'
               ) : (
                 <>
                   Save structure chart and continue
-                  <ArrowRight className="ml-2 h-4 w-4" />
+                  <ArrowRight />
                 </>
               )}
             </Button>
@@ -902,14 +900,14 @@ const [busy, setBusy] = useState(false);
               />
             </div>
           ) : isFailed ? (
-            <div className="absolute inset-0 flex items-center justify-center bg-card">
+            <div className="absolute inset-0 flex items-center justify-center bg-ds-card">
               <div className="flex flex-col items-center gap-3 text-center max-w-md px-6">
                 <AnimatedLogo state="idle" size={36} className="opacity-35" />
-                <div className="text-sm font-bold">Extraction failed</div>
-                <p className="text-xs text-muted-foreground">
+                <div className="text-[15px] font-medium text-ds-ink">Extraction failed</div>
+                <p className="text-[13px] text-ds-ink-secondary">
                   {(chart?.warnings as Array<{ stage: number; message: string }> | undefined)?.[0]?.message ?? 'Unknown error.'}
                 </p>
-                <Button onClick={handleReExtract}>Try again</Button>
+                <Button variant="secondary" onClick={handleReExtract}>Try again</Button>
               </div>
             </div>
           ) : validation.hasBlocking ? (
@@ -1013,7 +1011,7 @@ const [busy, setBusy] = useState(false);
               </div>
 
               <div className="flex h-full items-center justify-center p-8 text-center lg:hidden">
-                <p className="text-sm text-muted-foreground">
+                <p className="text-[13px] text-ds-ink-secondary">
                   The structure chart is best viewed on a wider screen.
                 </p>
               </div>

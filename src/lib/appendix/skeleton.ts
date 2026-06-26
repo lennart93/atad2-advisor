@@ -1,6 +1,6 @@
 import type { SkeletonRow, Status } from './types';
 
-const STATUS: Status[] = ['Not triggered', 'Triggered', 'Insufficient information'];
+const STATUS: Status[] = ['Not triggered', 'N/A', 'Triggered', 'Insufficient information'];
 
 // v3 legal framework, ordered along the ATAD2 cascade. Scope is pure scope;
 // definitions hold the relatedness test (the associated-enterprise showcase);

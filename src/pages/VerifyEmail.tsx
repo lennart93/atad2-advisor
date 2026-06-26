@@ -173,7 +173,7 @@ const VerifyEmail = () => {
           </h1>
           <div className="mx-auto h-px w-16 bg-primary/40" />
           <p className="text-base text-muted-foreground leading-relaxed">
-            We've sent a 6-digit verification code to{" "}
+            A 6-digit verification code has been sent to{" "}
             <span className="font-medium text-foreground font-mono">{email}</span>.
           </p>
         </div>

@@ -27,10 +27,13 @@ function layout(nodes: Node[], edges: Edge[]): Node[] {
 
 const nodeTypes = { question: QuestionNode };
 
+// Edges carry their own text labels (Yes / No / Unknown), so colour does not
+// need to encode the answer. Render them on the neutral ink scale instead of
+// the old green/red/grey.
 const ANSWER_EDGE_STYLE: Record<string, { stroke: string; label: string }> = {
-  Yes:     { stroke: "#16a34a", label: "Yes" },
-  No:      { stroke: "#dc2626", label: "No" },
-  Unknown: { stroke: "#9ca3af", label: "Unknown" },
+  Yes:     { stroke: "var(--ds-ink)", label: "Yes" },
+  No:      { stroke: "var(--ds-ink-secondary)", label: "No" },
+  Unknown: { stroke: "var(--ds-ink-tertiary)", label: "Unknown" },
 };
 
 export interface QuestionFlowCanvasProps {
@@ -71,14 +74,14 @@ export function QuestionFlowCanvas({ questions, activeId, onNodeClick }: Questio
     questions.forEach((q) => {
       q.branches.forEach((b) => {
         if (!b.next_question_id) return;
-        const style = ANSWER_EDGE_STYLE[b.answer_option] ?? { stroke: "#9ca3af", label: b.answer_option };
+        const style = ANSWER_EDGE_STYLE[b.answer_option] ?? { stroke: "var(--ds-ink-tertiary)", label: b.answer_option };
         rawEdges.push({
           id: `${q.question_id}-${b.answer_option}->${b.next_question_id}`,
           source: q.question_id,
           target: b.next_question_id,
           label: style.label,
           labelStyle: { fontSize: 10, fill: style.stroke, fontWeight: 600 },
-          labelBgStyle: { fill: "#fff", opacity: 0.9 },
+          labelBgStyle: { fill: "var(--ds-card)", opacity: 0.9 },
           style: { stroke: style.stroke, strokeWidth: 1.5 },
         });
       });
@@ -91,7 +94,7 @@ export function QuestionFlowCanvas({ questions, activeId, onNodeClick }: Questio
   const [edges, , onEdgesChange] = useEdgesState(initialEdges);
 
   return (
-    <div className="h-[600px] rounded-[14px] border border-[#ececec] bg-white overflow-hidden">
+    <div className="h-[600px] rounded-[14px] border border-ds-hairline bg-ds-card overflow-hidden">
       <ReactFlow
         nodes={nodes}
         edges={edges}

@@ -61,12 +61,50 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
+				},
+				// Design system tokens (src/styles/tokens.css). Final color
+				// values, so Tailwind opacity modifiers do not apply to them.
+				ds: {
+					ink: {
+						DEFAULT: 'var(--ds-ink)',
+						hover: 'var(--ds-ink-hover)',
+						secondary: 'var(--ds-ink-secondary)',
+						tertiary: 'var(--ds-ink-tertiary)'
+					},
+					hairline: 'var(--ds-hairline)',
+					page: 'var(--ds-page)',
+					card: 'var(--ds-card)',
+					'fill-muted': 'var(--ds-fill-muted)',
+					accent: {
+						DEFAULT: 'var(--ds-accent)',
+						bg: 'var(--ds-accent-bg)',
+						text: 'var(--ds-accent-text)'
+					},
+					amber: {
+						DEFAULT: 'var(--ds-amber)',
+						bg: 'var(--ds-amber-bg)',
+						text: 'var(--ds-amber-text)'
+					},
+					green: {
+						DEFAULT: 'var(--ds-green)',
+						bg: 'var(--ds-green-bg)',
+						text: 'var(--ds-green-text)'
+					},
+					red: {
+						DEFAULT: 'var(--ds-red)',
+						hover: 'var(--ds-red-hover)',
+						bg: 'var(--ds-red-bg)',
+						text: 'var(--ds-red-text)'
+					}
 				}
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
 				md: 'calc(var(--radius) - 2px)',
-				sm: 'calc(var(--radius) - 4px)'
+				sm: 'calc(var(--radius) - 4px)',
+				'ds-chip': 'var(--ds-radius-chip)',
+				'ds-control': 'var(--ds-radius-control)',
+				'ds-card': 'var(--ds-radius-card)'
 			},
 			keyframes: {
 				'accordion-down': {

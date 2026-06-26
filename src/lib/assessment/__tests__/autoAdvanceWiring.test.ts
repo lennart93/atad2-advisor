@@ -28,25 +28,31 @@ describe("Assessment.tsx auto-advance wiring", () => {
     );
   });
 
-  it("gates the early-return auto-advance on !aiHasExplanationForAnswer", () => {
-    // Branch 1: the "auto-advance immediately" path (~line 1204).
-    // The condition must include BOTH !requiresExplanation AND !aiHasExplanationForAnswer.
+  it("folds the predicate into the blockAutoAdvance gate", () => {
+    // The gate widened to also cover the Route B Unknown companion; the
+    // predicate must still be one of its inputs.
     expect(assessmentSource).toMatch(
-      /if\s*\(\s*!\s*requiresExplanation\s*&&\s*!\s*aiHasExplanationForAnswer\s*\)/,
+      /const\s+blockAutoAdvance\s*=\s*aiHasExplanationForAnswer\s*\|\|\s*unknownRouteBStaged/,
     );
   });
 
-  it("gates the post-context auto-advance on !aiHasExplanationForAnswer", () => {
-    // Branch 2: the "auto-advance after context check" path (~line 1271).
-    // The condition must include autoAdvance AND !requiresExplanation AND !aiHasExplanationForAnswer.
+  it("gates the early-return auto-advance on !blockAutoAdvance", () => {
+    // Branch 1: the "auto-advance immediately" path.
     expect(assessmentSource).toMatch(
-      /if\s*\(\s*autoAdvance\s*&&\s*!\s*requiresExplanation\s*&&\s*!\s*aiHasExplanationForAnswer\s*\)/,
+      /if\s*\(\s*!\s*requiresExplanation\s*&&\s*!\s*blockAutoAdvance\s*\)/,
     );
   });
 
-  it("has a dedicated wait branch that fires when aiHasExplanationForAnswer is true", () => {
+  it("gates the post-context auto-advance on !blockAutoAdvance", () => {
+    // Branch 2: the "auto-advance after context check" path.
+    expect(assessmentSource).toMatch(
+      /if\s*\(\s*autoAdvance\s*&&\s*!\s*requiresExplanation\s*&&\s*!\s*blockAutoAdvance\s*\)/,
+    );
+  });
+
+  it("has a dedicated wait branch that fires when blockAutoAdvance is true", () => {
     // The else-if branch that explicitly handles the staged-explanation case.
-    expect(assessmentSource).toMatch(/else\s+if\s*\(\s*aiHasExplanationForAnswer\s*\)/);
+    expect(assessmentSource).toMatch(/else\s+if\s*\(\s*blockAutoAdvance\s*\)/);
   });
 
   it("the JSX panel-render guard uses the same prefill fields the predicate uses", () => {

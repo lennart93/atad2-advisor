@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ds";
 import {
   Collapsible,
   CollapsibleContent,
@@ -82,7 +82,7 @@ export function OpenQuestionRowActions({
       <div className="flex flex-wrap items-center gap-2">
         {visible.markSentToClient && (
           <Button
-            variant="outline"
+            variant="secondary"
             size="sm"
             disabled={busy}
             onClick={() => actions.markSentToClient.mutate({ row })}
@@ -93,7 +93,7 @@ export function OpenQuestionRowActions({
 
         {visible.editClientAnswer && (
           <CollapsibleTrigger asChild>
-            <Button variant="outline" size="sm" disabled={busy}>
+            <Button variant="secondary" size="sm" disabled={busy}>
               Edit client answer
             </Button>
           </CollapsibleTrigger>
@@ -101,7 +101,7 @@ export function OpenQuestionRowActions({
 
         {visible.keepAsUnknown && (
           <Button
-            variant="outline"
+            variant="secondary"
             size="sm"
             disabled={busy}
             onClick={() => setKeepDialogOpen(true)}
@@ -162,6 +162,7 @@ export function OpenQuestionRowActions({
             placeholder="Type the client's answer..."
           />
           <Button
+            variant="secondary"
             size="sm"
             disabled={busy || draft.trim().length === 0}
             onClick={saveAnswer}
@@ -181,6 +182,7 @@ export function OpenQuestionRowActions({
           />
           <div className="flex items-center gap-2">
             <Button
+              variant="secondary"
               size="sm"
               disabled={busy || draft.trim().length === 0}
               onClick={saveAnswer}

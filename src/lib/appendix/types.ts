@@ -2,12 +2,18 @@ import type { ActingLikelihood } from './facts/actingLikelihood';
 
 /**
  * The status an advisor (or the AI) records per row. One controlled vocabulary
- * for every section: each skeleton row is phrased as a testable condition, and
- * the status says whether that condition is triggered. The "so what" lives in a
- * separate Legal consequence field, so a reader never has to guess what a bare
- * Yes/No meant.
+ * for every section, used identically on screen and in the memo:
+ *   - 'Not triggered'          tested against the facts and clean (green check).
+ *   - 'N/A'                     does not apply: a satisfied scope/definition gate,
+ *                               or a condition that is moot because the trigger
+ *                               above it is absent (muted green).
+ *   - 'Triggered'              a mismatch condition actually fires (amber).
+ *   - 'Insufficient information' reachable but the facts needed are missing
+ *                               (amber outline). Never used on a moot condition.
+ * The "so what" lives in the reasoning, so a reader never has to guess what a
+ * bare status meant.
  */
-export type Status = 'Not triggered' | 'Triggered' | 'Insufficient information';
+export type Status = 'Not triggered' | 'N/A' | 'Triggered' | 'Insufficient information';
 
 /**
  * Whether a triggered row is a real ATAD2 adjustment ('operative': a deduction is

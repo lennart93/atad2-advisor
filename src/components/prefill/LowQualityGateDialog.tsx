@@ -1,5 +1,5 @@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ds';
 import { DOCUMENT_CATEGORIES, type DocumentCategory } from '@/lib/prefill/types';
 import type { QualityTier } from '@/lib/prefill/qualityMeter';
 
@@ -25,7 +25,6 @@ export function LowQualityGateDialog({
   onConfirm,
 }: Props) {
   const isEmpty = tier === 'empty';
-  const haveLabels = currentCategories.map((c) => LABEL_BY_VALUE[c].toLowerCase()).join(', ');
   const suggestions = missingTypes
     .slice(0, 2)
     .map((c) => LABEL_BY_VALUE[c].toLowerCase())
@@ -36,20 +35,20 @@ export function LowQualityGateDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
-            {isEmpty ? 'Run pre-fill without documents?' : 'Solid start. Want to add more?'}
+            {isEmpty ? 'Continue without documents?' : 'Add more documents?'}
           </DialogTitle>
           <DialogDescription>
             {isEmpty
-              ? "Pre-fill works best when there's something to ground it in. Without documents, suggestions will be based purely on the answers you've already given."
-              : `You've added ${haveLabels}. The pre-fill will work, but tends to be much sharper with at least one more type${suggestions ? `. Try ${suggestions}.` : '.'}`}
+              ? 'Without documents there is nothing to read, so every question is answered by hand.'
+              : `One more document type tends to sharpen the answers${suggestions ? `, for example ${suggestions}.` : '.'}`}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="secondary" onClick={() => onOpenChange(false)}>
             {isEmpty ? 'Cancel' : 'Add more documents'}
           </Button>
-          <Button onClick={onConfirm}>
-            {isEmpty ? 'Continue without' : 'Run pre-fill anyway'}
+          <Button variant="primary" onClick={onConfirm}>
+            {isEmpty ? 'Continue without' : 'Continue anyway'}
           </Button>
         </DialogFooter>
       </DialogContent>

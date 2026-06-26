@@ -32,15 +32,15 @@ export function FloatingToolbar({
   const canCreateFiscalUnity = selectedEntityIds.length >= 2;
   return (
     <div
-      className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 bg-card border border-[hsl(var(--border-subtle))] rounded-lg shadow-lg px-3 py-2 flex items-center gap-3 text-sm"
+      className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 bg-ds-card border border-ds-hairline rounded-lg shadow-lg px-3 py-2 flex items-center gap-3 text-sm"
       data-snapshot-exclude="true"
     >
       {isExtracting && (
         <span
-          className="text-xs text-muted-foreground inline-flex items-center gap-2 px-2 py-1 whitespace-nowrap"
+          className="text-xs text-ds-ink-secondary inline-flex items-center gap-2 px-2 py-1 whitespace-nowrap"
           aria-live="polite"
         >
-          <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" aria-hidden />
+          <span className="h-2 w-2 rounded-full bg-ds-ink-tertiary animate-pulse" aria-hidden />
           Refining structure…
         </span>
       )}
@@ -48,7 +48,7 @@ export function FloatingToolbar({
         <button
           type="button"
           onClick={onExpandAll}
-          className="text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded hover:bg-accent whitespace-nowrap"
+          className="text-xs text-ds-ink-secondary hover:text-ds-ink px-2 py-1 rounded hover:bg-ds-fill-muted whitespace-nowrap"
         >
           {collapsedClusterCount} collapsed · Expand
         </button>
@@ -56,7 +56,7 @@ export function FloatingToolbar({
         <button
           type="button"
           onClick={onCollapseAll}
-          className="text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded hover:bg-accent whitespace-nowrap"
+          className="text-xs text-ds-ink-secondary hover:text-ds-ink px-2 py-1 rounded hover:bg-ds-fill-muted whitespace-nowrap"
         >
           Collapse non-relevant
         </button>
@@ -65,13 +65,13 @@ export function FloatingToolbar({
         <button
           type="button"
           onClick={onToggleOrphans}
-          className="text-xs text-red-700 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300 px-2 py-1 rounded hover:bg-red-500/10 whitespace-nowrap"
+          className="text-xs text-ds-ink-secondary hover:text-ds-ink px-2 py-1 rounded hover:bg-ds-fill-muted whitespace-nowrap"
         >
           {orphanCount} disconnected · {orphansVisible ? 'Hide' : 'Show'}
         </button>
       )}
       {hiddenInAppendixCount ? (
-        <span className="text-[11px] text-muted-foreground px-1">
+        <span className="text-[11px] text-ds-ink-secondary px-1">
           {hiddenInAppendixCount} hidden in appendix
         </span>
       ) : null}

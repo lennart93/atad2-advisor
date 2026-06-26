@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { ChevronRight, Loader2, Sparkles } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ds";
 import {
   Collapsible,
   CollapsibleContent,
@@ -22,6 +22,10 @@ export interface OpenQuestionsPanelProps {
   variant: OpenQuestionsPanelVariant;
   /** Deep link into the questions flow; "Go to question" hides when absent. */
   onGoToQuestion?: (questionId: string) => void;
+  /** Show only the points that are out with the client. */
+  sentOnly?: boolean;
+  /** Clears the sent-only filter ("Show all"). */
+  onShowAll?: () => void;
 }
 
 /**
@@ -31,6 +35,8 @@ export function OpenQuestionsPanel({
   sessionId,
   variant,
   onGoToQuestion,
+  sentOnly = false,
+  onShowAll,
 }: OpenQuestionsPanelProps) {
   const view = useOpenQuestionsView(sessionId);
   const { groups, answerMap, projectedIds, resolveText, isLoading } = view;
@@ -59,7 +65,29 @@ export function OpenQuestionsPanel({
 
   if (isLoading) {
     return (
-      <p className="py-6 text-sm text-muted-foreground">Loading open questions...</p>
+      <p className="py-6 text-[13px] text-ds-ink-secondary">Loading open questions...</p>
+    );
+  }
+
+  // Sent-only mode (opened from the dossier card): one flat list of the
+  // points that are out with the client, with a way back to the full view.
+  if (sentOnly) {
+    const sentRows = view.rows.filter((row) => row.status === "taken_to_client");
+    return (
+      <div className={variant === "sheet" ? "space-y-4" : "space-y-6"}>
+        {sentRows.length > 0 ? (
+          renderRows(sentRows)
+        ) : (
+          <p className="py-6 text-[13px] text-ds-ink-secondary">
+            Nothing is with the client right now.
+          </p>
+        )}
+        {onShowAll && (
+          <Button variant="ghost" size="sm" onClick={onShowAll}>
+            Show all open questions
+          </Button>
+        )}
+      </div>
     );
   }
 
@@ -77,7 +105,7 @@ export function OpenQuestionsPanel({
     return (
       <div className={panelGap}>
         {variant === "page" && <PageHeading />}
-        <p className="py-6 text-sm text-muted-foreground">
+        <p className="py-6 text-[13px] text-ds-ink-secondary">
           No open questions for this assessment.
         </p>
       </div>
@@ -96,7 +124,7 @@ export function OpenQuestionsPanel({
 
       {groups.needsAttention.length > 0 && (
         <section className={sectionGap}>
-          <h3 className="text-sm font-semibold text-foreground">
+          <h3 className="text-[13px] font-medium text-ds-ink">
             Needs attention ({groups.needsAttention.length})
           </h3>
           {renderRows(groups.needsAttention)}
@@ -104,13 +132,13 @@ export function OpenQuestionsPanel({
       )}
 
       <section className={sectionGap}>
-        <h3 className="text-sm font-semibold text-foreground">
+        <h3 className="text-[13px] font-medium text-ds-ink">
           Open questions ({groups.active.length})
         </h3>
         {groups.active.length > 0 ? (
           renderRows(groups.active)
         ) : (
-          <p className="text-sm text-muted-foreground">
+          <p className="text-[13px] text-ds-ink-secondary">
             Nothing open on the current question path.
           </p>
         )}
@@ -156,20 +184,20 @@ function RecheckWithAiButton({
   return (
     <div className="space-y-1">
       <Button
-        variant="outline"
+        variant="secondary"
         size="sm"
         disabled={!hasClientAnswers || recheck.isPending}
         onClick={() => recheck.mutate()}
       >
         {recheck.isPending ? (
-          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+          <Loader2 className="animate-spin" />
         ) : (
-          <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+          <Sparkles />
         )}
         {recheck.isPending ? "Re-checking..." : "Re-check with AI"}
       </Button>
       {!hasClientAnswers && (
-        <p className="text-xs text-muted-foreground">
+        <p className="text-[13px] text-ds-ink-secondary">
           Save at least one client answer first.
         </p>
       )}
@@ -180,10 +208,10 @@ function RecheckWithAiButton({
 function PageHeading() {
   return (
     <div className="space-y-1">
-      <h2 className="text-xl font-semibold tracking-tight text-foreground">
+      <h2 className="text-xl font-medium tracking-tight text-ds-ink">
         Open questions
       </h2>
-      <p className="text-sm text-muted-foreground">
+      <p className="text-[13px] text-ds-ink-secondary">
         Questions the documents could not answer. Take them to the client or
         confirm them as unknown.
       </p>
@@ -208,14 +236,14 @@ function CollapsedSection({
   if (rows.length === 0) return null;
   return (
     <Collapsible>
-      <CollapsibleTrigger className="group flex w-full items-center gap-1.5 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground">
+      <CollapsibleTrigger className="group flex w-full items-center gap-1.5 text-[13px] font-medium text-ds-ink-secondary transition-colors hover:text-ds-ink">
         <ChevronRight className="h-4 w-4 shrink-0 transition-transform group-data-[state=open]:rotate-90" />
         {title}
       </CollapsibleTrigger>
       <CollapsibleContent className="overflow-hidden data-[state=open]:animate-collapsible-down data-[state=closed]:animate-collapsible-up">
         <div className={`pt-3 ${gapClass}`}>
           {explainer && (
-            <p className="text-xs text-muted-foreground">{explainer}</p>
+            <p className="text-[13px] text-ds-ink-secondary">{explainer}</p>
           )}
           {renderRows(rows)}
         </div>

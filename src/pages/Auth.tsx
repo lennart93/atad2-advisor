@@ -178,7 +178,7 @@ const Auth = () => {
       const localPart = emailMatch[1].toLowerCase();
       setUndoValue(signInLocalPart); // Store current value for undo
       setSignInLocalPart(localPart);
-      setPasteNotice(`We kept "${localPart}" and locked the domain.`);
+      setPasteNotice(`Kept "${localPart}" and locked the domain.`);
       setShowUndo(true);
       
       // Auto-dismiss notice and undo option after 3 seconds
@@ -265,7 +265,7 @@ const Auth = () => {
           state: { email, needsVerification: true } 
         });
         toast.info("Please verify your email first", {
-          description: "We've sent a verification code to your email.",
+          description: "A verification code has been sent to your email.",
         });
       }
       // If confirmed, the auth listener will handle the redirect
@@ -417,7 +417,7 @@ const Auth = () => {
                     {/* Helper text that changes to hint when needed */}
                     <p id="email-helper" className={cn("text-sm transition-all duration-200", showEmailHint ? "text-foreground font-medium animate-fade-in" : "text-muted-foreground")} role={showEmailHint ? "status" : undefined} aria-live={showEmailHint ? "polite" : undefined}>
                       {showEmailHint 
-                        ? "No need to add @svalneratlas.com, we've already got that"
+                        ? "No need to add @svalneratlas.com, that's already included"
                         : "Fill in only the part before @. The domain is fixed."
                       }
                     </p>

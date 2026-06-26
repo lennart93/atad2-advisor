@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
 import DOMPurify from "dompurify";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ds/button";
 import { Check, X } from "lucide-react";
 import { generateDiffHtml } from "@/utils/textDiff";
 
@@ -29,8 +29,8 @@ const MemoDiffViewer: React.FC<MemoDiffViewerProps> = ({
     <div className="space-y-4">
       {/* Header with legend */}
       <div className="flex items-center gap-4 text-sm pb-3 border-b border-border">
-        <span className="text-red-600 line-through">Removed</span>
-        <span className="text-[#003366] italic">Added</span>
+        <span className="text-ds-ink-tertiary line-through">Removed</span>
+        <span className="text-ds-ink italic">Added</span>
       </div>
 
       {/* Diff content */}
@@ -43,18 +43,11 @@ const MemoDiffViewer: React.FC<MemoDiffViewerProps> = ({
 
       {/* Action buttons */}
       <div className="flex items-center justify-end gap-3 pt-2">
-        <Button
-          variant="outline"
-          onClick={onReject}
-          className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
-        >
+        <Button variant="secondary" onClick={onReject}>
           <X className="h-4 w-4 mr-2" />
           Reject changes
         </Button>
-        <Button
-          onClick={onAccept}
-          className="bg-green-600 hover:bg-green-700 text-white"
-        >
+        <Button variant="primary" onClick={onAccept}>
           <Check className="h-4 w-4 mr-2" />
           Accept changes
         </Button>

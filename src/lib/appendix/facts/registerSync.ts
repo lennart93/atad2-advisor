@@ -3,10 +3,19 @@ import type { FactEntity } from '@/lib/appendix/types';
 // The chart-derived part of the register, canonicalised. AI and advisor fields
 // (nlTaxStatus, position, edits, hidden, ...) are deliberately ignored: those do
 // not come from the chart, so they must not count as "the structure changed".
+//
+// `related` is ignored for the same reason. The chart builder seeds it, but the
+// facts step refines it: an entity the documents place in the taxpayer's fiscal
+// unity is stored with related=false (it is part of the taxpayer, not a separate
+// related party), while a pure chart rebuild re-derives related=true. Comparing it
+// would mark every such appendix out of date forever, with no real chart change. It
+// also adds no signal: for chart data, related is fully determined by role +
+// ownershipPct (>25%) + relatedVia, all of which ARE compared, so any genuine
+// structural change that flips relatedness already shows up in those fields.
 const baseKey = (e: FactEntity): string =>
   [
     e.id, e.chartEntityId, e.name, e.jurisdiction ?? '', e.entityType ?? '', e.role,
-    e.ownershipPct ?? '', e.related, e.relatedVia ?? '', e.relatedViaPct ?? '',
+    e.ownershipPct ?? '', e.relatedVia ?? '', e.relatedViaPct ?? '',
     e.directLink ?? '', e.isFiscalUnity ?? '', (e.memberEntityIds ?? []).join(','),
     e.memberOfUnityId ?? '',
   ].join('|');

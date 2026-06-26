@@ -1,5 +1,4 @@
 // src/components/assessment/DocumentUploadStep.tsx
-import { Card } from '@/components/ui/card';
 import { DocumentUploader } from '@/components/prefill/DocumentUploader';
 
 export function DocumentUploadStep({
@@ -12,17 +11,17 @@ export function DocumentUploadStep({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-semibold tracking-tight">Supporting documents</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Optional. Documents are processed only for pre-fill extraction, not used
-          for AI training. They stay with this assessment so they can be reused later; you can delete them manually at any time.
+        <h2 className="text-[18px] font-medium tracking-tight text-ds-ink">Supporting documents</h2>
+        <p className="mt-1 text-[13px] text-ds-ink-secondary">
+          Documents are read to answer as much of the questionnaire as possible;
+          whatever cannot be determined becomes a short list of points to confirm.
         </p>
       </div>
       {!locked && (
-        <Card className="bg-muted/40 p-4 text-sm text-muted-foreground">
-          Supported: PDF, images (PNG/JPG/WEBP), Word (.docx, .rtf), PowerPoint (.pptx),
+        <div className="rounded-ds-control bg-ds-fill-muted p-4 text-[13px] text-ds-ink-secondary">
+          PDF, images (PNG/JPG/WEBP), Word (.docx, .rtf), PowerPoint (.pptx),
           Excel (.xlsx, .xlsm), text/CSV/Markdown. Max 15 MB per file, 100 MB per session.
-        </Card>
+        </div>
       )}
       <DocumentUploader sessionId={sessionId} locked={locked} />
     </div>

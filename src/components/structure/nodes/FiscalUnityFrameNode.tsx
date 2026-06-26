@@ -28,7 +28,7 @@ const LABEL_HEIGHT = 18;
 
 function FiscalUnityFrameComp({ data }: NodeProps<FiscalUnityFrameNodeType>) {
   const { width, height, label, kind, groupId, isSelected, onFrameClick, onLabelClick } = data;
-  const stroke = kind === 'fiscal_unity' ? '#555' : '#999';
+  const stroke = kind === 'fiscal_unity' ? '#8a8980' : '#b5b4ad';
   const dasharray = kind === 'fiscal_unity' ? '4 4' : '8 4';
   const hasLabel = label.trim().length > 0;
 
@@ -82,7 +82,7 @@ function FiscalUnityFrameComp({ data }: NodeProps<FiscalUnityFrameNodeType>) {
           fontFamily: 'Inter, system-ui, sans-serif',
           fontSize: 11,
           fontWeight: 500,
-          color: '#333',
+          color: '#5f5e5a',
           pointerEvents: 'auto',
           cursor: 'pointer',
           whiteSpace: 'nowrap',

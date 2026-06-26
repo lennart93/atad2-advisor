@@ -45,3 +45,33 @@ export function stepIndexForPath(
   if (pathname.startsWith('/assessment-report/')) return 6;
   return -1;
 }
+
+/**
+ * The route that lands a session directly on a given step. The inverse of
+ * stepIndexForPath, used to resume a session straight at its last step.
+ *
+ * `intake` has no per-session route (it is the pre-session form), so it returns
+ * null and callers fall back to the data-derived resume URL.
+ */
+export function stepUrlForKey(
+  key: AssessmentStep['key'],
+  sessionId: string,
+): string | null {
+  switch (key) {
+    case 'documents':
+      return `/assessment/upload?session=${sessionId}`;
+    case 'questions':
+      return `/assessment?session=${sessionId}`;
+    case 'confirmation':
+      return `/assessment-confirmation/${sessionId}`;
+    case 'appendix':
+      return `/assessment-appendix/${sessionId}`;
+    case 'structure':
+      return `/assessment/structure/${sessionId}`;
+    case 'report':
+      return `/assessment-report/${sessionId}`;
+    case 'intake':
+    default:
+      return null;
+  }
+}

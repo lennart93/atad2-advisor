@@ -2,17 +2,16 @@ import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { AlertTriangle, Check, ChevronDown, ChevronRight, Eye, EyeOff, Info, Users, ArrowLeftRight, Handshake, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { AppendixFacts, FactEntity, AppendixSectionKey, NarrativeKey, Narrative } from '@/lib/appendix/types';
+import type { AppendixFacts, FactEntity, AppendixSectionKey } from '@/lib/appendix/types';
 import { visibleFacts } from '@/lib/appendix/facts/visibleFacts';
 import { isSectionExcluded, withSectionExcluded } from '@/lib/appendix/facts/sections';
-import { effJurisdiction, effNlTaxStatus, withEntityEdit } from '@/lib/appendix/facts/entityFields';
-import { nlQualification, nlQualificationLabel, nlTaxStatusLabel, NL_TAX_STATUSES } from '@/lib/appendix/facts/nlTaxStatus';
+import { effJurisdiction, effNlTaxStatus, effNlQualification, effNlQualificationReason, withEntityEdit } from '@/lib/appendix/facts/entityFields';
+import { nlQualificationLabel, nlTaxStatusLabel, NL_TAX_STATUSES, type NlQualification } from '@/lib/appendix/facts/nlTaxStatus';
 import { withClusterLikelihood, withClusterText, withClusterExclude, withClusterMembers } from '@/lib/appendix/facts/actingCluster';
 import { withLocalQualification } from '@/lib/appendix/facts/classificationEdit';
 import { ACTING_LIKELIHOODS, type ActingLikelihood } from '@/lib/appendix/facts/actingLikelihood';
-import { deriveConclusions, inScopeEntityIds, localQualification, entityHasQualificationDifference } from '@/lib/appendix/facts/conclusions';
+import { inScopeEntityIds, localQualification, entityHasQualificationDifference } from '@/lib/appendix/facts/conclusions';
 import { relevantTransactions, accountedTransactionGroups, withTransactionRelevance } from '@/lib/appendix/facts/relevance';
-import { withNarrative } from '@/lib/appendix/facts/narratives';
 import { CountryFlag } from '@/components/CountryFlag';
 import { JurisdictionPicker } from '@/components/structure/JurisdictionPicker';
 import { countryName } from '@/lib/structure/countries';
@@ -59,11 +58,11 @@ function likelihoodTint(level: ActingLikelihood): string {
   switch (level) {
     case 'highly_likely':
     case 'likely':
-      return 'bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200';
+      return 'bg-ds-amber-bg text-ds-amber-text';
     case 'unclear':
       return 'bg-muted text-muted-foreground';
     default:
-      return 'bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-300';
+      return 'bg-ds-fill-muted text-ds-ink-secondary';
   }
 }
 
@@ -101,36 +100,6 @@ function ExcludeBtn({ excluded, onClick }: { excluded: boolean; onClick: () => v
   );
 }
 
-/** One connective AI sentence under a section title; click to edit. */
-function NarrativeLine({ narrative, onSave }: { narrative?: Narrative; onSave?: (text: string) => void }) {
-  const [editing, setEditing] = useState(false);
-  if (!narrative?.text && !editing) return null;
-  if (editing && onSave) {
-    return (
-      <textarea
-        autoFocus
-        defaultValue={narrative?.text ?? ''}
-        rows={2}
-        onBlur={(e) => {
-          setEditing(false);
-          const text = e.target.value.trim();
-          if (text && text !== (narrative?.text ?? '')) onSave(text);
-        }}
-        className="mb-2 w-full resize-y rounded border border-[hsl(var(--border-subtle))] bg-white/70 px-2 py-1 text-[11.5px] leading-relaxed text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-stone-400"
-      />
-    );
-  }
-  return (
-    <p
-      className={cn('mb-2 text-[11.5px] leading-relaxed text-muted-foreground', onSave && 'cursor-text hover:text-foreground')}
-      title={onSave ? 'Click to edit' : undefined}
-      onClick={onSave ? () => setEditing(true) : undefined}
-    >
-      {narrative?.text}
-    </p>
-  );
-}
-
 /** "N items fell out of the funnel, because X" - expandable accounting line. */
 function AccountedLine({ summary, children }: { summary: string; children?: ReactNode }) {
   const [open, setOpen] = useState(false);
@@ -164,13 +133,12 @@ function QuietCell({ display, editing, onStartEdit, children }: {
 }
 
 /** The derived NL qualification (transparent / non-transparent / to be determined). */
-function QualBadge({ status }: { status: string | null }) {
-  const q = nlQualification(status);
+function QualBadge({ q }: { q: NlQualification }) {
   const cls =
     q === 'transparent'
-      ? 'bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200'
+      ? 'bg-ds-amber-bg text-ds-amber-text'
       : q === 'non-transparent'
-        ? 'bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-300'
+        ? 'bg-ds-fill-muted text-ds-ink-secondary'
         : 'bg-muted text-muted-foreground';
   return (
     <span className={cn('rounded px-1.5 py-0.5 text-[10.5px] font-medium', cls)}>
@@ -183,21 +151,20 @@ function QualBadge({ status }: { status: string | null }) {
 // Exhibit collapsible wrapper
 // ---------------------------------------------------------------------------
 
-function Exhibit({ tag, icon, title, defaultOpen = true, excluded = false, onToggleExcluded, children }: {
-  tag: string; icon: ReactNode; title: string; defaultOpen?: boolean;
+function Exhibit({ icon, title, defaultOpen = true, excluded = false, onToggleExcluded, children }: {
+  icon: ReactNode; title: string; defaultOpen?: boolean;
   excluded?: boolean; onToggleExcluded?: () => void; children: ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div className={cn('rounded-lg border border-[hsl(var(--border-subtle))] overflow-hidden', excluded && 'opacity-60')}>
-      <div className="flex w-full items-center gap-2 bg-muted/40 px-3 py-2 text-sm font-semibold text-foreground">
+      <div className="group flex w-full items-center gap-2 bg-muted/40 px-3 py-2 text-sm font-semibold text-foreground">
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
           className="flex flex-1 items-center gap-2 text-left"
         >
           {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-          <span className="font-mono text-xs text-sky-700 dark:text-sky-300">{tag}</span>
           {icon}
           {title}
           {excluded && (
@@ -206,7 +173,11 @@ function Exhibit({ tag, icon, title, defaultOpen = true, excluded = false, onTog
             </span>
           )}
         </button>
-        {onToggleExcluded && <ExcludeBtn excluded={excluded} onClick={onToggleExcluded} />}
+        {onToggleExcluded && (
+          <span className={cn('transition-opacity focus-within:opacity-100', excluded ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')}>
+            <ExcludeBtn excluded={excluded} onClick={onToggleExcluded} />
+          </span>
+        )}
       </div>
       {open && <div className="p-3">{children}</div>}
     </div>
@@ -239,7 +210,6 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
       : undefined,
   });
 
-  const flags = useMemo(() => deriveConclusions(facts), [facts]);
   const inScope = useMemo(() => inScopeEntityIds(facts), [facts]);
   const [editCell, setEditCell] = useState<{ id: string; field: 'jurisdiction' | 'entityType' | 'nlTaxStatus' } | null>(null);
   // Master-table row whose local qualification is being edited.
@@ -264,8 +234,6 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
       else next.add(id);
       return next;
     });
-  const narrative = (key: NarrativeKey) => facts.narratives?.[key];
-  const saveNarrative = editable ? (key: NarrativeKey) => (text: string) => onChange!(withNarrative(facts, key, text)) : undefined;
 
   if (!shown.entities.length && !facts.entities.length) {
     return (
@@ -303,18 +271,6 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
     .sort((a, b) => (relatedPctOf(b) ?? -1) - (relatedPctOf(a) ?? -1));
   const restEnts = others.filter((e) => !isRelevantRow(e));
 
-  // Dominant-value muting: the most common NL qualification renders as quiet
-  // text; only deviations get the colored pill, so the eye lands on exceptions.
-  const dominantNlQual = (() => {
-    const counts = new Map<string, number>();
-    for (const e of shown.entities) {
-      const q = nlQualification(effNlTaxStatus(e));
-      counts.set(q, (counts.get(q) ?? 0) + 1);
-    }
-    return [...counts.entries()].sort((x, y) => y[1] - x[1])[0]?.[0] ?? 'non-transparent';
-  })();
-
-  const relatedCount = others.filter((e) => e.related || e.shareholderOfTaxpayer).length;
   const notLikelyClusters = shown.actingTogether.filter(
     (a) => !(a.likelihood === 'likely' || a.likelihood === 'highly_likely'),
   ).length;
@@ -364,26 +320,32 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
     const muted = isMember ? 'text-muted-foreground/70' : 'text-muted-foreground';
     const jur = effJurisdiction(e);
     const status = effNlTaxStatus(e);
+    const nlQual = effNlQualification(e);
+    const nlReason = effNlQualificationReason(e);
     const c = clsByEntity.get(e.id);
     const localQual = c ? localQualification(c.homeClass) : 'undetermined';
     const mismatch = hasMismatch(e);
-    const rowTint = tint ?? (mismatch ? 'bg-amber-50/40 dark:bg-amber-950/15' : undefined);
+    const rowTint = tint ?? (mismatch ? 'bg-ds-amber-bg' : undefined);
     return (
-      <tr key={e.id} className={cn('border-t border-[hsl(var(--border-subtle))] align-middle', rowTint)}>
-        <td className="py-1 pr-2 font-mono text-sky-700 dark:text-sky-300">{e.id}</td>
+      <tr key={e.id} className={cn('group border-t border-[hsl(var(--border-subtle))] align-middle', rowTint)}>
+        <td className="py-1 pr-2 font-mono text-ds-ink-secondary">{e.id}</td>
         <td className="pr-2 font-medium text-foreground">
           {isMember && <span className="mr-1 text-muted-foreground">↳</span>}
-          {mismatch && <AlertTriangle className="mr-1 inline h-3 w-3 text-amber-600 dark:text-amber-400" aria-label="Qualification difference" />}
+          {mismatch && <AlertTriangle className="mr-1 inline h-3 w-3 text-ds-amber" aria-label="Qualification difference" />}
           <span className={cn(isMember && 'text-muted-foreground')}>{e.name}</span>
-          <span className="ml-1.5 text-[9.5px] font-normal uppercase tracking-wide text-muted-foreground/60">{roleLabel(e)}</span>
+          {/* "Other" means "nothing special"; the relationship lives in the (i) below.
+              Only meaningful roles keep a tag. */}
+          {roleLabel(e) !== 'Other' && (
+            <span className="ml-1.5 text-[9.5px] font-normal uppercase tracking-wide text-muted-foreground/60">{roleLabel(e)}</span>
+          )}
           {e.isFiscalUnity && (
-            <span className="ml-1.5 rounded bg-sky-100 px-1 text-[10px] font-normal text-sky-700 dark:bg-sky-900/40 dark:text-sky-300">
+            <span className="ml-1.5 rounded bg-ds-fill-muted px-1 text-[10px] font-normal text-ds-ink-secondary">
               fiscal unity
             </span>
           )}
           {e.inTaxpayerFiscalUnity && (
             <span
-              className="ml-1.5 rounded bg-sky-100 px-1 text-[10px] font-normal text-sky-700 dark:bg-sky-900/40 dark:text-sky-300"
+              className="ml-1.5 rounded bg-ds-fill-muted px-1 text-[10px] font-normal text-ds-ink-secondary"
               title="Forms a Dutch fiscal unity (fiscale eenheid) with E1; part of the same NL taxpayer"
             >
               fiscal unity · taxpayer
@@ -398,8 +360,8 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
                 title="How this entity relates to the taxpayer"
                 onClick={() => toggleNote(e.id)}
                 className={cn(
-                  'ml-1 inline-flex h-5 w-5 items-center justify-center rounded align-middle transition-colors hover:bg-muted hover:text-foreground',
-                  openNotes.has(e.id) ? 'text-foreground' : 'text-muted-foreground/60',
+                  'ml-1 inline-flex h-5 w-5 items-center justify-center rounded align-middle transition-all hover:bg-muted hover:text-foreground focus-visible:opacity-100',
+                  openNotes.has(e.id) ? 'text-foreground opacity-100' : 'text-muted-foreground/60 opacity-0 group-hover:opacity-100',
                 )}
               >
                 <Info className="h-3 w-3" />
@@ -442,9 +404,12 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
           <QuietCell
             display={
               <span className="flex items-center gap-1.5" title={nlTaxStatusLabel(status)}>
-                {nlQualification(status) === dominantNlQual
-                  ? <span className={cn('text-[10.5px]', muted)}>{nlQualificationLabel(nlQualification(status))}</span>
-                  : <QualBadge status={status} />}
+                {/* Show the classification: a Dutch corporation falls back to
+                    non-transparent, so only a genuinely undetermined entity (a
+                    foreign or partnership/hybrid form) stays a quiet dash. */}
+                {nlQual === 'undetermined'
+                  ? <span className="text-[10.5px] text-muted-foreground/40">–</span>
+                  : <QualBadge q={nlQual} />}
               </span>
             }
             editing={editable && editCell?.id === e.id && editCell?.field === 'nlTaxStatus'}
@@ -462,7 +427,7 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
               </SelectContent>
             </Select>
           </QuietCell>
-          {e.nlTaxStatusReason && (
+          {nlReason && (
             <button
               type="button"
               aria-expanded={openClsNotes.has(e.id)}
@@ -470,17 +435,17 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
               title="How this classification was reached"
               onClick={() => toggleClsNote(e.id)}
               className={cn(
-                'inline-flex h-5 w-5 items-center justify-center rounded transition-colors hover:bg-muted hover:text-foreground',
-                openClsNotes.has(e.id) ? 'text-foreground' : 'text-muted-foreground/60',
+                'inline-flex h-5 w-5 items-center justify-center rounded transition-all hover:bg-muted hover:text-foreground focus-visible:opacity-100',
+                openClsNotes.has(e.id) ? 'text-foreground opacity-100' : 'text-muted-foreground/60 opacity-0 group-hover:opacity-100',
               )}
             >
               <Info className="h-3 w-3" />
             </button>
           )}
           </div>
-          {openClsNotes.has(e.id) && e.nlTaxStatusReason && (
+          {openClsNotes.has(e.id) && nlReason && (
             <div className="mt-0.5 text-[10.5px] font-normal leading-snug text-muted-foreground">
-              {e.nlTaxStatusReason}
+              {nlReason}
             </div>
           )}
         </td>
@@ -490,7 +455,7 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
           <QuietCell
             display={
               localQual === 'transparent'
-                ? <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10.5px] font-medium text-amber-900 dark:bg-amber-900/40 dark:text-amber-200">Transparent{c?.homeState ? ` (${c.homeState})` : ''}</span>
+                ? <span className="rounded bg-ds-amber-bg px-1.5 py-0.5 text-[10.5px] font-medium text-ds-amber-text">Transparent{c?.homeState ? ` (${c.homeState})` : ''}</span>
                 : <span className={cn('text-[10.5px]', localQual === 'undetermined' ? 'text-muted-foreground/50' : muted)}>
                     {c ? `${nlQualificationLabel(localQual)}${c.homeState ? ` (${c.homeState})` : ''}` : '-'}
                   </span>
@@ -526,7 +491,7 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
                 aria-label={`Mark ${e.name} irrelevant`}
                 title="Mark as irrelevant"
                 onClick={() => hideEntity(e.id)}
-                className="inline-flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                className="inline-flex h-5 w-5 items-center justify-center rounded text-muted-foreground opacity-0 transition-all hover:bg-muted hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100"
               >
                 <X className="h-3 w-3" />
               </button>
@@ -542,41 +507,9 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
       <h3 className="text-sm font-semibold text-foreground">Part A · Facts &amp; relationships</h3>
 
       {/* ------------------------------------------------------------------ */}
-      {/* Summary strip: deterministic funnel conclusions (post-generation     */}
-      {/* only; before that "None identified" would mislead)                   */}
+      {/* 1. The group and the taxpayer                                        */}
       {/* ------------------------------------------------------------------ */}
-      {generated && (
-        <div className="rounded-lg border border-[hsl(var(--border-subtle))] px-3 py-2.5">
-          <table className="w-full text-xs">
-            <tbody>
-              <tr>
-                <td className="py-0.5 pr-2 text-muted-foreground">Cross-border transactions with related parties</td>
-                <td className="py-0.5 text-right font-medium text-foreground">
-                  {flags.crossBorderRelatedFlows > 0 ? `${flags.crossBorderRelatedFlows} identified` : 'None identified'}
-                </td>
-              </tr>
-              <tr>
-                <td className="py-0.5 pr-2 text-muted-foreground">Hybrid qualification differences (NL vs local)</td>
-                <td className="py-0.5 text-right font-medium text-foreground">
-                  {flags.hybridDifferences > 0 ? `${flags.hybridDifferences} identified` : 'None identified'}
-                </td>
-              </tr>
-              <tr>
-                <td className="py-0.5 pr-2 text-muted-foreground">Acting-together group considered likely</td>
-                <td className="py-0.5 text-right font-medium text-foreground">
-                  {flags.likelyActingTogether > 0 ? `${flags.likelyActingTogether} ${flags.likelyActingTogether === 1 ? 'cluster' : 'clusters'}` : 'None'}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* ------------------------------------------------------------------ */}
-      {/* E - 1. The group and the taxpayer                                    */}
-      {/* ------------------------------------------------------------------ */}
-      <Exhibit tag="E" icon={<Users className="h-4 w-4 text-muted-foreground" />} title="1 · The group and the taxpayer" {...sectionProps('entityRegister')}>
-        <NarrativeLine narrative={narrative('register')} onSave={saveNarrative?.('register')} />
+      <Exhibit icon={<Users className="h-4 w-4 text-muted-foreground" />} title="1 · The group and the taxpayer" {...sectionProps('entityRegister')}>
         <table className="w-full text-xs">
           <thead className="text-muted-foreground">
             <tr className="text-left">
@@ -589,7 +522,7 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
           {taxpayerEnts.length > 0 && (
             <tbody>
               {groupLabelRow('The taxpayer')}
-              {taxpayerEnts.map((e) => renderEntityRow(e, 'bg-sky-50/50 dark:bg-sky-950/20'))}
+              {taxpayerEnts.map((e) => renderEntityRow(e, 'bg-ds-fill-muted'))}
             </tbody>
           )}
           {relevantEnts.length > 0 && (
@@ -630,17 +563,10 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
           </p>
         )}
 
-        {/* The relatedness story belongs to the table that shows it. */}
-        <div className="mt-2.5 text-xs">
-          <NarrativeLine narrative={narrative('related')} onSave={saveNarrative?.('related')} />
-          <p className="text-muted-foreground">
-            {relatedCount === 0
-              ? 'No entities outside the taxpayer qualify as related parties.'
-              : `${relatedCount} of ${others.length} entities outside the taxpayer qualify as related parties (the 25% test or a direct shareholding).`}
-          </p>
-        </div>
-
-        {/* Classification findings live with the table that shows them. */}
+        {/* Actionable callouts only: hybrid classification differences and any
+            local qualification still to be set. The relatedness/classification
+            prose is dropped from the screen (it still feeds the memo via
+            facts.narratives); the table above is the source of truth. */}
         {(() => {
           const mismatches = shown.entities.filter((e) => hasMismatch(e));
           const tbd = shown.entities.filter((e) => {
@@ -651,19 +577,18 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
           if (!mismatches.length && !tbd.length) return null;
           return (
             <div className="mt-2.5 space-y-1.5 text-xs">
-              <NarrativeLine narrative={narrative('classification')} onSave={saveNarrative?.('classification')} />
               {mismatches.map((e) => {
                 const c = clsByEntity.get(e.id);
                 const localQ = c ? localQualification(c.homeClass) : 'undetermined';
                 return (
-                  <div key={e.id} className="flex items-start gap-2 rounded-md border border-amber-400/30 bg-amber-50/40 px-2.5 py-1.5 dark:border-amber-500/20 dark:bg-amber-950/15">
-                    <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                  <div key={e.id} className="flex items-start gap-2 rounded-md border border-ds-amber bg-ds-amber-bg px-2.5 py-1.5">
+                    <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ds-amber" />
                     <span>
-                      <span className="font-mono text-sky-700 dark:text-sky-300">{e.id}</span>{' '}
+                      <span className="font-mono text-ds-ink-secondary">{e.id}</span>{' '}
                       <span className="font-medium text-foreground">{e.name}</span>
                       <span className="text-muted-foreground">
                         {': '}
-                        {nlQualificationLabel(nlQualification(effNlTaxStatus(e))).toLowerCase()} for Dutch purposes, {nlQualificationLabel(localQ).toLowerCase()}
+                        {nlQualificationLabel(effNlQualification(e)).toLowerCase()} for Dutch purposes, {nlQualificationLabel(localQ).toLowerCase()}
                         {c?.homeState ? ` in ${c.homeState}` : ' locally'}; hybrid classification difference.
                       </span>
                     </span>
@@ -674,7 +599,7 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
                 <div key={e.id} className="flex items-start gap-2 rounded-md border border-dashed border-[hsl(var(--border-subtle))] px-2.5 py-1.5 text-muted-foreground">
                   <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                   <span>
-                    <span className="font-mono text-sky-700 dark:text-sky-300">{e.id}</span>{' '}
+                    <span className="font-mono text-ds-ink-secondary">{e.id}</span>{' '}
                     <span className="font-medium text-foreground">{e.name}</span>
                     {': '}party to a relevant transaction, but the local qualification is still to be determined. Set it in the Local column above.
                   </span>
@@ -686,9 +611,9 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
       </Exhibit>
 
       {/* ------------------------------------------------------------------ */}
-      {/* AT - 2. Acting together                                              */}
+      {/* 2. Acting together                                                   */}
       {/* ------------------------------------------------------------------ */}
-      <Exhibit tag="AT" icon={<Handshake className="h-4 w-4 text-muted-foreground" />} title="2 · Acting together" {...sectionProps('actingTogether')}>
+      <Exhibit icon={<Handshake className="h-4 w-4 text-muted-foreground" />} title="2 · Acting together" {...sectionProps('actingTogether')}>
         <div>
           {shown.actingTogether.length === 0 ? (
             <p className="text-xs text-muted-foreground">
@@ -784,7 +709,7 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
                       value={a.reasoning}
                       onChange={(e) => onChange!(withClusterText(facts, a.id, e.target.value))}
                       rows={2}
-                      className="mt-1.5 w-full resize-y rounded border border-[hsl(var(--border-subtle))] bg-white/70 px-2 py-1 text-[11px] leading-relaxed text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-stone-400"
+                      className="mt-1.5 w-full resize-y rounded border border-[hsl(var(--border-subtle))] bg-white/70 px-2 py-1 text-[11px] leading-relaxed text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ds-ink-tertiary"
                     />
                   ) : (
                     <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">{a.reasoning}</p>
@@ -802,10 +727,9 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
       </Exhibit>
 
       {/* ------------------------------------------------------------------ */}
-      {/* T - 3. Relevant transactions                                         */}
+      {/* 3. Relevant transactions                                             */}
       {/* ------------------------------------------------------------------ */}
-      <Exhibit tag="T" icon={<ArrowLeftRight className="h-4 w-4 text-muted-foreground" />} title="3 · Relevant transactions" {...sectionProps('transactions')}>
-        <NarrativeLine narrative={narrative('flows')} onSave={saveNarrative?.('flows')} />
+      <Exhibit icon={<ArrowLeftRight className="h-4 w-4 text-muted-foreground" />} title="3 · Relevant transactions" {...sectionProps('transactions')}>
         {relevantTx.length === 0
           ? <p className="text-xs text-muted-foreground">{generated ? 'No relevant intra-group transactions identified.' : 'Not generated yet.'}</p>
           : (
@@ -813,7 +737,7 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
             <thead className="text-muted-foreground">
               <tr className="text-left">
                 <th className="py-1 pr-2">#</th>
-                <th className="pr-2">Flow</th>
+                <th className="pr-2">Transaction</th>
                 <th className="pr-2">Type</th>
                 <th className="pr-2">Instrument</th>
                 <th className="pr-2">Why relevant</th>
@@ -827,9 +751,9 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
                 return (
                   <tr
                     key={t.id}
-                    className={cn('border-t border-[hsl(var(--border-subtle))]', t.excludedFromClient && 'opacity-60')}
+                    className={cn('group border-t border-[hsl(var(--border-subtle))]', t.excludedFromClient && 'opacity-60')}
                   >
-                    <td className="py-1 pr-2 font-mono text-sky-700 dark:text-sky-300">{t.id}</td>
+                    <td className="py-1 pr-2 font-mono text-ds-ink-secondary">{t.id}</td>
                     <td className="pr-2">
                       {nameOf(facts, t.fromEntityId)} → {nameOf(facts, t.toEntityId)}
                     </td>
@@ -846,7 +770,7 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
                     </td>
                     {editable && (
                       <td className="pl-1">
-                        <div className="flex items-center gap-0.5">
+                        <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
                           {!confirmed && (
                             <ConfirmBtn
                               onClick={() => onChange!(withTransaction(facts, t.id, { status: 'confirmed', source: 'edited' }))}
@@ -874,29 +798,41 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
             </tbody>
           </table>
         )}
-        {accountedTx.map((g) => (
-          <AccountedLine key={g.reason} summary={`${g.transactions.length} ${g.transactions.length === 1 ? 'transaction' : 'transactions'} not relevant: ${g.reason}`}>
-            <div className="space-y-1">
-              {g.transactions.map((t) => (
-                <div key={t.id} className="flex items-center gap-2">
-                  <span className="font-mono text-sky-700 dark:text-sky-300">{t.id}</span>
-                  <span>{nameOf(facts, t.fromEntityId)} → {nameOf(facts, t.toEntityId)}</span>
-                  <span className="text-muted-foreground">{t.kind}</span>
-                  <span className="flex-1" />
-                  {editable && (
-                    <button
-                      type="button"
-                      className="underline underline-offset-2 hover:text-foreground"
-                      onClick={() => onChange!(withTransactionRelevance(facts, t.id, true))}
-                    >
-                      mark relevant
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          </AccountedLine>
-        ))}
+        {/* One collapsed group for every not-relevant transaction, each line
+            carrying its own short reason; never more than one hidden group. */}
+        {(() => {
+          const accountedItems = accountedTx.flatMap((g) =>
+            g.transactions.map((t) => ({ t, reason: g.reason })),
+          );
+          if (!accountedItems.length) return null;
+          return (
+            <AccountedLine
+              summary={`${accountedItems.length} ${accountedItems.length === 1 ? 'transaction' : 'transactions'} not relevant`}
+            >
+              <div className="space-y-1">
+                {accountedItems.map(({ t, reason }) => (
+                  <div key={t.id} className="flex items-start gap-2">
+                    <span className="shrink-0 font-mono text-ds-ink-secondary">{t.id}</span>
+                    <span className="min-w-0 flex-1">
+                      {nameOf(facts, t.fromEntityId)} → {nameOf(facts, t.toEntityId)}
+                      <span className="text-muted-foreground"> · {t.kind}</span>
+                      {reason && <span className="text-muted-foreground/70"> · {reason}</span>}
+                    </span>
+                    {editable && (
+                      <button
+                        type="button"
+                        className="shrink-0 underline underline-offset-2 hover:text-foreground"
+                        onClick={() => onChange!(withTransactionRelevance(facts, t.id, true))}
+                      >
+                        mark relevant
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </AccountedLine>
+          );
+        })()}
       </Exhibit>
 
     </div>

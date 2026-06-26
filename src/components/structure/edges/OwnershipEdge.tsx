@@ -314,7 +314,10 @@ export function OwnershipEdge({
       <BaseEdge
         id={id}
         path={path}
-        style={{ stroke: PALETTE.ownershipStroke, strokeWidth: selected ? 3 : 2 }}
+        style={{
+          stroke: selected ? PALETTE.ownershipSelectedStroke : PALETTE.ownershipStroke,
+          strokeWidth: selected ? 1.75 : 1,
+        }}
       />
       {showLabel && (
         <EdgeLabelRenderer>
@@ -332,9 +335,10 @@ export function OwnershipEdge({
               background: PALETTE.background,
               padding: '1px 4px',
               fontFamily: 'Inter, system-ui, sans-serif',
-              fontSize: 11.5,
-              fontWeight: 600,
-              color: '#3a3530',
+              fontSize: 11,
+              fontWeight: 500,
+              color: PALETTE.textMuted,
+              fontVariantNumeric: 'tabular-nums',
               pointerEvents: 'all',
               // Zorg dat het %-vakje boven de gestippelde FE-rand komt te liggen.
               zIndex: 5,
@@ -356,7 +360,7 @@ export function OwnershipEdge({
                 autoFocus
                 style={{
                   width: 50, fontSize: 11, padding: '2px 4px',
-                  border: '1px solid #999', borderRadius: 2,
+                  border: '1px solid #8a8980', borderRadius: 2,
                   fontFamily: 'Inter, system-ui, sans-serif',
                 }}
                 onClick={(e) => e.stopPropagation()}
@@ -387,17 +391,16 @@ export function OwnershipEdge({
                   height: 15,
                   padding: 0,
                   borderRadius: 8,
-                  border: '1px solid #d6d3d1',
+                  border: '1px solid #b5b4ad',
                   background: '#ffffff',
-                  color: '#78716c',
+                  color: '#5f5e5a',
                   fontSize: 11,
                   lineHeight: '12px',
-                  fontWeight: 700,
+                  fontWeight: 500,
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  boxShadow: '0 1px 3px rgba(40,30,20,0.18)',
                   zIndex: 6,
                 }}
               >

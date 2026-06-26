@@ -187,7 +187,7 @@ const Tutorial = () => {
                         active
                           ? "bg-foreground text-background"
                           : done
-                          ? "bg-emerald-500 text-white"
+                          ? "bg-ds-green text-ds-card"
                           : "border border-[hsl(var(--border-default))] text-muted-foreground",
                       )}
                     >
@@ -303,7 +303,7 @@ const Tutorial = () => {
             ) : (
               <button
                 onClick={close}
-                className="inline-flex h-9 items-center gap-1.5 rounded-md bg-emerald-600 px-3 text-[12.5px] font-medium text-white shadow-btn-primary"
+                className="inline-flex h-9 items-center gap-1.5 rounded-md bg-foreground px-3 text-[12.5px] font-medium text-background shadow-btn-primary transition-transform hover:translate-y-[-1px]"
               >
                 <Check className="h-3.5 w-3.5" />
                 Finish tour

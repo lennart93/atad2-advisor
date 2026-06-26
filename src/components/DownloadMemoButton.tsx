@@ -27,6 +27,9 @@ function htmlToDocxFormatting(input: string): string {
 const dotParser = (tag: string) => ({
   get: (scope: any) => {
     const path = tag.trim();
+    // Raw OOXML injected via {{@appendicesXml}} must pass through untouched;
+    // htmlToDocxFormatting below would strip its XML tags and break the tables.
+    if (path === 'appendicesXml') return scope?.appendicesXml ?? '';
     if (path === '.' || path === '') return scope;
     const value = path.split('.').reduce((obj, key) => (obj == null ? obj : obj[key]), scope);
     // Alleen strings transformeren
@@ -42,9 +45,10 @@ const dotParser = (tag: string) => ({
 });
 import { supabase } from '@/integrations/supabase/client';
 import { loadAppendix } from '@/lib/appendix/client';
-import { toAppendixSections } from '@/lib/appendix/appendixDocxSections';
+import { buildMemoAppendicesXml } from '@/lib/appendix/docx/memoAppendices';
 import { loadAppendixSkeleton } from '@/lib/appendix/skeletonStore';
-import { Button } from '@/components/ui/button';
+import { normalizeEntityName } from '@/lib/legalName';
+import { Button } from '@/components/ds';
 import { Download, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
@@ -57,15 +61,24 @@ type Props = {
   disabled?: boolean;
   /** Whether to capture and embed the structure-chart PNG in the DOCX. Default true. */
   includeChart?: boolean;
+  /** Override: include Appendix 1 (facts) in the .docx. When undefined, falls back to the appendix's facts_skipped flag. */
+  includeFactsAppendix?: boolean;
+  /** Override: include Appendix 2 (conditions) in the .docx. When undefined, falls back to the appendix's checklist_skipped flag. */
+  includeChecklistAppendix?: boolean;
 };
 
 export default function DownloadMemoButton({
   sessionId,
   memoMarkdown,
-  templatePath = 'memo_atad2_with_structure_placeholder.docx',
+  // v2 template: no static <w:sectPr> (the generator emits the section properties),
+  // wider margins, SECTIONPAGES footer. Kept on a separate Storage key so the
+  // currently-deployed frontend keeps using the v1 template until this ships.
+  templatePath = 'memo_atad2_with_structure_placeholder_v2.docx',
   enabled = true,
   disabled = false,
   includeChart = true,
+  includeFactsAppendix,
+  includeChecklistAppendix,
 }: Props) {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
@@ -217,6 +230,12 @@ export default function DownloadMemoButton({
         return arr;
       };
 
+      // Display size (px) of the embedded chart. Filled in once we know the PNG's
+      // real pixel dimensions so it spans the body content width (2 cm margins ->
+      // ~6.69in -> 642px) at the source aspect ratio. The hi-res capture then lands
+      // well above 200 dpi instead of the old soft ~89 dpi.
+      let chartDisplaySize: [number, number] = [600, 360];
+
       const imageModule = new ImageModule({
         centered: true,
         fileType: 'docx',
@@ -232,7 +251,7 @@ export default function DownloadMemoButton({
           console.warn('[DownloadMemoButton] structureChart leeg/ongeldig — fallback PNG gebruikt');
           return base64ToBytes(FALLBACK_PNG_BASE64);
         },
-        getSize: () => [600, 360],
+        getSize: () => chartDisplaySize,
       });
 
       const doc = new Docxtemplater(zip, {
@@ -346,6 +365,24 @@ export default function DownloadMemoButton({
         }
       }
 
+      // Size the chart to the body content width (2 cm margins -> ~6.69in -> 642px)
+      // at its real aspect ratio, read from the PNG header. This avoids the old
+      // upscaling blur and keeps it inside the margins.
+      if (structureChartBase64) {
+        try {
+          const head = base64ToBytes(structureChartBase64.slice(0, 64));
+          const rd = (o: number) => ((head[o] << 24) | (head[o + 1] << 16) | (head[o + 2] << 8) | head[o + 3]) >>> 0;
+          const w = rd(16); // PNG IHDR width  (bytes 16-19)
+          const h = rd(20); // PNG IHDR height (bytes 20-23)
+          if (w > 0 && h > 0) {
+            const CONTENT_W_PX = 642;
+            chartDisplaySize = [CONTENT_W_PX, Math.round((CONTENT_W_PX * h) / w)];
+          }
+        } catch {
+          /* keep the default size */
+        }
+      }
+
       try {
         // ✅ v4 API: data direct meegeven.
         // hasStructureChart drijft de `{{#hasStructureChart}}...{{/hasStructureChart}}`
@@ -354,26 +391,36 @@ export default function DownloadMemoButton({
         // paragraaf), zodat een memo zonder chart geen lege chart-regel toont.
         const hasStructureChart = !!structureChartBase64;
 
-        // Confirmed technical appendix -> native Word tables (Reference column dropped).
-        // A checklist page that the advisor explicitly skipped stays out of the
-        // export (matches the UI promise and mirrors the memo narrative path in
-        // appendixMemoBlock). Facts are not rendered in the DOCX at all, so
-        // facts_skipped has no effect here.
-        let appendixSections: ReturnType<typeof toAppendixSections> = [];
+        // {{@appendicesXml}} carries the appendices (Appendix 1 facts + Appendix 2
+        // conditions, built as real Word tables from the confirmed snapshot) AND the
+        // document's final section properties. The template has no static <w:sectPr>,
+        // so this MUST always be set, even with no appendix, or the .docx is invalid.
+        // Building the tables from structured data (not the model) keeps them
+        // identical to the on-screen appendices; per-page skips drop the matching one.
+        let appendicesXml = buildMemoAppendicesXml(null, []); // safe default: decimal body section
         try {
           const [appendix, appendixSkeleton] = await Promise.all([loadAppendix(sessionId), loadAppendixSkeleton()]);
-          if (appendix && appendix.review_status === 'confirmed' && !appendix.checklist_skipped) {
-            appendixSections = toAppendixSections(appendix.rows, appendixSkeleton);
-          }
+          const confirmed = !!appendix && appendix.review_status === 'confirmed';
+          appendicesXml = buildMemoAppendicesXml(
+            confirmed ? appendix!.facts : null,
+            confirmed ? appendix!.rows : [],
+            appendixSkeleton,
+            {
+              // An explicit per-download choice from the caller wins; otherwise fall
+              // back to the appendix's per-page skip flag (the dossier default).
+              includeFacts: includeFactsAppendix ?? !appendix?.facts_skipped,
+              includeChecklist: includeChecklistAppendix ?? !appendix?.checklist_skipped,
+            },
+          );
         } catch (e) {
-          console.warn('[DownloadMemoButton] loadAppendix failed, exporting without appendix', e);
+          console.warn('[DownloadMemoButton] loadAppendix failed, exporting body-only with a valid section tail', e);
         }
 
         doc.render({
           ...docxData,
           structureChart: structureChartBase64 ?? '',
           hasStructureChart,
-          appendixSections,
+          appendicesXml,
         });
         console.log('Render OK, hasStructureChart:', hasStructureChart);
       } catch (err: any) {
@@ -387,9 +434,13 @@ export default function DownloadMemoButton({
 
       const blob = doc.getZip().generate({ type: 'blob' });
 
-      const nameSafe = (docxData?.meta?.taxpayer_name || 'Taxpayer').replace(/[^\w\-]+/g, '_');
-      const fy = docxData?.meta?.fiscal_year || '';
-      const fileName = `ATAD2_Memo_${nameSafe}_${fy}.docx`;
+      // Filename uses spaces (not underscores); only characters Windows forbids in a
+      // filename are stripped. The taxpayer name is normalised to the house form.
+      const cleanFsName = (s: string) =>
+        s.replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim();
+      const taxpayer = cleanFsName(normalizeEntityName(docxData?.meta?.taxpayer_name) || 'Taxpayer');
+      const fy = cleanFsName(String(docxData?.meta?.fiscal_year || ''));
+      const fileName = `ATAD2 Memo ${taxpayer}${fy ? ` ${fy}` : ''}.docx`;
 
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
@@ -424,8 +475,7 @@ export default function DownloadMemoButton({
             <div>
               <Button
                 disabled={true}
-                variant="outline"
-                className="flex items-center gap-2 opacity-50 cursor-not-allowed"
+                variant="secondary"
               >
                 <Download className="h-4 w-4" />
                 Download Word (.docx)
@@ -444,8 +494,7 @@ export default function DownloadMemoButton({
     return (
       <Button
         disabled
-        variant="outline"
-        className="flex items-center gap-2"
+        variant="secondary"
       >
         <Download className="h-4 w-4" />
         Download Word (.docx)
@@ -457,8 +506,7 @@ export default function DownloadMemoButton({
     <Button
       onClick={handleDownload}
       disabled={loading}
-      variant="outline"
-      className="flex items-center gap-2 transition-all duration-fast"
+      variant="secondary"
     >
       {loading ? (
         <>

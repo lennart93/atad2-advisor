@@ -35,7 +35,7 @@ export function FiscalUnityEditPopover({
   return (
     <div
       ref={ref}
-      className="fixed z-50 bg-card border border-[hsl(var(--border-subtle))] rounded-md shadow-lg p-3 flex flex-col gap-2"
+      className="fixed z-50 bg-ds-card border border-ds-hairline rounded-md shadow-lg p-3 flex flex-col gap-2"
       style={{ left: screenX, top: screenY + 8, minWidth: 220 }}
     >
       <Input
@@ -57,7 +57,7 @@ export function FiscalUnityEditPopover({
               onClose();
             }
           }}
-          className="text-red-700 hover:text-red-900"
+          className="text-ds-red hover:bg-ds-red-bg"
         >
           Delete
         </Button>

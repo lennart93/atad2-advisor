@@ -10,10 +10,15 @@ import { toast } from "@/hooks/use-toast";
 interface Props {
   promptKey: string;
   placeholdersHint?: string;
+  /** Pre-fill the system prompt (e.g. a Prompt Tuner suggestion). Model,
+   *  temperature, max tokens and template still load from the active version. */
+  initialSystemPrompt?: string;
+  /** Pre-fill the (required) change notes. */
+  initialNotes?: string;
   onClose: () => void;
 }
 
-export function PrefillPromptEditor({ promptKey, placeholdersHint, onClose }: Props) {
+export function PrefillPromptEditor({ promptKey, placeholdersHint, initialSystemPrompt, initialNotes, onClose }: Props) {
   const [systemPrompt, setSystemPrompt] = useState("");
   const [template, setTemplate] = useState("");
   const [model, setModel] = useState("claude-opus-4-7");
@@ -32,16 +37,23 @@ export function PrefillPromptEditor({ promptKey, placeholdersHint, onClose }: Pr
         .eq("key", promptKey)
         .eq("is_active", true)
         .maybeSingle();
-      if (cancelled || !data) return;
-      setSystemPrompt(data.system_prompt);
-      setTemplate(data.user_prompt_template ?? "");
-      setModel(data.model);
-      setTemperature(Number(data.temperature));
-      setMaxTokens(data.max_tokens);
+      if (cancelled) return;
+      if (data) {
+        setSystemPrompt(data.system_prompt);
+        setTemplate(data.user_prompt_template ?? "");
+        setModel(data.model);
+        setTemperature(Number(data.temperature));
+        setMaxTokens(data.max_tokens);
+      }
+      // Prompt Tuner draft: override the system prompt and notes with the
+      // proposed text, while keeping model/temperature/template from the
+      // active version above.
+      if (initialSystemPrompt !== undefined) setSystemPrompt(initialSystemPrompt);
+      if (initialNotes !== undefined) setNotes(initialNotes);
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [promptKey]);
+  }, [promptKey, initialSystemPrompt, initialNotes]);
 
   const save = async () => {
     if (!notes.trim()) {

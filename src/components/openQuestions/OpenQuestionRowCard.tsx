@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Badge } from "@/components/ui/badge";
+import { StatusPill } from "@/components/ds";
 import type { OpenQuestionRow } from "@/lib/openQuestions/types";
 import { formatDate } from "@/utils/formatDate";
 
@@ -13,12 +13,12 @@ const STATUS_LABELS: Record<string, string> = {
   dismissed: "Not relevant",
 };
 
-/** Terminal statuses render with the quiet outline badge. */
-const TERMINAL_STATUSES = new Set([
+/** Statuses with a confirmed outcome render the green "complete" pill;
+ *  everything else (in-flight or dismissed) stays neutral. */
+const COMPLETE_STATUSES = new Set([
   "answered",
   "resolved",
   "confirmed_unknown",
-  "dismissed",
 ]);
 
 export interface OpenQuestionRowCardProps {
@@ -46,52 +46,53 @@ export function OpenQuestionRowCard({
   actions,
 }: OpenQuestionRowCardProps) {
   const statusLabel = STATUS_LABELS[row.status] ?? row.status;
-  const statusVariant = TERMINAL_STATUSES.has(row.status) ? "outline" : "secondary";
+  const statusVariant = COMPLETE_STATUSES.has(row.status)
+    ? "complete"
+    : "neutral";
   const isReopened = row.source === "reopen";
 
   return (
-    <div className="rounded-lg border border-border bg-card p-4">
+    <div className="rounded-ds-card border border-ds-hairline bg-ds-card p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1 space-y-1.5">
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant={statusVariant}>{statusLabel}</Badge>
+            <StatusPill status={statusVariant}>{statusLabel}</StatusPill>
             {isReopened && (
-              <Badge
-                variant="outline"
-                className="border-amber-500/40 bg-amber-50 text-amber-800"
-              >
-                Needs attention
-              </Badge>
+              <StatusPill status="neutral">Needs attention</StatusPill>
             )}
           </div>
 
-          {gateHint && <p className="text-xs text-amber-800/80">{gateHint}</p>}
+          {gateHint && (
+            <p className="text-[13px] text-ds-ink-secondary">{gateHint}</p>
+          )}
 
-          <p className="text-sm font-medium leading-snug text-foreground">
+          <p className="text-[13px] font-medium leading-snug text-ds-ink">
             {questionText}
           </p>
 
           {isReopened && row.reopen_reason && (
-            <p className="text-sm text-amber-800">{row.reopen_reason}</p>
+            <p className="text-[13px] text-ds-ink-secondary">{row.reopen_reason}</p>
           )}
 
           {row.why_it_matters && (
-            <p className="text-sm text-muted-foreground">{row.why_it_matters}</p>
+            <p className="text-[13px] text-ds-ink-secondary">
+              {row.why_it_matters}
+            </p>
           )}
 
           {row.client_answer && (
-            <div className="rounded-md border border-border bg-muted/40 px-3 py-2">
-              <p className="text-xs font-medium text-muted-foreground">
+            <div className="rounded-ds-control border border-ds-hairline bg-ds-fill-muted px-3 py-2">
+              <p className="text-[13px] font-medium text-ds-ink-secondary ds-tabular-nums">
                 Client said on {formatDate(row.client_answer_at)}
               </p>
-              <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">
+              <p className="mt-1 whitespace-pre-wrap text-[13px] text-ds-ink">
                 {row.client_answer}
               </p>
             </div>
           )}
 
           {row.status === "taken_to_client" && row.taken_to_client_at && (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-[13px] text-ds-ink-secondary ds-tabular-nums">
               Sent to client on {formatDate(row.taken_to_client_at)}
             </p>
           )}

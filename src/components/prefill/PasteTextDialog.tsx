@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ds";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useUploadText } from "@/hooks/usePrefill";
 import { toast } from "@/hooks/use-toast";
+import { formatDateTime } from "@/utils/formatDate";
 
 interface Props {
   sessionId: string;
@@ -22,7 +23,7 @@ export function PasteTextDialog({ sessionId, open, onOpenChange }: Props) {
 
   const save = () => {
     if (!text.trim()) return;
-    const finalLabel = `Pasted text (${new Date().toLocaleString()})`;
+    const finalLabel = `Pasted text (${formatDateTime(new Date())})`;
     upload.mutate(
       { text: text.trim(), category: "other", label: finalLabel },
       {
@@ -53,24 +54,25 @@ export function PasteTextDialog({ sessionId, open, onOpenChange }: Props) {
 
         <div className="space-y-4">
           <div>
-            <Label htmlFor="paste-text">Text</Label>
+            <Label htmlFor="paste-text" className="text-[13px]">Text</Label>
             <Textarea
               id="paste-text"
               rows={15}
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder="Paste any relevant context here. For example, excerpts from a memo, email thread, or structural notes. The AI will treat this like any uploaded document."
+              placeholder="Paste relevant context, for example a memo excerpt or structural notes."
             />
           </div>
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button variant="secondary" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button
+            variant="primary"
             disabled={!text.trim() || upload.isPending}
             onClick={save}
           >
-            {upload.isPending ? "Saving…" : "Save"}
+            {upload.isPending ? "Saving..." : "Save"}
           </Button>
         </DialogFooter>
       </DialogContent>

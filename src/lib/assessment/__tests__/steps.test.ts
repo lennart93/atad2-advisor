@@ -1,6 +1,6 @@
 // src/lib/assessment/__tests__/steps.test.ts
 import { describe, it, expect } from 'vitest';
-import { ASSESSMENT_STEPS, stepIndexForPath } from '../steps';
+import { ASSESSMENT_STEPS, stepIndexForPath, stepUrlForKey } from '../steps';
 
 describe('assessment steps', () => {
   it('exposes the seven ordered steps (confirmation gates appendix; structure before report)', () => {
@@ -54,5 +54,45 @@ describe('assessment steps', () => {
 
   it('returns -1 for non-assessment routes', () => {
     expect(stepIndexForPath('/admin')).toBe(-1);
+  });
+});
+
+describe('stepUrlForKey', () => {
+  const SESSION = 'sess-123';
+
+  it('maps each per-session step to its route', () => {
+    expect(stepUrlForKey('documents', SESSION)).toBe(
+      `/assessment/upload?session=${SESSION}`,
+    );
+    expect(stepUrlForKey('questions', SESSION)).toBe(
+      `/assessment?session=${SESSION}`,
+    );
+    expect(stepUrlForKey('confirmation', SESSION)).toBe(
+      `/assessment-confirmation/${SESSION}`,
+    );
+    expect(stepUrlForKey('appendix', SESSION)).toBe(
+      `/assessment-appendix/${SESSION}`,
+    );
+    expect(stepUrlForKey('structure', SESSION)).toBe(
+      `/assessment/structure/${SESSION}`,
+    );
+    expect(stepUrlForKey('report', SESSION)).toBe(
+      `/assessment-report/${SESSION}`,
+    );
+  });
+
+  it('returns null for intake (no per-session route)', () => {
+    expect(stepUrlForKey('intake', SESSION)).toBeNull();
+  });
+
+  it('round-trips through stepIndexForPath for every per-session step', () => {
+    for (const step of ASSESSMENT_STEPS) {
+      const url = stepUrlForKey(step.key, SESSION);
+      if (url === null) continue; // intake has no per-session route
+      const [pathname, query = ''] = url.split('?');
+      const hasSession = new URLSearchParams(query).has('session');
+      const expectedIndex = ASSESSMENT_STEPS.findIndex((s) => s.key === step.key);
+      expect(stepIndexForPath(pathname, { hasSession })).toBe(expectedIndex);
+    }
   });
 });

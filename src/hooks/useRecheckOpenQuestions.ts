@@ -41,7 +41,7 @@ export interface RecheckResult {
  * suggestions absorb the client's responses.
  *
  * Deliberately does NOT touch atad2_prefill_jobs and does NOT start the job
- * heartbeat: this is a targeted re-check, not a swarm run, so AnalyzeProgress
+ * heartbeat: this is a targeted re-check, not a swarm run, so AnalyzingScreen
  * and the dossier status logic must not react to it. Reopen flags and
  * register updates land via the DB trigger on atad2_question_prefills and
  * stream in through the existing realtime channel; nothing else to wire.

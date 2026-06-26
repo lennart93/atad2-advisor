@@ -1,12 +1,13 @@
 import { APPENDIX_SKELETON } from './skeleton';
 import { buildClientSections } from './clientExport';
-import { statusPrintColor } from './status';
+import { tonePrintColor, statusDisplayLabel } from './status';
+import { rowTone } from './conditionPolarity';
 import type { AppendixFacts, AppendixRow, AppendixSectionKey, FactEntity, NarrativeKey, RowKind, SkeletonRow, Status } from './types';
 import { factsForClient } from './factsExport';
 import { visibleFacts } from './facts/visibleFacts';
 import { isSectionExcluded } from './facts/sections';
-import { effJurisdiction, effNlTaxStatus } from './facts/entityFields';
-import { nlQualification, nlQualificationLabel } from './facts/nlTaxStatus';
+import { effJurisdiction, effNlQualification } from './facts/entityFields';
+import { nlQualificationLabel } from './facts/nlTaxStatus';
 import { actingLikelihoodLabel } from './facts/actingLikelihood';
 import { cleanReasoning } from './reasoningText';
 import { deriveConclusions, inScopeEntityIds, localQualification, entityHasQualificationDifference } from './facts/conclusions';
@@ -20,7 +21,7 @@ const esc = (s: string | null) => (s ?? '').replace(/&/g, '&amp;').replace(/</g,
 /** Which artifact to render. */
 export type PrintMode = 'internal' | 'dossier';
 
-interface PrintRow { code: string; legalBasis: string; conditionTested: string; status: Status | null; kind: RowKind; reasoning: string | null; provenance: string | null; stale: boolean; excluded: boolean; }
+interface PrintRow { code: string; polarityId: string; legalBasis: string; conditionTested: string; status: Status | null; kind: RowKind; reasoning: string | null; provenance: string | null; stale: boolean; excluded: boolean; }
 interface PrintSection { heading: string; rows: PrintRow[] }
 
 /**
@@ -48,7 +49,7 @@ export function buildAppendixPrintHtml(
       let s = sections.find((x) => x.heading === `Section ${sk.sectionId}. ${sk.sectionTitle}`);
       if (!s) { s = { heading: `Section ${sk.sectionId}. ${sk.sectionTitle}`, rows: [] }; sections.push(s); }
       s.rows.push({
-        code: sk.rowId, legalBasis: sk.legalBasis, conditionTested: sk.conditionTested,
+        code: sk.rowId, polarityId: sk.rowId, legalBasis: sk.legalBasis, conditionTested: sk.conditionTested,
         status: row.status, kind: sk.kind, reasoning: row.reasoning, provenance: row.provenance,
         stale: row.stale, excluded: row.excludedFromClient,
       });
@@ -58,7 +59,7 @@ export function buildAppendixPrintHtml(
       sections.push({
         heading: `Section ${cs.displayNum}. ${cs.sectionTitle}`,
         rows: cs.rows.map((cr) => ({
-          code: cr.displayCode, legalBasis: cr.sk.legalBasis, conditionTested: cr.sk.conditionTested,
+          code: cr.displayCode, polarityId: cr.sk.rowId, legalBasis: cr.sk.legalBasis, conditionTested: cr.sk.conditionTested,
           status: cr.row.status, kind: cr.sk.kind, reasoning: cr.row.reasoning, provenance: cr.row.provenance,
           stale: cr.row.stale, excluded: false,
         })),
@@ -66,9 +67,9 @@ export function buildAppendixPrintHtml(
     }
   }
 
-  const statusCell = (status: Status | null, kind: RowKind, flag: string) => {
-    const { bg, fg } = statusPrintColor(status, kind);
-    return `<td class="c-status" style="background:${bg};color:${fg};">${esc(status)}${flag}</td>`;
+  const statusCell = (status: Status | null, polarityId: string, flag: string) => {
+    const { bg, fg } = tonePrintColor(rowTone(status, polarityId));
+    return `<td class="c-status" style="background:${bg};color:${fg};">${esc(statusDisplayLabel(status))}${flag}</td>`;
   };
 
   const header =
@@ -88,7 +89,7 @@ export function buildAppendixPrintHtml(
             `<tr class="${r.excluded ? 'excluded' : ''}"><td class="c-num">${esc(r.code)}</td>` +
             `<td class="c-basis">${esc(r.legalBasis)}</td>` +
             `<td>${esc(r.conditionTested)}</td>` +
-            statusCell(r.status, r.kind, flags) +
+            statusCell(r.status, r.polarityId, flags) +
             `<td class="c-reason">${esc(cleanReasoning(r.reasoning))}</td>${prov}</tr>`
           );
         })
@@ -161,7 +162,7 @@ export function buildAppendixPrintHtml(
         refCol +
         `<td>${esc(e.name)}</td>` +
         `<td>${esc(jurLabel(effJurisdiction(e)))}</td>` +
-        `<td>${esc(nlQualificationLabel(nlQualification(effNlTaxStatus(e))))}</td>` +
+        `<td>${esc(nlQualificationLabel(effNlQualification(e)))}</td>` +
         `<td>${esc(roleText(e))}${esc(positionNote(e))}</td></tr>`
       );
     };
@@ -249,7 +250,7 @@ export function buildAppendixPrintHtml(
       const mismatch = entityHasQualificationDifference(e, c);
       return (
         `<tr><td>${esc(e.name)}</td>` +
-        `<td>${esc(nlQualificationLabel(nlQualification(effNlTaxStatus(e))))}</td>` +
+        `<td>${esc(nlQualificationLabel(effNlQualification(e)))}</td>` +
         `<td>${local}</td>` +
         `<td>${mismatch ? '<strong>Yes</strong>' : 'No'}</td></tr>`
       );
@@ -277,7 +278,7 @@ export function buildAppendixPrintHtml(
   h3 { font-size: 11px; margin: 8px 0 3px; }
   .narrative { color: #444; font-style: italic; margin: 2px 0 6px; }
   .accounted { color: #666; font-size: 10px; margin: 2px 0 8px; }
-  tr.taxpayer td { background: #eef6fb; }
+  tr.taxpayer td { background: #f4f4f5; }
   .banner { border: 1px solid #e0c84a; background: #fff7d6; color: #5b4b00; padding: 6px 10px; border-radius: 4px; margin: 8px 0 14px; }
   table { border-collapse: collapse; width: 100%; margin-bottom: 6px; }
   th, td { border: 1px solid #aaa; padding: 4px 6px; text-align: left; vertical-align: top; }
@@ -289,7 +290,7 @@ export function buildAppendixPrintHtml(
   .c-status { width: 92px; font-weight: 600; }
   .c-reason { width: 34%; }
   .c-prov { width: 16%; color: #555; font-size: 10px; background: #fafafa; }
-  .flag { color: #b45309; font-size: 9px; white-space: nowrap; font-weight: 400; }
+  .flag { color: #6b7280; font-size: 9px; white-space: nowrap; font-weight: 400; }
 </style></head><body>
 <h1>ATAD2 technical appendix</h1>
 ${banner}

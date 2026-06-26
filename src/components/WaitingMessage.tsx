@@ -7,8 +7,8 @@ interface WaitingMessageProps {
 const WaitingMessage = ({ className = '' }: WaitingMessageProps) => {
   const messages = [
     "This may take a few minutes…",
-    "Usually I fix this in about 2 minutes.",
-    "Please note I'm just an AI model: I try my best, but may not be 100% accurate.",
+    "This usually takes about 2 minutes.",
+    "Please note this is an AI model: results are best-effort and may not be 100% accurate.",
     "Always review and edit before sharing with the client.",
     "Good things take time… generating your memo now.",
     "Almost there, polishing the details.",

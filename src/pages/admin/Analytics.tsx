@@ -184,11 +184,11 @@ const Analytics = () => {
           ) : (
             <ResponsiveContainer width="100%" height={220}>
               <LineChart data={sessionsPerWeek}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                <XAxis dataKey="label" stroke="#9ca3af" fontSize={11} />
-                <YAxis stroke="#9ca3af" fontSize={11} allowDecimals={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--ds-hairline)" />
+                <XAxis dataKey="label" stroke="var(--ds-ink-tertiary)" fontSize={11} />
+                <YAxis stroke="var(--ds-ink-tertiary)" fontSize={11} allowDecimals={false} />
                 <Tooltip contentStyle={{ fontSize: 12 }} />
-                <Line type="monotone" dataKey="count" stroke="#374151" strokeWidth={2} dot={{ r: 3 }} />
+                <Line type="monotone" dataKey="count" stroke="var(--ds-ink)" strokeWidth={2} dot={{ r: 3 }} />
               </LineChart>
             </ResponsiveContainer>
           )}
@@ -205,11 +205,11 @@ const Analytics = () => {
           ) : (
             <ResponsiveContainer width="100%" height={220}>
               <LineChart data={avgScorePerMonth}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                <XAxis dataKey="label" stroke="#9ca3af" fontSize={11} />
-                <YAxis stroke="#9ca3af" fontSize={11} domain={[0, 10]} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--ds-hairline)" />
+                <XAxis dataKey="label" stroke="var(--ds-ink-tertiary)" fontSize={11} />
+                <YAxis stroke="var(--ds-ink-tertiary)" fontSize={11} domain={[0, 10]} />
                 <Tooltip contentStyle={{ fontSize: 12 }} />
-                <Line type="monotone" dataKey="avg" stroke="#374151" strokeWidth={2} dot={{ r: 3 }} />
+                <Line type="monotone" dataKey="avg" stroke="var(--ds-ink)" strokeWidth={2} dot={{ r: 3 }} />
               </LineChart>
             </ResponsiveContainer>
           )}
@@ -227,12 +227,12 @@ const Analytics = () => {
         ) : (
           <ResponsiveContainer width="100%" height={Math.max(220, topQuestions.length * 28)}>
             <BarChart data={topQuestions} layout="vertical" margin={{ left: 60 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-              <XAxis type="number" stroke="#9ca3af" fontSize={11} allowDecimals={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--ds-hairline)" />
+              <XAxis type="number" stroke="var(--ds-ink-tertiary)" fontSize={11} allowDecimals={false} />
               <YAxis
                 type="category"
                 dataKey="qid"
-                stroke="#9ca3af"
+                stroke="var(--ds-ink-tertiary)"
                 fontSize={11}
                 width={60}
               />
@@ -243,7 +243,7 @@ const Analytics = () => {
                   return item?.label ?? val;
                 }}
               />
-              <Bar dataKey="count" fill="#374151" radius={[0, 4, 4, 0]} />
+              <Bar dataKey="count" fill="var(--ds-ink)" radius={[0, 4, 4, 0]} />
             </BarChart>
           </ResponsiveContainer>
         )}

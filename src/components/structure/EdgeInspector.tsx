@@ -9,8 +9,8 @@ interface Props {
   onDelete: () => void;
 }
 
-const FIELD_LABEL = 'block text-[10.5px] font-semibold uppercase tracking-[0.06em] text-stone-500 mb-1.5';
-const INPUT_BASE = 'h-9 bg-white/70 border-stone-200 focus-visible:ring-1 focus-visible:ring-stone-400 focus-visible:ring-offset-0';
+const FIELD_LABEL = 'block text-[10.5px] font-semibold uppercase tracking-[0.06em] text-ds-ink-secondary mb-1.5';
+const INPUT_BASE = 'h-9 bg-white/70 border-ds-hairline focus-visible:ring-1 focus-visible:ring-ds-ink-tertiary focus-visible:ring-offset-0';
 
 export function EdgeInspector({ edge, onChange, onDelete }: Props) {
   return (
@@ -29,10 +29,10 @@ export function EdgeInspector({ edge, onChange, onDelete }: Props) {
         />
       </div>
 
-      <label className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-md border border-stone-200/80 bg-stone-50/40 hover:bg-stone-50/80 transition-colors cursor-pointer">
+      <label className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-md border border-ds-hairline bg-ds-fill-muted hover:bg-ds-fill-muted transition-colors cursor-pointer">
         <div className="flex flex-col">
-          <span className="text-[13px] font-medium text-stone-800 leading-tight">Show % on chart</span>
-          <span className="text-[11px] text-stone-500 leading-tight">Value still feeds the memo</span>
+          <span className="text-[13px] font-medium text-ds-ink leading-tight">Show % on chart</span>
+          <span className="text-[11px] text-ds-ink-secondary leading-tight">Value still feeds the memo</span>
         </div>
         <Switch
           checked={!edge.label_hidden}
@@ -44,18 +44,18 @@ export function EdgeInspector({ edge, onChange, onDelete }: Props) {
         <button
           type="button"
           onClick={() => onChange({ label_dx: null, label_dy: null, label_t: null })}
-          className="inline-flex items-center gap-1.5 text-[12px] text-stone-500 hover:text-stone-800 transition-colors font-medium"
+          className="inline-flex items-center gap-1.5 text-[12px] text-ds-ink-secondary hover:text-ds-ink transition-colors font-medium"
         >
           <RotateCcw className="h-3.5 w-3.5" />
           Reset label position
         </button>
       )}
 
-      <div className="pt-1 border-t border-stone-100/80 -mx-4 px-4 mt-4">
+      <div className="pt-1 border-t border-ds-hairline -mx-4 px-4 mt-4">
         <button
           type="button"
           onClick={onDelete}
-          className="mt-2 inline-flex items-center gap-1.5 text-[12px] text-red-700/90 hover:text-red-800 transition-colors font-medium"
+          className="mt-2 inline-flex items-center gap-1.5 text-[12px] text-ds-red hover:bg-ds-red-bg rounded px-1 py-0.5 transition-colors font-medium"
         >
           <Trash2 className="h-3.5 w-3.5" />
           Delete edge

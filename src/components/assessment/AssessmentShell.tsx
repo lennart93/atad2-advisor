@@ -6,10 +6,14 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { ASSESSMENT_STEPS, stepIndexForPath } from '@/lib/assessment/steps';
+import { writeLastStep } from '@/lib/assessment/lastStep';
 import { useAssessmentSessionId } from '@/lib/assessment/useAssessmentSessionId';
 import { OpenQuestionsButton } from '@/components/openQuestions/OpenQuestionsButton';
-import { AssessmentStepper } from './AssessmentStepper';
+import { FooterBar, Stepper } from '@/components/ds';
+import { DossierTag } from './DossierTag';
 import { AssessmentShellContext } from './AssessmentShellContext';
+
+const STEP_LABELS = ASSESSMENT_STEPS.map((s) => s.label);
 
 export default function AssessmentShell() {
   const location = useLocation();
@@ -87,6 +91,13 @@ export default function AssessmentShell() {
     bodyRef.current?.focus();
   }, [location.pathname]);
 
+  // Remember the step this session is on so a later resume from the dashboard
+  // returns straight here. Fires on every step change (forward and back); the
+  // shell wraps every assessment route, so this is the one place it is needed.
+  useEffect(() => {
+    if (sessionId && stepDef) writeLastStep(sessionId, stepDef.key);
+  }, [sessionId, stepDef]);
+
   const { data: session } = useQuery({
     queryKey: ['assessment-shell-session', sessionId],
     enabled: !!sessionId,
@@ -94,7 +105,9 @@ export default function AssessmentShell() {
     queryFn: async () => {
       const { data } = await supabase
         .from('atad2_sessions')
-        .select('session_id, taxpayer_name, status')
+        .select(
+          'session_id, taxpayer_name, status, fiscal_year, period_start_date, period_end_date, created_at, preliminary_outcome, override_outcome, outcome_overridden, completed',
+        )
         .eq('session_id', sessionId!)
         .maybeSingle();
       return data;
@@ -123,11 +136,26 @@ export default function AssessmentShell() {
       {/* DD2 — desktop-primary: min-width so nothing collapses absurdly. */}
       <div className="flex h-[calc(100vh-4rem)] min-w-[1024px] flex-col">
         {/* Sub-header */}
-        <div className="shrink-0 border-b border-[hsl(var(--border-subtle))] bg-background">
+        <div className="shrink-0 border-b border-ds-hairline bg-ds-card">
           <div className="mx-auto max-w-6xl px-4 py-3">
             <div className="flex items-center gap-4">
+              {sessionId && (
+                <DossierTag
+                  sessionId={sessionId}
+                  taxpayerName={session?.taxpayer_name ?? null}
+                  fiscalYear={session?.fiscal_year ?? null}
+                  periodStart={session?.period_start_date ?? null}
+                  periodEnd={session?.period_end_date ?? null}
+                  startedAt={session?.created_at ?? null}
+                  preliminaryOutcome={session?.preliminary_outcome ?? null}
+                  overrideOutcome={session?.override_outcome ?? null}
+                  outcomeOverridden={!!session?.outcome_overridden}
+                  completed={!!session?.completed}
+                />
+              )}
               <div className="min-w-0 flex-1">
-                <AssessmentStepper
+                <Stepper
+                  steps={STEP_LABELS}
                   current={currentStep}
                   extraDone={extraDone}
                   onStepClick={fromOverview || onOverview ? handleStepClick : undefined}
@@ -135,7 +163,14 @@ export default function AssessmentShell() {
                   lockedIndexes={lockedIndexes}
                 />
               </div>
-              {sessionId && <OpenQuestionsButton sessionId={sessionId} />}
+              {/* Hidden on the Documents step: that page IS the open-points
+                  worklist, a header count would duplicate its progress. */}
+              {sessionId && stepDef?.key !== 'documents' && (
+                <OpenQuestionsButton
+                  sessionId={sessionId}
+                  onQuestionsStep={stepDef?.key === 'questions'}
+                />
+              )}
             </div>
           </div>
         </div>
@@ -170,11 +205,12 @@ export default function AssessmentShell() {
           </motion.div>
         </div>
 
-        {/* Footer portal target — always rendered so the portal has a home */}
-        <div
-          ref={setFooterEl}
-          className="min-h-[60px] shrink-0 border-t border-[hsl(var(--border-subtle))] bg-background/80 backdrop-blur-md"
-        />
+        {/* Footer portal target — always rendered so the portal has a home.
+            FooterBar owns the chrome (hairline top border, card surface);
+            sticky=false because this shell already pins it via flex layout. */}
+        <FooterBar sticky={false} className="min-h-[60px] shrink-0">
+          <div ref={setFooterEl} />
+        </FooterBar>
       </div>
     </AssessmentShellContext.Provider>
   );

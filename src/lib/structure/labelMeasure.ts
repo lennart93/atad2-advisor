@@ -8,7 +8,7 @@ const ELLIPSIS = '…';
 
 const cache = new Map<string, string[]>();
 let ctx: CanvasRenderingContext2D | null = null;
-const FONT_SPEC = 'bold 13px Inter, system-ui, sans-serif';
+const FONT_SPEC = '500 12px Inter, system-ui, sans-serif';
 
 function getCtx(): CanvasRenderingContext2D | null {
   if (ctx) return ctx;
@@ -22,8 +22,8 @@ function getCtx(): CanvasRenderingContext2D | null {
 export function measureWidth(text: string): number {
   const c = getCtx();
   if (!c) {
-    // SSR / jsdom fallback — ~7px per char at 13px bold
-    return text.length * 7;
+    // SSR / jsdom fallback — ~6.5px per char at 12px medium
+    return text.length * 6.5;
   }
   return c.measureText(text).width;
 }

@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
+import { Button, StatusPill } from '@/components/ds';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from "@/components/ui/sonner";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Check, Edit, HelpCircle } from 'lucide-react';
+import { Check, Edit, HelpCircle, Lightbulb, X } from 'lucide-react';
 import { AnswerChangeWarningDialog } from './AnswerChangeWarningDialog';
 import { useQuestionPrefill, useUpdatePrefillAction } from '@/hooks/usePrefill';
 
@@ -240,24 +239,24 @@ export const EditableAnswer: React.FC<EditableAnswerProps> = ({
   };
 
   return (
-    <div className={`border-b border-border last:border-b-0 pb-4 last:pb-0 rounded-lg p-3 -mx-3 transition-colors ${readOnly ? 'bg-muted/50 opacity-75' : ''}`}>
+    <div className={`border-b border-ds-hairline last:border-b-0 pb-4 last:pb-0 rounded-ds-control p-3 -mx-3 transition-colors ${readOnly ? 'bg-ds-fill-muted opacity-75' : ''}`}>
       <div className="flex items-start justify-between mb-2">
-        <p className={`text-sm font-medium flex-1 mr-4 ${readOnly ? 'text-muted-foreground/70' : 'text-muted-foreground'}`}>
+        <p className="text-[13px] font-medium flex-1 mr-4 text-ds-ink-secondary">
           {questionText}
         </p>
         <div className="flex items-center gap-2">
           {justSaved && (
-            <div className="flex items-center gap-1 text-green-600 text-sm">
-              <Check className="h-3 w-3" />
+            <StatusPill status="complete">
+              <Check />
               Saved
-            </div>
+            </StatusPill>
           )}
           {!isEditing && !readOnly && (
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setIsEditing(true)}
-              className={`h-8 px-2 ${showMissingExplanationHint ? 'text-amber-600 animate-pulse' : ''}`}
+              className={`h-8 px-2 ${showMissingExplanationHint ? 'text-ds-ink-secondary' : ''}`}
             >
               <Edit className="h-3 w-3" />
             </Button>
@@ -271,7 +270,7 @@ export const EditableAnswer: React.FC<EditableAnswerProps> = ({
                       variant="ghost"
                       size="sm"
                       disabled
-                      className="h-8 px-2 opacity-50 cursor-not-allowed"
+                      className="h-8 px-2"
                     >
                       <Edit className="h-3 w-3" />
                     </Button>
@@ -289,86 +288,92 @@ export const EditableAnswer: React.FC<EditableAnswerProps> = ({
       {/* Answer Section */}
       <div className="space-y-3">
         <div>
-          <span className="text-sm font-medium">Answer: </span>
+          <span className="text-[13px] font-medium">Answer: </span>
           {isEditing ? (
             <div className="flex gap-2 mt-1">
               {(["Yes", "No", "Unknown"] as const).map((opt) => {
                 const isSuggested =
                   prefill?.suggested_answer === opt.toLowerCase() &&
                   (prefill?.confidence_pct ?? 0) >= 40;
-                const variant = answer === opt
-                  ? (opt === "Unknown" ? "secondary" : "default")
-                  : "outline";
+                const isSelected = answer === opt;
                 return (
                   <Button
                     key={opt}
-                    variant={variant}
+                    variant="secondary"
                     size="sm"
                     onClick={() => setAnswer(opt)}
-                    className={opt === "Unknown" ? "text-gray-700 border-blue-300 hover:bg-blue-50" : undefined}
+                    aria-pressed={isSelected}
+                    className={isSelected ? "border-ds-ink bg-ds-fill-muted" : undefined}
                   >
                     {opt}
                     {isSuggested && (
-                      <span className="ml-2 text-[10px] uppercase tracking-wide bg-primary/10 text-primary px-1.5 py-0.5 rounded">
-                        Suggested ({prefill?.confidence_pct ?? 0}%)
-                      </span>
+                      <StatusPill status="neutral" className="ml-2">
+                        suggested · <span className="ds-tabular-nums">{prefill?.confidence_pct ?? 0}%</span>
+                      </StatusPill>
                     )}
                   </Button>
                 );
               })}
             </div>
           ) : (
-            <span className="inline-flex items-center gap-1">
-              {currentAnswer}
-              <span className="text-lg flex items-center">
-                {currentAnswer.toLowerCase() === 'yes' ? '✅' : 
-                 currentAnswer.toLowerCase() === 'no' ? '❌' : 
-                 currentAnswer.toLowerCase() === 'unknown' ? <HelpCircle className="w-5 h-5 text-blue-600" /> : <HelpCircle className="w-5 h-5 text-blue-600" />}
-              </span>
-            </span>
+            currentAnswer.toLowerCase() === 'yes' ? (
+              <StatusPill status="neutral">
+                <Check />
+                Yes
+              </StatusPill>
+            ) : currentAnswer.toLowerCase() === 'no' ? (
+              <StatusPill status="neutral">
+                <X />
+                No
+              </StatusPill>
+            ) : (
+              <StatusPill status="neutral">
+                <HelpCircle />
+                {currentAnswer || 'Unknown'}
+              </StatusPill>
+            )
           )}
         </div>
 
         {/* Explanation Section */}
         <div>
-          <span className="text-sm font-medium">Explanation: </span>
+          <span className="text-[13px] font-medium">Explanation: </span>
           {showPrefillSuggestion && prefill && (
-            <Card className="border-primary/30 bg-primary/5 mt-2 mb-2">
-              <CardContent className="space-y-2 pt-3 text-sm">
-                <div className="text-xs uppercase tracking-wide text-muted-foreground">
-                  Suggested context from your documents
+            <div className="mt-2 mb-2 space-y-2 rounded-ds-control bg-ds-fill-muted p-4 text-[13px]">
+              <div className="text-[13px] font-medium text-ds-ink-secondary">
+                Suggested context from your documents
+              </div>
+              <p className="whitespace-pre-wrap">{prefill.suggested_toelichting}</p>
+              {prefill.source_refs && prefill.source_refs.length > 0 && (
+                <div className="text-[13px] text-ds-ink-secondary">
+                  From: {prefill.source_refs.map((r, i) => (
+                    <span key={i}>{i > 0 ? "; " : ""}{r.doc_label} {r.location}</span>
+                  ))}
                 </div>
-                <p className="whitespace-pre-wrap">{prefill.suggested_toelichting}</p>
-                {prefill.source_refs && prefill.source_refs.length > 0 && (
-                  <div className="text-xs text-muted-foreground">
-                    From: {prefill.source_refs.map((r, i) => (
-                      <span key={i}>{i > 0 ? "; " : ""}{r.doc_label} {r.location}</span>
-                    ))}
-                  </div>
-                )}
-                <div className="flex gap-2">
-                  <Button size="sm" onClick={acceptPrefillIntoEditor}>Accept</Button>
-                  <Button size="sm" variant="ghost" onClick={dismissPrefill}>Dismiss</Button>
-                </div>
-              </CardContent>
-            </Card>
+              )}
+              <div className="flex gap-2">
+                <Button size="sm" variant="secondary" onClick={acceptPrefillIntoEditor}>Accept</Button>
+                <Button size="sm" variant="ghost" onClick={dismissPrefill}>Dismiss</Button>
+              </div>
+            </div>
           )}
           {isEditing ? (
             <Textarea
               value={explanation}
               onChange={(e) => setExplanation(e.target.value)}
               placeholder="Add explanation..."
-              className="mt-1"
+              className="mt-1 text-[15px]"
               rows={3}
             />
           ) : (
             <div className="inline-flex flex-col">
-              <span className="text-sm text-muted-foreground">
+              <span className="text-[13px] text-ds-ink-secondary">
                 {currentExplanation || 'No explanation provided'}
               </span>
               {showMissingExplanationHint && !currentExplanation && (
-                <span className="text-xs text-amber-600 mt-1 flex items-center gap-1 animate-pulse">
-                  💡 No explanation added yet
+                <span className="text-[13px] text-ds-ink-secondary mt-1 flex items-center gap-1">
+                  <Lightbulb className="h-3 w-3" />
+                  No explanation added yet
                 </span>
               )}
             </div>
@@ -379,6 +384,7 @@ export const EditableAnswer: React.FC<EditableAnswerProps> = ({
         {isEditing && (
           <div className="flex gap-2 pt-2">
             <Button
+              variant="secondary"
               size="sm"
               onClick={handleSave}
               disabled={saving}
@@ -386,7 +392,7 @@ export const EditableAnswer: React.FC<EditableAnswerProps> = ({
               {saving ? 'Saving...' : 'Save changes'}
             </Button>
             <Button
-              variant="outline"
+              variant="ghost"
               size="sm"
               onClick={handleCancel}
               disabled={saving}

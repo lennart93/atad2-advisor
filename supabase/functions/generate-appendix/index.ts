@@ -7,6 +7,7 @@ import { FactsModelOutput } from "./factsSchemas.ts";
 import { loadDocumentsBlock } from "./documentsLoader.ts";
 import { retrieveKb } from "./kbRetrieval.ts";
 import { SKELETON_ROWS, type ServerSkeletonRow } from "./skeletonRows.ts";
+import { mootNaRowIds } from "./mootness.ts";
 import { loadAppendixPrompt, loadPrompt } from "./promptsLoader.ts";
 import {
   buildEntityRegister,
@@ -236,11 +237,23 @@ async function runGeneration(c: SupabaseClient, appendixId: string, sessionId: s
       };
     });
 
+    // Deterministic N/A backstop: force scope-gate-satisfied and moot rows to
+    // "N/A" regardless of what the model returned, so a moot condition never
+    // reads "Insufficient information" or a bare "Not triggered". Evaluated on
+    // the fresh AI statuses; advisor edits are re-applied by the merge below.
+    // Only applied where the row actually allows "N/A" (guards a not-yet-migrated
+    // skeleton from receiving an out-of-vocabulary status).
+    const naRowIds = mootNaRowIds(stored);
+    const allowsNa = new Set(rows.filter((r) => r.allowedStates.includes("N/A")).map((r) => r.rowId));
+    const normalized = stored.map((r) =>
+      naRowIds.has(r.rowId) && allowsNa.has(r.rowId) ? { ...r, status: "N/A", aiStatus: "N/A" } : r,
+    );
+
     // merge: preserve any pre-existing edited rows (regeneration)
     const { data: existing } = await c.from("atad2_appendix").select("rows").eq("id", appendixId).maybeSingle();
     const existingRows = (existing?.rows ?? []) as Array<Record<string, unknown>>;
     const existingById = new Map(existingRows.map((r) => [r.rowId as string, r]));
-    const merged = stored.map((fresh) => {
+    const merged = normalized.map((fresh) => {
       const prev = existingById.get(fresh.rowId);
       // Exclusion is a scope flag, preserved across regeneration regardless of source.
       const excludedFromClient = (prev?.excludedFromClient as boolean | undefined) ?? false;
@@ -486,9 +499,11 @@ async function buildFacts(
           status: "proposed" as const, excludedFromClient: false, source: "ai" as const,
         };
       }),
-      // One acting-together assessment for the parents (not multiple clusters with
-      // per-level texts): a single likelihood + one prose paragraph.
-      actingTogether: proposed.actingTogether.filter((a) => a.memberEntityIds.length >= 2).slice(0, 1).map((a, i) => {
+      // Every plausible acting-together grouping the model proposed (2+ members),
+      // each with its own likelihood + reasoning. A >25% parent does not crowd the
+      // section out: other shareholders can still form a group, on their own or
+      // together with that parent.
+      actingTogether: proposed.actingTogether.filter((a) => a.memberEntityIds.length >= 2).map((a, i) => {
         const likelihood = (a.likelihood && VALID_LIKELIHOODS.includes(a.likelihood as typeof VALID_LIKELIHOODS[number]) ? a.likelihood : "unclear") as ActingLikelihood;
         const r = a.rationales ?? {};
         const rationales: Partial<Record<ActingLikelihood, string>> = {};

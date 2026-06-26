@@ -39,15 +39,15 @@ export function SlideInPanel({
         aria-modal="true"
         style={{ width }}
         className={cn(
-          "fixed right-0 top-0 bottom-0 bg-white border-l border-[#ececec] shadow-[-8px_0_24px_rgba(0,0,0,0.08)] z-50",
+          "fixed right-0 top-0 bottom-0 bg-ds-card border-l border-ds-hairline shadow-[-8px_0_24px_rgba(0,0,0,0.08)] z-50",
           "transition-transform duration-200 ease-out flex flex-col",
           open ? "translate-x-0" : "translate-x-full"
         )}
       >
-        <header className="flex items-start justify-between px-5 py-4 border-b border-[#ececec]">
+        <header className="flex items-start justify-between px-5 py-4 border-b border-ds-hairline">
           <div>
             {subtitle && (
-              <div className="text-xs font-semibold text-[#4f46e5] uppercase tracking-wide mb-0.5">
+              <div className="text-xs font-semibold text-ds-ink-secondary uppercase tracking-wide mb-0.5">
                 {subtitle}
               </div>
             )}
@@ -63,7 +63,7 @@ export function SlideInPanel({
         </header>
         <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>
         {footer && (
-          <footer className="border-t border-[#ececec] px-5 py-3">{footer}</footer>
+          <footer className="border-t border-ds-hairline px-5 py-3">{footer}</footer>
         )}
       </aside>
     </>

@@ -65,7 +65,7 @@ export function useOpenQuestions(sessionId: string | null) {
 /**
  * Official question text per question_id. atad2_questions holds one row per
  * answer option, so rows are deduped by question_id (same pattern as the
- * question count in AnalyzeProgress).
+ * question count used by the analysis screen).
  */
 export function useQuestionTexts() {
   return useQuery({
@@ -106,9 +106,19 @@ export function useQuestionBranches() {
 }
 
 /**
+ * A definitive yes/no suggestion only steers the projected path when the model
+ * is at least this confident. Below it, the suggestion is treated as a
+ * wildcard so both branches stay open. This is the same bar the questionnaire
+ * uses to surface a "suggested" pill, so a guess too weak to show is also too
+ * weak to silently prune a question out of the worklist.
+ */
+export const SUGGESTION_CONFIDENCE_FLOOR = 40;
+
+/**
  * question_id -> suggested_answer ('yes' | 'no' | 'unknown' | null) from the
  * AI prefills of this session. Feeds the projected-path walk: suggestions
- * steer the branching wherever no recorded answer exists yet.
+ * steer the branching wherever no recorded answer exists yet. A low-confidence
+ * yes/no is downgraded to null (a wildcard) so it never prunes the path.
  */
 export function useSuggestedAnswerMap(sessionId: string | null) {
   const qc = useQueryClient();
@@ -118,12 +128,16 @@ export function useSuggestedAnswerMap(sessionId: string | null) {
     queryFn: async (): Promise<Map<string, string | null>> => {
       const { data, error } = await supabase
         .from("atad2_question_prefills")
-        .select("question_id, suggested_answer")
+        .select("question_id, suggested_answer, confidence_pct")
         .eq("session_id", sessionId!);
       if (error) throw error;
       const byId = new Map<string, string | null>();
       for (const row of data ?? []) {
-        byId.set(row.question_id, row.suggested_answer);
+        const answer = row.suggested_answer;
+        const belowFloor =
+          (answer === "yes" || answer === "no") &&
+          (row.confidence_pct ?? 0) < SUGGESTION_CONFIDENCE_FLOOR;
+        byId.set(row.question_id, belowFloor ? null : answer);
       }
       return byId;
     },

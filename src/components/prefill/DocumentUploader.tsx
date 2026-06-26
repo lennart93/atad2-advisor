@@ -6,9 +6,8 @@ import {
 } from "@/lib/prefill/types";
 import type { DocumentCategory } from "@/lib/prefill/types";
 import { CategoryDropdown } from "./CategoryDropdown";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Trash2, Upload, ClipboardPaste } from "lucide-react";
+import { Button, Card, StatusPill } from "@/components/ds";
+import { Trash2, Upload, ClipboardPaste, Loader2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { PasteTextDialog } from "./PasteTextDialog";
 import { maybePrewarmPhaseA } from "@/lib/structure/phaseAPrewarm";
@@ -93,10 +92,10 @@ export function DocumentUploader({ sessionId, locked }: Props) {
           <div
             onDrop={(e) => { e.preventDefault(); onFilesSelected(e.dataTransfer.files); }}
             onDragOver={(e) => e.preventDefault()}
-            className="border-2 border-dashed rounded-lg p-8 text-center"
+            className="rounded-ds-control border border-dashed border-ds-hairline p-8 text-center"
           >
-            <Upload className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground mb-3">Drag files here or click to browse</p>
+            <Upload className="mx-auto mb-2 h-8 w-8 text-ds-ink-tertiary" />
+            <p className="mb-3 text-[13px] text-ds-ink-secondary">Drag files here or click to browse</p>
             <input
               ref={inputRef}
               type="file"
@@ -107,9 +106,9 @@ export function DocumentUploader({ sessionId, locked }: Props) {
             />
             <div className="flex items-center justify-center gap-3">
               <Button variant="secondary" onClick={() => inputRef.current?.click()}>Upload files</Button>
-              <span className="text-xs text-muted-foreground">or</span>
-              <Button variant="outline" onClick={() => setPasteOpen(true)}>
-                <ClipboardPaste className="h-4 w-4 mr-2" /> Paste text
+              <span className="text-[13px] text-ds-ink-secondary">or</span>
+              <Button variant="secondary" onClick={() => setPasteOpen(true)}>
+                <ClipboardPaste /> Paste text
               </Button>
             </div>
           </div>
@@ -125,17 +124,27 @@ export function DocumentUploader({ sessionId, locked }: Props) {
           .map((p) => (
           <Card key={p.localId} className="p-3 flex items-start gap-3">
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium break-all" title={p.file.name}>
+              <div className="text-[13px] font-medium break-all" title={p.file.name}>
                 {p.file.name}
               </div>
-              <div className="text-xs text-muted-foreground">
-                {formatBytes(p.file.size)} · {labelForStatus(p)}
+              <div className="mt-0.5 flex items-center gap-2 text-[13px] text-ds-ink-secondary">
+                <span className="ds-tabular-nums">{formatBytes(p.file.size)}</span>
+                {p.status === "failed" ? (
+                  <StatusPill status="neutral">Failed</StatusPill>
+                ) : (
+                  <span className="flex items-center gap-1.5">
+                    {(p.status === "queued" || p.status === "uploading") && (
+                      <Loader2 className="h-3.5 w-3.5 motion-safe:animate-spin text-ds-ink-tertiary" aria-hidden="true" />
+                    )}
+                    {labelForStatus(p)}
+                  </span>
+                )}
               </div>
-              {p.errorMessage && <div className="text-xs text-destructive">{p.errorMessage}</div>}
+              {p.errorMessage && <div className="text-[13px] text-ds-ink-secondary">{p.errorMessage}</div>}
             </div>
             {!locked && (
               <Button variant="ghost" size="icon" onClick={() => store.removeFile(p.localId)}>
-                <Trash2 className="h-4 w-4" />
+                <Trash2 />
               </Button>
             )}
           </Card>
@@ -151,15 +160,27 @@ export function DocumentUploader({ sessionId, locked }: Props) {
           .map((d) => (
             <Card key={d.id} className="p-3 flex items-start gap-3">
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium break-all flex items-center gap-2" title={d.filename}>
-                  {d.mime_type === "text/plain" && <ClipboardPaste className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
+                <div className="text-[13px] font-medium break-all flex items-center gap-2" title={d.filename}>
+                  {d.mime_type === "text/plain" && <ClipboardPaste className="h-3.5 w-3.5 text-ds-ink-tertiary shrink-0" />}
                   {d.doc_label || d.filename}
                   {d.is_thin && (
-                    <span className="text-[10px] text-amber-700 italic">looks empty</span>
+                    <span className="text-[10px] text-ds-ink-secondary">looks empty</span>
                   )}
                 </div>
-                <div className="text-xs text-muted-foreground">
-                  {formatBytes(d.size_bytes)} · {d.status === "summarized" ? "Ready" : d.status === "summarizing" ? "Analyzing…" : d.status}
+                <div className="mt-0.5 flex items-center gap-2 text-[13px] text-ds-ink-secondary">
+                  <span className="ds-tabular-nums">{formatBytes(d.size_bytes)}</span>
+                  {d.status === "summarized" ? (
+                    <StatusPill status="complete">Ready</StatusPill>
+                  ) : d.status === "failed" ? (
+                    <StatusPill status="neutral">Failed</StatusPill>
+                  ) : d.status === "summarizing" ? (
+                    <span className="flex items-center gap-1.5">
+                      <Loader2 className="h-3.5 w-3.5 motion-safe:animate-spin text-ds-ink-tertiary" aria-hidden="true" />
+                      Analyzing…
+                    </span>
+                  ) : (
+                    <span>Uploaded</span>
+                  )}
                 </div>
               </div>
               {!locked && (
@@ -182,7 +203,7 @@ export function DocumentUploader({ sessionId, locked }: Props) {
                     }}
                     aria-label="Remove document"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 />
                   </Button>
                 </>
               )}

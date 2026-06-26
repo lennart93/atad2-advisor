@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertCircle, CheckCircle2, ChevronDown, ChevronRight, Eye, EyeOff, Flag, Info, Network } from 'lucide-react';
+import { AlertCircle, CheckCircle2, ChevronDown, ChevronRight, Eye, EyeOff, Flag, Info, Minus, Network, Pencil } from 'lucide-react';
 import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from '@/components/ui/select';
@@ -7,6 +7,8 @@ import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { cleanReasoning } from '@/lib/appendix/reasoningText';
+import { statusDisplayLabel } from '@/lib/appendix/status';
+import { rowTone, type RowTone } from '@/lib/appendix/conditionPolarity';
 import type { RelatedParty, RelatedPartiesResult, Relationship } from '@/lib/appendix/relatedParties';
 import type { AppendixRow, EditableField, SkeletonRow, Status } from '@/lib/appendix/types';
 
@@ -26,29 +28,21 @@ interface Section {
 }
 
 // ---------------------------------------------------------------------------
-// Status presentation: the quiet default vs the rows that need the reviewer.
-// 'Not triggered' is the dominant, boring outcome and stays muted; color is
-// reserved for Triggered (info blue) and Insufficient information (amber).
+// Status presentation, driven by the row's tone (see conditionPolarity.rowTone):
+//   - 'clear' (green check) and 'na' (muted green dash) are both calm: a resolved
+//     test or a satisfied scope gate vs does-not-apply. A met scope/precondition
+//     row (in scope, cross-border, related party) reads 'clear', not an alarm.
+//   - 'risk' (amber flag) and 'caution' (amber, Insufficient info) are the rows
+//     that warrant the reviewer.
+// No red, no blue: amber is the only attention colour. The same tone drives the
+// memo and the print/export, so the three can never disagree.
 // ---------------------------------------------------------------------------
 
-type StatusKind = 'triggered' | 'insufficient' | 'quiet';
-
-function statusKind(status: Status | null): StatusKind {
-  if (status === 'Triggered') return 'triggered';
-  if (status === 'Insufficient information') return 'insufficient';
-  return 'quiet';
-}
-
-const STATUS_SHORT: Record<StatusKind, string> = {
-  triggered: 'Triggered',
-  insufficient: 'Insufficient info',
-  quiet: 'Not triggered',
-};
-
-function StatusIcon({ kind, className }: { kind: StatusKind; className?: string }) {
-  if (kind === 'triggered') return <Flag className={cn('text-sky-600 dark:text-sky-400', className)} />;
-  if (kind === 'insufficient') return <AlertCircle className={cn('text-amber-600 dark:text-amber-400', className)} />;
-  return <CheckCircle2 className={cn('text-muted-foreground/50', className)} />;
+function ToneIcon({ tone, className }: { tone: RowTone; className?: string }) {
+  if (tone === 'risk') return <Flag className={cn('text-ds-amber', className)} />;
+  if (tone === 'caution') return <AlertCircle className={cn('text-ds-amber', className)} />;
+  if (tone === 'na') return <Minus className={cn('text-ds-green opacity-60', className)} />;
+  return <CheckCircle2 className={cn('text-ds-green', className)} />;
 }
 
 /**
@@ -81,18 +75,20 @@ function ReasoningBlock({ value, label, onCommit }: { value: string; label: stri
           if (draft.trim() !== value.trim()) onCommit(draft.trim());
         }}
         aria-label={label}
-        className="w-full resize-none overflow-hidden rounded border border-[hsl(var(--border-subtle))] bg-white/70 px-2 py-1.5 text-sm leading-relaxed text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-stone-400 dark:bg-transparent"
+        className="w-full resize-none overflow-hidden rounded border border-[hsl(var(--border-subtle))] bg-white/70 px-2 py-1.5 text-sm leading-relaxed text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ds-ink-tertiary dark:bg-transparent"
       />
     );
   }
   return (
     <div>
       <p className="text-sm leading-relaxed text-foreground/90">{value || 'No reasoning recorded.'}</p>
+      {/* Quiet at rest; revealed on row hover or keyboard focus. */}
       <button
         type="button"
         onClick={() => { setDraft(value); setEditing(true); }}
-        className="mt-1.5 rounded border border-[hsl(var(--border-subtle))] px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        className="mt-1.5 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-muted-foreground/70 opacity-0 transition-opacity hover:bg-muted hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
       >
+        <Pencil className="h-3 w-3" />
         Edit reasoning
       </button>
     </div>
@@ -107,7 +103,7 @@ function pct(n: number | null): string {
 function AssociationRow({ p }: { p: RelatedParty }) {
   const reverse = p.meetsReverse === true;
   const associated = p.meetsRelated === true;
-  const dot = reverse ? 'bg-indigo-500' : associated ? 'bg-sky-500' : 'bg-muted-foreground/30';
+  const dot = reverse ? 'bg-ds-ink' : associated ? 'bg-ds-ink-secondary' : 'bg-muted-foreground/30';
   return (
     <div className="flex items-center gap-1.5 py-1 text-xs leading-tight">
       <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', dot)} aria-hidden />
@@ -117,7 +113,7 @@ function AssociationRow({ p }: { p: RelatedParty }) {
       {p.jurisdiction && <span className="shrink-0 text-[10px] uppercase text-muted-foreground/70">{p.jurisdiction}</span>}
       <span className="flex-1" />
       <span className="shrink-0 tabular-nums text-muted-foreground">{pct(p.ownershipPct)}</span>
-      {reverse && <span className="shrink-0 text-[10px] font-medium text-indigo-600 dark:text-indigo-300">&ge;50%</span>}
+      {reverse && <span className="shrink-0 text-[10px] font-medium text-ds-ink-secondary">&ge;50%</span>}
     </div>
   );
 }
@@ -142,17 +138,17 @@ function AssociationPanel({ data }: { data: RelatedPartiesResult | null }) {
   if (!data) return <p className="text-xs text-muted-foreground">Structure chart not available.</p>;
   if (!data.parties.length) return <p className="text-xs text-muted-foreground">No related parties found in the structure chart.</p>;
   return (
-    <div className="rounded-md border border-sky-200/70 bg-sky-50/40 p-2.5 dark:border-sky-900/40 dark:bg-sky-950/20">
+    <div className="rounded-md border border-ds-hairline bg-ds-fill-muted p-2.5">
       <div className="mb-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-          <Network className="h-3.5 w-3.5 text-sky-700 dark:text-sky-300" />
+          <Network className="h-3.5 w-3.5 text-ds-ink-secondary" />
           Associated enterprises{data.taxpayerName ? ` of ${data.taxpayerName}` : ''}
         </span>
         <span className="text-[10px] text-muted-foreground">art. 12ac, &gt;25% test</span>
         <span className="flex-1" />
         <span className="flex items-center gap-2.5 text-[10px] text-muted-foreground">
-          <LegendDot dot="bg-indigo-500" label="≥50%" />
-          <LegendDot dot="bg-sky-500" label=">25% associated" />
+          <LegendDot dot="bg-ds-ink" label="≥50%" />
+          <LegendDot dot="bg-ds-ink-secondary" label=">25% associated" />
           <LegendDot dot="bg-muted-foreground/30" label="below" />
         </span>
       </div>
@@ -248,15 +244,16 @@ export function AppendixTable({ rows, skeleton, showSources, relatedParties, onE
     return out;
   }, [byId, skeleton]);
 
-  // Rows that need the reviewer start expanded; the quiet majority starts
-  // collapsed. Initialized once when rows first arrive so the background
-  // refine poll never yanks rows open or shut while the advisor works.
+  // Every row starts expanded so the advisor can read each assessment without
+  // clicking; the collapse toggle is still there per row. Initialized once when
+  // rows first arrive so the background refine poll never yanks rows open or
+  // shut while the advisor works.
   const [open, setOpen] = useState<Set<string>>(new Set());
   const initializedRef = useRef(false);
   useEffect(() => {
     if (initializedRef.current || rows.length === 0) return;
     initializedRef.current = true;
-    setOpen(new Set(rows.filter((r) => statusKind(r.status) !== 'quiet').map((r) => r.rowId)));
+    setOpen(new Set(rows.map((r) => r.rowId)));
   }, [rows]);
   const toggle = (id: string) =>
     setOpen((prev) => {
@@ -266,33 +263,19 @@ export function AppendixTable({ rows, skeleton, showSources, relatedParties, onE
       return next;
     });
 
-  const tally = (sec: Section): string => {
-    const counts = { triggered: 0, insufficient: 0, quiet: 0 };
-    for (const sk of sec.items) counts[statusKind(byId.get(sk.rowId)!.status)] += 1;
-    const parts = [
-      `${sec.items.length} ${sec.items.length === 1 ? 'condition' : 'conditions'}`,
-      counts.quiet > 0 ? `${counts.quiet} not triggered` : null,
-      counts.insufficient > 0 ? `${counts.insufficient} insufficient` : null,
-      counts.triggered > 0 ? `${counts.triggered} triggered` : null,
-    ].filter(Boolean);
-    return parts.join(' · ');
-  };
-
   return (
     <div className="space-y-7">
       {sections.map((sec) => (
         <section key={sec.sectionId}>
-          <div className="mb-2 flex items-baseline gap-3">
+          <div className="mb-2">
             <h3 className="text-sm font-semibold text-foreground">
               Section {sec.sectionId} · {sec.sectionTitle}
             </h3>
-            <span className="flex-1" />
-            <span className="shrink-0 text-[11px] text-muted-foreground">{tally(sec)}</span>
           </div>
           <div className="space-y-1.5">
             {sec.items.map((sk) => {
               const row = byId.get(sk.rowId)!;
-              const kind = statusKind(row.status);
+              const tone = rowTone(row.status, sk.rowId);
               const expanded = open.has(sk.rowId);
               const excluded = row.excludedFromClient;
               const reasoning = cleanReasoning(row.reasoning);
@@ -310,14 +293,14 @@ export function AppendixTable({ rows, skeleton, showSources, relatedParties, onE
                     )}
                   >
                     <span className="w-7 shrink-0 tabular-nums text-xs text-muted-foreground">{sk.rowId}</span>
-                    <StatusIcon kind={kind} className="h-3.5 w-3.5 shrink-0" />
+                    <ToneIcon tone={tone} className="h-3.5 w-3.5 shrink-0" />
                     <span className="min-w-0 flex-1 text-muted-foreground">{sk.conditionTested}</span>
                     {row.stale && (
-                      <Badge variant="outline" className="shrink-0 border-amber-400/50 text-[10px] font-normal text-amber-700 dark:text-amber-300">
+                      <Badge variant="outline" className="shrink-0 border-ds-hairline text-[10px] font-normal text-ds-ink-secondary">
                         review again
                       </Badge>
                     )}
-                    <span className="shrink-0 text-xs text-muted-foreground/70">{STATUS_SHORT[kind]}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground/70">{statusDisplayLabel(row.status)}</span>
                     <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
                   </button>
                 );
@@ -327,10 +310,10 @@ export function AppendixTable({ rows, skeleton, showSources, relatedParties, onE
                 <Fragment key={sk.rowId}>
                   <div
                     className={cn(
-                      'rounded-md border border-[hsl(var(--border-subtle))] border-l-[3px]',
-                      kind === 'triggered' && 'border-l-sky-500 bg-sky-50/40 dark:bg-sky-950/15',
-                      kind === 'insufficient' && 'border-l-amber-500 bg-amber-50/50 dark:bg-amber-950/15',
-                      kind === 'quiet' && 'border-l-[hsl(var(--border-subtle))]',
+                      'group rounded-md border border-[hsl(var(--border-subtle))] border-l-[3px]',
+                      tone === 'risk' && 'border-l-ds-amber bg-ds-amber-bg',
+                      tone === 'caution' && 'border-l-ds-amber bg-ds-amber-bg',
+                      (tone === 'clear' || tone === 'na') && 'border-l-[hsl(var(--border-subtle))]',
                       excluded && 'opacity-55',
                     )}
                   >
@@ -344,17 +327,18 @@ export function AppendixTable({ rows, skeleton, showSources, relatedParties, onE
                         className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
                       >
                         <span className="w-7 shrink-0 tabular-nums text-xs text-muted-foreground">{sk.rowId}</span>
-                        <StatusIcon kind={kind} className="h-4 w-4 shrink-0" />
+                        <ToneIcon tone={tone} className="h-4 w-4 shrink-0" />
                         <span className="min-w-0 text-sm font-medium text-foreground">{sk.conditionTested}</span>
                       </button>
                       <Select value={row.status ?? undefined} onValueChange={(v) => onEdit(sk.rowId, 'status', v)}>
                         <SelectTrigger
                           aria-label={`Status for ${sk.rowId}`}
                           className={cn(
-                            'h-7 w-auto gap-1.5 rounded-full border-none px-2.5 text-xs font-medium',
-                            kind === 'triggered' && 'bg-sky-100 text-sky-900 dark:bg-sky-900/50 dark:text-sky-200',
-                            kind === 'insufficient' && 'bg-amber-100 text-amber-900 dark:bg-amber-900/50 dark:text-amber-200',
-                            kind === 'quiet' && 'bg-muted text-muted-foreground',
+                            'h-7 w-auto gap-1.5 rounded-ds-chip px-2.5 text-xs font-medium',
+                            tone === 'risk' && 'border-none bg-ds-amber-bg text-ds-amber-text',
+                            tone === 'caution' && 'border border-ds-amber bg-transparent text-ds-amber-text',
+                            tone === 'clear' && 'border-none bg-ds-green-bg text-ds-green-text',
+                            tone === 'na' && 'border-none bg-ds-fill-muted text-ds-green-text',
                           )}
                         >
                           <SelectValue placeholder="Choose" />
@@ -396,13 +380,13 @@ export function AppendixTable({ rows, skeleton, showSources, relatedParties, onE
                     <div className="space-y-1.5 px-3 pb-3 pl-[3.25rem] pt-1">
                       <p className={cn(
                         'text-xs font-medium',
-                        kind === 'triggered' && 'text-sky-700 dark:text-sky-300',
-                        kind === 'insufficient' && 'text-amber-700 dark:text-amber-300',
-                        kind === 'quiet' && 'text-muted-foreground',
+                        tone === 'risk' && 'text-ds-amber-text',
+                        tone === 'caution' && 'text-ds-amber-text',
+                        (tone === 'clear' || tone === 'na') && 'text-muted-foreground',
                       )}>
                         {sk.legalBasis}
                         {row.stale && (
-                          <Badge variant="outline" className="ml-2 border-amber-400/50 text-[10px] font-normal text-amber-700 dark:text-amber-300">
+                          <Badge variant="outline" className="ml-2 border-ds-hairline text-[10px] font-normal text-ds-ink-secondary">
                             review again
                           </Badge>
                         )}

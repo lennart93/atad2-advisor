@@ -1,11 +1,11 @@
-import React, { useMemo } from "react";
-import { Button } from "@/components/ui/button";
+import React from "react";
+import { Button } from "@/components/ds";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { AlertTriangle, FileText, Pencil } from "lucide-react";
+import { FileText, Info, Pencil } from "lucide-react";
 
 interface MissingExplanationsPopoverProps {
   missingCount: number;
@@ -16,29 +16,6 @@ interface MissingExplanationsPopoverProps {
   onTriggerClick?: () => void;
   children: React.ReactNode;
 }
-
-const explanationVariants = [
-  {
-    line1: "That's okay - not every question asks for one.",
-    line2: "However, adding context where possible helps improve the memorandum.",
-  },
-  {
-    line1: "To keep things fast, we don't always ask for extra input.",
-    line2: "However, adding context where you can will make the memo stronger.",
-  },
-  {
-    line1: "Not required - but adding context can improve the memorandum.",
-    line2: null,
-  },
-  {
-    line1: "This is optional.",
-    line2: "However, extra context (where relevant) helps generate a stronger memo.",
-  },
-  {
-    line1: "We keep the flow fast, so explanations aren't always requested.",
-    line2: "However, adding context where you can will improve the memo.",
-  },
-];
 
 const MissingExplanationsPopover: React.FC<MissingExplanationsPopoverProps> = ({
   missingCount,
@@ -56,11 +33,6 @@ const MissingExplanationsPopover: React.FC<MissingExplanationsPopoverProps> = ({
     }
   };
 
-  const variant = useMemo(() => {
-    const randomIndex = Math.floor(Math.random() * explanationVariants.length);
-    return explanationVariants[randomIndex];
-  }, [isOpen]);
-
   return (
     <Popover open={isOpen} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild onClick={handleTriggerClick}>
@@ -75,28 +47,27 @@ const MissingExplanationsPopover: React.FC<MissingExplanationsPopoverProps> = ({
         <div className="space-y-4">
           {/* Header */}
           <div className="flex items-start gap-3">
-            <div className="p-2 bg-amber-100 rounded-lg shrink-0">
-              <AlertTriangle className="h-5 w-5 text-amber-600" />
+            <div className="p-2 bg-ds-fill-muted rounded-ds-control shrink-0">
+              <Info className="h-5 w-5 text-ds-ink-secondary" />
             </div>
             <div>
-              <h4 className="font-semibold text-foreground">
+              <h4 className="font-medium text-ds-ink">
                 Some answers have no explanation
               </h4>
             </div>
           </div>
 
           {/* Body text */}
-          <div className="text-sm text-muted-foreground">
+          <div className="text-[13px] text-ds-ink-secondary">
             <p>
-              {variant.line1}
-              {variant.line2 && <> {variant.line2}</>}
+              Some answers have no explanation. Adding context where relevant improves the memorandum.
             </p>
           </div>
 
           {/* Action buttons */}
           <div className="flex items-center gap-3 pt-2">
             <Button
-              variant="outline"
+              variant="secondary"
               size="sm"
               onClick={() => {
                 onReviewQuestions();
@@ -104,18 +75,19 @@ const MissingExplanationsPopover: React.FC<MissingExplanationsPopoverProps> = ({
               }}
               className="flex-1"
             >
-              <Pencil className="h-4 w-4 mr-2" />
+              <Pencil className="h-4 w-4" />
               Add context
             </Button>
             <Button
+              variant="secondary"
               size="sm"
               onClick={() => {
                 onGenerateAnyway();
                 onOpenChange(false);
               }}
-              className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+              className="flex-1"
             >
-              <FileText className="h-4 w-4 mr-2" />
+              <FileText className="h-4 w-4" />
               Generate anyway
             </Button>
           </div>

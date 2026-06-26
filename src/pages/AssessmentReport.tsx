@@ -3,14 +3,12 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, StatusPill, OptionCheckbox } from "@/components/ds";
 import { toast } from "@/components/ui/sonner";
-import { format } from "date-fns";
-import { ArrowLeft, FileText, Bot, Loader2, AlertTriangle, Info, CheckCircle, Pencil, X, Check } from "lucide-react";
+import { formatDate, formatDateTime } from "@/utils/formatDate";
+import { ArrowLeft, Loader2, AlertTriangle, Info, CheckCircle, Pencil, X, Check } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Checkbox } from "@/components/ui/checkbox";
 import { EditableAnswer } from "@/components/EditableAnswer";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import ReactMarkdown from "react-markdown";
@@ -26,6 +24,7 @@ import { loadChartSnapshot } from "@/lib/structure/client";
 import { loadAppendix } from "@/lib/appendix/client";
 import { appendixMemoBlock } from "@/lib/appendix/buildAppendixBlock";
 import { loadAppendixSkeleton } from "@/lib/appendix/skeletonStore";
+import { checkAppendixSync } from "@/lib/appendix/memoSyncGuard";
 interface SessionData {
   session_id: string;
   taxpayer_name: string;
@@ -91,7 +90,11 @@ const AssessmentReport = () => {
   const [hasAcceptedChanges, setHasAcceptedChanges] = useState(false);
   const [isApplyingFeedback, setIsApplyingFeedback] = useState(false);
   const [includeChartInMemo, setIncludeChartInMemo] = useState(true);
-  
+  // Per-download appendix choices. null = use the appendix's saved skip flag as the
+  // default (appendices default on); local to the download, not persisted.
+  const [includeFactsOverride, setIncludeFactsOverride] = useState<boolean | null>(null);
+  const [includeChecklistOverride, setIncludeChecklistOverride] = useState<boolean | null>(null);
+
   // Editable reasoning and context state
   const [isEditingReasoning, setIsEditingReasoning] = useState(false);
   const [isEditingContext, setIsEditingContext] = useState(false);
@@ -138,8 +141,31 @@ const AssessmentReport = () => {
     queryFn: () => loadChartSnapshot(sessionId!),
   });
 
+  // Confirmed appendix, loaded so the download options can show per-appendix
+  // checkboxes seeded from the saved skip flags.
+  const { data: appendixForDownload } = useQuery({
+    queryKey: ['appendix-download', sessionId],
+    enabled: !!sessionId,
+    staleTime: 30_000,
+    queryFn: () => loadAppendix(sessionId!),
+  });
+
   // Get the most recent report for inline display
   const latestReport = reports?.[0];
+
+  // Appendix availability + the effective per-download include choice. Default on
+  // (unless a page was skipped); a local override wins for this download only.
+  const appendixConfirmed = appendixForDownload?.review_status === 'confirmed';
+  const factsAppendixAvailable = !!appendixConfirmed && (appendixForDownload?.facts?.entities?.length ?? 0) > 0;
+  const checklistAppendixAvailable = !!appendixConfirmed && (appendixForDownload?.rows?.some((r) => !r.excludedFromClient) ?? false);
+  const includeFactsAppendix = includeFactsOverride ?? !(appendixForDownload?.facts_skipped ?? false);
+  const includeChecklistAppendix = includeChecklistOverride ?? !(appendixForDownload?.checklist_skipped ?? false);
+  const anyIncludeOption = !!chartSnapshot?.snapshot_png || factsAppendixAvailable || checklistAppendixAvailable;
+  const generatedAtLabel = latestReport?.generated_at
+    ? new Date(latestReport.generated_at).toLocaleString('en-GB', {
+        day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+      })
+    : '';
 
   // Sync currentMemoMarkdown with latestReport when it changes
   useEffect(() => {
@@ -247,26 +273,33 @@ const AssessmentReport = () => {
   const totalRiskPoints = Math.round((answers.reduce((sum, answer) => sum + answer.risk_points, 0)) * 100) / 100;
 
   // Determine the final outcome - use override if applicable
-  const getFinalOutcome = () => {
+  type OutcomeDisplay = {
+    text: string;
+    icon: JSX.Element;
+    status: "triggered" | "insufficient" | "complete";
+    description: string;
+  };
+
+  const getFinalOutcome = (): OutcomeDisplay => {
     if (sessionData?.outcome_overridden && sessionData?.override_outcome) {
       // Map stored outcome string to display text
-      const outcomeMap: Record<string, { text: string; icon: JSX.Element; color: string; description: string }> = {
+      const outcomeMap: Record<string, OutcomeDisplay> = {
         'risk_identified': {
           text: "ATAD2 risk identified",
-          icon: <AlertTriangle className="h-4 w-4 text-red-600" />,
-          color: "text-red-600",
+          icon: <AlertTriangle />,
+          status: "triggered",
           description: "This outcome was manually selected based on your expert assessment."
         },
         'insufficient_information': {
           text: "Insufficient information",
-          icon: <Info className="h-4 w-4 text-orange-600" />,
-          color: "text-orange-600",
+          icon: <Info />,
+          status: "insufficient",
           description: "This outcome was manually selected based on your expert assessment."
         },
         'low_risk': {
           text: "Low ATAD2 risk",
-          icon: <CheckCircle className="h-4 w-4 text-green-600" />,
-          color: "text-green-600",
+          icon: <CheckCircle />,
+          status: "complete",
           description: "This outcome was manually selected based on your expert assessment."
         }
       };
@@ -275,26 +308,26 @@ const AssessmentReport = () => {
     return getRiskOutcome(totalRiskPoints);
   };
 
-  const getRiskOutcome = (points: number) => {
+  const getRiskOutcome = (points: number): OutcomeDisplay => {
     if (points >= 1.0) {
       return {
         text: "ATAD2 risk identified",
-        icon: <AlertTriangle className="h-4 w-4 text-red-600" />,
-        color: "text-red-600",
+        icon: <AlertTriangle />,
+        status: "triggered",
         description: "You can generate a memorandum highlighting potential ATAD2 risk areas for further review."
       };
     } else if (points >= 0.2) {
       return {
         text: "Insufficient information",
-        icon: <Info className="h-4 w-4 text-orange-600" />,
-        color: "text-orange-600",
+        icon: <Info />,
+        status: "insufficient",
         description: "You can generate a memorandum outlining which information is missing to complete a full ATAD2 analysis."
       };
     } else {
       return {
         text: "Low",
-        icon: <CheckCircle className="h-4 w-4 text-green-600" />,
-        color: "text-green-600",
+        icon: <CheckCircle />,
+        status: "complete",
         description: "You can generate a memorandum confirming that no ATAD2 risks were identified based on the provided information."
       };
     }
@@ -407,7 +440,7 @@ const AssessmentReport = () => {
     }
 
     setIsGeneratingReport(true);
-    
+
     try {
       console.log('Starting report generation for session:', sessionId);
 
@@ -428,14 +461,25 @@ const AssessmentReport = () => {
 
       // Feed the confirmed technical appendix into the memo so the narrative
       // agrees with the article-by-article analysis. Reference column is excluded.
+      // Hard rule 0.1: never build a memo from a stale or unconfirmed appendix.
+      // Block and ask the advisor to regenerate/confirm first.
       let confirmedAppendix: string | null = null;
       try {
         const [appendix, appendixSkeleton] = await Promise.all([loadAppendix(sessionId), loadAppendixSkeleton()]);
-        if (appendix && appendix.review_status === 'confirmed') {
-          confirmedAppendix = appendixMemoBlock(appendix, appendixSkeleton);
+        const sync = checkAppendixSync(appendix);
+        if (!sync.ok) {
+          toast.error("Appendix not ready", { description: sync.reason });
+          setIsGeneratingReport(false);
+          return;
         }
+        confirmedAppendix = appendixMemoBlock(appendix!, appendixSkeleton);
       } catch (e) {
-        console.warn('[generate-report] loadAppendix failed, continuing without appendix', e);
+        console.warn('[generate-report] appendix sync check failed', e);
+        toast.error("Could not verify the appendix", {
+          description: "The appendix could not be read to check it is in sync. Please try again in a moment.",
+        });
+        setIsGeneratingReport(false);
+        return;
       }
 
       // Call n8n webhook - n8n will process and the Edge Function will save the complete report
@@ -519,7 +563,7 @@ const AssessmentReport = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
-        <p className="text-xl text-muted-foreground">Loading assessment report...</p>
+        <p className="text-[15px] text-ds-ink-secondary">Loading assessment report...</p>
       </div>
     );
   }
@@ -528,8 +572,8 @@ const AssessmentReport = () => {
     return (
       <div className="flex items-center justify-center py-24">
         <div className="text-center">
-          <p className="text-xl text-muted-foreground">Assessment not found</p>
-          <Button onClick={() => navigate("/")} className="mt-4">
+          <p className="text-[15px] text-ds-ink-secondary">Assessment not found</p>
+          <Button variant="secondary" onClick={() => navigate("/")} className="mt-4">
             Return to dashboard
           </Button>
         </div>
@@ -551,31 +595,29 @@ const AssessmentReport = () => {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <h3 className="font-semibold mb-2">Session details:</h3>
-                  <div className="space-y-1 text-sm">
+                  <h3 className="font-medium mb-2">Session details:</h3>
+                  <div className="space-y-1 text-[13px]">
                     <p><span className="font-medium">Taxpayer:</span> {sessionData.taxpayer_name}</p>
-                    <p><span className="font-medium">Tax year:</span> {sessionData.fiscal_year}</p>
-                    <p><span className="font-medium">Completed:</span> {format(new Date(sessionData.created_at), 'MMM d, yyyy HH:mm')}</p>
+                    <p><span className="font-medium">Tax year:</span> <span className="tabular">{sessionData.fiscal_year}</span></p>
+                    <p><span className="font-medium">Completed:</span> <span className="tabular">{formatDateTime(sessionData.created_at)}</span></p>
                     {sessionData.is_custom_period && sessionData.period_start_date && sessionData.period_end_date && (
-                      <p><span className="font-medium">Period:</span> {format(new Date(sessionData.period_start_date), 'MMM d, yyyy')} - {format(new Date(sessionData.period_end_date), 'MMM d, yyyy')}</p>
+                      <p><span className="font-medium">Period:</span> <span className="tabular">{formatDate(sessionData.period_start_date)} - {formatDate(sessionData.period_end_date)}</span></p>
                     )}
                   </div>
                 </div>
                 <div>
-                  <h3 className="font-semibold mb-2">Risk assessment outcome:</h3>
+                  <h3 className="font-medium mb-2">Risk assessment outcome:</h3>
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
-                      {riskOutcome.icon}
-                      <span className={`font-medium ${riskOutcome.color}`}>
+                      <StatusPill status={riskOutcome.status}>
+                        {riskOutcome.icon}
                         {riskOutcome.text}
-                      </span>
+                      </StatusPill>
                       {sessionData.outcome_overridden && (
-                        <span className="text-xs bg-muted px-2 py-0.5 rounded text-muted-foreground">
-                          Adjusted
-                        </span>
+                        <StatusPill status="neutral">Adjusted</StatusPill>
                       )}
                     </div>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-[13px] text-ds-ink-secondary">
                       {riskOutcome.description}
                     </p>
                   </div>
@@ -590,15 +632,15 @@ const AssessmentReport = () => {
                     : 'grid-cols-1'
                 }`}>
                   {sessionData.outcome_overridden && sessionData.override_reason && (
-                    <div className="p-3 bg-muted/50 rounded-lg overflow-hidden">
+                    <div className="bg-ds-fill-muted rounded-ds-control p-4 overflow-hidden">
                       <div className="flex items-center justify-between mb-1">
-                        <p className="text-xs font-medium text-muted-foreground">Your reasoning:</p>
+                        <p className="text-[13px] font-medium text-ds-ink-secondary">Your reasoning:</p>
                         {!isEditingReasoning && (
                           latestReport || isGeneratingReport ? (
                             <TooltipProvider>
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <Button variant="ghost" size="sm" disabled className="h-6 w-6 p-0 opacity-50">
+                                  <Button variant="ghost" size="sm" disabled className="h-6 w-6 p-0">
                                     <Pencil className="h-3 w-3" />
                                   </Button>
                                 </TooltipTrigger>
@@ -625,28 +667,29 @@ const AssessmentReport = () => {
                       {isEditingReasoning ? (
                         <div className="space-y-2">
                           <Textarea 
-                            value={editedReasoning} 
+                            value={editedReasoning}
                             onChange={(e) => setEditedReasoning(e.target.value)}
-                            className="min-h-[80px] text-sm"
+                            className="min-h-[80px] text-[15px]"
                           />
                           {editedReasoning.trim().length < 100 && (
-                            <p className="text-xs text-muted-foreground">
+                            <p className="text-[13px] text-ds-ink-secondary tabular">
                               {100 - editedReasoning.trim().length} more characters needed
                             </p>
                           )}
                           <div className="flex gap-2">
-                            <Button 
-                              size="sm" 
-                              onClick={handleSaveReasoning} 
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={handleSaveReasoning}
                               disabled={editedReasoning.trim().length < 100 || isSavingReasoning}
                               className="h-7"
                             >
                               {isSavingReasoning ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3 mr-1" />}
                               Save
                             </Button>
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               onClick={() => setIsEditingReasoning(false)}
                               className="h-7"
                             >
@@ -656,20 +699,20 @@ const AssessmentReport = () => {
                           </div>
                         </div>
                       ) : (
-                        <p className="text-sm break-words">{sessionData.override_reason}</p>
+                        <p className="text-[13px] break-words">{sessionData.override_reason}</p>
                       )}
                     </div>
                   )}
                   {sessionData.additional_context && (
-                    <div className="p-3 bg-muted/50 rounded-lg overflow-hidden">
+                    <div className="bg-ds-fill-muted rounded-ds-control p-4 overflow-hidden">
                       <div className="flex items-center justify-between mb-1">
-                        <p className="text-xs font-medium text-muted-foreground">Your additions:</p>
+                        <p className="text-[13px] font-medium text-ds-ink-secondary">Your additions:</p>
                         {!isEditingContext && (
                           latestReport || isGeneratingReport ? (
                             <TooltipProvider>
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <Button variant="ghost" size="sm" disabled className="h-6 w-6 p-0 opacity-50">
+                                  <Button variant="ghost" size="sm" disabled className="h-6 w-6 p-0">
                                     <Pencil className="h-3 w-3" />
                                   </Button>
                                 </TooltipTrigger>
@@ -696,23 +739,24 @@ const AssessmentReport = () => {
                       {isEditingContext ? (
                         <div className="space-y-2">
                           <Textarea 
-                            value={editedContext} 
+                            value={editedContext}
                             onChange={(e) => setEditedContext(e.target.value)}
-                            className="min-h-[80px] text-sm"
+                            className="min-h-[80px] text-[15px]"
                           />
                           <div className="flex gap-2">
-                            <Button 
-                              size="sm" 
-                              onClick={handleSaveContext} 
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={handleSaveContext}
                               disabled={isSavingContext}
                               className="h-7"
                             >
                               {isSavingContext ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3 mr-1" />}
                               Save
                             </Button>
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               onClick={() => setIsEditingContext(false)}
                               className="h-7"
                             >
@@ -722,7 +766,7 @@ const AssessmentReport = () => {
                           </div>
                         </div>
                       ) : (
-                        <p className="text-sm break-words">{sessionData.additional_context}</p>
+                        <p className="text-[13px] break-words">{sessionData.additional_context}</p>
                       )}
                     </div>
                   )}
@@ -745,14 +789,13 @@ const AssessmentReport = () => {
                   variant="ghost"
                   size="sm"
                   onClick={() => navigate(`/assessment/structure/${sessionId}?from=overview`)}
-                  className="text-muted-foreground hover:text-foreground"
                 >
                   <Pencil className="h-3.5 w-3.5 mr-1.5" />
                   Edit
                 </Button>
               </CardHeader>
               <CardContent>
-                <div className="rounded-lg border border-[hsl(var(--border-subtle))] bg-muted/30 p-4">
+                <div className="bg-ds-page border border-ds-hairline rounded-ds-control p-4">
                   <img
                     src={chartSnapshot.snapshot_png}
                     alt="Structure chart for this assessment"
@@ -769,14 +812,13 @@ const AssessmentReport = () => {
                   variant="ghost"
                   size="sm"
                   onClick={() => navigate(`/assessment/structure/${sessionId}?from=overview`)}
-                  className="text-muted-foreground hover:text-foreground"
                 >
                   <Pencil className="h-3.5 w-3.5 mr-1.5" />
                   Edit
                 </Button>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-[13px] text-ds-ink-secondary">
                   Structure chart snapshot unavailable for this assessment.
                 </p>
               </CardContent>
@@ -785,46 +827,53 @@ const AssessmentReport = () => {
 
           {/* Generate Report Button */}
           <Card>
-            <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
-              <div className="space-y-1.5">
-                <CardTitle>Generate memorandum</CardTitle>
-                <CardDescription>
-                  Generate an AI-powered ATAD2 memorandum based on this assessment
-                </CardDescription>
-              </div>
-              {latestReport && chartSnapshot?.snapshot_png && (
-                <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none whitespace-nowrap pt-1">
-                  <Checkbox
-                    checked={includeChartInMemo}
-                    onCheckedChange={(v) => setIncludeChartInMemo(v === true)}
-                  />
-                  Include structure chart
-                </label>
-              )}
+            <CardHeader className="space-y-1.5">
+              <CardTitle>Generate memorandum</CardTitle>
+              <CardDescription>
+                Generate an AI-powered ATAD2 memorandum based on this assessment
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                <div className="flex items-center gap-3 flex-wrap">
-                  {latestReport ? (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div>
-                            <Button
-                              size="lg"
-                              disabled
-                              className="disabled:opacity-50 transition-all duration-fast"
-                            >
-                              Memorandum generated
-                            </Button>
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>This memorandum has already been generated</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  ) : (
+              <div className="space-y-5">
+                {anyIncludeOption && (
+                  <div>
+                    <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.07em] text-ds-ink-tertiary">
+                      Include in the memorandum
+                    </p>
+                    <div className="flex flex-wrap gap-x-[22px] gap-y-2.5">
+                      {chartSnapshot?.snapshot_png && (
+                        <OptionCheckbox
+                          checked={includeChartInMemo}
+                          disabled={isGeneratingReport}
+                          onToggle={() => setIncludeChartInMemo(!includeChartInMemo)}
+                        >
+                          Structure chart
+                        </OptionCheckbox>
+                      )}
+                      {factsAppendixAvailable && (
+                        <OptionCheckbox
+                          checked={includeFactsAppendix}
+                          disabled={isGeneratingReport}
+                          onToggle={() => setIncludeFactsOverride(!includeFactsAppendix)}
+                        >
+                          Appendix 1 · Facts &amp; relationships
+                        </OptionCheckbox>
+                      )}
+                      {checklistAppendixAvailable && (
+                        <OptionCheckbox
+                          checked={includeChecklistAppendix}
+                          disabled={isGeneratingReport}
+                          onToggle={() => setIncludeChecklistOverride(!includeChecklistAppendix)}
+                        >
+                          Appendix 2 · Condition assessment
+                        </OptionCheckbox>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-center gap-3">
                     <MissingExplanationsPopover
                       missingCount={missingExplanationCount}
                       isOpen={showMissingExplanationsPopover}
@@ -834,10 +883,13 @@ const AssessmentReport = () => {
                       onTriggerClick={handleGenerateAnyway}
                     >
                       <Button
+                        variant="primary"
                         size="lg"
                         onClick={handleGenerateButtonClick}
-                        disabled={isGeneratingReport}
-                        className="disabled:opacity-50 transition-all duration-fast"
+                        // Lock once a memo exists: the button stays visible but
+                        // dimmed (disabled:opacity-50) and unclickable. No
+                        // regeneration after the first run.
+                        disabled={isGeneratingReport || !!latestReport}
                       >
                         {isGeneratingReport ? (
                           <>
@@ -849,28 +901,32 @@ const AssessmentReport = () => {
                         )}
                       </Button>
                     </MissingExplanationsPopover>
+
+                    <DownloadMemoButton
+                      sessionId={sessionId!}
+                      memoMarkdown={displayMemo}
+                      enabled={!!latestReport}
+                      disabled={isApplyingFeedback}
+                      // Only embed the chart when there is a saved snapshot AND the
+                      // chip is on; otherwise the template's {{#hasStructureChart}}
+                      // block drops the structure-overview section cleanly.
+                      includeChart={includeChartInMemo && !!chartSnapshot?.snapshot_png}
+                      includeFactsAppendix={includeFactsAppendix}
+                      includeChecklistAppendix={includeChecklistAppendix}
+                    />
+                  </div>
+
+                  {latestReport && (
+                    <p className="flex items-center gap-1.5 text-[13px] text-ds-green-text">
+                      <CheckCircle className="h-3.5 w-3.5" aria-hidden="true" />
+                      Generated · {generatedAtLabel}
+                    </p>
                   )}
 
-                  {/* Hairline divider between primary action and secondary group */}
-                  <div className="h-6 w-px bg-border" aria-hidden="true" />
-
-                  <DownloadMemoButton
-                    sessionId={sessionId!}
-                    memoMarkdown={displayMemo}
-                    enabled={!!latestReport}
-                    disabled={isApplyingFeedback}
-                    // Only include the chart when both (a) the user has a
-                    // saved snapshot AND (b) the toggle is on. Without (a),
-                    // there's nothing to embed — passing false skips the
-                    // DB query + live-capture fallback entirely, and the
-                    // template's {{#hasStructureChart}} block drops the
-                    // "Corporate structure overview" section cleanly.
-                    includeChart={includeChartInMemo && !!chartSnapshot?.snapshot_png}
-                  />
+                  {isGeneratingReport && (
+                    <WaitingMessage />
+                  )}
                 </div>
-                {isGeneratingReport && (
-                  <WaitingMessage />
-                )}
               </div>
             </CardContent>
           </Card>
@@ -887,11 +943,10 @@ const AssessmentReport = () => {
                     <TooltipTrigger asChild>
                       <span className="shrink-0">
                         <Button
-                          variant="outline"
+                          variant="secondary"
                           size="sm"
                           onClick={() => setIsFeedbackMode(true)}
                           disabled={hasAcceptedChanges}
-                          className={`transition-all duration-fast ${hasAcceptedChanges ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
                           <Pencil className="h-4 w-4 mr-2" />
                           Improve memo
@@ -925,7 +980,7 @@ const AssessmentReport = () => {
                     onSubmittingChange={setIsApplyingFeedback}
                   />
                 ) : displayMemo ? (
-                  <div className="markdown-body prose prose-base dark:prose-invert max-w-none text-left prose-headings:tracking-tight prose-headings:font-semibold prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg">
+                  <div className="markdown-body prose prose-base dark:prose-invert max-w-none text-left prose-headings:tracking-tight prose-headings:font-medium prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg">
                     <ReactMarkdown
                       rehypePlugins={[rehypeRaw]}
                       components={{
@@ -933,10 +988,10 @@ const AssessmentReport = () => {
                           <span className="underline" style={{ textDecorationLine: 'underline', textUnderlineOffset: '3px' }}>{children}</span>
                         ),
                         p: ({ children }) => <p>{children}</p>,
-                        h1: ({ children }) => <p className="font-bold">{children}</p>,
-                        h2: ({ children }) => <p className="font-bold">{children}</p>,
-                        h3: ({ children }) => <h3 className="font-bold">{children}</h3>,
-                        h4: ({ children }) => <h4 className="font-bold">{children}</h4>,
+                        h1: ({ children }) => <p className="font-medium">{children}</p>,
+                        h2: ({ children }) => <p className="font-medium">{children}</p>,
+                        h3: ({ children }) => <h3 className="font-medium">{children}</h3>,
+                        h4: ({ children }) => <h4 className="font-medium">{children}</h4>,
                         ul: ({ children }) => <ul>{children}</ul>,
                         li: ({ children }) => <li>{children}</li>,
                         br: () => <br />,
@@ -974,9 +1029,9 @@ const AssessmentReport = () => {
                     <div
                       key={answer.id}
                       ref={(el) => { questionRefs.current[answer.question_id] = el; }}
-                      className={`transition-all duration-500 rounded-lg ${
-                        isHighlighted 
-                          ? 'border-l-4 border-amber-400 bg-amber-50/50 pl-4 -ml-4' 
+                      className={`transition-all duration-500 rounded-ds-control ${
+                        isHighlighted
+                          ? 'border-l-2 border-ds-hairline bg-ds-fill-muted pl-4 -ml-4'
                           : ''
                       }`}
                     >
@@ -1004,7 +1059,7 @@ const AssessmentReport = () => {
 
         <AssessmentFooterSlot
           left={
-            <Button variant="outline" onClick={() => navigate('/')} className="transition-all duration-fast">
+            <Button variant="secondary" onClick={() => navigate('/')}>
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to dashboard
             </Button>

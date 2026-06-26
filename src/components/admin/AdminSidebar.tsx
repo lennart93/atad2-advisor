@@ -2,7 +2,7 @@ import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard, ListChecks, HelpCircle, FileText, Users,
   BarChart3, Database, AlertCircle, ArrowLeft, Sparkles, Activity,
-  MessageSquare, Scale, LucideIcon,
+  MessageSquare, Scale, Wand2, LucideIcon,
 } from "lucide-react";
 import { IconChip } from "@/components/admin/IconChip";
 import { cn } from "@/lib/utils";
@@ -21,6 +21,7 @@ const ITEMS: Item[] = [
   { title: "Analytics",         url: "/admin/analytics",         icon: BarChart3 },
   { title: "Data Explorer",     url: "/admin/explorer",          icon: Database },
   { title: "Prompts",           url: "/admin/prompts",           icon: Sparkles },
+  { title: "Prompt Tuner",      url: "/admin/prompt-tuner",      icon: Wand2 },
   { title: "Appendix framework", url: "/admin/appendix-skeleton", icon: Scale },
   { title: "Pre-Fill Jobs",     url: "/admin/prefill-jobs",      icon: Activity },
   { title: "Audit Log",         url: "/admin/audit",             icon: AlertCircle },
@@ -30,7 +31,7 @@ const linkClasses = ({ isActive }: { isActive: boolean }) =>
   cn(
     "flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors duration-fast border-l-2",
     isActive
-      ? "bg-accent border-l-primary text-foreground font-medium"
+      ? "bg-ds-fill-muted border-l-ds-ink text-ds-ink font-medium"
       : "border-l-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground hover:border-l-border"
   );
 
@@ -59,7 +60,7 @@ export function AppSidebar() {
               <IconChip icon={item.icon} size="sm" />
               <span className="flex-1">{item.title}</span>
               {badge > 0 && (
-                <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-[#db2777] text-white text-[10px] font-semibold px-1">
+                <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-ds-ink text-ds-card text-[10px] font-semibold px-1">
                   {badge > 99 ? "99+" : badge}
                 </span>
               )}

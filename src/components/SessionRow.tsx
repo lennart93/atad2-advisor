@@ -1,8 +1,7 @@
 import { useNavigate } from "react-router-dom";
-import { FileText, Trash2, Clock } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { FileText, Trash2 } from "lucide-react";
+import { Button, StatusPill } from "@/components/ds";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,55 +37,54 @@ export function SessionRow({
   const navigate = useNavigate();
 
   return (
-    <div className="flex items-center justify-between p-4 border border-[hsl(var(--border-subtle))] rounded-lg bg-background transition-[border-color,box-shadow,transform] duration-200 motion-safe:hover:-translate-y-px hover:border-[hsl(var(--border-default))] hover:shadow-md">
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-3 mb-2">
-          <h3 className="font-semibold tracking-tight truncate">{taxpayerName}</h3>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div>
-                  {hasMemorandum ? (
-                    <Badge variant="live">
-                      Ready
-                    </Badge>
-                  ) : (
-                    <Badge variant="secondary" className="gap-1">
-                      <Clock className="h-3 w-3" />
-                      In progress
-                    </Badge>
-                  )}
-                </div>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>
-                  {hasMemorandum
-                    ? `Memorandum generated on ${formatDate(memorandumDate)}`
-                    : "No memorandum generated yet"}
-                </p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+    <div className="flex items-center justify-between gap-4 rounded-ds-card border border-ds-hairline bg-ds-card p-4 transition-colors duration-150 hover:bg-ds-fill-muted">
+      <div className="min-w-0 flex-1">
+        <div className="mb-1.5 flex items-center gap-3">
+          <h3 className="truncate text-[15px] font-medium tracking-tight text-ds-ink">
+            {taxpayerName}
+          </h3>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span>
+                {hasMemorandum ? (
+                  <StatusPill status="complete">Ready</StatusPill>
+                ) : (
+                  <StatusPill status="neutral">Memo pending</StatusPill>
+                )}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>
+                {hasMemorandum
+                  ? `Memorandum generated on ${formatDate(memorandumDate)}`
+                  : "No memorandum generated yet"}
+              </p>
+            </TooltipContent>
+          </Tooltip>
         </div>
-        <div className="text-sm text-muted-foreground tabular">
-          FY {fiscalYear} · Completed {formatDate(completedAt)}
-        </div>
+        <p className="tabular text-[13px] text-ds-ink-secondary">
+          FY{fiscalYear} · completed {formatDate(completedAt)}
+        </p>
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
         <Button
-          variant="outline"
+          variant="secondary"
           size="sm"
           onClick={() => navigate(`/assessment-report/${sessionId}`)}
         >
-          <FileText className="h-4 w-4 mr-2" />
+          <FileText />
           View report
         </Button>
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <button className="text-red-600 hover:text-red-800 text-sm flex items-center gap-1 transition-colors duration-200">
-              <Trash2 className="h-4 w-4" />
-              Delete
-            </button>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Delete assessment"
+              className="text-ds-ink-secondary hover:text-ds-red"
+            >
+              <Trash2 />
+            </Button>
           </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>
