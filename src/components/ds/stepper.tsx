@@ -157,44 +157,40 @@ function Stepper({
         </Popover>
       </div>
 
-      {/* Full track from 1200px up */}
-      <ol className="hidden min-w-0 items-center min-[1200px]:flex">
+      {/* Full track from 1200px up: numbered (01-07), a 2px terracotta underline
+          marks the active step, no circle bubbles (editorial brand look). */}
+      <ol className="hidden min-w-0 items-center gap-5 min-[1200px]:flex">
         {steps.map((label, i) => {
           const isActive = i === current;
           const isDone = i < current || extraDoneSet.has(i);
           const isLocked = isDone && lockedSet.has(i);
           const isClickable = !isLocked && !!onStepClick && extraDoneSet.has(i);
           const state: StepState = isActive ? "active" : isDone ? "done" : "upcoming";
+          const num = String(i + 1).padStart(2, "0");
 
           const content = (
-            <>
-              <StepBadge state={state} n={i + 1} />
+            <span
+              className={cn(
+                "inline-flex min-w-0 items-center gap-1.5 border-b-2 pb-1.5",
+                isActive ? "border-brand-terracotta" : "border-transparent",
+              )}
+            >
+              <span className="ds-tabular-nums text-[11px] text-ds-ink-tertiary">{num}</span>
               {isDone && <span className="sr-only">Completed: </span>}
               <span className={stepLabelClass(state)}>{label}</span>
-            </>
+              {isLocked && (
+                <Lock className="size-3 shrink-0 text-ds-ink-tertiary" aria-hidden="true" />
+              )}
+            </span>
           );
 
           return (
-            <li
-              key={i}
-              className={cn("flex min-w-0 items-center", i > 0 && "flex-1")}
-            >
-              {i > 0 && (
-                <span
-                  aria-hidden="true"
-                  className={cn(
-                    "mx-1.5 h-px min-w-[12px] flex-1",
-                    i <= current || extraDoneSet.has(i - 1)
-                      ? "bg-ds-ink-tertiary"
-                      : "bg-ds-hairline",
-                  )}
-                />
-              )}
+            <li key={i} className="flex min-w-0 items-center">
               {isClickable ? (
                 <button
                   type="button"
                   onClick={() => onStepClick(i)}
-                  className="inline-flex min-w-0 items-center gap-2 rounded-ds-chip px-1.5 py-1 transition-colors duration-150 hover:bg-ds-fill-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent"
+                  className="inline-flex min-w-0 items-center rounded-ds-chip transition-colors duration-150 hover:text-ds-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent"
                 >
                   {content}
                 </button>
@@ -204,7 +200,7 @@ function Stepper({
                     <TooltipTrigger asChild>
                       <span
                         tabIndex={0}
-                        className="inline-flex min-w-0 cursor-default items-center gap-2 rounded-ds-chip px-1.5 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent"
+                        className="inline-flex min-w-0 cursor-default items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent"
                       >
                         {content}
                       </span>
@@ -217,7 +213,7 @@ function Stepper({
               ) : (
                 <span
                   aria-current={isActive ? "step" : undefined}
-                  className="inline-flex min-w-0 items-center gap-2 px-1.5 py-1"
+                  className="inline-flex min-w-0 items-center"
                 >
                   {content}
                 </span>
