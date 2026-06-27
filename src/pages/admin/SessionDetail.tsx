@@ -76,7 +76,7 @@ const SessionDetail = () => {
     return (
       <main>
         <div className="text-center py-16">
-          <div className="text-muted-foreground mb-4">Session not found.</div>
+          <div className="text-muted-foreground mb-4">This session could not be found. It may have been deleted.</div>
           <Button variant="outline" onClick={() => navigate("/admin/sessions")}>
             Back to sessions
           </Button>
@@ -167,8 +167,8 @@ const SessionDetail = () => {
       <AdminCard className="mb-6">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <div className="text-xs font-mono text-muted-foreground">{session.session_id}</div>
-            <h1 className="text-2xl font-medium tracking-tight truncate mt-1">{session.taxpayer_name}</h1>
+            <div className="text-xs font-mono text-muted-foreground tabular-nums">{session.session_id}</div>
+            <h1 className="text-2xl font-normal tracking-tight truncate mt-1">{session.taxpayer_name}</h1>
             {session.entity_name && (
               <div className="text-[12px] text-muted-foreground mt-0.5">{session.entity_name}</div>
             )}
@@ -349,7 +349,7 @@ function DossierTab({
           <Skeleton className="h-32 w-full" />
         ) : reports.length === 0 ? (
           <AdminCard>
-            <div className="text-muted-foreground text-[13px]">No report generated yet.</div>
+            <div className="text-muted-foreground text-[13px]">No memo has been generated for this session yet.</div>
           </AdminCard>
         ) : (
           <div className="space-y-3">
@@ -401,7 +401,7 @@ function JourneyTab({ answers, loading }: { answers: AdminAnswerRow[]; loading: 
     return (
       <div className="pt-4">
         <AdminCard>
-          <div className="text-muted-foreground text-[13px]">No journey events.</div>
+          <div className="text-muted-foreground text-[13px]">No journey events have been recorded for this session.</div>
         </AdminCard>
       </div>
     );

@@ -170,11 +170,10 @@ export default function AppendixSkeleton() {
       <Seo title="Admin · Appendix legal framework" description="Edit the ATAD2 technical-appendix rows" canonical="/admin/appendix-skeleton" />
       <div className="flex items-end justify-between mb-6">
         <div>
-          <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-1">Admin</div>
-          <h1 className="text-2xl font-medium tracking-tight">Appendix legal framework</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            The fixed rows of the technical appendix (art. 2 + 12aa-12af). Editing the text or structure here changes
-            what every new and regenerated appendix shows. The question wiring stays in code.
+          <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-ds-ink-secondary mb-1">Admin</div>
+          <h1 className="text-2xl font-normal tracking-tight text-ds-ink">Appendix legal framework</h1>
+          <p className="text-sm text-ds-ink-secondary mt-1">
+            The fixed rows of the technical appendix (art. 2 + 12aa-12af). Edits here flow into every new and regenerated appendix; the question wiring stays in code.
           </p>
         </div>
         <Button onClick={save} disabled={saving || q.isLoading}>
@@ -184,7 +183,7 @@ export default function AppendixSkeleton() {
       </div>
 
       {q.isLoading ? (
-        <p className="text-muted-foreground">Loading…</p>
+        <p className="text-ds-ink-secondary">Loading the legal framework…</p>
       ) : (
         <div className="space-y-3">
           {rows.map((r, i) => (

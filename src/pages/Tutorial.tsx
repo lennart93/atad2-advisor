@@ -124,7 +124,7 @@ const Tutorial = () => {
             <AnimatedLogo size={26} interactive={false} />
             <div className="leading-tight">
               <div className="text-[12.5px] font-medium tracking-tight">ATAD2 Advisor</div>
-              <div className="text-[10.5px] text-muted-foreground">A guided tour</div>
+              <div className="text-[10.5px] text-muted-foreground">A guided walkthrough</div>
             </div>
           </Link>
 
@@ -237,7 +237,7 @@ const Tutorial = () => {
                     </span>
                   )}
                 </div>
-                <h1 className="text-2xl font-medium tracking-tight sm:text-3xl">{chapter.title}</h1>
+                <h1 className="text-2xl font-normal tracking-tight tabular-nums sm:text-3xl">{chapter.title}</h1>
                 {chapter.intro && stepIdx === 0 && (
                   <p className="mt-1 max-w-2xl text-[13.5px] leading-relaxed text-muted-foreground">
                     {chapter.intro}

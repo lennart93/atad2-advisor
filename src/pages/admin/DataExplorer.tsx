@@ -61,8 +61,9 @@ const DataExplorer = () => {
       <Seo title="Admin Data Explorer" description="Read-only browser for Supabase tables" canonical="/admin/explorer" />
       <div className="flex items-end justify-between mb-4">
         <div>
-          <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-1">Admin</div>
-          <h1 className="text-2xl font-medium tracking-tight">Data Explorer</h1>
+          <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-ds-ink-secondary mb-1">Admin</div>
+          <h1 className="text-2xl font-normal tracking-tight">Data Explorer</h1>
+          <p className="text-ds-ink-secondary mt-1 text-[13px]">Browse Supabase tables directly, read-only, one table at a time.</p>
         </div>
       </div>
 
@@ -96,7 +97,7 @@ const DataExplorer = () => {
         </div>
       ) : !data || data.rows.length === 0 ? (
         <AdminCard>
-          <div className="text-muted-foreground text-[13px]">No rows in {table}.</div>
+          <div className="text-muted-foreground text-[13px]">This table is empty: {table}.</div>
         </AdminCard>
       ) : (
         <>

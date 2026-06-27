@@ -39,8 +39,9 @@ export default function PrefillJobs() {
     <main>
       <div className="flex items-end justify-between mb-6">
         <div>
-          <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-1">Admin</div>
-          <h1 className="text-2xl font-medium tracking-tight">Pre-Fill Jobs</h1>
+          <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-ds-ink-secondary mb-1">Admin</div>
+          <h1 className="text-2xl font-normal tracking-tight">Pre-Fill Jobs</h1>
+          <p className="mt-1 text-sm text-ds-ink-secondary">A record of automated answer pre-fill runs, with timing, status, and estimated cost for each session.</p>
         </div>
       </div>
 
@@ -73,7 +74,7 @@ export default function PrefillJobs() {
             {!isLoading && (data?.length ?? 0) === 0 && !error && (
               <tr>
                 <td colSpan={6} className="px-4 py-8 text-center text-xs text-muted-foreground">
-                  No pre-fill jobs yet.
+                  No pre-fill jobs have run yet.
                 </td>
               </tr>
             )}

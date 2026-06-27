@@ -86,8 +86,9 @@ const Questions = () => {
       />
       <div className="flex items-end justify-between mb-4">
         <div>
-          <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-1">Admin</div>
-          <h1 className="text-2xl font-medium tracking-tight">Questions</h1>
+          <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-ds-ink-secondary mb-1">Admin</div>
+          <h1 className="text-2xl font-normal tracking-tight">Questions</h1>
+          <p className="text-ds-ink-secondary mt-1">The assessment question bank with branching logic and risk weighting. Edit a question to adjust its wording, branches, and routing.</p>
         </div>
       </div>
 
@@ -231,7 +232,7 @@ function QuestionList({
       })}
       {items.length === 0 && (
         <div className="text-center text-muted-foreground py-8">
-          No questions found.
+          No questions match your search.
         </div>
       )}
     </div>

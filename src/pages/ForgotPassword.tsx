@@ -70,17 +70,17 @@ const ForgotPassword = () => {
           <div className="flex justify-center">
             <AnimatedLogo size={56} />
           </div>
-          <p className="text-sm uppercase tracking-[0.2em] text-muted-foreground">
+          <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-ds-ink-secondary">
             {submitted ? "Reset email sent" : "Account recovery"}
           </p>
-          <h1 className="text-3xl sm:text-4xl font-medium tracking-tight text-foreground">
+          <h1 className="text-3xl sm:text-4xl font-normal tracking-tight text-foreground">
             {submitted ? "Check your inbox" : "Forgot password"}
           </h1>
           <div className="mx-auto h-px w-16 bg-primary/40" />
-          <p className="text-base text-muted-foreground leading-relaxed">
+          <p className="text-base text-ds-ink-secondary leading-relaxed">
             {submitted
-              ? "If an account exists for this email, a reset link has been sent."
-              : "Enter your email and a reset link will be sent."}
+              ? "If an account exists for this email, a reset link is on its way."
+              : "Enter your work email and a link to reset your password will be sent."}
           </p>
         </div>
 

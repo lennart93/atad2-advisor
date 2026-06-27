@@ -106,8 +106,11 @@ const ContextQuestions = () => {
       />
       <div className="flex items-end justify-between mb-4">
         <div>
-          <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-1">Admin</div>
-          <h1 className="text-2xl font-medium tracking-tight">Context questions</h1>
+          <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-ds-ink-secondary mb-1">Admin</div>
+          <h1 className="text-2xl font-normal tracking-tight">Context questions</h1>
+          <p className="mt-1 text-sm text-ds-ink-secondary">
+            Follow-up questions that surface when an assessment answer matches a trigger, grouped by parent question.
+          </p>
         </div>
       </div>
 
@@ -199,8 +202,8 @@ const ContextQuestions = () => {
             </div>
           ))}
           {groups.length === 0 && (
-            <div className="text-center text-muted-foreground py-8">
-              No context questions found.
+            <div className="text-center text-ds-ink-secondary py-8">
+              No context questions match your search.
             </div>
           )}
         </div>

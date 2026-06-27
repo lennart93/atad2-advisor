@@ -19,15 +19,15 @@ const EmailConfirmed = () => {
           <div className="flex justify-center">
             <AnimatedLogo size={56} />
           </div>
-          <p className="text-sm uppercase tracking-[0.2em] text-muted-foreground">
+          <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-ds-ink-secondary">
             Account activated
           </p>
-          <h1 className="text-3xl sm:text-4xl font-medium tracking-tight text-foreground">
+          <h1 className="text-3xl sm:text-4xl font-normal tracking-tight text-foreground">
             Email confirmed
           </h1>
           <div className="mx-auto h-px w-16 bg-primary/40" />
-          <p className="text-base text-muted-foreground leading-relaxed">
-            Your account is ready. You can now begin your ATAD2 assessment.
+          <p className="text-base text-ds-ink-secondary leading-relaxed">
+            Your account is active. Head to the dashboard or open a new ATAD2 assessment.
           </p>
         </div>
 
@@ -57,7 +57,7 @@ const EmailConfirmed = () => {
           </CardContent>
         </Card>
 
-        <p className="text-center text-sm text-muted-foreground">
+        <p className="text-center text-sm text-ds-ink-secondary">
           Svalner Atlas - ATAD2 Assessment Tool
         </p>
       </MotionPage>

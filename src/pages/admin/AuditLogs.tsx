@@ -82,8 +82,9 @@ const AuditLogs = () => {
       <Seo title="Audit Logs" description="Security audit logs" canonical="/admin/audit" />
       <div className="flex items-end justify-between mb-4">
         <div>
-          <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-1">Admin</div>
-          <h1 className="text-2xl font-medium tracking-tight">Audit Log</h1>
+          <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-ds-ink-secondary mb-1">Admin</div>
+          <h1 className="text-2xl font-normal tracking-tight">Audit log</h1>
+          <p className="mt-1 text-ds-ink-secondary">A running record of changes across the workspace, with who acted and what moved.</p>
         </div>
       </div>
 
@@ -161,7 +162,7 @@ const AuditLogs = () => {
             </AdminCard>
           ))}
           {filtered.length === 0 && (
-            <div className="text-center text-muted-foreground py-8">No audit events found.</div>
+            <div className="text-center text-muted-foreground py-8">No audit events match the current filters.</div>
           )}
         </div>
       )}

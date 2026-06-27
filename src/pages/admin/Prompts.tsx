@@ -39,11 +39,14 @@ export default function Prompts() {
 
   return (
     <main>
-      <Seo title="Admin Prompts" description="Manage all editable prompts" canonical="/admin/prompts" />
+      <Seo title="Admin Prompts" description="Review and edit the system prompts behind each assessment step" canonical="/admin/prompts" />
       <div className="flex items-end justify-between mb-6">
         <div>
-          <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-1">Admin</div>
-          <h1 className="text-2xl font-medium tracking-tight">Prompts</h1>
+          <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-ds-ink-secondary mb-1">Admin</div>
+          <h1 className="text-2xl font-normal tracking-tight">Prompts</h1>
+          <p className="text-ds-ink-secondary mt-1">
+            The editable system prompts behind each assessment step. Review the active version, edit it, or roll back through its history.
+          </p>
         </div>
       </div>
 

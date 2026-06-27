@@ -134,8 +134,9 @@ const Analytics = () => {
       <Seo title="Admin Analytics" description="Trends and insights for ATAD2" canonical="/admin/analytics" />
       <div className="flex items-end justify-between mb-6">
         <div>
-          <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-1">Admin</div>
-          <h1 className="text-2xl font-medium tracking-tight">Analytics</h1>
+          <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-ds-ink-secondary mb-1">Admin</div>
+          <h1 className="text-2xl font-normal tracking-tight">Analytics</h1>
+          <p className="text-ds-ink-secondary mt-1">Trends across sessions, completion, and the questions advisers answer most.</p>
         </div>
         <Select value={period} onValueChange={(v) => setPeriod(v as Period)}>
           <SelectTrigger className="w-[180px] h-9">
@@ -200,7 +201,7 @@ const Analytics = () => {
             <Skeleton className="h-52 w-full" />
           ) : avgScorePerMonth.length === 0 ? (
             <div className="h-[220px] flex items-center justify-center text-muted-foreground text-[13px]">
-              Not enough scored sessions.
+              Not enough scored sessions yet for this period.
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={220}>
@@ -222,7 +223,7 @@ const Analytics = () => {
           <Skeleton className="h-60 w-full" />
         ) : topQuestions.length === 0 ? (
           <div className="h-[220px] flex items-center justify-center text-muted-foreground text-[13px]">
-            No answers in this period.
+            No answers recorded in this period.
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={Math.max(220, topQuestions.length * 28)}>

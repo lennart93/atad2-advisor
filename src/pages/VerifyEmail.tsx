@@ -165,16 +165,16 @@ const VerifyEmail = () => {
           <div className="flex justify-center">
             <AnimatedLogo size={56} />
           </div>
-          <p className="text-sm uppercase tracking-[0.2em] text-muted-foreground">
+          <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-ds-ink-secondary">
             Verify your email
           </p>
-          <h1 className="text-3xl sm:text-4xl font-medium tracking-tight text-foreground">
+          <h1 className="text-3xl sm:text-4xl font-normal tracking-tight text-foreground">
             Check your inbox
           </h1>
           <div className="mx-auto h-px w-16 bg-primary/40" />
-          <p className="text-base text-muted-foreground leading-relaxed">
-            A 6-digit verification code has been sent to{" "}
-            <span className="font-medium text-foreground font-mono">{email}</span>.
+          <p className="text-base text-ds-ink-secondary leading-relaxed">
+            Enter the 6-digit verification code sent to{" "}
+            <span className="font-medium text-foreground font-mono tabular-nums">{email}</span> to confirm your account.
           </p>
         </div>
 

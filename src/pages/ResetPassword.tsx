@@ -87,20 +87,20 @@ const ResetPassword = () => {
           aria-hidden
           className="pointer-events-none absolute inset-0 bg-gradient-to-b from-primary/5 via-background to-background"
         />
-        <div className="relative flex items-center gap-2 text-muted-foreground">
+        <div className="relative flex items-center gap-2 text-ds-ink-secondary">
           <Loader2 className="h-4 w-4 animate-spin" />
-          <span>Verifying reset link...</span>
+          <span>Checking your reset link...</span>
         </div>
       </div>
     );
   }
 
-  const eyebrow = sessionState === "invalid" ? "Reset link" : "Set a new password";
-  const headline = sessionState === "invalid" ? "Invalid or expired link" : "Set new password";
+  const eyebrow = sessionState === "invalid" ? "Reset link" : "Account access";
+  const headline = sessionState === "invalid" ? "This link has expired" : "Set a new password";
   const subcopy =
     sessionState === "invalid"
-      ? "This reset link is no longer valid. Please request a new one."
-      : "Choose a new password for your account.";
+      ? "This reset link is no longer valid. Request a fresh one to continue."
+      : "Choose a new password to finish signing in to your account.";
 
   return (
     <div className="relative min-h-[calc(100vh-4rem)] flex items-center justify-center px-4 py-10 overflow-hidden">
@@ -113,12 +113,12 @@ const ResetPassword = () => {
           <div className="flex justify-center">
             <AnimatedLogo size={56} />
           </div>
-          <p className="text-sm uppercase tracking-[0.2em] text-muted-foreground">{eyebrow}</p>
-          <h1 className="text-3xl sm:text-4xl font-medium tracking-tight text-foreground">
+          <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-ds-ink-secondary">{eyebrow}</p>
+          <h1 className="text-3xl sm:text-4xl font-normal tracking-tight text-ds-ink">
             {headline}
           </h1>
           <div className="mx-auto h-px w-16 bg-primary/40" />
-          <p className="text-base text-muted-foreground leading-relaxed">{subcopy}</p>
+          <p className="text-base text-ds-ink-secondary leading-relaxed">{subcopy}</p>
         </div>
 
         <Card className="w-full">

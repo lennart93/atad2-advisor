@@ -113,8 +113,11 @@ const Users = () => {
       <Seo title="Admin Users & Roles" description="Manage users and roles" canonical="/admin/users" />
       <div className="flex items-end justify-between mb-4">
         <div>
-          <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-1">Admin</div>
-          <h1 className="text-2xl font-medium tracking-tight">Users &amp; Roles</h1>
+          <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-ds-ink-secondary mb-1">Admin</div>
+          <h1 className="text-2xl font-normal tracking-tight">Users &amp; Roles</h1>
+          <p className="mt-1 text-sm text-ds-ink-secondary">
+            Review everyone with access and adjust their role. Changes take effect immediately and are logged.
+          </p>
         </div>
       </div>
 
@@ -185,7 +188,7 @@ const Users = () => {
             );
           })}
           {filtered.length === 0 && (
-            <div className="text-center text-muted-foreground py-8">No users found.</div>
+            <div className="text-center text-ds-ink-secondary py-8">No users match your search.</div>
           )}
         </div>
       )}

@@ -342,15 +342,15 @@ const Auth = () => {
           <div className="flex justify-center">
             <AnimatedLogo size={56} />
           </div>
-          <p className="text-sm uppercase tracking-[0.2em] text-muted-foreground">
+          <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-ds-ink-secondary">
             Svalner Atlas
           </p>
-          <h1 className="text-3xl sm:text-4xl font-medium tracking-tight text-foreground">
+          <h1 className="text-3xl sm:text-4xl font-normal tracking-tight text-foreground">
             ATAD2 risk assessment
           </h1>
           <div className="mx-auto h-px w-16 bg-primary/40" />
-          <p className="text-base text-muted-foreground">
-            Sign in or create an account to get started.
+          <p className="text-base text-ds-ink-secondary">
+            Sign in or create your account to begin an assessment.
           </p>
         </div>
 

@@ -119,9 +119,9 @@ const ReportDetail = () => {
           canonical={`/report/${reportId}`}
         />
         <div className="text-center py-12">
-          <h1 className="text-xl font-medium mb-4">Report not found</h1>
-          <p className="text-muted-foreground mb-6">
-            This report does not exist or you do not have access.
+          <h1 className="text-xl font-normal tracking-tight mb-4">Report not found</h1>
+          <p className="text-ds-ink-secondary mb-6">
+            This report no longer exists, or it is not available under your account.
           </p>
           <Button onClick={() => navigate("/")} variant="outline">
             <ArrowLeft className="mr-2 h-4 w-4" />
@@ -152,11 +152,14 @@ const ReportDetail = () => {
         
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-medium">
+            <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-ds-ink-secondary">
+              ATAD2 report
+            </p>
+            <h1 className="text-2xl font-normal tracking-tight">
               {report.report_title || "ATAD2 Report"}
             </h1>
-            <p className="text-muted-foreground">
-              Generated on {formatDate(report.generated_at)}
+            <p className="text-ds-ink-secondary tabular-nums">
+              Generated {formatDate(report.generated_at)}
             </p>
           </div>
           

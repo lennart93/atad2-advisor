@@ -139,8 +139,11 @@ const Feedback = () => {
 
       <div className="flex items-end justify-between mb-4">
         <div>
-          <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-1">Admin</div>
-          <h1 className="text-2xl font-medium tracking-tight">Feedback</h1>
+          <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-ds-ink-secondary mb-1">Admin</div>
+          <h1 className="text-2xl font-normal tracking-tight">Feedback</h1>
+          <p className="text-sm text-ds-ink-secondary mt-1">
+            Everything users have sent from the in-app widget. Triage, annotate, and close out each item.
+          </p>
         </div>
         {newCount > 0 && (
           <StatusChip label={`${newCount} new`} tone="neutral" />
@@ -202,7 +205,7 @@ const Feedback = () => {
           {filtered.length === 0 && (
             <div className="text-center text-muted-foreground py-8 flex flex-col items-center gap-2">
               <MessageSquare className="size-6 opacity-50" />
-              <span>No feedback yet.</span>
+              <span>No feedback to show.</span>
             </div>
           )}
         </div>
@@ -361,7 +364,7 @@ function FeedbackDetail({
             }
           }}
           rows={4}
-          placeholder="Notes only visible to staff…"
+          placeholder="Internal notes, visible to staff only"
         />
       </div>
 

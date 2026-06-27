@@ -139,8 +139,9 @@ const Dashboard = () => {
 
       <header className="flex items-end justify-between mb-6">
         <div>
-          <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-1">Admin</div>
-          <h1 className="text-2xl font-medium tracking-tight text-foreground">Dashboard</h1>
+          <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-ds-ink-secondary mb-1">Admin</div>
+          <h1 className="text-3xl font-normal tracking-tight text-ds-ink">Dashboard</h1>
+          <p className="text-ds-ink-secondary mt-1.5">An overview of activity across assessments, scores, and reports for the selected period.</p>
         </div>
         <Select value={period} onValueChange={(v) => setPeriod(v as Period)}>
           <SelectTrigger className="w-[180px] h-9">

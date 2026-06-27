@@ -146,8 +146,9 @@ const Sessions = () => {
       <Seo title="Admin Sessions" description="Manage ATAD2 sessions" canonical="/admin/sessions" />
       <div className="flex items-end justify-between mb-4">
         <div>
-          <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-1">Admin</div>
-          <h1 className="text-2xl font-medium tracking-tight">Sessions</h1>
+          <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-ds-ink-secondary mb-1">Admin</div>
+          <h1 className="text-2xl font-normal tracking-tight">Sessions</h1>
+          <p className="mt-1 text-sm text-ds-ink-secondary">Every assessment across the platform, with booked and pipeline fees.</p>
         </div>
         <Button
           variant="outline"
@@ -223,7 +224,7 @@ const Sessions = () => {
             />
           ))}
           {filtered.length === 0 && (
-            <div className="text-center text-muted-foreground py-8">No sessions found.</div>
+            <div className="text-center text-muted-foreground py-8">No sessions match the current search and filters.</div>
           )}
         </div>
       )}

@@ -119,11 +119,11 @@ export default function PromptTuner() {
     <main>
       <Seo title="Admin Prompt Tuner" description="Turn an improved output into a sharper prompt" canonical="/admin/prompt-tuner" />
       <div className="mb-6">
-        <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-1">Admin</div>
-        <h1 className="text-2xl font-medium tracking-tight">Prompt Tuner</h1>
-        <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
-          Paste an improved output. It finds the original, shows what changed and why, and proposes a sharper
-          prompt you can save as a draft version.
+        <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-ds-ink-secondary mb-1">Admin</div>
+        <h1 className="text-2xl font-normal tracking-tight">Prompt Tuner</h1>
+        <p className="text-sm text-ds-ink-secondary mt-1 max-w-2xl">
+          Paste an improved output to surface the original, see what changed and why, and get a sharper
+          prompt ready to save as a draft version.
         </p>
       </div>
 
@@ -192,9 +192,9 @@ export default function PromptTuner() {
         {!confirmed && tab === "appendix" && (
           <>
             <AdminCard>
-              <p className="text-sm text-muted-foreground">
-                Appendix corrections are already stored per row. Load recent manual edits and pick one to learn from,
-                no pasting needed.
+              <p className="text-sm text-ds-ink-secondary">
+                Appendix corrections are already stored per row. Load recent manual edits and pick one to learn from.
+                No pasting needed.
               </p>
               <div className="flex justify-end mt-3">
                 <Button disabled={loadAppendix.isPending} onClick={() => loadAppendix.mutate()}>
