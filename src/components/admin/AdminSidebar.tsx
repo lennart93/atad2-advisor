@@ -60,7 +60,7 @@ export function AppSidebar() {
               <IconChip icon={item.icon} size="sm" />
               <span className="flex-1">{item.title}</span>
               {badge > 0 && (
-                <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-ds-ink text-ds-card text-[10px] font-semibold px-1">
+                <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-ds-ink text-ds-card text-[10px] font-medium px-1">
                   {badge > 99 ? "99+" : badge}
                 </span>
               )}

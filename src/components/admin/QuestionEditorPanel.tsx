@@ -164,7 +164,7 @@ export function QuestionEditorPanel({
           <div className="border border-ds-hairline bg-ds-fill-muted rounded-lg p-4">
             <div className="flex items-center gap-2 mb-2">
               <AlertTriangle className="h-4 w-4 text-ds-ink-tertiary" />
-              <div className="text-[13px] font-semibold text-ds-ink">
+              <div className="text-[13px] font-medium text-ds-ink">
                 Branches out of sync
               </div>
             </div>
@@ -182,7 +182,7 @@ export function QuestionEditorPanel({
                 return (
                   <div key={c.field} className="bg-ds-card border border-ds-hairline rounded-md p-2">
                     <div className="flex items-center justify-between mb-1">
-                      <div className="text-[10px] uppercase tracking-wide text-ds-ink-secondary font-semibold">
+                      <div className="text-[10px] uppercase tracking-wide text-ds-ink-secondary font-medium">
                         {FIELD_LABELS[c.field] ?? c.field}
                       </div>
                       {canEdit && (
@@ -199,7 +199,7 @@ export function QuestionEditorPanel({
                     </div>
                     <div className="text-[10px] text-muted-foreground mb-2">
                       Pick which branch value should apply to all {question.branches.length} rows.
-                      Base: <span className="font-semibold">{baseAnswer}</span>, others shown as diff.
+                      Base: <span className="font-medium">{baseAnswer}</span>, others shown as diff.
                     </div>
                     <div className="space-y-2">
                       {entries.map(([ans, val]) => {
@@ -215,7 +215,7 @@ export function QuestionEditorPanel({
                             }`}
                           >
                             <div className="flex items-center justify-between mb-0.5">
-                              <div className="text-[11px] font-semibold text-foreground">
+                              <div className="text-[11px] font-medium text-foreground">
                                 {ans}
                                 {isBase && (
                                   <span className="ml-1 text-[9px] text-muted-foreground font-normal">
@@ -223,7 +223,7 @@ export function QuestionEditorPanel({
                                   </span>
                                 )}
                                 {isSelected && (
-                                  <span className="ml-2 inline-flex items-center gap-0.5 text-[9px] text-ds-ink-secondary font-semibold">
+                                  <span className="ml-2 inline-flex items-center gap-0.5 text-[9px] text-ds-ink-secondary font-medium">
                                     <Check className="h-2.5 w-2.5" /> currently in form
                                   </span>
                                 )}
@@ -333,7 +333,7 @@ export function QuestionEditorPanel({
           <div className="flex items-center gap-2 mb-2">
             <Info className="h-4 w-4 text-ds-ink-tertiary" />
             <div>
-              <div className="text-[13px] font-semibold text-ds-ink">User info panel</div>
+              <div className="text-[13px] font-medium text-ds-ink">User info panel</div>
               <div className="text-[11px] text-ds-ink-secondary">
                 Collapsible explanation shown to users beneath the question
               </div>
@@ -358,7 +358,7 @@ export function QuestionEditorPanel({
 
         {/* Answer branches (Yes / No / Unknown) */}
         <div className="border border-ds-hairline rounded-lg p-4">
-          <div className="text-[13px] font-semibold mb-1">Answer branches</div>
+          <div className="text-[13px] font-medium mb-1">Answer branches</div>
           <div className="text-[11px] text-muted-foreground mb-3">
             Each answer has its own risk score and follow-up question.
           </div>
@@ -367,7 +367,7 @@ export function QuestionEditorPanel({
               const answerLabel = form.getValues(`branches.${idx}.answer_option`);
               return (
                 <div key={fld.id} className="border border-ds-hairline rounded-md p-3 bg-muted/20">
-                  <div className="text-[11px] font-semibold text-foreground mb-2">
+                  <div className="text-[11px] font-medium text-foreground mb-2">
                     {answerLabel}
                   </div>
                   <div className="grid grid-cols-2 gap-2">
@@ -431,7 +431,7 @@ export function QuestionEditorPanel({
           <div className="border border-ds-hairline rounded-lg p-4">
             <div className="flex items-center justify-between mb-2">
               <div>
-                <div className="text-[13px] font-semibold">Context variants</div>
+                <div className="text-[13px] font-medium">Context variants</div>
                 <div className="text-[11px] text-muted-foreground">
                   Follow-up questions shown to users based on their answer.
                 </div>
@@ -476,7 +476,7 @@ export function QuestionEditorPanel({
 
         {/* Flow context */}
         <div className="border-t border-ds-hairline pt-4">
-          <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-2 font-semibold">
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-2 font-medium">
             Flow context
           </div>
           <div className="space-y-2 text-[12px]">
@@ -516,23 +516,23 @@ export function QuestionEditorPanel({
 
         {/* Preview */}
         <div className="border-t border-ds-hairline pt-4">
-          <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-2 font-semibold">
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-2 font-medium">
             Preview
           </div>
           <div className="rounded-xl bg-ds-fill-muted p-4">
             <div className="rounded-lg bg-ds-card shadow-sm p-4">
-              <div className="text-[10px] font-semibold text-ds-ink-secondary mb-1">
+              <div className="text-[10px] font-medium text-ds-ink-secondary mb-1">
                 Question · max risk {previewMaxRisk.toFixed(1)}
               </div>
               {watchedTitle && (
-                <div className="text-[13px] font-bold mb-1.5">{watchedTitle}</div>
+                <div className="text-[13px] font-normal mb-1.5">{watchedTitle}</div>
               )}
               <div className="text-[12px] text-foreground mb-3">
                 {watchedQuestion || <span className="text-muted-foreground italic">(empty)</span>}
               </div>
               {watchedExplanation && (
                 <div className="mb-3 p-3 bg-ds-fill-muted border border-ds-hairline rounded-md">
-                  <div className="flex items-center gap-1.5 text-[9px] uppercase tracking-wide text-ds-ink-secondary font-semibold mb-1.5">
+                  <div className="flex items-center gap-1.5 text-[9px] uppercase tracking-wide text-ds-ink-secondary font-medium mb-1.5">
                     <Info className="h-3 w-3" /> Info panel
                   </div>
                   <div className="text-[11px] text-foreground whitespace-pre-line">

@@ -40,7 +40,7 @@ export default function PrefillJobs() {
       <div className="flex items-end justify-between mb-6">
         <div>
           <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-1">Admin</div>
-          <h1 className="text-2xl font-semibold tracking-tight">Pre-Fill Jobs</h1>
+          <h1 className="text-2xl font-medium tracking-tight">Pre-Fill Jobs</h1>
         </div>
       </div>
 
@@ -174,7 +174,7 @@ function JobDetailDrawer({ jobId, onClose }: { jobId: string; onClose: () => voi
           {prefills?.map((p) => (
             <div key={p.id} className="border border-border rounded-md p-2 text-xs">
               <div className="flex items-center gap-2 mb-1">
-                <span className="font-mono font-semibold">Q{p.question_id}</span>
+                <span className="font-mono font-medium">Q{p.question_id}</span>
                 <span className="text-muted-foreground">·</span>
                 <span>{p.user_action}</span>
               </div>

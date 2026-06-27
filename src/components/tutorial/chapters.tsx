@@ -48,7 +48,7 @@ const HERO = (
         className="flex flex-col gap-3"
       >
         <div className="text-xs uppercase tracking-[0.22em] text-muted-foreground">A guided tour</div>
-        <h2 className="text-3xl font-semibold tracking-tight">ATAD2 Advisor</h2>
+        <h2 className="text-3xl font-medium tracking-tight">ATAD2 Advisor</h2>
         <p className="max-w-md text-sm text-muted-foreground">
           From intake to memo in six confident steps. This tour shows every screen of the live app
           so you can run a full ATAD2 risk assessment with zero guesswork.

@@ -42,7 +42,7 @@ export function OriginalCandidatePicker({ candidates, selectedId, onSelect, onCo
           >
             <div className="flex items-start justify-between gap-3 mb-1.5">
               <div className="min-w-0">
-                <div className="text-[13px] font-semibold text-foreground truncate">
+                <div className="text-[13px] font-medium text-foreground truncate">
                   {c.taxpayer_name ?? "Unknown taxpayer"}
                   {c.fiscal_year ? <span className="text-muted-foreground font-normal"> · FY {c.fiscal_year}</span> : null}
                 </div>

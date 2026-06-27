@@ -65,7 +65,7 @@ export function ContextQuestionEditorPanel({
               <Link2 className="h-3.5 w-3.5 text-muted-foreground" />
               <div className="text-[11px]">
                 <span className="text-muted-foreground">Linked to question</span>{" "}
-                <span className="font-mono font-semibold">{activeQuestionId}</span>
+                <span className="font-mono font-medium">{activeQuestionId}</span>
               </div>
             </div>
           ) : (
@@ -126,12 +126,12 @@ export function ContextQuestionEditorPanel({
         </div>
 
         <div className="border-t border-ds-hairline pt-4">
-          <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-2 font-semibold">
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-2 font-medium">
             Preview
           </div>
           <div className="rounded-xl bg-ds-fill-muted p-4">
             <div className="rounded-lg bg-ds-card shadow-sm p-4">
-              <div className="text-[10px] font-semibold text-ds-ink-secondary mb-1">
+              <div className="text-[10px] font-medium text-ds-ink-secondary mb-1">
                 Shown when answer = "{watchedTrigger}"
               </div>
               <div className="text-[12px] text-foreground">

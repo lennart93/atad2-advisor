@@ -837,7 +837,7 @@ const AssessmentReport = () => {
               <div className="space-y-5">
                 {anyIncludeOption && (
                   <div>
-                    <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.07em] text-ds-ink-tertiary">
+                    <p className="mb-3 text-[11px] font-medium uppercase tracking-[0.07em] text-ds-ink-tertiary">
                       Include in the memorandum
                     </p>
                     <div className="flex flex-wrap gap-x-[22px] gap-y-2.5">

@@ -123,7 +123,7 @@ const Tutorial = () => {
           <Link to="/" className="flex items-center gap-2.5">
             <AnimatedLogo size={26} interactive={false} />
             <div className="leading-tight">
-              <div className="text-[12.5px] font-semibold tracking-tight">ATAD2 Advisor</div>
+              <div className="text-[12.5px] font-medium tracking-tight">ATAD2 Advisor</div>
               <div className="text-[10.5px] text-muted-foreground">A guided tour</div>
             </div>
           </Link>
@@ -237,7 +237,7 @@ const Tutorial = () => {
                     </span>
                   )}
                 </div>
-                <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{chapter.title}</h1>
+                <h1 className="text-2xl font-medium tracking-tight sm:text-3xl">{chapter.title}</h1>
                 {chapter.intro && stepIdx === 0 && (
                   <p className="mt-1 max-w-2xl text-[13.5px] leading-relaxed text-muted-foreground">
                     {chapter.intro}
@@ -252,7 +252,7 @@ const Tutorial = () => {
               <section className="grid grid-cols-1 gap-x-8 gap-y-4 lg:grid-cols-[1fr_280px]">
                 <div>
                   {step.heading && (
-                    <h2 className="text-lg font-semibold tracking-tight">{step.heading}</h2>
+                    <h2 className="text-lg font-medium tracking-tight">{step.heading}</h2>
                   )}
                   <div className="mt-1 max-w-2xl space-y-2 text-[13.5px] leading-relaxed text-foreground">
                     {(Array.isArray(step.caption) ? step.caption : [step.caption]).map((p, i) => (

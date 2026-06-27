@@ -87,7 +87,7 @@ const Questions = () => {
       <div className="flex items-end justify-between mb-4">
         <div>
           <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-1">Admin</div>
-          <h1 className="text-2xl font-semibold tracking-tight">Questions</h1>
+          <h1 className="text-2xl font-medium tracking-tight">Questions</h1>
         </div>
       </div>
 
@@ -185,16 +185,16 @@ function QuestionList({
                 : ""
             }`}
           >
-            <div className="flex items-center justify-center h-6 w-6 rounded-md bg-muted text-[10px] font-mono font-semibold text-muted-foreground shrink-0 mt-0.5">
+            <div className="flex items-center justify-center h-6 w-6 rounded-md bg-muted text-[10px] font-mono font-medium text-muted-foreground shrink-0 mt-0.5">
               {i + 1}
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[11px] font-mono font-semibold text-ds-ink-secondary">
+                <span className="text-[11px] font-mono font-medium text-ds-ink-secondary">
                   {q.question_id}
                 </span>
                 {q.question_title && (
-                  <span className="text-[12px] font-semibold truncate">
+                  <span className="text-[12px] font-medium truncate">
                     · {q.question_title}
                   </span>
                 )}
@@ -213,7 +213,7 @@ function QuestionList({
                     key={b.id}
                     className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-1.5 py-0.5 text-[10px]"
                   >
-                    <span className="font-semibold">{b.answer_option}</span>
+                    <span className="font-medium">{b.answer_option}</span>
                     <span className="text-muted-foreground">
                       → {b.next_question_id || "END"}
                     </span>

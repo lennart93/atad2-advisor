@@ -43,7 +43,7 @@ export default function Prompts() {
       <div className="flex items-end justify-between mb-6">
         <div>
           <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-1">Admin</div>
-          <h1 className="text-2xl font-semibold tracking-tight">Prompts</h1>
+          <h1 className="text-2xl font-medium tracking-tight">Prompts</h1>
         </div>
       </div>
 
@@ -65,7 +65,7 @@ export default function Prompts() {
                   >
                     <div className="flex items-start justify-between gap-4 mb-3">
                       <div className="min-w-0">
-                        <div className="text-[13px] font-semibold text-foreground truncate">{d.label}</div>
+                        <div className="text-[13px] font-medium text-foreground truncate">{d.label}</div>
                         <div className="text-[11px] text-muted-foreground mt-1 flex items-center gap-2 flex-wrap">
                           <span className="font-mono">{d.key}</span>
                           <span>·</span>
@@ -118,7 +118,7 @@ export default function Prompts() {
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <div className="text-[13px] font-semibold text-foreground truncate">{p.label}</div>
+                      <div className="text-[13px] font-medium text-foreground truncate">{p.label}</div>
                       <StatusChip label="External" tone="neutral" />
                     </div>
                     <div className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1.5">

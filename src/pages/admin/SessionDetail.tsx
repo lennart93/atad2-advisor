@@ -168,7 +168,7 @@ const SessionDetail = () => {
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <div className="text-xs font-mono text-muted-foreground">{session.session_id}</div>
-            <h1 className="text-2xl font-semibold tracking-tight truncate mt-1">{session.taxpayer_name}</h1>
+            <h1 className="text-2xl font-medium tracking-tight truncate mt-1">{session.taxpayer_name}</h1>
             {session.entity_name && (
               <div className="text-[12px] text-muted-foreground mt-0.5">{session.entity_name}</div>
             )}
@@ -176,7 +176,7 @@ const SessionDetail = () => {
           <div className="flex flex-col items-end gap-2 text-right">
             <StatusChip label={completed ? "Completed" : session.status} tone={completed ? "success" : "neutral"} />
             {session.final_score != null && (
-              <div className="text-2xl font-semibold tracking-tight tabular-nums">
+              <div className="text-2xl font-medium tracking-tight tabular-nums">
                 {session.final_score.toFixed(1)}
               </div>
             )}
@@ -262,7 +262,7 @@ function PrefillSection({ sessionId }: { sessionId: string }) {
 
   return (
     <section className="mt-6">
-      <h2 className="text-lg font-semibold mb-2">Document Pre-Fill</h2>
+      <h2 className="text-lg font-medium mb-2">Document Pre-Fill</h2>
       <div className="space-y-2 text-sm">
         <div>Job status: {job?.status ?? "-"}</div>
         <div>Documents: {(docs ?? []).length}</div>
@@ -305,7 +305,7 @@ function DossierTab({
   return (
     <div className="space-y-6 pt-4">
       <section>
-        <h2 className="text-[14px] font-semibold mb-2">Answers</h2>
+        <h2 className="text-[14px] font-medium mb-2">Answers</h2>
         {loadingAnswers ? (
           <Skeleton className="h-24 w-full" />
         ) : answers.length === 0 ? (
@@ -317,7 +317,7 @@ function DossierTab({
             {answers.map((a, i) => (
               <AdminCard key={a.id} className="py-3">
                 <div className="flex items-start gap-3">
-                  <div className="flex items-center justify-center h-6 w-6 rounded-md bg-muted text-[10px] font-bold text-muted-foreground shrink-0">
+                  <div className="flex items-center justify-center h-6 w-6 rounded-md bg-muted text-[10px] font-normal text-muted-foreground shrink-0">
                     {i + 1}
                   </div>
                   <div className="min-w-0 flex-1">
@@ -328,7 +328,7 @@ function DossierTab({
                     <div className="text-[13px] font-medium mb-1">{a.question_text}</div>
                     <div className="text-[12px]">
                       <span className="text-muted-foreground">Answer:</span>{" "}
-                      <span className="font-semibold">{a.answer}</span>
+                      <span className="font-medium">{a.answer}</span>
                     </div>
                     {a.explanation && (
                       <div className="text-[11px] text-muted-foreground mt-1 line-clamp-3">
@@ -344,7 +344,7 @@ function DossierTab({
       </section>
 
       <section>
-        <h2 className="text-[14px] font-semibold mb-2">Report / memo</h2>
+        <h2 className="text-[14px] font-medium mb-2">Report / memo</h2>
         {loadingReport ? (
           <Skeleton className="h-32 w-full" />
         ) : reports.length === 0 ? (
@@ -470,7 +470,7 @@ function AuditTab({ logs }: { logs: AuditLogRow[] }) {
                 if (oldVal === newVal || key === "updated_at") return null;
                 return (
                   <div key={key} className="truncate">
-                    <span className="font-semibold text-foreground">{key}:</span>{" "}
+                    <span className="font-medium text-foreground">{key}:</span>{" "}
                     <span className="text-muted-foreground line-through">{String(oldVal).slice(0, 40)}</span>
                     {" → "}
                     <span className="text-foreground">{String(newVal).slice(0, 40)}</span>

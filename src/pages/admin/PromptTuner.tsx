@@ -120,7 +120,7 @@ export default function PromptTuner() {
       <Seo title="Admin Prompt Tuner" description="Turn an improved output into a sharper prompt" canonical="/admin/prompt-tuner" />
       <div className="mb-6">
         <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-1">Admin</div>
-        <h1 className="text-2xl font-semibold tracking-tight">Prompt Tuner</h1>
+        <h1 className="text-2xl font-medium tracking-tight">Prompt Tuner</h1>
         <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
           Paste an improved output. It finds the original, shows what changed and why, and proposes a sharper
           prompt you can save as a draft version.

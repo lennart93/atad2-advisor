@@ -147,7 +147,7 @@ const Sessions = () => {
       <div className="flex items-end justify-between mb-4">
         <div>
           <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-1">Admin</div>
-          <h1 className="text-2xl font-semibold tracking-tight">Sessions</h1>
+          <h1 className="text-2xl font-medium tracking-tight">Sessions</h1>
         </div>
         <Button
           variant="outline"
@@ -254,7 +254,7 @@ function SummaryStat({
           {label}
         </span>
       </div>
-      <div className="mt-1.5 text-2xl font-semibold tracking-tight tabular-nums text-foreground">
+      <div className="mt-1.5 text-2xl font-medium tracking-tight tabular-nums text-foreground">
         {formatEur(amount)}
       </div>
       <div className="mt-0.5 text-[11px] text-muted-foreground tabular-nums">
@@ -291,8 +291,8 @@ function SessionRow({
         <div className="flex items-center gap-2">
           <span className={
             isDeleted
-              ? "text-[13px] font-semibold truncate line-through"
-              : "text-[13px] font-semibold truncate"
+              ? "text-[13px] font-medium truncate line-through"
+              : "text-[13px] font-medium truncate"
           }>{session.taxpayer_name}</span>
           {session.entity_name && (
             <span className="text-[11px] text-muted-foreground truncate">· {session.entity_name}</span>

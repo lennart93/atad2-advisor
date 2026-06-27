@@ -83,7 +83,7 @@ const AuditLogs = () => {
       <div className="flex items-end justify-between mb-4">
         <div>
           <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-1">Admin</div>
-          <h1 className="text-2xl font-semibold tracking-tight">Audit Log</h1>
+          <h1 className="text-2xl font-medium tracking-tight">Audit Log</h1>
         </div>
       </div>
 
@@ -142,7 +142,7 @@ const AuditLogs = () => {
                     if (oldVal === newVal || key === "updated_at") return null;
                     return (
                       <div key={key} className="truncate">
-                        <span className="font-semibold text-foreground">{key}:</span>{" "}
+                        <span className="font-medium text-foreground">{key}:</span>{" "}
                         <span className="text-muted-foreground line-through">
                           {String(oldVal).slice(0, 40)}
                         </span>{" "}

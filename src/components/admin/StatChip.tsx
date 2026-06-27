@@ -12,7 +12,7 @@ export function RiskChip({ points, className }: RiskChipProps) {
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold",
+        "inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium",
         bg, text, className
       )}
     >

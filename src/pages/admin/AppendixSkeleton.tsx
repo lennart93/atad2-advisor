@@ -171,7 +171,7 @@ export default function AppendixSkeleton() {
       <div className="flex items-end justify-between mb-6">
         <div>
           <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-1">Admin</div>
-          <h1 className="text-2xl font-semibold tracking-tight">Appendix legal framework</h1>
+          <h1 className="text-2xl font-medium tracking-tight">Appendix legal framework</h1>
           <p className="text-sm text-muted-foreground mt-1">
             The fixed rows of the technical appendix (art. 2 + 12aa-12af). Editing the text or structure here changes
             what every new and regenerated appendix shows. The question wiring stays in code.

@@ -140,7 +140,7 @@ const Feedback = () => {
       <div className="flex items-end justify-between mb-4">
         <div>
           <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-1">Admin</div>
-          <h1 className="text-2xl font-semibold tracking-tight">Feedback</h1>
+          <h1 className="text-2xl font-medium tracking-tight">Feedback</h1>
         </div>
         {newCount > 0 && (
           <StatusChip label={`${newCount} new`} tone="neutral" />
@@ -254,7 +254,7 @@ function FeedbackRowItem({
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <StatusChip label={CATEGORY_LABELS[row.category]} tone={CATEGORY_TONE[row.category]} />
-          <span className="text-[13px] font-semibold truncate">{row.user_email}</span>
+          <span className="text-[13px] font-medium truncate">{row.user_email}</span>
         </div>
         <div className="text-[12px] text-foreground/80 mt-1 line-clamp-1">
           {row.message}

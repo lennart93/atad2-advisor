@@ -73,7 +73,7 @@ const ForgotPassword = () => {
           <p className="text-sm uppercase tracking-[0.2em] text-muted-foreground">
             {submitted ? "Reset email sent" : "Account recovery"}
           </p>
-          <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-foreground">
+          <h1 className="text-3xl sm:text-4xl font-medium tracking-tight text-foreground">
             {submitted ? "Check your inbox" : "Forgot password"}
           </h1>
           <div className="mx-auto h-px w-16 bg-primary/40" />

@@ -36,7 +36,7 @@ export function KpiCard({
           </div>
           <div
             className={cn(
-              "font-semibold tracking-tight leading-none text-foreground tabular-nums",
+              "font-medium tracking-tight leading-none text-foreground tabular-nums",
               size === "lg" ? "text-3xl sm:text-4xl" : "text-3xl"
             )}
           >

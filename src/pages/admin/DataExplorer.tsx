@@ -62,7 +62,7 @@ const DataExplorer = () => {
       <div className="flex items-end justify-between mb-4">
         <div>
           <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-1">Admin</div>
-          <h1 className="text-2xl font-semibold tracking-tight">Data Explorer</h1>
+          <h1 className="text-2xl font-medium tracking-tight">Data Explorer</h1>
         </div>
       </div>
 

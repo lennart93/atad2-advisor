@@ -38,7 +38,7 @@ export function AppendixEditPicker({ candidates, selectedId, onSelect, onConfirm
           >
             <div className="flex items-start justify-between gap-3 mb-1.5">
               <div className="min-w-0">
-                <div className="text-[13px] font-semibold text-foreground truncate">
+                <div className="text-[13px] font-medium text-foreground truncate">
                   {c.taxpayer_name ?? "Unknown taxpayer"}
                 </div>
                 <div className="text-[11px] text-muted-foreground font-mono mt-0.5">
@@ -49,11 +49,11 @@ export function AppendixEditPicker({ candidates, selectedId, onSelect, onConfirm
             </div>
             <div className="grid grid-cols-2 gap-2 mt-2">
               <div>
-                <div className="text-[10px] uppercase tracking-wide text-ds-ink-secondary font-semibold mb-0.5">Original</div>
+                <div className="text-[10px] uppercase tracking-wide text-ds-ink-secondary font-medium mb-0.5">Original</div>
                 <p className="text-xs text-muted-foreground line-clamp-3">{c.original_text}</p>
               </div>
               <div>
-                <div className="text-[10px] uppercase tracking-wide text-ds-ink-secondary font-semibold mb-0.5">Improved</div>
+                <div className="text-[10px] uppercase tracking-wide text-ds-ink-secondary font-medium mb-0.5">Improved</div>
                 <p className="text-xs text-muted-foreground line-clamp-3">{c.improved_text}</p>
               </div>
             </div>

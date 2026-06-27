@@ -107,7 +107,7 @@ const ContextQuestions = () => {
       <div className="flex items-end justify-between mb-4">
         <div>
           <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-1">Admin</div>
-          <h1 className="text-2xl font-semibold tracking-tight">Context questions</h1>
+          <h1 className="text-2xl font-medium tracking-tight">Context questions</h1>
         </div>
       </div>
 
@@ -140,7 +140,7 @@ const ContextQuestions = () => {
             >
               <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-border">
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="font-mono text-xs font-semibold text-ds-ink-secondary">
+                  <span className="font-mono text-xs font-medium text-ds-ink-secondary">
                     Q{g.question_id}
                   </span>
                   <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
@@ -162,7 +162,7 @@ const ContextQuestions = () => {
                   <div key={t.trigger} className="space-y-1">
                     <div className="flex items-center justify-between gap-2 px-1">
                       <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                        on: <span className="font-semibold text-foreground">{t.trigger}</span>
+                        on: <span className="font-medium text-foreground">{t.trigger}</span>
                         <span className="ml-1 text-muted-foreground">
                           ({t.variants.length})
                         </span>

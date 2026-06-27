@@ -135,7 +135,7 @@ const Analytics = () => {
       <div className="flex items-end justify-between mb-6">
         <div>
           <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-1">Admin</div>
-          <h1 className="text-2xl font-semibold tracking-tight">Analytics</h1>
+          <h1 className="text-2xl font-medium tracking-tight">Analytics</h1>
         </div>
         <Select value={period} onValueChange={(v) => setPeriod(v as Period)}>
           <SelectTrigger className="w-[180px] h-9">
@@ -152,7 +152,7 @@ const Analytics = () => {
       <StaggerChildren className="grid grid-cols-3 gap-3 mb-6">
         <motion.div variants={staggerItem}>
           <AdminCard className="transition-all duration-normal ease-emphasized hover:shadow-sm hover:border-foreground/20">
-            <div className="text-3xl sm:text-4xl font-semibold tracking-tight tabular-nums leading-none">
+            <div className="text-3xl sm:text-4xl font-medium tracking-tight tabular-nums leading-none">
               {loadingSessions ? "-" : (sessions?.length ?? 0)}
             </div>
             <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mt-2">Total sessions</div>
@@ -160,7 +160,7 @@ const Analytics = () => {
         </motion.div>
         <motion.div variants={staggerItem}>
           <AdminCard className="transition-all duration-normal ease-emphasized hover:shadow-sm hover:border-foreground/20">
-            <div className="text-3xl sm:text-4xl font-semibold tracking-tight tabular-nums leading-none">
+            <div className="text-3xl sm:text-4xl font-medium tracking-tight tabular-nums leading-none">
               {loadingSessions || completionRate == null ? "-" : `${completionRate.toFixed(0)}%`}
             </div>
             <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mt-2">Completion rate</div>
@@ -168,7 +168,7 @@ const Analytics = () => {
         </motion.div>
         <motion.div variants={staggerItem}>
           <AdminCard className="transition-all duration-normal ease-emphasized hover:shadow-sm hover:border-foreground/20">
-            <div className="text-3xl sm:text-4xl font-semibold tracking-tight tabular-nums leading-none">
+            <div className="text-3xl sm:text-4xl font-medium tracking-tight tabular-nums leading-none">
               {loadingAnswers ? "-" : (answers?.length ?? 0)}
             </div>
             <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mt-2">Answers recorded</div>
@@ -178,7 +178,7 @@ const Analytics = () => {
 
       <div className="grid grid-cols-2 gap-3">
         <AdminCard>
-          <div className="text-[13px] font-semibold mb-3">Sessions per week</div>
+          <div className="text-[13px] font-medium mb-3">Sessions per week</div>
           {loadingSessions ? (
             <Skeleton className="h-52 w-full" />
           ) : (
@@ -195,7 +195,7 @@ const Analytics = () => {
         </AdminCard>
 
         <AdminCard>
-          <div className="text-[13px] font-semibold mb-3">Average score per month</div>
+          <div className="text-[13px] font-medium mb-3">Average score per month</div>
           {loadingSessions ? (
             <Skeleton className="h-52 w-full" />
           ) : avgScorePerMonth.length === 0 ? (
@@ -217,7 +217,7 @@ const Analytics = () => {
       </div>
 
       <AdminCard className="mt-3">
-        <div className="text-[13px] font-semibold mb-3">Most-answered questions (top 10)</div>
+        <div className="text-[13px] font-medium mb-3">Most-answered questions (top 10)</div>
         {loadingAnswers ? (
           <Skeleton className="h-60 w-full" />
         ) : topQuestions.length === 0 ? (

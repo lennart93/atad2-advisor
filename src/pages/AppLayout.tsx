@@ -72,7 +72,7 @@ const AppLayout = () => {
               </Tooltip>
             </TooltipProvider>
             <div>
-              <h1 className="text-base sm:text-lg font-semibold tracking-tight">ATAD2 risk assessment</h1>
+              <h1 className="text-base sm:text-lg font-medium tracking-tight">ATAD2 risk assessment</h1>
               {user && (
                 <p className="text-xs sm:text-sm text-muted-foreground">
                   Welcome back, {userProfile?.first_name || user.email?.split('@')[0]}

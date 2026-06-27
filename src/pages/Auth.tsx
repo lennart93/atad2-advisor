@@ -345,7 +345,7 @@ const Auth = () => {
           <p className="text-sm uppercase tracking-[0.2em] text-muted-foreground">
             Svalner Atlas
           </p>
-          <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-foreground">
+          <h1 className="text-3xl sm:text-4xl font-medium tracking-tight text-foreground">
             ATAD2 risk assessment
           </h1>
           <div className="mx-auto h-px w-16 bg-primary/40" />

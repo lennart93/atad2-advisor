@@ -158,7 +158,7 @@ function Exhibit({ icon, title, defaultOpen = true, excluded = false, onToggleEx
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div className={cn('rounded-lg border border-[hsl(var(--border-subtle))] overflow-hidden', excluded && 'opacity-60')}>
-      <div className="group flex w-full items-center gap-2 bg-muted/40 px-3 py-2 text-sm font-semibold text-foreground">
+      <div className="group flex w-full items-center gap-2 bg-muted/40 px-3 py-2 text-sm font-medium text-foreground">
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
@@ -504,7 +504,7 @@ export function FactsPanel({ facts, onChange, generated }: Props) {
 
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-semibold text-foreground">Part A · Facts &amp; relationships</h3>
+      <h3 className="text-sm font-medium text-foreground">Part A · Facts &amp; relationships</h3>
 
       {/* ------------------------------------------------------------------ */}
       {/* 1. The group and the taxpayer                                        */}

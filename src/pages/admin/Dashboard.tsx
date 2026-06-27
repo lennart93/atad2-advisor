@@ -140,7 +140,7 @@ const Dashboard = () => {
       <header className="flex items-end justify-between mb-6">
         <div>
           <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-1">Admin</div>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Dashboard</h1>
+          <h1 className="text-2xl font-medium tracking-tight text-foreground">Dashboard</h1>
         </div>
         <Select value={period} onValueChange={(v) => setPeriod(v as Period)}>
           <SelectTrigger className="w-[180px] h-9">
@@ -210,12 +210,12 @@ const Dashboard = () => {
                   >
                     <IconChip entity={s.entity} icon={s.icon} size="md" />
                     <div>
-                      <div className="text-[13px] font-semibold text-foreground">{s.title}</div>
+                      <div className="text-[13px] font-medium text-foreground">{s.title}</div>
                       <div className="text-[11px] text-muted-foreground mt-0.5">{s.sub}</div>
                     </div>
                     {badge > 0 && (
                       <span
-                        className="absolute top-2 right-2 inline-flex items-center justify-center min-w-[20px] h-[20px] rounded-full bg-ds-ink text-ds-card text-[10px] font-semibold px-1.5"
+                        className="absolute top-2 right-2 inline-flex items-center justify-center min-w-[20px] h-[20px] rounded-full bg-ds-ink text-ds-card text-[10px] font-medium px-1.5"
                         aria-label={`${badge} new`}
                       >
                         {badge > 99 ? "99+" : badge}

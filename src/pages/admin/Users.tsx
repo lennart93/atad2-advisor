@@ -114,7 +114,7 @@ const Users = () => {
       <div className="flex items-end justify-between mb-4">
         <div>
           <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-1">Admin</div>
-          <h1 className="text-2xl font-semibold tracking-tight">Users &amp; Roles</h1>
+          <h1 className="text-2xl font-medium tracking-tight">Users &amp; Roles</h1>
         </div>
       </div>
 
@@ -144,7 +144,7 @@ const Users = () => {
               >
                 <IconChip icon={Icon} size="md" />
                 <div className="min-w-0 flex-1">
-                  <div className="text-[13px] font-semibold truncate">
+                  <div className="text-[13px] font-medium truncate">
                     {p.full_name || p.email}
                     {isSelf && <span className="ml-2 text-[10px] text-muted-foreground font-normal">(you)</span>}
                   </div>

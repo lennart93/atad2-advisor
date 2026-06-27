@@ -119,7 +119,7 @@ const ReportDetail = () => {
           canonical={`/report/${reportId}`}
         />
         <div className="text-center py-12">
-          <h1 className="text-xl font-semibold mb-4">Report not found</h1>
+          <h1 className="text-xl font-medium mb-4">Report not found</h1>
           <p className="text-muted-foreground mb-6">
             This report does not exist or you do not have access.
           </p>
@@ -152,7 +152,7 @@ const ReportDetail = () => {
         
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold">
+            <h1 className="text-2xl font-medium">
               {report.report_title || "ATAD2 Report"}
             </h1>
             <p className="text-muted-foreground">
@@ -203,7 +203,7 @@ const ReportDetail = () => {
       <div className="grid gap-6 mb-6">
         {/* Metadata Card */}
         <Card className="p-6">
-          <h2 className="text-lg font-semibold mb-4">Report details</h2>
+          <h2 className="text-lg font-medium mb-4">Report details</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {report.model && (
               <div>
@@ -228,7 +228,7 @@ const ReportDetail = () => {
 
         {/* Report Content */}
         <Card className="p-6">
-          <h2 className="text-lg font-semibold mb-4">Report content</h2>
+          <h2 className="text-lg font-medium mb-4">Report content</h2>
           <div className="prose prose-sm max-w-none">
             <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">
               {report.report_md}

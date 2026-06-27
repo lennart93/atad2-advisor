@@ -26,7 +26,7 @@ export function QuestionNode({ data }: NodeProps) {
     >
       <Handle type="target" position={Position.Top} className="!bg-ds-ink-tertiary" />
       <div className="flex items-center justify-between mb-1">
-        <span className="text-[10px] font-bold text-ds-ink-secondary">{d.question_id}</span>
+        <span className="text-[10px] font-normal text-ds-ink-secondary">{d.question_id}</span>
         <RiskChip points={maxRisk} />
       </div>
       <div className="text-[11px] font-medium text-foreground line-clamp-2">

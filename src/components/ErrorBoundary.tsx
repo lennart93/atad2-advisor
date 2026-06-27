@@ -24,7 +24,7 @@ class ErrorBoundary extends React.Component<React.PropsWithChildren, ErrorBounda
       return (
         <div className="min-h-screen flex items-center justify-center">
           <div className="text-center">
-            <h1 className="text-2xl font-semibold">Something went wrong</h1>
+            <h1 className="text-2xl font-medium">Something went wrong</h1>
             <p className="text-muted-foreground mt-2">Please refresh the page or try again later.</p>
           </div>
         </div>

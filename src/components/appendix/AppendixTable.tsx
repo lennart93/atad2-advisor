@@ -140,7 +140,7 @@ function AssociationPanel({ data }: { data: RelatedPartiesResult | null }) {
   return (
     <div className="rounded-md border border-ds-hairline bg-ds-fill-muted p-2.5">
       <div className="mb-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
-        <span className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+        <span className="flex items-center gap-1.5 text-xs font-medium text-foreground">
           <Network className="h-3.5 w-3.5 text-ds-ink-secondary" />
           Associated enterprises{data.taxpayerName ? ` of ${data.taxpayerName}` : ''}
         </span>
@@ -192,7 +192,7 @@ function RelatedPartiesTable({ data }: { data: RelatedPartiesResult }) {
               </td>
               <td className="px-2 py-1 text-muted-foreground">{p.relationship}</td>
               <td className="px-2 py-1 text-right tabular-nums">
-                <span className={cn(p.meetsRelated && 'font-semibold text-foreground')}>{pct(p.ownershipPct)}</span>
+                <span className={cn(p.meetsRelated && 'font-medium text-foreground')}>{pct(p.ownershipPct)}</span>
               </td>
             </tr>
           ))}
@@ -268,7 +268,7 @@ export function AppendixTable({ rows, skeleton, showSources, relatedParties, onE
       {sections.map((sec) => (
         <section key={sec.sectionId}>
           <div className="mb-2">
-            <h3 className="text-sm font-semibold text-foreground">
+            <h3 className="text-sm font-medium text-foreground">
               Section {sec.sectionId} · {sec.sectionTitle}
             </h3>
           </div>

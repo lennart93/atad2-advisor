@@ -18,7 +18,7 @@ interface Props {
   onRemoveFromFiscalUnity?: (groupingId: string) => void;
 }
 
-const FIELD_LABEL = 'block text-[10.5px] font-semibold uppercase tracking-[0.06em] text-ds-ink-secondary mb-1.5';
+const FIELD_LABEL = 'block text-[10.5px] font-medium uppercase tracking-[0.06em] text-ds-ink-secondary mb-1.5';
 const INPUT_BASE = 'h-9 bg-white/70 border-ds-hairline focus-visible:ring-1 focus-visible:ring-ds-ink-tertiary focus-visible:ring-offset-0';
 
 export function EntityInspector({

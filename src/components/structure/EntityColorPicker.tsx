@@ -62,7 +62,7 @@ export function EntityColorPicker({ id, value, onChange }: Props) {
       </PopoverTrigger>
 
       <PopoverContent className="w-auto p-3" align="start">
-        <div className="mb-2 text-[10.5px] font-semibold uppercase tracking-[0.06em] text-ds-ink-secondary">
+        <div className="mb-2 text-[10.5px] font-medium uppercase tracking-[0.06em] text-ds-ink-secondary">
           Theme Colors
         </div>
 

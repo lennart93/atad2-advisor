@@ -38,10 +38,10 @@ export function AnalysisPanel({ analysis, targetKey, onCreateDraft }: Props) {
               <div key={i} className="border border-border rounded-md p-3 bg-muted/20">
                 <div className="text-sm font-medium text-foreground">{c.what}</div>
                 <div className="text-xs text-muted-foreground mt-1.5">
-                  <span className="font-semibold text-foreground/80">Intent:</span> {c.inferred_intent}
+                  <span className="font-medium text-foreground/80">Intent:</span> {c.inferred_intent}
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
-                  <span className="font-semibold text-foreground/80">Prompt gap:</span> {c.prompt_gap}
+                  <span className="font-medium text-foreground/80">Prompt gap:</span> {c.prompt_gap}
                 </div>
               </div>
             ))}
@@ -77,7 +77,7 @@ export function AnalysisPanel({ analysis, targetKey, onCreateDraft }: Props) {
         </pre>
         {analysis.suggested_notes && (
           <p className="text-xs text-muted-foreground mt-2">
-            <span className="font-semibold text-foreground/80">Suggested notes:</span> {analysis.suggested_notes}
+            <span className="font-medium text-foreground/80">Suggested notes:</span> {analysis.suggested_notes}
           </p>
         )}
         <div className="flex justify-end mt-3">
