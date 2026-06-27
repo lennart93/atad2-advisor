@@ -1,18 +1,43 @@
-@import "@fontsource-variable/inter/wght.css";
-@import "@fontsource-variable/inter/wght-italic.css";
 @import "./styles/tokens.css";
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Geist variable fonts (Vercel). woff2 copied from node_modules at build setup. */
+/* ===========================================================================
+   Svalner Atlas brand — Neue Haas Grotesk Display Pro (self-hosted).
+   Replaces the previous Geist + Inter stack. Only TWO real weights ship:
+   400 (roman/italic) and 500 (medium). The app uses Tailwind font-semibold
+   (600) and font-bold (700) widely, so we map those weight ranges onto the
+   REAL medium glyphs instead of letting the browser fake-bold them (which
+   looks crude on a grotesque). Combined with `font-synthesis: none` on the
+   body, nothing is ever synthesised — the type stays clean and on-brand.
+   ── weight map ──
+     100–450  → roman (55)
+     451–950  → medium (65)
+   =========================================================================== */
 @font-face {
-  font-family: 'Geist';
-  src: url('./assets/fonts/Geist-Variable.woff2') format('woff2-variations');
-  font-weight: 100 900;
-  font-display: swap;
+  font-family: 'Neue Haas Grotesk Display Pro';
+  src: url('./assets/fonts/neue-haas-grotesk-display-pro-55-roman.woff2') format('woff2');
+  font-weight: 100 450;
   font-style: normal;
+  font-display: swap;
 }
+@font-face {
+  font-family: 'Neue Haas Grotesk Display Pro';
+  src: url('./assets/fonts/neue-haas-grotesk-display-pro-56-italic.woff2') format('woff2');
+  font-weight: 100 450;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Neue Haas Grotesk Display Pro';
+  src: url('./assets/fonts/neue-haas-grotesk-display-pro-65-medium.woff2') format('woff2');
+  font-weight: 451 950;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Geist Mono kept for monospace/tabular contexts (woff2 already in repo). */
 @font-face {
   font-family: 'Geist Mono';
   src: url('./assets/fonts/GeistMono-Variable.woff2') format('woff2-variations');
@@ -21,61 +46,78 @@
   font-style: normal;
 }
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here.
 All colors MUST be HSL.
+
+   ── Svalner Atlas palette ──────────────────────────────────────────────────
+   Warm near-neutral base (paper white → warm near-black ink) with two muted
+   earthy accents: terracotta (primary brand accent / focus ring / markers) and
+   sage (secondary). Saturation stays low; surfaces are flat and near-square
+   (--radius 2px). Brand accent tokens are exposed separately (--brand-*) so
+   component-level work can use terracotta/sage without overriding shadcn's
+   neutral hover (--accent) semantics.
 */
 
 @layer base {
   :root {
-    /* Linear/Vercel-style neutral zinc scale (true gray, no blue tint) */
-    --background: 0 0% 100%;
-    --foreground: 240 10% 4%;
+    /* Warm paper + ink */
+    --background: 40 33% 97%;        /* #faf8f4 warm paper */
+    --foreground: 48 16% 7%;         /* #16150f warm near-black ink */
 
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 4%;
+    --card: 0 0% 100%;               /* pure white surfaces sit on the paper */
+    --card-foreground: 48 16% 7%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 4%;
+    --popover-foreground: 48 16% 7%;
 
-    --primary: 240 10% 4%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 48 16% 7%;            /* ink — solid (black) buttons, on-brand */
+    --primary-foreground: 40 33% 98%;
 
-    --secondary: 240 5% 96%;
-    --secondary-foreground: 240 10% 4%;
+    --secondary: 42 15% 94%;         /* warm light panel */
+    --secondary-foreground: 48 16% 7%;
 
-    --muted: 240 5% 96%;
-    --muted-foreground: 240 4% 46%;
+    --muted: 42 15% 94%;
+    --muted-foreground: 40 8% 51%;   /* #8a8479 warm grey */
 
-    --accent: 240 5% 96%;
-    --accent-foreground: 240 10% 4%;
+    --accent: 42 15% 94%;            /* neutral warm hover (NOT the brand accent) */
+    --accent-foreground: 48 16% 7%;
 
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 0 0% 100%;
+    --destructive: 6 59% 44%;        /* #b23b2e desaturated brand danger */
+    --destructive-foreground: 40 33% 98%;
 
-    --border: 240 6% 90%;
-    --input: 240 6% 90%;
-    --ring: 240 10% 4%;
+    --border: 42 16% 90%;            /* #ebe8e1 warm hairline */
+    --input: 42 16% 90%;
+    --ring: 14 52% 50%;              /* #c25c3c terracotta focus ring */
 
-    --radius: 0.5rem;
+    --radius: 0.125rem;              /* 2px — brand is flat & near-square */
 
-    --sidebar-background: 0 0% 99%;
-    --sidebar-foreground: 240 4% 30%;
-    --sidebar-primary: 240 10% 4%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 5% 96%;
-    --sidebar-accent-foreground: 240 10% 4%;
-    --sidebar-border: 240 6% 90%;
-    --sidebar-ring: 240 10% 4%;
+    /* Brand accents — use these for markers, active states, arrows, etc. */
+    --brand-terracotta: 14 52% 50%;       /* #c25c3c */
+    --brand-terracotta-deep: 14 58% 42%;  /* #a8492d */
+    --brand-terracotta-soft: 18 47% 89%;  /* #f0ddd5 */
+    --brand-sage: 71 20% 53%;             /* #97a06f */
+    --brand-sage-deep: 74 18% 43%;        /* #79825a */
+    --brand-sage-soft: 70 24% 89%;        /* #e8eadd */
+    --brand-warning: 40 62% 44%;          /* amber, on-brand */
 
-    /* Typography stacks. Geist variable as primary; Inter and system as fallbacks. */
-    --font-sans: 'Geist', 'Inter Variable', -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --sidebar-background: 40 30% 98%;
+    --sidebar-foreground: 40 8% 32%;
+    --sidebar-primary: 48 16% 7%;
+    --sidebar-primary-foreground: 40 33% 98%;
+    --sidebar-accent: 42 15% 94%;
+    --sidebar-accent-foreground: 48 16% 7%;
+    --sidebar-border: 42 16% 90%;
+    --sidebar-ring: 14 52% 50%;
+
+    /* Typography stacks — Neue Haas Grotesk primary; Helvetica Neue fallback. */
+    --font-sans: 'Neue Haas Grotesk Display Pro', 'Helvetica Neue', Helvetica, Arial, sans-serif;
     --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-    --tracking-tighter: -0.022em;
-    --tracking-tight: -0.015em;
-    --tracking-snug: -0.005em;
+    --tracking-tighter: -0.03em;
+    --tracking-tight: -0.02em;
+    --tracking-snug: -0.01em;
     --tracking-normal: 0;
 
-    /* Motion tokens (Linear-style: emphasized easing, snappy durations) */
+    /* Motion tokens (restrained, editorial) */
     --duration-fast: 120ms;
     --duration-normal: 200ms;
     --duration-slow: 320ms;
@@ -83,61 +125,68 @@ All colors MUST be HSL.
     --ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
     --ease-out: cubic-bezier(0, 0, 0.2, 1);
 
-    /* Border + shadow tokens */
-    --border-subtle: 240 10% 4% / 0.06;
-    --border-default: 240 10% 4% / 0.10;
-    --border-strong: 240 10% 4% / 0.18;
+    /* Border + shadow tokens — flatter, the brand avoids heavy shadow */
+    --border-subtle: 48 16% 7% / 0.05;
+    --border-default: 48 16% 7% / 0.10;
+    --border-strong: 48 16% 7% / 0.18;
 
-    --shadow-xs: 0 1px 0 rgb(0 0 0 / 0.02);
-    --shadow-sm: 0 1px 0 rgb(0 0 0 / 0.02), 0 1px 2px rgb(0 0 0 / 0.04);
-    --shadow-md: 0 1px 0 rgb(0 0 0 / 0.02), 0 4px 16px -8px rgb(0 0 0 / 0.10);
-    --shadow-lg: 0 1px 0 rgb(0 0 0 / 0.02), 0 12px 32px -12px rgb(0 0 0 / 0.16);
+    --shadow-xs: 0 1px 0 rgb(27 26 24 / 0.02);
+    --shadow-sm: 0 1px 0 rgb(27 26 24 / 0.02), 0 1px 2px rgb(27 26 24 / 0.04);
+    --shadow-md: 0 1px 0 rgb(27 26 24 / 0.02), 0 4px 16px -8px rgb(27 26 24 / 0.08);
+    --shadow-lg: 0 1px 0 rgb(27 26 24 / 0.02), 0 12px 32px -12px rgb(27 26 24 / 0.12);
     --shadow-btn-primary:
-      0 1px 0 rgb(255 255 255 / 0.10) inset,
-      0 1px 2px rgb(0 0 0 / 0.15),
-      0 4px 10px -4px rgb(0 0 0 / 0.20);
+      0 1px 0 rgb(255 255 255 / 0.08) inset,
+      0 1px 2px rgb(27 26 24 / 0.18);
 
-    --surface-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(0 0% 99%) 100%);
-    --surface-header: linear-gradient(180deg, hsl(0 0% 100% / 0) 0%, hsl(240 5% 98% / 0.6) 100%);
+    --surface-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(40 33% 99%) 100%);
+    --surface-header: linear-gradient(180deg, hsl(40 33% 100% / 0) 0%, hsl(40 20% 98% / 0.6) 100%);
   }
 
   .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
+    --background: 45 9% 7%;          /* warm near-black */
+    --foreground: 40 20% 96%;
 
-    --card: 240 10% 5.5%;
-    --card-foreground: 0 0% 98%;
+    --card: 44 8% 9%;
+    --card-foreground: 40 20% 96%;
 
-    --popover: 240 10% 5.5%;
-    --popover-foreground: 0 0% 98%;
+    --popover: 44 8% 9%;
+    --popover-foreground: 40 20% 96%;
 
-    --primary: 0 0% 98%;
-    --primary-foreground: 240 10% 4%;
+    --primary: 40 20% 96%;
+    --primary-foreground: 48 16% 7%;
 
-    --secondary: 240 4% 12%;
-    --secondary-foreground: 0 0% 98%;
+    --secondary: 42 6% 15%;
+    --secondary-foreground: 40 20% 96%;
 
-    --muted: 240 4% 12%;
-    --muted-foreground: 240 5% 65%;
+    --muted: 42 6% 15%;
+    --muted-foreground: 40 8% 60%;
 
-    --accent: 240 4% 12%;
-    --accent-foreground: 0 0% 98%;
+    --accent: 42 6% 15%;
+    --accent-foreground: 40 20% 96%;
 
-    --destructive: 0 70% 45%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive: 6 55% 48%;
+    --destructive-foreground: 40 20% 96%;
 
-    --border: 240 4% 14%;
-    --input: 240 4% 14%;
-    --ring: 0 0% 98%;
+    --border: 42 6% 16%;
+    --input: 42 6% 16%;
+    --ring: 14 55% 56%;
 
-    --sidebar-background: 240 10% 5%;
-    --sidebar-foreground: 240 5% 75%;
-    --sidebar-primary: 0 0% 98%;
-    --sidebar-primary-foreground: 240 10% 4%;
-    --sidebar-accent: 240 4% 12%;
-    --sidebar-accent-foreground: 0 0% 98%;
-    --sidebar-border: 240 4% 14%;
-    --sidebar-ring: 0 0% 98%;
+    --brand-terracotta: 14 60% 58%;
+    --brand-terracotta-deep: 14 52% 48%;
+    --brand-terracotta-soft: 16 22% 22%;
+    --brand-sage: 71 24% 62%;
+    --brand-sage-deep: 71 18% 50%;
+    --brand-sage-soft: 70 12% 20%;
+    --brand-warning: 40 60% 56%;
+
+    --sidebar-background: 45 9% 6%;
+    --sidebar-foreground: 40 8% 74%;
+    --sidebar-primary: 40 20% 96%;
+    --sidebar-primary-foreground: 48 16% 7%;
+    --sidebar-accent: 42 6% 15%;
+    --sidebar-accent-foreground: 40 20% 96%;
+    --sidebar-border: 42 6% 16%;
+    --sidebar-ring: 14 55% 56%;
 
     --border-subtle: 0 0% 100% / 0.06;
     --border-default: 0 0% 100% / 0.10;
@@ -148,8 +197,8 @@ All colors MUST be HSL.
     --shadow-md: 0 1px 0 rgb(0 0 0 / 0.10), 0 4px 16px -8px rgb(0 0 0 / 0.30);
     --shadow-lg: 0 1px 0 rgb(0 0 0 / 0.10), 0 12px 32px -12px rgb(0 0 0 / 0.40);
 
-    --surface-card: linear-gradient(180deg, hsl(240 10% 6%) 0%, hsl(240 10% 5%) 100%);
-    --surface-header: linear-gradient(180deg, hsl(240 10% 4% / 0) 0%, hsl(240 10% 6% / 0.6) 100%);
+    --surface-card: linear-gradient(180deg, hsl(44 8% 10%) 0%, hsl(44 8% 8%) 100%);
+    --surface-header: linear-gradient(180deg, hsl(45 9% 7% / 0) 0%, hsl(44 8% 10% / 0.6) 100%);
   }
 }
 
@@ -162,6 +211,7 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
     font-family: var(--font-sans);
     letter-spacing: var(--tracking-snug);
+    font-synthesis: none;        /* never fake bold/italic — we only ship 400 & 500 */
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }

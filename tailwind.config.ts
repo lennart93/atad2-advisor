@@ -62,7 +62,22 @@ export default {
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
 				},
-				// Design system tokens (src/styles/tokens.css). Final color
+				// Svalner Atlas brand accents - terracotta + sage, used sparingly
+					// for markers, the active step, status dots, arrows and focus.
+					brand: {
+						terracotta: {
+							DEFAULT: 'hsl(var(--brand-terracotta))',
+							deep: 'hsl(var(--brand-terracotta-deep))',
+							soft: 'hsl(var(--brand-terracotta-soft))'
+						},
+						sage: {
+							DEFAULT: 'hsl(var(--brand-sage))',
+							deep: 'hsl(var(--brand-sage-deep))',
+							soft: 'hsl(var(--brand-sage-soft))'
+						},
+						warning: 'hsl(var(--brand-warning))'
+					},
+					// Design system tokens (src/styles/tokens.css). Final color
 				// values, so Tailwind opacity modifiers do not apply to them.
 				ds: {
 					ink: {
@@ -160,7 +175,7 @@ export default {
 				'wiggle': 'wiggle 3.5s ease-in-out infinite'
 			},
 			fontFamily: {
-				sans: ['Geist', 'Inter Variable', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
+				sans: ['Neue Haas Grotesk Display Pro', 'Helvetica Neue', 'Helvetica', 'Arial', 'sans-serif'],
 				mono: ['Geist Mono', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
 			},
 			letterSpacing: {

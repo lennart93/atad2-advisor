@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Copy, FileText, Trash2 } from "lucide-react";
+import { ArrowRight, Copy, Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { Button, Card, EmptyState, PageHeader, StatusPill } from "@/components/ds";
+import { Button } from "@/components/ds";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   AlertDialog,
@@ -68,6 +68,11 @@ interface SessionListItem {
   memorandum_date?: string;
   destination_url: string;
 }
+
+// Shared 5-column ledger grid: No. · Client · Period · Status · Actions
+const LEDGER_COLS =
+  "sm:grid sm:grid-cols-[52px_minmax(0,1fr)_180px_150px_auto] sm:items-center sm:gap-4";
+const EYEBROW = "text-[11px] font-medium uppercase tracking-[0.16em] text-ds-ink-secondary";
 
 const Index = () => {
   const { user, loading: authLoading } = useAuth();
@@ -243,144 +248,168 @@ const Index = () => {
 
   return (
     <MotionPage>
-      <PageHeader
-        title="Assessments"
-        subtitle="Run ATAD2 risk assessments for Dutch corporate taxpayers."
-        actions={
-          <Button onClick={() => navigate("/assessment")}>
-            New assessment
-          </Button>
-        }
-      />
-
-      <section className="flex flex-col gap-4">
-        <div className="flex flex-col gap-1">
-          <h2 className="text-[18px] font-medium tracking-tight text-ds-ink">
-            Your assessments
-          </h2>
-          <p className="text-[13px] text-ds-ink-secondary">
-            View, resume or delete your assessments.
-          </p>
-        </div>
-        {loading ? (
-          <div className="flex flex-col gap-3">
-            <Skeleton className="h-[76px] w-full rounded-ds-card" />
-            <Skeleton className="h-[76px] w-full rounded-ds-card" />
-            <Skeleton className="h-[76px] w-full rounded-ds-card" />
+      <div className="flex flex-col gap-14">
+        {/* Title block */}
+        <header className="flex flex-col gap-8 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <span className={EYEBROW}>ATAD2 · Dutch corporate taxpayers</span>
+            <h1 className="mt-5 text-5xl font-normal leading-[0.98] tracking-[-0.03em] text-ds-ink sm:text-6xl">
+              Assessments
+            </h1>
+            <p className="mt-5 max-w-md text-[15px] text-ds-ink-secondary">
+              Run structured ATAD2 risk assessments and generate review-ready memoranda.
+            </p>
           </div>
-        ) : sessions.length === 0 ? (
-          <FadeIn>
-            <Card>
-              <EmptyState
-                icon={FileText}
-                action={
-                  <Button variant="secondary" onClick={() => navigate("/assessment")}>
-                    New assessment
-                  </Button>
-                }
-              >
-                Start your first ATAD2 assessment to see it here.
-              </EmptyState>
-            </Card>
-          </FadeIn>
-        ) : (
-          <StaggerChildren stagger={0.04} className="flex flex-col gap-3">
-            {sessions.map((session) => {
-              const ready = session.completed && Boolean(session.has_memorandum);
-              const inProgress = !session.completed;
-              const dateLabel = inProgress ? "started" : "completed";
-              const ariaLabel = inProgress
-                ? `Resume assessment for ${session.taxpayer_name}`
-                : `Open report for ${session.taxpayer_name}`;
+          <Button onClick={() => navigate("/assessment")} className="self-start gap-2 sm:self-end">
+            New assessment
+            <ArrowRight className="h-4 w-4 text-brand-terracotta" />
+          </Button>
+        </header>
 
-              return (
-                <motion.div key={session.id} variants={staggerItem}>
-                  <div className="group relative flex items-center gap-4 rounded-ds-card border border-ds-hairline bg-ds-card p-4 sm:p-5 transition-colors duration-150 hover:bg-ds-fill-muted">
-                    <Link
-                      to={session.destination_url}
-                      className="absolute inset-0 rounded-ds-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent"
-                      aria-label={ariaLabel}
-                    />
-                    <div className="pointer-events-none relative min-w-0 flex-1">
-                      <div className="mb-1.5 flex items-center gap-3">
-                        <h3 className="truncate text-[15px] font-medium tracking-tight text-ds-ink">
-                          {session.taxpayer_name}
-                        </h3>
-                        {ready ? (
-                          <StatusPill status="complete">Ready</StatusPill>
-                        ) : inProgress ? (
-                          <StatusPill status="neutral">In progress</StatusPill>
-                        ) : (
-                          <StatusPill status="neutral">Memo pending</StatusPill>
-                        )}
+        {/* History ledger */}
+        <section className="flex flex-col">
+          {/* Ledger header (desktop only) */}
+          <div className={`${LEDGER_COLS} hidden border-b border-ds-ink px-1 pb-3`}>
+            <span className={EYEBROW}>No.</span>
+            <span className={EYEBROW}>Client</span>
+            <span className={EYEBROW}>Period</span>
+            <span className={EYEBROW}>Status</span>
+            <span />
+          </div>
+
+          {loading ? (
+            <div className="flex flex-col">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="border-b border-ds-hairline px-1 py-6">
+                  <Skeleton className="h-7 w-full rounded-none" />
+                </div>
+              ))}
+            </div>
+          ) : sessions.length === 0 ? (
+            <FadeIn>
+              <div className="flex flex-col items-center justify-center gap-3 border-y border-ds-hairline px-6 py-20 text-center">
+                <h3 className="text-[17px] font-medium tracking-tight text-ds-ink">No assessments yet</h3>
+                <p className="text-[13px] text-ds-ink-secondary">
+                  Start your first ATAD2 assessment to see it here.
+                </p>
+                <Button variant="secondary" className="mt-1" onClick={() => navigate("/assessment")}>
+                  New assessment
+                </Button>
+              </div>
+            </FadeIn>
+          ) : (
+            <StaggerChildren stagger={0.04} className="flex flex-col">
+              {sessions.map((session, i) => {
+                const ready = session.completed && Boolean(session.has_memorandum);
+                const inProgress = !session.completed;
+                const no = String(i + 1).padStart(2, "0");
+                const dateLabel = inProgress ? "Started" : "Completed";
+                const actionLabel = inProgress ? "Resume" : "View report";
+                const ariaLabel = inProgress
+                  ? `Resume assessment for ${session.taxpayer_name}`
+                  : `Open report for ${session.taxpayer_name}`;
+                const statusLabel = ready ? "Ready" : inProgress ? "In progress" : "Memo pending";
+                const dotClass = ready
+                  ? "bg-brand-sage"
+                  : inProgress
+                    ? "bg-brand-terracotta"
+                    : "bg-ds-ink-tertiary";
+
+                return (
+                  <motion.div key={session.id} variants={staggerItem}>
+                    <div
+                      className={`group relative flex flex-col gap-3 border-b border-ds-hairline px-1 py-6 transition-colors duration-150 hover:bg-ds-fill-muted ${LEDGER_COLS} sm:gap-4`}
+                    >
+                      <Link
+                        to={session.destination_url}
+                        className="absolute inset-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent"
+                        aria-label={ariaLabel}
+                      />
+
+                      {/* No. */}
+                      <span className="pointer-events-none relative hidden text-[13px] tabular-nums text-ds-ink-tertiary sm:block">
+                        {no}
+                      </span>
+
+                      {/* Client */}
+                      <h3 className="pointer-events-none relative truncate text-[19px] font-medium tracking-tight text-ds-ink sm:text-[22px]">
+                        {session.taxpayer_name}
+                      </h3>
+
+                      {/* Period */}
+                      <div className="pointer-events-none relative flex flex-col gap-0.5">
+                        <span className="text-[13px] tabular-nums text-ds-ink">FY{session.fiscal_year}</span>
+                        <span className="text-[12px] text-ds-ink-secondary">
+                          {dateLabel} {formatDate(session.created_at)}
+                        </span>
                       </div>
-                      <p className="tabular text-[13px] text-ds-ink-secondary">
-                        FY{session.fiscal_year} · {dateLabel} {formatDate(session.created_at)}
-                      </p>
-                    </div>
-                    <div className="relative z-10 flex items-center gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label="Copy session id"
-                        className="text-ds-ink-secondary"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          copySessionId(session.session_id);
-                        }}
-                      >
-                        <Copy />
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(session.destination_url);
-                        }}
-                      >
-                        <FileText />
-                        {inProgress ? "Resume" : "View report"}
-                      </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            aria-label="Delete assessment"
-                            className="text-ds-ink-secondary hover:text-ds-red"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <Trash2 />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Delete assessment</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Are you sure you want to permanently delete this assessment for {session.taxpayer_name}?
-                              This will delete all answers and cannot be undone.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => deleteSession(session.session_id, session.id)}
-                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+
+                      {/* Status */}
+                      <div className="pointer-events-none relative flex items-center gap-2.5">
+                        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dotClass}`} />
+                        <span className="text-[13px] text-ds-ink-secondary">{statusLabel}</span>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="relative z-10 flex items-center justify-start gap-4 sm:justify-end">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(session.destination_url);
+                          }}
+                          className="inline-flex items-center gap-2 text-[13px] text-ds-ink transition-colors hover:text-brand-terracotta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent"
+                        >
+                          {actionLabel}
+                          <ArrowRight className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            copySessionId(session.session_id);
+                          }}
+                          aria-label="Copy session id"
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-sm text-ds-ink-tertiary transition-colors hover:bg-ds-fill-muted hover:text-ds-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent"
+                        >
+                          <Copy className="h-4 w-4" />
+                        </button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <button
+                              onClick={(e) => e.stopPropagation()}
+                              aria-label="Delete assessment"
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-sm text-ds-ink-tertiary transition-colors hover:bg-ds-red-bg hover:text-ds-red focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent"
                             >
-                              Delete permanently
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete assessment</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to permanently delete this assessment for {session.taxpayer_name}?
+                                This will delete all answers and cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => deleteSession(session.session_id, session.id)}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
+                                Delete permanently
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
                     </div>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </StaggerChildren>
-        )}
-      </section>
+                  </motion.div>
+                );
+              })}
+            </StaggerChildren>
+          )}
+        </section>
+      </div>
     </MotionPage>
   );
 };
