@@ -3,7 +3,7 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, StatusPill, OptionCheckbox } from "@/components/ds";
+import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, OptionCheckbox } from "@/components/ds";
 import { toast } from "@/components/ui/sonner";
 import { formatDate, formatDateTime } from "@/utils/formatDate";
 import { ArrowLeft, Loader2, AlertTriangle, Info, CheckCircle, Pencil, X, Check } from "lucide-react";
@@ -71,6 +71,9 @@ interface N8nReportResponse {
   report_json?: any;
   report_title: string;
 }
+
+// Shared uppercase eyebrow label (RULE 2 header rhythm).
+const EYEBROW = "text-[11px] font-medium uppercase tracking-[0.16em] text-ds-ink-secondary";
 
 const AssessmentReport = () => {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -584,45 +587,61 @@ const AssessmentReport = () => {
   return (
     <div>
         <div className="space-y-6">
-          {/* Session Summary */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Assessment report</CardTitle>
-              <CardDescription>
-                ATAD2 risk assessment results
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <h3 className="font-medium mb-2">Session details:</h3>
-                  <div className="space-y-1 text-[13px]">
-                    <p><span className="font-medium">Taxpayer:</span> {sessionData.taxpayer_name}</p>
-                    <p><span className="font-medium">Tax year:</span> <span className="tabular">{sessionData.fiscal_year}</span></p>
-                    <p><span className="font-medium">Completed:</span> <span className="tabular">{formatDateTime(sessionData.created_at)}</span></p>
-                    {sessionData.is_custom_period && sessionData.period_start_date && sessionData.period_end_date && (
-                      <p><span className="font-medium">Period:</span> <span className="tabular">{formatDate(sessionData.period_start_date)} - {formatDate(sessionData.period_end_date)}</span></p>
-                    )}
-                  </div>
-                </div>
-                <div>
-                  <h3 className="font-medium mb-2">Risk assessment outcome:</h3>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <StatusPill status={riskOutcome.status}>
-                        {riskOutcome.icon}
-                        {riskOutcome.text}
-                      </StatusPill>
-                      {sessionData.outcome_overridden && (
-                        <StatusPill status="neutral">Adjusted</StatusPill>
-                      )}
-                    </div>
-                    <p className="text-[13px] text-ds-ink-secondary">
-                      {riskOutcome.description}
-                    </p>
-                  </div>
-                </div>
+          {/* Memorandum cover */}
+          <section className="space-y-6">
+            <div className="space-y-3">
+              <span className={EYEBROW}>Assessment report</span>
+              <h1 className="text-4xl font-normal leading-[1.02] tracking-[-0.02em] text-ds-ink sm:text-5xl">
+                {sessionData.taxpayer_name}
+              </h1>
+              <p className="max-w-2xl text-[15px] text-ds-ink-secondary">
+                The ATAD2 position for this structure, ready to compile into a memorandum.
+              </p>
+            </div>
+
+            <dl className="grid grid-cols-2 gap-x-6 gap-y-4 border-t border-ds-ink pt-4 sm:grid-cols-4">
+              <div>
+                <dt className={EYEBROW}>Taxpayer</dt>
+                <dd className="mt-1.5 text-[15px] text-ds-ink">{sessionData.taxpayer_name}</dd>
               </div>
+              <div>
+                <dt className={EYEBROW}>Tax year</dt>
+                <dd className="mt-1.5 text-[15px] tabular-nums text-ds-ink">{sessionData.fiscal_year}</dd>
+              </div>
+              <div>
+                <dt className={EYEBROW}>Completed</dt>
+                <dd className="mt-1.5 text-[15px] tabular-nums text-ds-ink">{formatDateTime(sessionData.created_at)}</dd>
+              </div>
+              <div>
+                <dt className={EYEBROW}>Outcome</dt>
+                <dd className="mt-1.5 flex items-center gap-2">
+                  <span
+                    className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                      riskOutcome.status === "triggered"
+                        ? "bg-brand-terracotta"
+                        : riskOutcome.status === "insufficient"
+                          ? "bg-brand-warning"
+                          : "bg-brand-sage"
+                    }`}
+                  />
+                  <span className="text-[15px] text-ds-ink">{riskOutcome.text}</span>
+                  {sessionData.outcome_overridden && (
+                    <span className="text-[12px] text-ds-ink-secondary">(adjusted)</span>
+                  )}
+                </dd>
+              </div>
+            </dl>
+
+            {sessionData.is_custom_period && sessionData.period_start_date && sessionData.period_end_date && (
+              <p className="text-[13px] text-ds-ink-secondary">
+                Period:{" "}
+                <span className="tabular-nums">
+                  {formatDate(sessionData.period_start_date)} - {formatDate(sessionData.period_end_date)}
+                </span>
+              </p>
+            )}
+
+            <p className="max-w-2xl text-[13px] text-ds-ink-secondary">{riskOutcome.description}</p>
 
               {/* Reasoning and additions - full width grid below the main content */}
               {(sessionData.outcome_overridden && sessionData.override_reason) || sessionData.additional_context ? (
@@ -772,8 +791,7 @@ const AssessmentReport = () => {
                   )}
                 </div>
               ) : null}
-            </CardContent>
-          </Card>
+          </section>
 
           {/* Structure chart snapshot */}
           {chartSnapshot?.snapshot_png ? (
