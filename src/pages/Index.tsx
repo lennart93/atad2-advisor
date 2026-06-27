@@ -71,7 +71,9 @@ interface SessionListItem {
 
 // Shared 5-column ledger grid: No. · Client · Period · Status · Actions
 const LEDGER_COLS =
-  "sm:grid sm:grid-cols-[52px_minmax(0,1fr)_180px_150px_auto] sm:items-center sm:gap-4";
+  // Fixed last column (not `auto`) so the 1fr client column resolves identically
+  // in the header grid and every row grid — that is what makes columns line up.
+  "sm:grid sm:grid-cols-[52px_minmax(0,1fr)_180px_150px_200px] sm:items-center sm:gap-4";
 const EYEBROW = "text-[11px] font-medium uppercase tracking-[0.16em] text-ds-ink-secondary";
 
 const Index = () => {
@@ -288,7 +290,7 @@ const Index = () => {
           ) : sessions.length === 0 ? (
             <FadeIn>
               <div className="flex flex-col items-center justify-center gap-3 border-y border-ds-hairline px-6 py-20 text-center">
-                <h3 className="text-[17px] font-medium tracking-tight text-ds-ink">No assessments yet</h3>
+                <h3 className="text-[17px] font-normal tracking-tight text-ds-ink">No assessments yet</h3>
                 <p className="text-[13px] text-ds-ink-secondary">
                   Start your first ATAD2 assessment to see it here.
                 </p>
@@ -332,7 +334,7 @@ const Index = () => {
                       </span>
 
                       {/* Client */}
-                      <h3 className="pointer-events-none relative truncate text-[19px] font-medium tracking-tight text-ds-ink sm:text-[22px]">
+                      <h3 className="pointer-events-none relative truncate text-[19px] font-normal tracking-tight text-ds-ink sm:text-[22px]">
                         {session.taxpayer_name}
                       </h3>
 
