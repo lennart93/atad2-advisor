@@ -560,6 +560,14 @@ export function useStartAnalyze(sessionId: string | null) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["prefill-job", sessionId] });
       qc.invalidateQueries({ queryKey: ["question-prefills", sessionId] });
+      // The suggestion map rides its own realtime channel and has no other
+      // completion backstop. Without this force-refetch, a single dropped
+      // realtime event on that channel leaves suggestionCount one short of the
+      // prefill rows forever, so the analysis gate (suggestionCount >=
+      // prefilled question ids) never satisfies and the "Analyzing" screen
+      // hangs at 72% until a manual reload. Reconcile it here, exactly like the
+      // worklist's own save mutations do.
+      qc.invalidateQueries({ queryKey: ["suggested-answer-map", sessionId] });
     },
   });
 }

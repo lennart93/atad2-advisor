@@ -19,6 +19,7 @@ import {
   useQuestionCount,
 } from "@/hooks/usePrefill";
 import { buildDocumentsBlock } from "@/lib/prefill/buildDocumentsBlock";
+import { isAnalysisReady, isSwarmDone } from "@/lib/prefill/analysisReady";
 import { runAnalyzePool } from "@/lib/openQuestions/analyzePool";
 import {
   buildComposeItems,
@@ -170,6 +171,10 @@ export function useDocumentsWorklist(sessionId: string): DocumentsWorklist {
   const { logEvent } = useOpenQuestionActions(sessionId);
 
   const { data: sessionMeta } = useQuery({
+    // Gated like the other queries here: the sub-header chip mounts this hook
+    // with an empty session id on its pre-guard render, and an ungated query
+    // would fire a pointless atad2_sessions lookup with session_id="".
+    enabled: !!sessionId,
     queryKey: ["open-questions-session-meta", sessionId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -238,21 +243,30 @@ export function useDocumentsWorklist(sessionId: string): DocumentsWorklist {
   // has an analysis row. We never compose the points before this, so the set
   // is computed from the COMPLETE suggestions, not a half-finished swarm.
   const jobQuery = usePrefillJob(sessionId);
-  const prefillCount = prefillsQuery.data?.length ?? 0;
+  // DISTINCT prefilled question ids, not a raw row count: comparing rows against
+  // the suggestion map's distinct ids let a duplicate prefill row wedge the gate
+  // (rows > distinct forever). Shared predicate: src/lib/prefill/analysisReady.ts.
+  const prefillQuestionIdCount = useMemo(
+    () => new Set((prefillsQuery.data ?? []).map((p) => p.question_id)).size,
+    [prefillsQuery.data],
+  );
   const suggestionCount = suggestionsQuery.data?.size ?? 0;
-  const swarmDone =
-    jobQuery.data?.status === "completed" ||
-    (questionCountQuery.data != null && prefillCount >= questionCountQuery.data);
+  const readyInput = {
+    jobStatus: jobQuery.data?.status,
+    prefillQuestionIdCount,
+    suggestionQuestionIdCount: suggestionCount,
+    totalQuestions: questionCountQuery.data ?? null,
+  };
+  const swarmDone = isSwarmDone(readyInput);
   // The core/off-path split is walked from the suggestion map, a SEPARATE query
   // from the prefill list (both read atad2_question_prefills but refetch on
   // their own realtime channels). The prefill count can reach full a beat
   // before the suggestion map does; composing in that gap walks a partial path
   // and drops core ("kernvragen") questions into the off-path "other points"
-  // list. So also require the suggestion map to have caught up to the prefill
-  // rows. Both settle to the same sub-total on a partial-failure run, so this
-  // never hangs waiting for rows the swarm never wrote.
-  const analysisDone =
-    swarmDone && prefillCount > 0 && suggestionCount >= prefillCount;
+  // list. So also require the suggestion map to have caught up to the prefilled
+  // questions. Both settle to the same sub-total on a partial-failure run, so
+  // this never hangs waiting for rows the swarm never wrote.
+  const analysisDone = isAnalysisReady(readyInput);
 
   // Hold the points back until the open set stops narrowing. The projected
   // path keeps shrinking as the last document suggestions land, so a set
