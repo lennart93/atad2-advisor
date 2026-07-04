@@ -4,6 +4,17 @@ Wire the n8n ATAD2 workflow to fetch memo_system from atad2_prompts:
   - Add "Get memo prompt" Supabase node (uses existing supabaseApi cred)
   - Reroute connections: Get answers -> Get memo prompt -> Build prompt + metrics
   - Replace Build prompt + metrics jsCode with a placeholder-replacement version
+
+CAUTION — the LIVE "Build prompt + metrics" node has diverged from NEW_JS_CODE
+below: it was later edited to fill {{CONFIRMED_APPENDIX_BLOCK}} from a
+`confirmed_appendix` payload field (memo appendices work). Re-running this script
+as-is would OVERWRITE that appendix wiring. To change the outcome wording on the
+live node, do NOT re-run the whole script: fetch the live node's jsCode and apply
+only these targeted string swaps (they are already reflected in NEW_JS_CODE here):
+    riskCategory = 'Low.'              -> riskCategory = 'No risk identified.'   (x2)
+    ... : 'Low.')                      -> ... : 'No risk identified.')           (override block)
+    - < 0.2 -> Outcome: Low            -> - < 0.2 -> Outcome: No risk identified  (coreLogicBlock)
+The stored override value stays 'low_risk'; only the printed label changes.
 """
 import json
 import os
@@ -67,14 +78,14 @@ if (isOverridden && overrideOutcome) {
   } else if (overrideOutcome === 'insufficient_information' || overrideOutcome.includes('insufficient')) {
     riskCategory = 'Insufficient information.';
   } else if (overrideOutcome === 'low' || overrideOutcome === 'low_risk') {
-    riskCategory = 'Low.';
+    riskCategory = 'No risk identified.';
   } else {
     riskCategory = overrideOutcome;
   }
 } else {
   if (totalRisk >= 1.0) riskCategory = 'ATAD2 risk identified.';
   else if (totalRisk >= 0.2) riskCategory = 'Insufficient information.';
-  else riskCategory = 'Low.';
+  else riskCategory = 'No risk identified.';
 }
 
 const qaList = answers.map(a => {
@@ -97,7 +108,7 @@ const overrideBlock = (isOverridden && overrideOutcome) ? `
 The user has manually overridden the calculated risk assessment.
 
 - Original calculated risk score: ${totalRisk}
-- Original calculated outcome: ${totalRisk >= 1.0 ? 'ATAD2 risk identified.' : (totalRisk >= 0.2 ? 'Insufficient information.' : 'Low.')}
+- Original calculated outcome: ${totalRisk >= 1.0 ? 'ATAD2 risk identified.' : (totalRisk >= 0.2 ? 'Insufficient information.' : 'No risk identified.')}
 - **OVERRIDDEN OUTCOME: ${riskCategory}**
 - **User's reason for override:** ${overrideReason || 'No reason provided.'}
 
@@ -116,7 +127,7 @@ Apply these thresholds:
 
 - >= 1.0 -> Outcome: ATAD2 risk identified
 - >= 0.2 but < 1.0 -> Outcome: Insufficient information
-- < 0.2 -> Outcome: Low
+- < 0.2 -> Outcome: No risk identified
 
 If both unknowns and confirmed risks exist, the outcome is always ATAD2 risk identified.`;
 
