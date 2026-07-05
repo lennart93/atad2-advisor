@@ -47,11 +47,11 @@ export function SlideInPanel({
         <header className="flex items-start justify-between px-5 py-4 border-b border-ds-hairline">
           <div>
             {subtitle && (
-              <div className="text-xs font-medium text-ds-ink-secondary uppercase tracking-wide mb-0.5">
+              <div className="text-xs font-normal text-ds-ink-secondary uppercase tracking-wide mb-0.5">
                 {subtitle}
               </div>
             )}
-            {title && <div className="text-base font-medium text-foreground">{title}</div>}
+            {title && <div className="text-base font-normal text-foreground">{title}</div>}
           </div>
           <button
             onClick={onClose}

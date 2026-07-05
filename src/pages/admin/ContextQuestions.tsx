@@ -106,7 +106,7 @@ const ContextQuestions = () => {
       />
       <div className="flex items-end justify-between mb-4">
         <div>
-          <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-ds-ink-secondary mb-1">Admin</div>
+          <div className="text-[11px] font-normal uppercase tracking-[0.16em] text-ds-ink-secondary mb-1">Admin</div>
           <h1 className="text-2xl font-normal tracking-tight">Context questions</h1>
           <p className="mt-1 text-sm text-ds-ink-secondary">
             Follow-up questions that surface when an assessment answer matches a trigger, grouped by parent question.
@@ -143,7 +143,7 @@ const ContextQuestions = () => {
             >
               <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-border">
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="font-mono text-xs font-medium text-ds-ink-secondary">
+                  <span className="font-mono text-xs font-normal text-ds-ink-secondary">
                     Q{g.question_id}
                   </span>
                   <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
@@ -165,7 +165,7 @@ const ContextQuestions = () => {
                   <div key={t.trigger} className="space-y-1">
                     <div className="flex items-center justify-between gap-2 px-1">
                       <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                        on: <span className="font-medium text-foreground">{t.trigger}</span>
+                        on: <span className="font-normal text-foreground">{t.trigger}</span>
                         <span className="ml-1 text-muted-foreground">
                           ({t.variants.length})
                         </span>

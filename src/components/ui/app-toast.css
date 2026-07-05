@@ -1,0 +1,167 @@
+/* App toast (handoff 67): one on-brand card for every transient message.
+ * Anatomy is identical for all four states; only the accent changes.
+ * Colors ride the ds-* tokens so dark mode and future retunes come for free. */
+
+.apptoast-stack {
+  position: fixed;
+  right: 26px;
+  bottom: calc(var(--app-bottom-inset, 0px) + 26px);
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+  pointer-events: none;
+}
+
+.apptoast {
+  pointer-events: auto;
+  position: relative;
+  display: flex;
+  gap: 13px;
+  align-items: flex-start;
+  width: 376px;
+  /* 100vw isn't divided by the app zoom, so correct it (see index.css zoom note) */
+  max-width: calc(100vw / var(--app-scale, 1) - 40px);
+  background: var(--ds-card, #ffffff);
+  border: 1px solid var(--ds-hairline, #e7e3db);
+  border-radius: 13px;
+  padding: 14px 15px 15px;
+  box-shadow: 0 1px 2px rgba(28, 26, 23, 0.05), 0 10px 30px -8px rgba(28, 26, 23, 0.22);
+  overflow: hidden;
+  animation: apptoast-in 0.42s cubic-bezier(0.16, 0.84, 0.44, 1) both;
+}
+.apptoast[data-leaving] {
+  animation: apptoast-out 0.3s ease forwards;
+}
+
+/* Per-state accent + soft chip tint (the only thing that differs per state). */
+.apptoast[data-kind='success'] { --apptoast-accent: var(--ds-green-text); --apptoast-soft: var(--ds-green-bg); }
+.apptoast[data-kind='working'] { --apptoast-accent: var(--ds-accent-text); --apptoast-soft: var(--ds-accent-bg); }
+.apptoast[data-kind='error']   { --apptoast-accent: var(--ds-red-text);   --apptoast-soft: var(--ds-red-bg); }
+.apptoast[data-kind='info']    { --apptoast-accent: var(--ds-blue-text);  --apptoast-soft: var(--ds-blue-bg); }
+
+.apptoast-ic {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+  background: var(--apptoast-soft);
+  color: var(--apptoast-accent);
+}
+.apptoast-ic svg {
+  width: 17px;
+  height: 17px;
+  display: block;
+}
+.apptoast-spin {
+  animation: apptoast-rotate 0.9s linear infinite;
+  transform-origin: center;
+}
+
+.apptoast-body {
+  flex: 1;
+  min-width: 0;
+  padding-top: 1px;
+}
+.apptoast-title {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--ds-ink, #1a1a1a);
+  letter-spacing: -0.005em;
+  line-height: 1.25;
+}
+.apptoast-msg {
+  font-size: 12.5px;
+  color: var(--ds-ink-secondary, #7a756b);
+  line-height: 1.45;
+  margin-top: 3px;
+  overflow-wrap: break-word;
+}
+.apptoast-act {
+  border: none;
+  background: none;
+  padding: 0 0 1px;
+  margin: 0;
+  font: inherit;
+  color: var(--ds-ink, #1a1a1a);
+  font-weight: 500;
+  border-bottom: 1px solid var(--ds-hairline, #cfc9bf);
+  cursor: pointer;
+}
+.apptoast-act:hover {
+  border-bottom-color: var(--ds-ink, #1a1a1a);
+}
+
+.apptoast-x {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--ds-ink-tertiary, #a8a29a);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin: -2px -3px 0 0;
+  transition: 0.15s;
+}
+.apptoast-x:hover {
+  color: var(--ds-ink, #2b2b2b);
+  background: var(--ds-fill-muted, #f1ede6);
+}
+.apptoast-x svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* Auto-dismiss hairline pinned to the bottom edge. Finite toasts get the
+ * shrink animation inline (duration = toast lifetime); working toasts sit
+ * full-width at reduced opacity and never shrink. */
+.apptoast-prog {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  width: 100%;
+  transform-origin: left;
+  opacity: 0.9;
+  background: var(--apptoast-accent);
+}
+.apptoast[data-kind='working'] .apptoast-prog {
+  transform: scaleX(1);
+  opacity: 0.35;
+}
+/* Hovering the stack pauses the timers in JS; keep the bars in step. */
+.apptoast-stack[data-paused] .apptoast-prog {
+  animation-play-state: paused !important;
+}
+
+@keyframes apptoast-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes apptoast-out {
+  to { opacity: 0; transform: translateX(16px) scale(0.98); }
+}
+@keyframes apptoast-shrink {
+  from { transform: scaleX(1); }
+  to   { transform: scaleX(0); }
+}
+@keyframes apptoast-rotate {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .apptoast,
+  .apptoast[data-leaving] {
+    animation-duration: 0.01ms;
+  }
+}

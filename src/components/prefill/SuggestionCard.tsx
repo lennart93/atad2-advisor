@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Lightbulb, Check } from "lucide-react";
 import { Button } from "@/components/ds";
 import { Textarea } from "@/components/ui/textarea";
 import type { QuestionPrefill } from "@/lib/prefill/types";
@@ -100,26 +101,43 @@ export function SuggestionCard({
   };
 
   return (
-    <div className="border-l-2 border-ds-hairline bg-ds-fill-muted pl-4 pr-3 py-3 my-2 text-[13px] leading-relaxed space-y-2">
+    <div className="my-2 rounded-ds-control border border-ds-hairline bg-secondary p-6">
+      <div className="flex items-center gap-2">
+        <Lightbulb className="h-4 w-4 shrink-0 text-ds-accent" />
+        <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-ds-ink-secondary">
+          Suggested explanation
+        </span>
+        {typeof prefill.confidence_pct === "number" && (
+          <span className="ml-auto text-[13px] text-ds-green-text ds-tabular-nums">
+            {prefill.confidence_pct}% confidence
+          </span>
+        )}
+      </div>
+
       {!editMode ? (
-        <p className="whitespace-pre-wrap">{suggested}</p>
+        <p className="mt-3 whitespace-pre-wrap text-[14.5px] leading-relaxed text-ds-ink">
+          {suggested}
+        </p>
       ) : (
         <Textarea
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           rows={5}
-          className="bg-ds-card"
+          className="mt-3 bg-ds-card"
         />
       )}
 
-      <div className="flex gap-2.5 pt-1">
+      <div className="mt-4 flex items-center gap-2 border-t border-ds-hairline pt-4">
         {!editMode ? (
           <>
-            <Button size="sm" variant="secondary" onClick={accept} className="transition-all duration-fast">Accept</Button>
+            <Button size="sm" onClick={accept} className="transition-all duration-fast">
+              <Check />
+              Accept
+            </Button>
             <Button
               size="sm"
               variant="ghost"
-              className="transition-all duration-fast"
+              className="text-ds-ink-secondary transition-all duration-fast hover:text-ds-ink"
               onClick={() => {
                 setDraft(suggested);
                 setEditMode(true);
@@ -127,12 +145,26 @@ export function SuggestionCard({
             >
               Edit
             </Button>
-            <Button size="sm" variant="ghost" className="transition-all duration-fast" onClick={() => dismiss(false)}>Dismiss</Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-ds-ink-secondary transition-all duration-fast hover:text-ds-ink"
+              onClick={() => dismiss(false)}
+            >
+              Dismiss
+            </Button>
           </>
         ) : (
           <>
-            <Button size="sm" variant="secondary" onClick={commitEdit} className="transition-all duration-fast">Save</Button>
-            <Button size="sm" variant="ghost" className="transition-all duration-fast" onClick={() => setEditMode(false)}>Cancel</Button>
+            <Button size="sm" onClick={commitEdit} className="transition-all duration-fast">Save</Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-ds-ink-secondary transition-all duration-fast hover:text-ds-ink"
+              onClick={() => setEditMode(false)}
+            >
+              Cancel
+            </Button>
           </>
         )}
       </div>

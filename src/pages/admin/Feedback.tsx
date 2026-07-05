@@ -139,7 +139,7 @@ const Feedback = () => {
 
       <div className="flex items-end justify-between mb-4">
         <div>
-          <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-ds-ink-secondary mb-1">Admin</div>
+          <div className="text-[11px] font-normal uppercase tracking-[0.16em] text-ds-ink-secondary mb-1">Admin</div>
           <h1 className="text-2xl font-normal tracking-tight">Feedback</h1>
           <p className="text-sm text-ds-ink-secondary mt-1">
             Everything users have sent from the in-app widget. Triage, annotate, and close out each item.
@@ -257,7 +257,7 @@ function FeedbackRowItem({
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <StatusChip label={CATEGORY_LABELS[row.category]} tone={CATEGORY_TONE[row.category]} />
-          <span className="text-[13px] font-medium truncate">{row.user_email}</span>
+          <span className="text-[13px] font-normal truncate">{row.user_email}</span>
         </div>
         <div className="text-[12px] text-foreground/80 mt-1 line-clamp-1">
           {row.message}

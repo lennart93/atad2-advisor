@@ -6,6 +6,8 @@ import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { AccessRequiredDialog } from "@/components/admin/AccessRequiredDialog";
 import ReactMarkdown from "react-markdown";
 import { Seo } from "@/components/Seo";
+import { formatFiscalYears } from "@/utils/formatFiscalYears";
+import { taxpayerDisplayName } from "@/lib/taxpayer";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -108,7 +110,7 @@ const SessionDetail = () => {
                 <AlertDialogHeader>
                   <AlertDialogTitle>Reset session for re-run?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    The current memo for {session.taxpayer_name} ({session.session_id}) will be archived. The user will see this session as "In progress" again and can resume to generate a new memo. Archived memos stay visible here in admin.
+                    The current memo for {taxpayerDisplayName(session.taxpayer_name)} ({session.session_id}) will be archived. The user will see this session as "In progress" again and can resume to generate a new memo. Archived memos stay visible here in admin.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -135,7 +137,7 @@ const SessionDetail = () => {
                 <AlertDialogHeader>
                   <AlertDialogTitle>Delete session?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    {session.taxpayer_name} ({session.session_id}) will be permanently deleted, including answers and reports. This cannot be undone.
+                    {taxpayerDisplayName(session.taxpayer_name)} ({session.session_id}) will be permanently deleted, including answers and reports. This cannot be undone.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -168,7 +170,7 @@ const SessionDetail = () => {
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <div className="text-xs font-mono text-muted-foreground tabular-nums">{session.session_id}</div>
-            <h1 className="text-2xl font-normal tracking-tight truncate mt-1">{session.taxpayer_name}</h1>
+            <h1 className="text-2xl font-normal tracking-tight truncate mt-1">{taxpayerDisplayName(session.taxpayer_name)}</h1>
             {session.entity_name && (
               <div className="text-[12px] text-muted-foreground mt-0.5">{session.entity_name}</div>
             )}
@@ -176,14 +178,14 @@ const SessionDetail = () => {
           <div className="flex flex-col items-end gap-2 text-right">
             <StatusChip label={completed ? "Completed" : session.status} tone={completed ? "success" : "neutral"} />
             {session.final_score != null && (
-              <div className="text-2xl font-medium tracking-tight tabular-nums">
+              <div className="text-2xl font-normal tracking-tight tabular-nums">
                 {session.final_score.toFixed(1)}
               </div>
             )}
           </div>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-4 pt-4 border-t border-border text-[11px]">
-          <InfoCell label="Fiscal year" value={session.fiscal_year} />
+          <InfoCell label="Fiscal year" value={formatFiscalYears(session.fiscal_year)} />
           <InfoCell
             label="Period"
             value={
@@ -262,7 +264,7 @@ function PrefillSection({ sessionId }: { sessionId: string }) {
 
   return (
     <section className="mt-6">
-      <h2 className="text-lg font-medium mb-2">Document Pre-Fill</h2>
+      <h2 className="text-lg font-normal mb-2">Document Pre-Fill</h2>
       <div className="space-y-2 text-sm">
         <div>Job status: {job?.status ?? "-"}</div>
         <div>Documents: {(docs ?? []).length}</div>
@@ -288,7 +290,7 @@ function PrefillSection({ sessionId }: { sessionId: string }) {
 function InfoCell({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-medium">{label}</div>
+      <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-normal">{label}</div>
       <div className="text-foreground mt-1 font-mono text-xs">{value}</div>
     </div>
   );
@@ -305,7 +307,7 @@ function DossierTab({
   return (
     <div className="space-y-6 pt-4">
       <section>
-        <h2 className="text-[14px] font-medium mb-2">Answers</h2>
+        <h2 className="text-[14px] font-normal mb-2">Answers</h2>
         {loadingAnswers ? (
           <Skeleton className="h-24 w-full" />
         ) : answers.length === 0 ? (
@@ -325,10 +327,10 @@ function DossierTab({
                       <span className="text-[10px] font-mono text-muted-foreground">{a.question_id}</span>
                       <RiskChip points={a.risk_points ?? 0} />
                     </div>
-                    <div className="text-[13px] font-medium mb-1">{a.question_text}</div>
+                    <div className="text-[13px] font-normal mb-1">{a.question_text}</div>
                     <div className="text-[12px]">
                       <span className="text-muted-foreground">Answer:</span>{" "}
-                      <span className="font-medium">{a.answer}</span>
+                      <span className="font-normal">{a.answer}</span>
                     </div>
                     {a.explanation && (
                       <div className="text-[11px] text-muted-foreground mt-1 line-clamp-3">
@@ -344,7 +346,7 @@ function DossierTab({
       </section>
 
       <section>
-        <h2 className="text-[14px] font-medium mb-2">Report / memo</h2>
+        <h2 className="text-[14px] font-normal mb-2">Report / memo</h2>
         {loadingReport ? (
           <Skeleton className="h-32 w-full" />
         ) : reports.length === 0 ? (
@@ -422,7 +424,7 @@ function JourneyTab({ answers, loading }: { answers: AdminAnswerRow[]; loading: 
                   <StatusChip label={`${Math.round(e.gapMs / 60_000)} min gap`} tone="neutral" />
                 )}
               </div>
-              <div className="text-[12px] font-medium">{e.question_text}</div>
+              <div className="text-[12px] font-normal">{e.question_text}</div>
               <div className="text-[11px] text-muted-foreground mt-0.5">
                 → {e.answer}
               </div>
@@ -470,7 +472,7 @@ function AuditTab({ logs }: { logs: AuditLogRow[] }) {
                 if (oldVal === newVal || key === "updated_at") return null;
                 return (
                   <div key={key} className="truncate">
-                    <span className="font-medium text-foreground">{key}:</span>{" "}
+                    <span className="font-normal text-foreground">{key}:</span>{" "}
                     <span className="text-muted-foreground line-through">{String(oldVal).slice(0, 40)}</span>
                     {" → "}
                     <span className="text-foreground">{String(newVal).slice(0, 40)}</span>

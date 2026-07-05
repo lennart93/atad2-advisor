@@ -25,11 +25,13 @@ import Anthropic from "anthropic";
 
 const client = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") ?? "" });
 
-// Sonnet 4.6 — fast enough to finish all 3 stages within the Supabase
-// edge-runtime wall-clock limit (~150s per isolate). Opus 4.7 is too slow for
-// this pipeline; users see polling timeouts when stage 3 takes >60-90s.
-// Quality is still strong; ATAD2 mismatch classification works well on Sonnet.
-const MODEL = "claude-sonnet-4-6";
+// Sonnet 5: near-Opus quality at the Sonnet price, and fast enough to finish
+// all 3 stages within the Supabase edge-runtime wall-clock limit (~150s per
+// isolate). Opus is too slow for this pipeline; users see polling timeouts when
+// stage 3 takes >60-90s. Thinking is forced OFF in callClaude because Sonnet 5
+// runs adaptive thinking by default, which adds latency and risks that limit;
+// turn it back on (adaptive) if the wall-clock budget allows.
+const MODEL = "claude-sonnet-5";
 const MAX_TOKENS = 4096;
 
 const RATE_LIMIT_BACKOFF_MS = [2000, 4000, 8000];
@@ -82,6 +84,10 @@ export async function callClaude(seg: CachedSegment): Promise<CallResult> {
         system: systemBlocks as unknown as Parameters<typeof client.messages.create>[0]["system"],
         messages: [{ role: "user", content: seg.user }],
       };
+      // Sonnet 5 enables adaptive thinking by default; force it off to keep
+      // per-call latency close to Sonnet 4.6 and stay under the edge runtime
+      // wall-clock limit. (The old SDK types don't know `thinking`; cast past them.)
+      (request as unknown as { thinking?: unknown }).thinking = { type: "disabled" };
 
       const response = await client.messages.create(request);
 

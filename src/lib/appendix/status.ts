@@ -26,16 +26,18 @@ export function statusDisplayLabel(status: Status | null): string {
 
 /**
  * The shared tint palette for the print/export HTML and the Word memo (no Tailwind
- * there), keyed by the row's presentation tone (see conditionPolarity.rowTone):
- *   - 'clear' and 'na' read green (resolved/clean vs does-not-apply), 'na' a lighter
- *     green so the two stay distinguishable.
- *   - 'risk' and 'caution' read amber (no red, no blue).
+ * there), keyed by the row's presentation tone (see conditionPolarity.rowTone). One
+ * status colour system, identical to the on-screen checklist so the screen, the memo
+ * and the export can never disagree:
+ *   - 'risk' reads terracotta (a finding), 'caution' amber (facts still missing).
+ *   - 'clear' and 'na' read neutral grey (routine, recedes), 'na' a touch lighter so
+ *     the two stay distinguishable.
  */
 const TONE_COLORS: Record<RowTone, { bg: string; fg: string }> = {
-  clear: { bg: '#e7f6ee', fg: '#0f5132' },
-  na: { bg: '#f1f7ef', fg: '#3f5a4a' },
-  risk: { bg: '#faeeda', fg: '#854f0b' },
-  caution: { bg: '#fff3cd', fg: '#664d03' },
+  clear: { bg: '#f1efe9', fg: '#605b52' },
+  na: { bg: '#f5f3ef', fg: '#6f6a60' },
+  risk: { bg: '#faf2ee', fg: '#a8492d' },
+  caution: { bg: '#f7f0e1', fg: '#8a6410' },
 };
 
 /** Hex tints driven by the row's tone; the single source of colour for export + memo. */
@@ -45,8 +47,8 @@ export function tonePrintColor(tone: RowTone): { bg: string; fg: string } {
 
 /**
  * Status-only colour (no polarity), for callers that hold a bare status. Scope rows
- * that are merely "Triggered" still read amber here; use tonePrintColor(rowTone(...))
- * to keep a satisfied scope gate calm.
+ * that are merely "Triggered" still read terracotta here; use tonePrintColor(rowTone(...))
+ * to keep a satisfied scope gate calm (grey).
  */
 export function statusPrintColor(status: Status | null): { bg: string; fg: string } {
   switch (status) {

@@ -3,28 +3,33 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, OptionCheckbox } from "@/components/ds";
+import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ds";
 import { toast } from "@/components/ui/sonner";
 import { formatDate, formatDateTime } from "@/utils/formatDate";
-import { ArrowLeft, Loader2, AlertTriangle, Info, CheckCircle, Pencil, X, Check } from "lucide-react";
+import { formatFiscalYears } from "@/utils/formatFiscalYears";
+import { taxpayerDisplayName } from "@/lib/taxpayer";
+import { ArrowLeft, ArrowRight, Loader2, AlertTriangle, Info, CheckCircle, Pencil, X, Check } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { EditableAnswer } from "@/components/EditableAnswer";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import ReactMarkdown from "react-markdown";
-import rehypeRaw from "rehype-raw";
 import WaitingMessage from "@/components/WaitingMessage";
 import DownloadMemoButton from "@/components/DownloadMemoButton";
 import MemoFeedbackEditor from "@/components/MemoFeedbackEditor";
 import MemoDiffViewer from "@/components/MemoDiffViewer";
+import { memoMarkdownComponents, MEMO_PROSE_CLASS, MEMO_REHYPE_PLUGINS } from "@/components/memo/memoProse";
 import MissingExplanationsPopover from "@/components/MissingExplanationsPopover";
 import { buildDocumentsBlock } from "@/lib/prefill/buildDocumentsBlock";
 import { AssessmentFooterSlot } from "@/components/assessment/AssessmentFooterSlot";
 import { loadChartSnapshot } from "@/lib/structure/client";
 import { loadAppendix } from "@/lib/appendix/client";
 import { appendixMemoBlock } from "@/lib/appendix/buildAppendixBlock";
-import { loadAppendixSkeleton } from "@/lib/appendix/skeletonStore";
+import { loadAppendixSkeleton, useAppendixSkeleton } from "@/lib/appendix/skeletonStore";
 import { checkAppendixSync } from "@/lib/appendix/memoSyncGuard";
+import { FactsPanel } from "@/components/appendix/FactsPanel";
+import { AppendixTable } from "@/components/appendix/AppendixTable";
+import { useUiBusySignal } from "@/stores/uiBusyStore";
 interface SessionData {
   session_id: string;
   taxpayer_name: string;
@@ -73,7 +78,45 @@ interface N8nReportResponse {
 }
 
 // Shared uppercase eyebrow label (RULE 2 header rhythm).
-const EYEBROW = "text-[11px] font-medium uppercase tracking-[0.16em] text-ds-ink-secondary";
+const EYEBROW = "text-[11px] font-normal uppercase tracking-[0.16em] text-ds-ink-secondary";
+
+// A clean full-width inclusion row for the "Generate memorandum" card: a filled
+// sage checkbox + label, rows separated by hairlines. The sage fill maps the
+// spec's --sage to the brand's canonical ds-green so the screen stays consistent.
+function MemoInclusionRow({
+  checked,
+  disabled,
+  onToggle,
+  children,
+}: {
+  checked: boolean;
+  disabled?: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={onToggle}
+      className="group flex w-full items-center gap-3 py-3 text-left ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      <span
+        aria-hidden="true"
+        className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[3px] border transition-colors ${
+          checked
+            ? "border-ds-green bg-ds-green"
+            : "border-[#cdc7ba] bg-ds-card group-hover:border-ds-ink-tertiary"
+        }`}
+      >
+        {checked && <Check className="h-3 w-3 text-ds-card" strokeWidth={3} />}
+      </span>
+      <span className="text-[14px] text-ds-ink">{children}</span>
+    </button>
+  );
+}
 
 const AssessmentReport = () => {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -97,6 +140,10 @@ const AssessmentReport = () => {
   // default (appendices default on); local to the download, not persisted.
   const [includeFactsOverride, setIncludeFactsOverride] = useState<boolean | null>(null);
   const [includeChecklistOverride, setIncludeChecklistOverride] = useState<boolean | null>(null);
+
+  // While the memorandum is generating, spin the top-left brand logo the same
+  // way the document analysis, structure and appendix flows do.
+  useUiBusySignal(isGeneratingReport);
 
   // Editable reasoning and context state
   const [isEditingReasoning, setIsEditingReasoning] = useState(false);
@@ -145,13 +192,20 @@ const AssessmentReport = () => {
   });
 
   // Confirmed appendix, loaded so the download options can show per-appendix
-  // checkboxes seeded from the saved skip flags.
+  // checkboxes seeded from the saved skip flags, and so Appendix 1/2 render
+  // read-only on this page. `refetchOnMount: 'always'` keeps the read-only view
+  // fresh after the advisor edits it via the appendix step and returns here.
   const { data: appendixForDownload } = useQuery({
     queryKey: ['appendix-download', sessionId],
     enabled: !!sessionId,
     staleTime: 30_000,
+    refetchOnMount: 'always',
     queryFn: () => loadAppendix(sessionId!),
   });
+
+  // Fixed appendix skeleton (the article-by-article rechtskader), needed to
+  // render Appendix 2 read-only on this page.
+  const { data: appendixSkeleton } = useAppendixSkeleton();
 
   // Get the most recent report for inline display
   const latestReport = reports?.[0];
@@ -167,6 +221,12 @@ const AssessmentReport = () => {
   const generatedAtLabel = latestReport?.generated_at
     ? new Date(latestReport.generated_at).toLocaleString('en-GB', {
         day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+      })
+    : '';
+  // Date-only label for the memorandum meta line (e.g. "26 June 2026").
+  const generatedDateLabel = latestReport?.generated_at
+    ? new Date(latestReport.generated_at).toLocaleDateString('en-GB', {
+        day: 'numeric', month: 'long', year: 'numeric',
       })
     : '';
 
@@ -300,7 +360,7 @@ const AssessmentReport = () => {
           description: "This outcome was manually selected based on your expert assessment."
         },
         'low_risk': {
-          text: "Low ATAD2 risk",
+          text: "No risk identified",
           icon: <CheckCircle />,
           status: "complete",
           description: "This outcome was manually selected based on your expert assessment."
@@ -328,15 +388,26 @@ const AssessmentReport = () => {
       };
     } else {
       return {
-        text: "Low",
+        text: "No risk identified",
         icon: <CheckCircle />,
         status: "complete",
-        description: "You can generate a memorandum confirming that no ATAD2 risks were identified based on the provided information."
+        description: "You can generate a memorandum confirming that no ATAD2 hybrid-mismatch risk was identified based on the information provided."
       };
     }
   };
 
   const riskOutcome = getFinalOutcome();
+
+  // Outcome callout tint, by the REAL risk level. Sage = no risk identified,
+  // terracotta = risk identified, slate = insufficient information. Same family as the cover.
+  const outcomeTone = {
+    complete: { box: 'border-brand-sage bg-brand-sage-soft', token: 'border-brand-sage', icon: 'text-brand-sage-deep' },
+    triggered: { box: 'border-brand-terracotta bg-brand-terracotta-soft', token: 'border-brand-terracotta', icon: 'text-brand-terracotta-deep' },
+    insufficient: { box: 'border-brand-info bg-brand-info-soft', token: 'border-brand-info', icon: 'text-brand-info-deep' },
+  }[riskOutcome.status];
+
+  // The memo lock also freezes the responses (no edits after generation).
+  const responsesLocked = isGeneratingReport || !!latestReport;
 
   // Calculate answers missing explanations
   const answersWithoutExplanation = answers.filter(answer => {
@@ -345,6 +416,12 @@ const AssessmentReport = () => {
   });
   const missingExplanationCount = answersWithoutExplanation.length;
   const missingExplanationQuestionIds = answersWithoutExplanation.map(a => a.question_id);
+
+  // Context split for the responses summary strip: how many answers carry
+  // reasoning vs. how many still need it. ("Answered / open" carried no signal —
+  // every answer is drawn from the documents, so it is always answered.)
+  const withExplanationCount = answers.length - missingExplanationCount;
+  const needsContextCount = missingExplanationCount;
 
   const handleAnswerUpdate = (answerId: string, newAnswer: string, newExplanation: string, newRiskPoints: number) => {
     setAnswers(prev => prev.map(answer => 
@@ -443,6 +520,7 @@ const AssessmentReport = () => {
     }
 
     setIsGeneratingReport(true);
+    let workingToastId: string | number | undefined;
 
     try {
       console.log('Starting report generation for session:', sessionId);
@@ -484,6 +562,10 @@ const AssessmentReport = () => {
         setIsGeneratingReport(false);
         return;
       }
+
+      workingToastId = toast.working("Generating memorandum", {
+        description: "Assembling sections and appendices. This can take a minute.",
+      });
 
       // Call n8n webhook - n8n will process and the Edge Function will save the complete report
       // Using AbortController with 10 minute timeout to allow for long-running AI processing
@@ -533,9 +615,10 @@ const AssessmentReport = () => {
       {
         const subjectName =
           (sessionData as unknown as { entity_name?: string | null })?.entity_name ||
-          sessionData?.taxpayer_name ||
+          taxpayerDisplayName(sessionData?.taxpayer_name) ||
           "this session";
         toast.success("Memorandum generated", {
+          id: workingToastId,
           description: `Memo for ${subjectName} is ready to download.`,
         });
       }
@@ -546,15 +629,18 @@ const AssessmentReport = () => {
       // Check if it's a timeout/abort error
       if (error.name === 'AbortError') {
         toast.error("Request timed out", {
+          id: workingToastId,
           description: "The memorandum generation is taking longer than expected. Please wait a moment and refresh the page to check if it completed.",
         });
       } else if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
         // Network error - might still be processing
         toast.error("Connection issue", {
+          id: workingToastId,
           description: "Lost connection during generation. The memo may still be processing. Refresh in a minute to check.",
         });
       } else {
-        toast.error("Error", {
+        toast.error("Generation failed", {
+          id: workingToastId,
           description: `Failed to generate memorandum: ${error.message}`,
         });
       }
@@ -584,6 +670,33 @@ const AssessmentReport = () => {
     );
   }
 
+  // Shared "Improve memo" action. On desktop it lives in the metadata rail
+  // (under Generated); on mobile the rail is hidden, so a copy sits in the
+  // memo header instead. Only rendered while a memo exists and we are not
+  // already in feedback/diff mode.
+  const improveMemoButton = (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className="inline-flex shrink-0">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setIsFeedbackMode(true)}
+            disabled={hasAcceptedChanges}
+          >
+            <Pencil className="h-4 w-4 mr-2" />
+            Improve memo
+          </Button>
+        </span>
+      </TooltipTrigger>
+      {hasAcceptedChanges && (
+        <TooltipContent>
+          <p>You have already accepted the improved memo. Further edits are not available.</p>
+        </TooltipContent>
+      )}
+    </Tooltip>
+  );
+
   return (
     <div>
         <div className="space-y-6">
@@ -592,7 +705,7 @@ const AssessmentReport = () => {
             <div className="space-y-3">
               <span className={EYEBROW}>Assessment report</span>
               <h1 className="text-4xl font-normal leading-[1.02] tracking-[-0.02em] text-ds-ink sm:text-5xl">
-                {sessionData.taxpayer_name}
+                {taxpayerDisplayName(sessionData.taxpayer_name)}
               </h1>
               <p className="max-w-2xl text-[15px] text-ds-ink-secondary">
                 The ATAD2 position for this structure, ready to compile into a memorandum.
@@ -602,11 +715,11 @@ const AssessmentReport = () => {
             <dl className="grid grid-cols-2 gap-x-6 gap-y-4 border-t border-ds-ink pt-4 sm:grid-cols-4">
               <div>
                 <dt className={EYEBROW}>Taxpayer</dt>
-                <dd className="mt-1.5 text-[15px] text-ds-ink">{sessionData.taxpayer_name}</dd>
+                <dd className="mt-1.5 text-[15px] text-ds-ink">{taxpayerDisplayName(sessionData.taxpayer_name)}</dd>
               </div>
               <div>
                 <dt className={EYEBROW}>Tax year</dt>
-                <dd className="mt-1.5 text-[15px] tabular-nums text-ds-ink">{sessionData.fiscal_year}</dd>
+                <dd className="mt-1.5 text-[15px] tabular-nums text-ds-ink">{formatFiscalYears(sessionData.fiscal_year)}</dd>
               </div>
               <div>
                 <dt className={EYEBROW}>Completed</dt>
@@ -620,11 +733,21 @@ const AssessmentReport = () => {
                       riskOutcome.status === "triggered"
                         ? "bg-brand-terracotta"
                         : riskOutcome.status === "insufficient"
-                          ? "bg-brand-warning"
+                          ? "bg-brand-info"
                           : "bg-brand-sage"
                     }`}
                   />
-                  <span className="text-[15px] text-ds-ink">{riskOutcome.text}</span>
+                  <span
+                    className={`text-[15px] ${
+                      riskOutcome.status === "triggered"
+                        ? "text-brand-terracotta"
+                        : riskOutcome.status === "insufficient"
+                          ? "text-brand-info-deep"
+                          : "text-brand-sage-deep"
+                    }`}
+                  >
+                    {riskOutcome.text}
+                  </span>
                   {sessionData.outcome_overridden && (
                     <span className="text-[12px] text-ds-ink-secondary">(adjusted)</span>
                   )}
@@ -653,7 +776,7 @@ const AssessmentReport = () => {
                   {sessionData.outcome_overridden && sessionData.override_reason && (
                     <div className="bg-ds-fill-muted rounded-ds-control p-4 overflow-hidden">
                       <div className="flex items-center justify-between mb-1">
-                        <p className="text-[13px] font-medium text-ds-ink-secondary">Your reasoning:</p>
+                        <p className="text-[13px] font-normal text-ds-ink-secondary">Your reasoning:</p>
                         {!isEditingReasoning && (
                           latestReport || isGeneratingReport ? (
                             <TooltipProvider>
@@ -725,7 +848,7 @@ const AssessmentReport = () => {
                   {sessionData.additional_context && (
                     <div className="bg-ds-fill-muted rounded-ds-control p-4 overflow-hidden">
                       <div className="flex items-center justify-between mb-1">
-                        <p className="text-[13px] font-medium text-ds-ink-secondary">Your additions:</p>
+                        <p className="text-[13px] font-normal text-ds-ink-secondary">Your additions:</p>
                         {!isEditingContext && (
                           latestReport || isGeneratingReport ? (
                             <TooltipProvider>
@@ -793,15 +916,240 @@ const AssessmentReport = () => {
               ) : null}
           </section>
 
+          {/* Generate Report Button — brought into the terracotta-top card family */}
+          <Card className="border-t-[3px] border-t-brand-terracotta">
+            <CardHeader className="space-y-1.5">
+              <CardTitle>Generate memorandum</CardTitle>
+              <CardDescription>
+                Compile this assessment into a review-ready ATAD2 memorandum.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-5">
+                {latestReport && anyIncludeOption && (
+                  <div>
+                    <p className="mb-1 text-[11px] font-normal uppercase tracking-[0.07em] text-ds-ink-tertiary">
+                      Include in the memorandum
+                    </p>
+                    <div className="divide-y divide-ds-hairline border-y border-ds-hairline">
+                      {chartSnapshot?.snapshot_png && (
+                        <MemoInclusionRow
+                          checked={includeChartInMemo}
+                          disabled={isGeneratingReport}
+                          onToggle={() => setIncludeChartInMemo(!includeChartInMemo)}
+                        >
+                          Structure chart
+                        </MemoInclusionRow>
+                      )}
+                      {factsAppendixAvailable && (
+                        <MemoInclusionRow
+                          checked={includeFactsAppendix}
+                          disabled={isGeneratingReport}
+                          onToggle={() => setIncludeFactsOverride(!includeFactsAppendix)}
+                        >
+                          Appendix 1 · Facts &amp; relationships
+                        </MemoInclusionRow>
+                      )}
+                      {checklistAppendixAvailable && (
+                        <MemoInclusionRow
+                          checked={includeChecklistAppendix}
+                          disabled={isGeneratingReport}
+                          onToggle={() => setIncludeChecklistOverride(!includeChecklistAppendix)}
+                        >
+                          Appendix 2 · Condition assessment
+                        </MemoInclusionRow>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <MissingExplanationsPopover
+                      missingCount={missingExplanationCount}
+                      isOpen={showMissingExplanationsPopover}
+                      onOpenChange={setShowMissingExplanationsPopover}
+                      onGenerateAnyway={handleGenerateAnyway}
+                      onReviewQuestions={handleReviewQuestions}
+                      onTriggerClick={handleGenerateAnyway}
+                    >
+                      <Button
+                        variant="primary"
+                        size="lg"
+                        onClick={handleGenerateButtonClick}
+                        // Lock once a memo exists: the button stays visible but
+                        // dimmed (disabled:opacity-50) and unclickable. No
+                        // regeneration after the first run.
+                        disabled={isGeneratingReport || !!latestReport}
+                      >
+                        {isGeneratingReport ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Generating memorandum…
+                          </>
+                        ) : (
+                          <>
+                            Generate memorandum
+                            <ArrowRight />
+                          </>
+                        )}
+                      </Button>
+                    </MissingExplanationsPopover>
+
+                    <DownloadMemoButton
+                      sessionId={sessionId!}
+                      memoMarkdown={displayMemo}
+                      enabled={!!latestReport}
+                      disabled={isApplyingFeedback}
+                      // Only embed the chart when there is a saved snapshot AND the
+                      // chip is on; otherwise the template's {{#hasStructureChart}}
+                      // block drops the structure-overview section cleanly.
+                      includeChart={includeChartInMemo && !!chartSnapshot?.snapshot_png}
+                      includeFactsAppendix={includeFactsAppendix}
+                      includeChecklistAppendix={includeChecklistAppendix}
+                    />
+
+                    {latestReport && (
+                      <p className="flex items-center gap-1.5 text-[13px] text-ds-green-text">
+                        <CheckCircle className="h-3.5 w-3.5" aria-hidden="true" />
+                        Generated · {generatedAtLabel}
+                      </p>
+                    )}
+                  </div>
+
+                  {isGeneratingReport && (
+                    <WaitingMessage />
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Memorandum. No `overflow-hidden` on the section: an overflow
+              ancestor would become the sticky metadata rail's scroll container
+              and break its pin. The card corners still clip visually because
+              nothing inside reaches them (content is inset by the padding). */}
+          {latestReport && (
+            <section className="rounded-ds-card border border-ds-hairline border-t-[3px] border-t-brand-terracotta bg-ds-card">
+              <div className="flex flex-col gap-8 p-8 md:px-14 md:py-12">
+                {/* Editorial reader header. On desktop the title moves into the
+                    sticky rail (below) so it pins with the metadata while the
+                    prose scrolls; this full-width copy is kept for mobile (no
+                    rail there) and for diff mode (which replaces the grid). */}
+                {displayMemo && sessionData && (
+                  <header className={`space-y-2 ${isDiffMode ? "" : "md:hidden"}`}>
+                    <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-ds-ink-tertiary">
+                      Memorandum
+                    </p>
+                    <h2 className="text-[30px] font-medium leading-[1.12] tracking-[-0.018em] text-ds-ink">
+                      ATAD2 assessment memorandum
+                    </h2>
+                    {!isFeedbackMode && !isDiffMode && (
+                      <div className="pt-3 md:hidden">{improveMemoButton}</div>
+                    )}
+                  </header>
+                )}
+
+                {isDiffMode && originalMemoBeforeFeedback && revisedMemoFromFeedback ? (
+                  <MemoDiffViewer
+                    originalMemo={originalMemoBeforeFeedback}
+                    revisedMemo={revisedMemoFromFeedback}
+                    onAccept={handleAcceptChanges}
+                    onReject={handleRejectChanges}
+                  />
+                ) : displayMemo && sessionData ? (
+                  <div className="grid grid-cols-1 items-start gap-x-[52px] gap-y-8 md:grid-cols-[210px_minmax(0,1fr)]">
+                    {/* Metadata rail, left column. Sticky (self-start so it keeps
+                        its content height and has room to move) and identical in
+                        read and edit; only the footer swaps the action for an
+                        EDITING mark. The title lives here on desktop so it pins
+                        together with the metadata as the prose scrolls. */}
+                    <aside className="hidden md:sticky md:top-8 md:flex md:flex-col md:self-start">
+                      <div className="mb-5">
+                        <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-ds-ink-tertiary">
+                          Memorandum
+                        </p>
+                        <h2 className="mt-2 text-[22px] font-medium leading-[1.16] tracking-[-0.015em] text-ds-ink">
+                          ATAD2 assessment memorandum
+                        </h2>
+                      </div>
+                      <div className="mb-4 border-b border-ds-hairline pb-4">
+                        <p className={`${EYEBROW} mb-1.5`}>Prepared for</p>
+                        <p className="text-sm text-ds-ink">{taxpayerDisplayName(sessionData.taxpayer_name)}</p>
+                      </div>
+                      <div className="mb-4 border-b border-ds-hairline pb-4">
+                        <p className={`${EYEBROW} mb-1.5`}>Fiscal year</p>
+                        <p className="text-sm text-ds-ink">{formatFiscalYears(sessionData.fiscal_year)}</p>
+                      </div>
+                      <div className={isFeedbackMode ? "mb-4 border-b border-ds-hairline pb-4" : ""}>
+                        <p className={`${EYEBROW} mb-1.5`}>Generated</p>
+                        <p className="text-sm text-ds-ink">{generatedDateLabel}</p>
+                      </div>
+                      {isFeedbackMode ? (
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="h-1.5 w-1.5 rounded-full bg-brand-terracotta animate-[pulse_2.4s_cubic-bezier(0.4,0,0.6,1)_infinite]"
+                            aria-hidden="true"
+                          />
+                          <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-brand-terracotta-deep">
+                            Editing
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="mt-6">{improveMemoButton}</div>
+                      )}
+                    </aside>
+
+                    {/* Right reading column. In edit mode the feedback tool docks in
+                        here so it shares the prose's exact left/right edges; in read
+                        mode it holds the outcome callout and the memo prose. */}
+                    <div className="flex flex-col gap-7">
+                      {isFeedbackMode ? (
+                        <MemoFeedbackEditor
+                          memoMarkdown={displayMemo}
+                          sessionId={sessionId!}
+                          taxpayerName={taxpayerDisplayName(sessionData.taxpayer_name)}
+                          fiscalYear={sessionData.fiscal_year}
+                          onFeedbackSubmitted={handleFeedbackSubmitted}
+                          onCancel={() => setIsFeedbackMode(false)}
+                          onSubmittingChange={setIsApplyingFeedback}
+                        />
+                      ) : (
+                        <>
+                          {/* Outcome callout, tinted by the real risk level */}
+                          <div className={`flex items-center gap-4 rounded-ds-control border p-5 ${outcomeTone.box}`}>
+                            <span
+                              className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full border bg-ds-card ${outcomeTone.token} ${outcomeTone.icon} [&_svg]:h-5 [&_svg]:w-5`}
+                            >
+                              {riskOutcome.icon}
+                            </span>
+                            <div>
+                              <p className={EYEBROW}>Risk assessment outcome</p>
+                              <p className="mt-1 text-2xl font-normal tracking-tight text-ds-ink">{riskOutcome.text}</p>
+                            </div>
+                          </div>
+
+                          {/* Memo prose, shared renderer so it matches edit mode. */}
+                          <div className={MEMO_PROSE_CLASS}>
+                            <ReactMarkdown rehypePlugins={MEMO_REHYPE_PLUGINS} components={memoMarkdownComponents}>
+                              {displayMemo}
+                            </ReactMarkdown>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </section>
+          )}
+
           {/* Structure chart snapshot */}
           {chartSnapshot?.snapshot_png ? (
-            <Card>
+            <Card className="border-t-[3px] border-t-brand-terracotta">
               <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
                 <div className="space-y-1.5">
                   <CardTitle>Structure chart</CardTitle>
-                  <CardDescription>
-                    Captured when the structure was finalized. Included in the memorandum.
-                  </CardDescription>
                 </div>
                 <Button
                   variant="ghost"
@@ -843,236 +1191,64 @@ const AssessmentReport = () => {
             </Card>
           ) : null}
 
-          {/* Generate Report Button */}
-          <Card>
-            <CardHeader className="space-y-1.5">
-              <CardTitle>Generate memorandum</CardTitle>
-              <CardDescription>
-                Generate an AI-powered ATAD2 memorandum based on this assessment
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-5">
-                {anyIncludeOption && (
-                  <div>
-                    <p className="mb-3 text-[11px] font-medium uppercase tracking-[0.07em] text-ds-ink-tertiary">
-                      Include in the memorandum
-                    </p>
-                    <div className="flex flex-wrap gap-x-[22px] gap-y-2.5">
-                      {chartSnapshot?.snapshot_png && (
-                        <OptionCheckbox
-                          checked={includeChartInMemo}
-                          disabled={isGeneratingReport}
-                          onToggle={() => setIncludeChartInMemo(!includeChartInMemo)}
-                        >
-                          Structure chart
-                        </OptionCheckbox>
-                      )}
-                      {factsAppendixAvailable && (
-                        <OptionCheckbox
-                          checked={includeFactsAppendix}
-                          disabled={isGeneratingReport}
-                          onToggle={() => setIncludeFactsOverride(!includeFactsAppendix)}
-                        >
-                          Appendix 1 · Facts &amp; relationships
-                        </OptionCheckbox>
-                      )}
-                      {checklistAppendixAvailable && (
-                        <OptionCheckbox
-                          checked={includeChecklistAppendix}
-                          disabled={isGeneratingReport}
-                          onToggle={() => setIncludeChecklistOverride(!includeChecklistAppendix)}
-                        >
-                          Appendix 2 · Condition assessment
-                        </OptionCheckbox>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                <div className="space-y-3">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <MissingExplanationsPopover
-                      missingCount={missingExplanationCount}
-                      isOpen={showMissingExplanationsPopover}
-                      onOpenChange={setShowMissingExplanationsPopover}
-                      onGenerateAnyway={handleGenerateAnyway}
-                      onReviewQuestions={handleReviewQuestions}
-                      onTriggerClick={handleGenerateAnyway}
-                    >
-                      <Button
-                        variant="primary"
-                        size="lg"
-                        onClick={handleGenerateButtonClick}
-                        // Lock once a memo exists: the button stays visible but
-                        // dimmed (disabled:opacity-50) and unclickable. No
-                        // regeneration after the first run.
-                        disabled={isGeneratingReport || !!latestReport}
-                      >
-                        {isGeneratingReport ? (
-                          <>
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Generating memorandum…
-                          </>
-                        ) : (
-                          "Generate memorandum"
-                        )}
-                      </Button>
-                    </MissingExplanationsPopover>
-
-                    <DownloadMemoButton
-                      sessionId={sessionId!}
-                      memoMarkdown={displayMemo}
-                      enabled={!!latestReport}
-                      disabled={isApplyingFeedback}
-                      // Only embed the chart when there is a saved snapshot AND the
-                      // chip is on; otherwise the template's {{#hasStructureChart}}
-                      // block drops the structure-overview section cleanly.
-                      includeChart={includeChartInMemo && !!chartSnapshot?.snapshot_png}
-                      includeFactsAppendix={includeFactsAppendix}
-                      includeChecklistAppendix={includeChecklistAppendix}
-                    />
-                  </div>
-
-                  {latestReport && (
-                    <p className="flex items-center gap-1.5 text-[13px] text-ds-green-text">
-                      <CheckCircle className="h-3.5 w-3.5" aria-hidden="true" />
-                      Generated · {generatedAtLabel}
-                    </p>
-                  )}
-
-                  {isGeneratingReport && (
-                    <WaitingMessage />
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Latest Generated Report */}
-          {latestReport && (
-            <Card>
-              <CardHeader className="flex flex-row items-start justify-between space-y-0">
+          {/* Appendix 1 · Facts & relationships. Read-only here; the Edit button
+              reopens the appendix step (facts page), matching the structure chart. */}
+          {factsAppendixAvailable && appendixForDownload?.facts && (
+            <Card className="border-t-[3px] border-t-brand-terracotta">
+              <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
                 <div className="space-y-1.5">
-                  <CardTitle>{latestReport.report_title}</CardTitle>
+                  <CardTitle>Appendix 1 · Facts &amp; relationships</CardTitle>
+                  <CardDescription>
+                    The entities, classifications and relationships behind this assessment.
+                  </CardDescription>
                 </div>
-                {!isFeedbackMode && !isDiffMode && displayMemo && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="shrink-0">
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => setIsFeedbackMode(true)}
-                          disabled={hasAcceptedChanges}
-                        >
-                          <Pencil className="h-4 w-4 mr-2" />
-                          Improve memo
-                        </Button>
-                      </span>
-                    </TooltipTrigger>
-                    {hasAcceptedChanges && (
-                      <TooltipContent>
-                        <p>You have already accepted the improved memo. Further edits are not available.</p>
-                      </TooltipContent>
-                    )}
-                  </Tooltip>
-                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigate(`/assessment-appendix/${sessionId}?from=overview`)}
+                >
+                  <Pencil className="h-3.5 w-3.5 mr-1.5" />
+                  Edit
+                </Button>
               </CardHeader>
               <CardContent>
-                {isDiffMode && originalMemoBeforeFeedback && revisedMemoFromFeedback ? (
-                  <MemoDiffViewer
-                    originalMemo={originalMemoBeforeFeedback}
-                    revisedMemo={revisedMemoFromFeedback}
-                    onAccept={handleAcceptChanges}
-                    onReject={handleRejectChanges}
-                  />
-                ) : isFeedbackMode && displayMemo && sessionData ? (
-                  <MemoFeedbackEditor
-                    memoMarkdown={displayMemo}
-                    sessionId={sessionId!}
-                    taxpayerName={sessionData.taxpayer_name}
-                    fiscalYear={sessionData.fiscal_year}
-                    onFeedbackSubmitted={handleFeedbackSubmitted}
-                    onCancel={() => setIsFeedbackMode(false)}
-                    onSubmittingChange={setIsApplyingFeedback}
-                  />
-                ) : displayMemo ? (
-                  <div className="markdown-body prose prose-base dark:prose-invert max-w-none text-left prose-headings:tracking-tight prose-headings:font-medium prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg">
-                    <ReactMarkdown
-                      rehypePlugins={[rehypeRaw]}
-                      components={{
-                        u: ({ children }) => (
-                          <span className="underline" style={{ textDecorationLine: 'underline', textUnderlineOffset: '3px' }}>{children}</span>
-                        ),
-                        p: ({ children }) => <p>{children}</p>,
-                        h1: ({ children }) => <p className="font-medium">{children}</p>,
-                        h2: ({ children }) => <p className="font-medium">{children}</p>,
-                        h3: ({ children }) => <h3 className="font-medium">{children}</h3>,
-                        h4: ({ children }) => <h4 className="font-medium">{children}</h4>,
-                        ul: ({ children }) => <ul>{children}</ul>,
-                        li: ({ children }) => <li>{children}</li>,
-                        br: () => <br />,
-                        sup: ({ children }) => <sup>{children}</sup>,
-                        sub: ({ children }) => <sub>{children}</sub>,
-                      }}
-                    >
-                      {displayMemo}
-                    </ReactMarkdown>
-                  </div>
-                ) : null}
+                <FactsPanel facts={appendixForDownload.facts} generated embedded />
               </CardContent>
             </Card>
           )}
 
-
-          {/* Answers Detail */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Question responses</CardTitle>
-              <CardDescription>
-                {isGeneratingReport || latestReport 
-                  ? "Responses are locked and can no longer be edited because a memorandum has been (or is being) generated"
-                  : "Click the edit button next to any answer to make changes"
-                }
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                {answers.map((answer) => {
-                  const isHighlighted = highlightedQuestionIds.includes(answer.question_id);
-                  const isMissingExplanation = missingExplanationQuestionIds.includes(answer.question_id);
-                  
-                  return (
-                    <div
-                      key={answer.id}
-                      ref={(el) => { questionRefs.current[answer.question_id] = el; }}
-                      className={`transition-all duration-500 rounded-ds-control ${
-                        isHighlighted
-                          ? 'border-l-2 border-ds-hairline bg-ds-fill-muted pl-4 -ml-4'
-                          : ''
-                      }`}
-                    >
-                      <EditableAnswer
-                        answerId={answer.id}
-                        questionId={answer.question_id}
-                        questionText={answer.question_text}
-                        currentAnswer={answer.answer}
-                        currentExplanation={answer.explanation}
-                        riskPoints={answer.risk_points}
-                        readOnly={!!latestReport || isGeneratingReport}
-                        sessionId={sessionId!}
-                        onUpdate={(newAnswer, newExplanation, newRiskPoints) => 
-                          handleAnswerUpdate(answer.id, newAnswer, newExplanation, newRiskPoints)
-                        }
-                        showMissingExplanationHint={isMissingExplanation && isHighlighted}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
+          {/* Appendix 2 · Condition assessment. Read-only here; the Edit button
+              reopens the appendix step (checklist page). */}
+          {checklistAppendixAvailable && appendixForDownload && appendixSkeleton && (
+            <Card className="border-t-[3px] border-t-brand-terracotta">
+              <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
+                <div className="space-y-1.5">
+                  <CardTitle>Appendix 2 · Condition assessment</CardTitle>
+                  <CardDescription>
+                    Each ATAD2 condition tested against the facts.
+                  </CardDescription>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigate(`/assessment-appendix/${sessionId}/checklist?from=overview`)}
+                >
+                  <Pencil className="h-3.5 w-3.5 mr-1.5" />
+                  Edit
+                </Button>
+              </CardHeader>
+              <CardContent>
+                <AppendixTable
+                  rows={appendixForDownload.rows}
+                  skeleton={appendixSkeleton}
+                  showSources
+                  relatedParties={null}
+                  readOnly
+                  embedded
+                />
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         <AssessmentFooterSlot

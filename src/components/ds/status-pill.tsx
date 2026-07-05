@@ -6,13 +6,13 @@ import { cn } from "@/lib/utils";
 /**
  * The only place semantic colors appear in chrome. Pass a lucide icon as a
  * child if the state needs one; never convey the state by color alone when
- * the label is ambiguous. There is no blue pill: the one accent (monochrome
- * near-black) is reserved for the active wizard step and the chart focus node.
+ * the label is ambiguous. There is no blue pill: the one accent (Svalner
+ * terracotta) is the brand marker for active states; amber stays risk-only.
  *
  * - triggered: amber (a finding that represents real ATAD2 risk, e.g.
  *   "ATAD2 risk identified" or a triggered appendix condition)
  * - insufficient: amber (needs attention, not enough information)
- * - complete: green (done, confirmed, answered)
+ * - complete: sage (done, confirmed, answered)
  * - not-triggered / neutral: muted gray (quiet, in progress, suggested, n/a)
  *
  * Risk reads amber, never accent. Non-risk emphasis (suggestions, counts,
@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
  * deliberately not a pill state.
  */
 const statusPillVariants = cva(
-  "inline-flex items-center gap-1.5 whitespace-nowrap rounded-ds-chip px-2 py-0.5 text-xs font-medium [&_svg]:size-3 [&_svg]:shrink-0",
+  "inline-flex items-center gap-1.5 whitespace-nowrap rounded-ds-chip px-2 py-0.5 text-xs font-normal [&_svg]:size-3 [&_svg]:shrink-0",
   {
     variants: {
       status: {

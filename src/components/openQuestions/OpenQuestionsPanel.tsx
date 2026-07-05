@@ -124,7 +124,7 @@ export function OpenQuestionsPanel({
 
       {groups.needsAttention.length > 0 && (
         <section className={sectionGap}>
-          <h3 className="text-[13px] font-medium text-ds-ink">
+          <h3 className="text-[13px] font-normal text-ds-ink">
             Needs attention ({groups.needsAttention.length})
           </h3>
           {renderRows(groups.needsAttention)}
@@ -132,7 +132,7 @@ export function OpenQuestionsPanel({
       )}
 
       <section className={sectionGap}>
-        <h3 className="text-[13px] font-medium text-ds-ink">
+        <h3 className="text-[13px] font-normal text-ds-ink">
           Open questions ({groups.active.length})
         </h3>
         {groups.active.length > 0 ? (
@@ -208,7 +208,7 @@ function RecheckWithAiButton({
 function PageHeading() {
   return (
     <div className="space-y-1">
-      <h2 className="text-xl font-medium tracking-tight text-ds-ink">
+      <h2 className="text-xl font-normal tracking-tight text-ds-ink">
         Open questions
       </h2>
       <p className="text-[13px] text-ds-ink-secondary">
@@ -236,7 +236,7 @@ function CollapsedSection({
   if (rows.length === 0) return null;
   return (
     <Collapsible>
-      <CollapsibleTrigger className="group flex w-full items-center gap-1.5 text-[13px] font-medium text-ds-ink-secondary transition-colors hover:text-ds-ink">
+      <CollapsibleTrigger className="group flex w-full items-center gap-1.5 text-[13px] font-normal text-ds-ink-secondary transition-colors hover:text-ds-ink">
         <ChevronRight className="h-4 w-4 shrink-0 transition-transform group-data-[state=open]:rotate-90" />
         {title}
       </CollapsibleTrigger>

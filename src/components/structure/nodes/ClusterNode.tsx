@@ -16,6 +16,7 @@ export type ClusterNodeType = Node<ClusterNodeData, 'cluster'>;
 const W = NODE_WIDTH;
 const H = NODE_HEIGHT;
 const OFFSET = 4;
+const CHART_FONT = "'Neue Haas Grotesk Display Pro', 'Helvetica Neue', Helvetica, Arial, sans-serif";
 
 function ClusterNodeComp({ data, selected }: NodeProps<ClusterNodeType>) {
   return (
@@ -36,20 +37,20 @@ function ClusterNodeComp({ data, selected }: NodeProps<ClusterNodeType>) {
       >
         {/* back paper */}
         <rect x={OFFSET * 2} y={OFFSET * 2} width={W} height={H} rx={2}
-          fill="#fafaf8" stroke="#8a8980" strokeWidth={1} />
+          fill="#f6f3ec" stroke="#cdc7ba" strokeWidth={1} />
         {/* mid paper */}
         <rect x={OFFSET} y={OFFSET} width={W} height={H} rx={2}
-          fill="#f1f1ee" stroke="#8a8980" strokeWidth={1} />
+          fill="#efe9df" stroke="#cdc7ba" strokeWidth={1} />
         {/* front rect */}
         <rect x={0} y={0} width={W} height={H} rx={2}
           fill="#ffffff" stroke={PALETTE.nodeStroke} strokeWidth={1.25} />
         <text x={W / 2} y={H / 2 - 4}
-          fontFamily="Inter, system-ui, sans-serif" fontSize={12} fontWeight={500}
+          fontFamily={CHART_FONT} fontSize={12} fontWeight={500}
           fill={PALETTE.text} textAnchor="middle">
           {data.name}
         </text>
         <text x={W / 2} y={H / 2 + 14}
-          fontFamily="Inter, system-ui, sans-serif" fontSize={10} fontWeight={500}
+          fontFamily={CHART_FONT} fontSize={10} fontWeight={500}
           fill={PALETTE.textMuted} textAnchor="middle">
           ({data.count} entities)
         </text>

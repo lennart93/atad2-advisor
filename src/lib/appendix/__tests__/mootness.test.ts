@@ -22,13 +22,14 @@ const cleanDossier: Record<string, Status> = {
 describe('mootNaRowIds', () => {
   it('matches the spec reclassification on a clean, in-scope dossier', () => {
     const na = mootNaRowIds(rowsFrom(cleanDossier));
-    const expected = ['1.1', '1.2', '2.1', '2.3', '5.2', '5.3', '6.1', '6.4', '6.5', '7.1', '7.2', '8.2', '8.3'];
+    // 6.1 stays a live Section 6 status row; 4.1 (secondary rule) is moot with no mismatch.
+    const expected = ['1.1', '1.2', '2.1', '2.3', '4.1', '5.2', '5.3', '6.4', '6.5', '7.1', '7.2', '8.2', '8.3'];
     expect([...na].sort()).toEqual(expected.sort());
   });
 
   it('leaves the substantively-assessed rows alone (they stay Not triggered)', () => {
     const na = mootNaRowIds(rowsFrom(cleanDossier));
-    for (const id of ['2.2', '3.1', '3.2', '3.3', '3.4', '3.5', '3.6', '3.7', '4.1', '5.1', '5.4', '6.2', '6.3', '8.1']) {
+    for (const id of ['2.2', '3.1', '3.2', '3.3', '3.4', '3.5', '3.6', '3.7', '5.1', '5.4', '6.1', '6.2', '6.3', '8.1']) {
       expect(na.has(id)).toBe(false);
     }
   });
@@ -46,6 +47,8 @@ describe('mootNaRowIds', () => {
 
     const withMismatch = { ...cleanDossier, '3.1': 'Triggered' as Status };
     expect(mootNaRowIds(rowsFrom(withMismatch)).has('2.3')).toBe(false);
+    // The secondary rule (4.1) becomes live once a primary mismatch exists.
+    expect(mootNaRowIds(rowsFrom(withMismatch)).has('4.1')).toBe(false);
     // A denial occurred, so recapture is reachable, not moot.
     expect(mootNaRowIds(rowsFrom(withMismatch)).has('7.1')).toBe(false);
 
@@ -70,5 +73,30 @@ describe('mootNaRowIds', () => {
     expect(na.has('8.3')).toBe(false);
     // The other moot rows are still caught.
     expect(na.has('2.3')).toBe(true);
+  });
+
+  // Secondary rule (art. 12ab) scoping: 4.1 backs up ONLY the (a),(b),(c),(e),(f)
+  // deduction-without-inclusion mismatches, never (d)/(g) or a dual-residence
+  // double deduction. Row 4.1's own text carries exactly this rule.
+  it('makes the secondary rule (4.1) N/A when only a double-deduction (g) mismatch fired', () => {
+    const doubleDeductionOnly = { ...cleanDossier, '3.7': 'Triggered' as Status };
+    expect(mootNaRowIds(rowsFrom(doubleDeductionOnly)).has('4.1')).toBe(true);
+  });
+
+  it('makes the secondary rule (4.1) N/A when only a disregarded-PE (d) mismatch fired', () => {
+    const dOnly = { ...cleanDossier, '3.4': 'Triggered' as Status };
+    expect(mootNaRowIds(rowsFrom(dOnly)).has('4.1')).toBe(true);
+  });
+
+  it('makes the secondary rule (4.1) N/A when only a dual-residence double deduction fired', () => {
+    const dualResDd = { ...cleanDossier, '5.1': 'Triggered' as Status, '5.2': 'Triggered' as Status };
+    expect(mootNaRowIds(rowsFrom(dualResDd)).has('4.1')).toBe(true);
+  });
+
+  it('keeps the secondary rule (4.1) live for any (a),(b),(c),(e),(f) D/NI mismatch', () => {
+    for (const id of ['3.1', '3.2', '3.3', '3.5', '3.6']) {
+      const dni = { ...cleanDossier, [id]: 'Triggered' as Status };
+      expect(mootNaRowIds(rowsFrom(dni)).has('4.1')).toBe(false);
+    }
   });
 });

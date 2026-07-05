@@ -889,11 +889,13 @@ export type Database = {
           model: string | null
           open_questions: Json | null
           parent_report_id: string | null
+          polish_status: string | null
           prompt_version: string | null
           regenerated_sections: string[] | null
           report_json: Json | null
           report_kind: string
           report_md: string
+          report_md_raw: string | null
           report_title: string | null
           risk_category: string | null
           session_id: string
@@ -912,11 +914,13 @@ export type Database = {
           model?: string | null
           open_questions?: Json | null
           parent_report_id?: string | null
+          polish_status?: string | null
           prompt_version?: string | null
           regenerated_sections?: string[] | null
           report_json?: Json | null
           report_kind?: string
           report_md: string
+          report_md_raw?: string | null
           report_title?: string | null
           risk_category?: string | null
           session_id: string
@@ -935,11 +939,13 @@ export type Database = {
           model?: string | null
           open_questions?: Json | null
           parent_report_id?: string | null
+          polish_status?: string | null
           prompt_version?: string | null
           regenerated_sections?: string[] | null
           report_json?: Json | null
           report_kind?: string
           report_md?: string
+          report_md_raw?: string | null
           report_title?: string | null
           risk_category?: string | null
           session_id?: string

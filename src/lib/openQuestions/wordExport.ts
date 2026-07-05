@@ -5,6 +5,7 @@ import type {
   OpenQuestionExportItem,
   OpenQuestionExportMeta,
 } from "./exportText";
+import { formatFiscalYears } from "@/utils/formatFiscalYears";
 
 /**
  * Thrown when the Word template is not present in the templates bucket yet.
@@ -71,7 +72,7 @@ export async function generateOpenQuestionsDocx({
 
   doc.render({
     taxpayer_name: meta.taxpayerName,
-    fiscal_year: meta.fiscalYear,
+    fiscal_year: formatFiscalYears(meta.fiscalYear),
     today_long: meta.dateLong,
     questions: items.map((item, index) => ({
       n: index + 1,
@@ -82,7 +83,8 @@ export async function generateOpenQuestionsDocx({
 
   const blob = doc.getZip().generate({ type: "blob" });
   const nameSafe = (meta.taxpayerName || "Taxpayer").replace(/[^\w-]+/g, "_");
-  const fileName = `ATAD2_Open_Questions_${nameSafe}_${meta.fiscalYear}.docx`;
+  const yearSafe = formatFiscalYears(meta.fiscalYear).replace(/[^\w-]+/g, "_");
+  const fileName = `ATAD2_Open_Questions_${nameSafe}${yearSafe ? `_${yearSafe}` : ""}.docx`;
 
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);

@@ -13,6 +13,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { DocumentUploadStep } from "@/components/assessment/DocumentUploadStep";
+import { WizardCard } from "@/components/assessment/WizardCard";
 import { DocumentsWorklist } from "@/components/documents/DocumentsWorklist";
 import { usePrefillStore } from "@/stores/prefillStore";
 import {
@@ -93,6 +94,8 @@ export default function AssessmentUpload() {
   // the open points directly, never on the locked upload screen.
   const analysisStarted = waiting || locked;
   if (analysisStarted) {
+    // No WizardCard here: each DocumentsWorklist phase owns its own card so
+    // the analysis screen's coffee aside can sit outside (below) the card.
     return (
       <DocumentsWorklist
         sessionId={sessionId}
@@ -102,59 +105,63 @@ export default function AssessmentUpload() {
   }
 
   return (
-    <div className="space-y-6">
-      <DocumentUploadStep sessionId={sessionId} locked={locked} />
+    <>
+      <WizardCard>
+        <DocumentUploadStep sessionId={sessionId} locked={locked} />
+      </WizardCard>
 
       <AssessmentFooterSlot
-        left={
-          hasAtLeastOneUploaded ? (
-            <Button
-              variant="secondary"
-              onClick={() => {
-                void maybePrewarmPhaseA(sessionId);
-                navigate(`/assessment?session=${sessionId}`);
-              }}
-            >
-              Skip to questionnaire
-            </Button>
-          ) : (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="secondary">
-                  Skip
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Skip without uploading documents?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Documents like financial statements, tax returns, or previous
-                    ATAD2 memos let the questionnaire be answered from the source.
-                    Without them, every question is answered by hand.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={() => navigate(`/assessment?session=${sessionId}`)}
-                  >
-                    Continue without documents
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          )
-        }
         center={<DocumentQualityMeter docs={docs ?? []} />}
         right={
-          <Button
-            variant="primary"
-            onClick={handleContinueClick}
-            disabled={!hasAtLeastOneUploaded || !allPendingUploaded}
-          >
-            Analyze documents
-            <ArrowRight />
-          </Button>
+          <>
+            {/* First step: no Previous, so the skip joins the dark primary on the
+                right (the primary stays right-most), consistent with later steps. */}
+            {hasAtLeastOneUploaded ? (
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  void maybePrewarmPhaseA(sessionId);
+                  navigate(`/assessment?session=${sessionId}`);
+                }}
+              >
+                Skip to questionnaire
+              </Button>
+            ) : (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="secondary">
+                    Skip
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Skip without uploading documents?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Documents like financial statements, tax returns, or previous
+                      ATAD2 memos let the questionnaire be answered from the source.
+                      Without them, every question is answered by hand.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => navigate(`/assessment?session=${sessionId}`)}
+                    >
+                      Continue without documents
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+            <Button
+              variant="primary"
+              onClick={handleContinueClick}
+              disabled={!hasAtLeastOneUploaded || !allPendingUploaded}
+            >
+              Analyze documents
+              <ArrowRight className="text-[#e0a48f]" />
+            </Button>
+          </>
         }
       />
       <LowQualityGateDialog
@@ -165,6 +172,6 @@ export default function AssessmentUpload() {
         missingTypes={quality.missingTypes}
         onConfirm={confirmFromGate}
       />
-    </div>
+    </>
   );
 }

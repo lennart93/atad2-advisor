@@ -17,11 +17,11 @@ import Anthropic from "anthropic";
 
 const client = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") ?? "" });
 
-// Sonnet 4.6 matches the other edge functions: strong enough for the
-// prompt-engineering reasoning, fast enough that a single synchronous call
-// returns inside the gateway timeout. Bump to an Opus id here if the
-// suggestion quality ever needs it (this is the only line to change).
-const MODEL = "claude-sonnet-4-6";
+// Opus 4.8: this admin tool rewrites the prompts that drive every other call,
+// so it is the highest-leverage place to spend on quality. It is admin-triggered
+// and low-volume, so the extra latency of Opus plus adaptive thinking (enabled
+// in callClaude) is fine. Not gateway-latency-bound.
+const MODEL = "claude-opus-4-8";
 // The proposed revision is a FULL drop-in replacement of the target system
 // prompt (memo_system is several thousand tokens) plus the analysis, so the
 // cap is generous. It is a ceiling, not a target: short answers stay short.
@@ -77,6 +77,10 @@ export async function callClaude(seg: CachedSegment): Promise<CallResult> {
         system: systemBlocks as unknown as Parameters<typeof client.messages.create>[0]["system"],
         messages: [{ role: "user", content: seg.user }],
       };
+      // Opus 4.8 runs without thinking when the field is omitted; turn on
+      // adaptive thinking for the meta-reasoning quality this tool needs.
+      // (The old SDK types don't know `thinking`; cast past them.)
+      (request as unknown as { thinking?: unknown }).thinking = { type: "adaptive" };
 
       const response = await client.messages.create(request);
 

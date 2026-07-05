@@ -14,7 +14,7 @@ const richFacts = (excludedSections?: AppendixSectionKey[]): AppendixFacts => ({
     { id: 'E1', chartEntityId: 'c1', name: 'Acme BV', jurisdiction: 'NL', entityType: 'corporation', role: 'Taxpayer', ownershipPct: null, related: false, nlTaxStatus: 'resident' },
     { id: 'E2', chartEntityId: 'c2', name: 'Sub Inc', jurisdiction: 'US', entityType: 'corporation', role: 'Subsidiary', ownershipPct: 100, related: true, nlTaxStatus: 'outside_cit' },
   ],
-  actingTogether: [{ id: 'A1', memberEntityIds: ['E1', 'E2'], combinedPct: 50, likelihood: 'likely', reasoning: 'coordination present', excludedFromClient: false, source: 'ai' }],
+  actingTogether: [{ id: 'A1', memberEntityIds: ['E1', 'E2'], combinedPct: 50, likelihood: 'likely', origin: 'manual', basis: 'shareholders_agreement', reasoning: 'coordination present', excludedFromClient: false, source: 'edited' }],
   classifications: [{ entityId: 'E2', homeState: 'US', homeClass: 'opaque', sourceState: 'NL', sourceClass: 'transparent', hybrid: true, status: 'confirmed', excludedFromClient: false, source: 'ai' }],
   transactions: [{ id: 'T1', fromEntityId: 'E1', toEntityId: 'E2', kind: 'loan', instrument: 'note', note: null, articlesTested: ['12aa(1)(a)'], status: 'confirmed', excludedFromClient: false, source: 'ai' }],
   excludedSections,
@@ -140,19 +140,23 @@ describe('part A funnel export', () => {
     const html = buildAppendixPrintHtml([], 'dossier', undefined, baseFacts);
     expect(html).toContain('Cross-border transactions with related parties');
     expect(html).toContain('The group narrative.');
-    expect(html).toContain('1 transaction not relevant: Within the fiscal unity');
+    expect(html).toContain('1 transaction, no risk identified: Within the fiscal unity');
     expect(html).toContain('Why relevant');
     expect(html).toContain('Cross-border to a related party');
     expect(html).not.toContain('service'); // accounted flow not in the relevant table
   });
 
-  it('drops sub-likely acting-together clusters from the dossier with an accounted line', () => {
+  it('keeps a non-binding AI suggestion out of the dossier without an accounting line', () => {
+    // AI suggestions are hints, not client content: an unadopted cluster (origin
+    // not 'manual') never reaches the dossier, and no "candidate grouping was
+    // considered" sentence prints either (handoff 68 fix 2).
     const f = { ...(baseFacts as Record<string, unknown>), actingTogether: [
       { id: 'A1', memberEntityIds: ['E1', 'E2'], combinedPct: 30, likelihood: 'unlikely', reasoning: 'no coordination', excludedFromClient: false, source: 'ai' },
     ] } as never;
     const html = buildAppendixPrintHtml([], 'dossier', undefined, f);
     expect(html).not.toContain('no coordination');
-    expect(html).toContain('1 candidate grouping was considered and not assessed as likely');
+    expect(html).not.toContain('candidate grouping');
+    expect(html).not.toContain('Acting together'); // nothing client-facing, no empty heading
   });
 
   it('dossier strip does not count client-excluded flows', () => {

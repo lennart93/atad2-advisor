@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Check, Download, Plus, Trash2 } from "lucide-react";
 import { Seo } from "@/components/Seo";
+import { formatFiscalYears } from "@/utils/formatFiscalYears";
+import { taxpayerDisplayName } from "@/lib/taxpayer";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,8 +35,8 @@ function statusTone(status: string, completed: boolean | null): "success" | "neu
 // final_score is the sum of per-answer risk_points and lives on the
 // 0.0–~2.0 fractional scale. Both the risk-identified (≥1.0) and the
 // insufficient-information (≥0.2) outcomes are real ATAD2 attention, so they
-// share the amber (warning) tone; below 0.2 = low risk, a clean outcome
-// (success / green).
+// share the amber (warning) tone; below 0.2 = no risk identified, a clean
+// outcome (success / green).
 function scoreTone(score: number | null): "success" | "warning" | "neutral" {
   if (score == null) return "neutral";
   if (score >= 0.2) return "warning";
@@ -146,7 +148,7 @@ const Sessions = () => {
       <Seo title="Admin Sessions" description="Manage ATAD2 sessions" canonical="/admin/sessions" />
       <div className="flex items-end justify-between mb-4">
         <div>
-          <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-ds-ink-secondary mb-1">Admin</div>
+          <div className="text-[11px] font-normal uppercase tracking-[0.16em] text-ds-ink-secondary mb-1">Admin</div>
           <h1 className="text-2xl font-normal tracking-tight">Sessions</h1>
           <p className="mt-1 text-sm text-ds-ink-secondary">Every assessment across the platform, with booked and pipeline fees.</p>
         </div>
@@ -251,11 +253,11 @@ function SummaryStat({
             tone === "booked" ? "bg-ds-green" : "bg-ds-ink-tertiary"
           )}
         />
-        <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground font-medium">
+        <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground font-normal">
           {label}
         </span>
       </div>
-      <div className="mt-1.5 text-2xl font-medium tracking-tight tabular-nums text-foreground">
+      <div className="mt-1.5 text-2xl font-normal tracking-tight tabular-nums text-foreground">
         {formatEur(amount)}
       </div>
       <div className="mt-0.5 text-[11px] text-muted-foreground tabular-nums">
@@ -292,15 +294,15 @@ function SessionRow({
         <div className="flex items-center gap-2">
           <span className={
             isDeleted
-              ? "text-[13px] font-medium truncate line-through"
-              : "text-[13px] font-medium truncate"
-          }>{session.taxpayer_name}</span>
+              ? "text-[13px] font-normal truncate line-through"
+              : "text-[13px] font-normal truncate"
+          }>{taxpayerDisplayName(session.taxpayer_name)}</span>
           {session.entity_name && (
             <span className="text-[11px] text-muted-foreground truncate">· {session.entity_name}</span>
           )}
         </div>
         <div className="text-[11px] text-muted-foreground truncate mt-0.5">
-          FY <span className="font-mono">{session.fiscal_year}</span>
+          FY <span className="font-mono">{formatFiscalYears(session.fiscal_year)}</span>
           {session.owner && (
             <> · {session.owner.full_name ?? session.owner.email}</>
           )}
@@ -347,14 +349,14 @@ function RevenuePill({
   // not yet sold): neutral dashed outline to signal "potential, not booked".
   if (sold) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-md bg-ds-green-bg px-2 py-0.5 text-xs font-medium text-ds-green-text tabular-nums">
+      <span className="inline-flex items-center gap-1 rounded-md bg-ds-green-bg px-2 py-0.5 text-xs font-normal text-ds-green-text tabular-nums">
         <Check className="size-3" />
         {revenue != null ? formatEur(revenue) : "Sold"}
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center rounded-md border border-dashed border-ds-hairline bg-ds-fill-muted px-2 py-0.5 text-xs font-medium text-ds-ink-secondary tabular-nums">
+    <span className="inline-flex items-center rounded-md border border-dashed border-ds-hairline bg-ds-fill-muted px-2 py-0.5 text-xs font-normal text-ds-ink-secondary tabular-nums">
       {revenue != null ? formatEur(revenue) : ""}
     </span>
   );
@@ -421,7 +423,7 @@ function RevenueCell({
             {hasValue ? (
               <RevenuePill sold={session.sold} revenue={session.revenue_eur} />
             ) : (
-              <span className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+              <span className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-normal text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
                 <Plus className="size-3" />
                 Fee
               </span>
@@ -436,7 +438,7 @@ function RevenueCell({
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <div className="text-sm font-medium leading-none">Mark as sold</div>
+                <div className="text-sm font-normal leading-none">Mark as sold</div>
                 <div className="mt-1 text-[11px] text-muted-foreground">Engagement booked with the client</div>
               </div>
               <Switch checked={sold} onCheckedChange={setSold} aria-label="Mark as sold" />
@@ -445,7 +447,7 @@ function RevenueCell({
             <div>
               <label
                 htmlFor={`fee-${session.id}`}
-                className="text-[11px] font-medium text-muted-foreground"
+                className="text-[11px] font-normal text-muted-foreground"
               >
                 Fee (EUR)
               </label>

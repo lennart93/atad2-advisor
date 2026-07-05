@@ -8,7 +8,9 @@ const ELLIPSIS = '…';
 
 const cache = new Map<string, string[]>();
 let ctx: CanvasRenderingContext2D | null = null;
-const FONT_SPEC = '500 12px Inter, system-ui, sans-serif';
+// Kept in sync with EntityNode's CHART_FONT so measured line widths match the
+// rendered grotesque. Helvetica Neue is the loaded fallback before the webfont.
+const FONT_SPEC = '500 12px "Neue Haas Grotesk Display Pro", "Helvetica Neue", Helvetica, Arial, sans-serif';
 
 function getCtx(): CanvasRenderingContext2D | null {
   if (ctx) return ctx;

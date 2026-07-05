@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Check } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ds";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { useUploadText } from "@/hooks/usePrefill";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "@/components/ui/app-toast";
 import { formatDateTime } from "@/utils/formatDate";
 
 interface Props {
@@ -28,12 +28,12 @@ export function PasteTextDialog({ sessionId, open, onOpenChange }: Props) {
       { text: text.trim(), category: "other", label: finalLabel },
       {
         onSuccess: () => {
-          toast({ title: "Text added", description: `Saved as "${finalLabel}"` });
+          toast.success("Text added", { description: `Saved as "${finalLabel}"` });
           reset();
           onOpenChange(false);
         },
         onError: (e) => {
-          toast({ title: "Could not save text", description: String(e), variant: "destructive" });
+          toast.error("Could not save text", { description: String(e) });
         },
       },
     );
@@ -47,21 +47,31 @@ export function PasteTextDialog({ sessionId, open, onOpenChange }: Props) {
         onOpenChange(v);
       }}
     >
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl rounded-sm border-t-[3px] border-t-brand-terracotta bg-card">
         <DialogHeader>
-          <DialogTitle>Paste additional context</DialogTitle>
+          <DialogTitle className="font-normal">Paste additional context</DialogTitle>
+          <DialogDescription>
+            Memo excerpts, structural notes, or anything not in the uploaded files.
+          </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
-          <div>
-            <Label htmlFor="paste-text" className="text-[13px]">Text</Label>
-            <Textarea
-              id="paste-text"
-              rows={15}
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder="Paste relevant context, for example a memo excerpt or structural notes."
-            />
+        <div className="space-y-2">
+          <label
+            htmlFor="paste-text"
+            className="block text-[11px] font-medium tracking-[0.16em] uppercase text-muted-foreground"
+          >
+            Text
+          </label>
+          <Textarea
+            id="paste-text"
+            className="min-h-[230px] focus-visible:border-brand-terracotta focus-visible:ring-brand-terracotta-soft focus-visible:ring-offset-0"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Paste relevant context here. For example a memo excerpt, a summary of the structure, or notes that are not in the documents."
+          />
+          <div className="flex justify-between items-center text-[11px]">
+            <span className="text-muted-foreground">Plain text. Read alongside your uploads.</span>
+            <span className="text-muted-foreground">{text.length} characters</span>
           </div>
         </div>
 
@@ -72,7 +82,8 @@ export function PasteTextDialog({ sessionId, open, onOpenChange }: Props) {
             disabled={!text.trim() || upload.isPending}
             onClick={save}
           >
-            {upload.isPending ? "Saving..." : "Save"}
+            {upload.isPending ? "Saving..." : "Save context"}
+            {!upload.isPending && <Check className="text-brand-terracotta" />}
           </Button>
         </DialogFooter>
       </DialogContent>

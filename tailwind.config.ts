@@ -75,7 +75,16 @@ export default {
 							deep: 'hsl(var(--brand-sage-deep))',
 							soft: 'hsl(var(--brand-sage-soft))'
 						},
-						warning: 'hsl(var(--brand-warning))'
+						info: {
+							DEFAULT: 'hsl(var(--brand-info))',
+							deep: 'hsl(var(--brand-info-deep))',
+							soft: 'hsl(var(--brand-info-soft))'
+						},
+						warning: {
+							DEFAULT: 'hsl(var(--brand-warning))',
+							deep: 'hsl(var(--brand-warning-deep))',
+							soft: 'hsl(var(--brand-warning-soft))'
+						}
 					},
 					// Design system tokens (src/styles/tokens.css). Final color
 				// values, so Tailwind opacity modifiers do not apply to them.
@@ -104,6 +113,11 @@ export default {
 						DEFAULT: 'var(--ds-green)',
 						bg: 'var(--ds-green-bg)',
 						text: 'var(--ds-green-text)'
+					},
+					blue: {
+						DEFAULT: 'var(--ds-blue)',
+						bg: 'var(--ds-blue-bg)',
+						text: 'var(--ds-blue-text)'
 					},
 					red: {
 						DEFAULT: 'var(--ds-red)',
@@ -148,6 +162,17 @@ export default {
 						transform: 'translateY(0)'
 					}
 				},
+				// Opacity-only entrance for rows inside a scroll container: no
+				// vertical transform, so a newly appended row never briefly
+				// overflows the container and flashes the scrollbar.
+				'fade-in-soft': {
+					'0%': {
+						opacity: '0'
+					},
+					'100%': {
+						opacity: '1'
+					}
+				},
 				'pulse-glow': {
 					'0%, 100%': {
 						boxShadow: '0 0 0 0 hsl(var(--primary) / 0.4)'
@@ -165,14 +190,38 @@ export default {
 					'20%':  { transform: 'rotate(-8deg) scale(1.08)' },
 					'24%':  { transform: 'rotate(4deg) scale(1.04)' },
 					'28%, 100%': { transform: 'rotate(0deg) scale(1)' },
+				},
+				// Terracotta ring pulse for status dots (box-shadow only, no layout
+				// shift). #c25c3c = rgb(194, 92, 60).
+				'terra-pulse': {
+					'0%':   { boxShadow: '0 0 0 0 rgba(194, 92, 60, 0.45)' },
+					'70%':  { boxShadow: '0 0 0 6px rgba(194, 92, 60, 0)' },
+					'100%': { boxShadow: '0 0 0 0 rgba(194, 92, 60, 0)' },
+				},
+				// Indeterminate progress sweep (a terracotta glint that travels the
+				// track) for the appendix "Preparing" loading card.
+				'sweep': {
+					'0%':   { left: '-40%' },
+					'100%': { left: '100%' },
+				},
+				// Gentle steam wisp rising off the coffee cup on the analyze
+				// loading card. Decorative; paired with motion-reduce:animate-none.
+				'steam': {
+					'0%':   { opacity: '0', transform: 'translateY(2.5px) scaleY(0.85)' },
+					'45%':  { opacity: '0.85' },
+					'100%': { opacity: '0', transform: 'translateY(-3px) scaleY(1.05)' },
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
 				'accordion-up': 'accordion-up 0.2s ease-out',
 				'fade-in': 'fade-in 0.2s ease-out',
+				'fade-in-soft': 'fade-in-soft 0.2s ease-out',
 				'pulse-glow': 'pulse-glow 2s ease-in-out infinite',
-				'wiggle': 'wiggle 3.5s ease-in-out infinite'
+				'wiggle': 'wiggle 3.5s ease-in-out infinite',
+				'terra-pulse': 'terra-pulse 2.4s ease-in-out infinite',
+				'sweep': 'sweep 1.5s ease-in-out infinite',
+				'steam': 'steam 2.8s ease-in-out infinite'
 			},
 			fontFamily: {
 				sans: ['Neue Haas Grotesk Display Pro', 'Helvetica Neue', 'Helvetica', 'Arial', 'sans-serif'],

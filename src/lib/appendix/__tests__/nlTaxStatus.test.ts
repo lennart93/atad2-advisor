@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
-  nlQualification, nlTaxStatusLabel, nlQualificationLabel, isNlTaxStatusKey, NL_TAX_STATUSES,
+  nlQualification, nlTaxStatusLabel, nlQualificationLabel, isNlTaxStatusKey,
+  NL_TAX_STATUSES, NL_CLASSIFICATION_OPTIONS,
 } from '@/lib/appendix/facts/nlTaxStatus';
 
 describe('nlQualification', () => {
@@ -17,6 +18,19 @@ describe('nlQualification', () => {
     expect(nlQualification(null)).toBe('undetermined');
     expect(nlQualification(undefined)).toBe('undetermined');
     expect(nlQualification('opaque')).toBe('undetermined');
+  });
+  it('maps the generic advisor picks to their qualification', () => {
+    expect(nlQualification('non_transparent')).toBe('non-transparent');
+    expect(nlQualification('reverse_hybrid')).toBe('reverse-hybrid');
+  });
+});
+
+describe('NL_CLASSIFICATION_OPTIONS', () => {
+  it('round-trips: every option stores a status key that derives its own qualification', () => {
+    for (const o of NL_CLASSIFICATION_OPTIONS) {
+      expect(nlQualification(o.statusKey)).toBe(o.qual);
+      expect(nlQualificationLabel(o.qual)).toBe(o.label);
+    }
   });
 });
 

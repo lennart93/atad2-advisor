@@ -97,6 +97,19 @@ export async function saveFacts(appendixId: string, facts: AppendixFacts): Promi
   if (error) throw error;
 }
 
+/**
+ * Drop the Part A cache key so the next generation recomputes the facts from
+ * scratch (re-asking the model for acting-together) instead of reusing the
+ * stored, possibly-empty result. Used by the "Re-check relationships" action.
+ */
+export async function clearAppendixFactsCache(appendixId: string): Promise<void> {
+  const { error } = await supabase
+    .from('atad2_appendix')
+    .update({ facts_input_hash: null as unknown as never, updated_at: new Date().toISOString() })
+    .eq('id', appendixId);
+  if (error) throw error;
+}
+
 /** Persist a per-page skip flag (Facts or Checklist) on the appendix row. */
 export async function setAppendixSkip(
   appendixId: string,

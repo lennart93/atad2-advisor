@@ -8,7 +8,7 @@ import type { DocumentCategory } from "@/lib/prefill/types";
 import { CategoryDropdown } from "./CategoryDropdown";
 import { Button, Card, StatusPill } from "@/components/ds";
 import { Trash2, Upload, ClipboardPaste, Loader2 } from "lucide-react";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "@/components/ui/app-toast";
 import { PasteTextDialog } from "./PasteTextDialog";
 import { maybePrewarmPhaseA } from "@/lib/structure/phaseAPrewarm";
 
@@ -47,11 +47,11 @@ export function DocumentUploader({ sessionId, locked }: Props) {
     const pendingBytes = store.totalBytes();
     const newBytes = accepted.reduce((a, f) => a + f.size, 0);
     if (existingBytes + pendingBytes + newBytes > MAX_SESSION_BYTES) {
-      toast({ title: "Total upload limit reached", description: "Session limit is 100 MB.", variant: "destructive" });
+      toast.error("Total upload limit reached", { description: "Session limit is 100 MB." });
       return;
     }
     if (rejected.length > 0) {
-      toast({ title: "Some files were skipped", description: rejected.join("\n"), variant: "destructive" });
+      toast.error("Some files were skipped", { description: rejected.join("\n") });
     }
     store.addFiles(accepted);
   };
@@ -124,7 +124,7 @@ export function DocumentUploader({ sessionId, locked }: Props) {
           .map((p) => (
           <Card key={p.localId} className="p-3 flex items-start gap-3">
             <div className="flex-1 min-w-0">
-              <div className="text-[13px] font-medium break-all" title={p.file.name}>
+              <div className="text-[13px] font-normal break-all" title={p.file.name}>
                 {p.file.name}
               </div>
               <div className="mt-0.5 flex items-center gap-2 text-[13px] text-ds-ink-secondary">
@@ -160,7 +160,7 @@ export function DocumentUploader({ sessionId, locked }: Props) {
           .map((d) => (
             <Card key={d.id} className="p-3 flex items-start gap-3">
               <div className="flex-1 min-w-0">
-                <div className="text-[13px] font-medium break-all flex items-center gap-2" title={d.filename}>
+                <div className="text-[13px] font-normal break-all flex items-center gap-2" title={d.filename}>
                   {d.mime_type === "text/plain" && <ClipboardPaste className="h-3.5 w-3.5 text-ds-ink-tertiary shrink-0" />}
                   {d.doc_label || d.filename}
                   {d.is_thin && (

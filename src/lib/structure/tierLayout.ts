@@ -1,8 +1,9 @@
 import type { StructureEntity, StructureEdge, StructureGroup } from './types';
 import type { Cluster } from './relevance';
 import { NODE_WIDTH, NODE_HEIGHT } from './labelMeasure';
+import { planLanes, gapHeightForLanes, MIN_GAP, type LanePlanEdge } from './edgeRouting';
 
-export const MIN_GAP = 32;
+export { MIN_GAP };
 const MAX_ROW_WIDTH = 1200;
 const ROW_GAP = 60;
 const TIER_GAP_BELOW = 80;
@@ -383,18 +384,53 @@ export function tierLayout(args: {
     applyUnityGrouping(tier);
   }
 
-  // Phase 7: Y assignment with multi-row support
-  let yCursor = 0;
+  // Phase 7: Y assignment with multi-row support.
+  //
+  // De hoogte van elke tussenruimte groeit mee met het aantal lijnbanen dat
+  // de edge-routing daar nodig heeft: elke moeder-waaier krijgt een eigen
+  // horizontale rail, en rails die elkaar zouden overlappen komen in aparte
+  // banen onder elkaar. planLanes werkt puur op rij-volgorde + X-posities
+  // (die staan na Phase 6.5 vast), zodat StructureChart bij het tekenen met
+  // dezelfde planning op exact dezelfde banen uitkomt.
+  const flatRows: Array<{ slots: Slot[]; baseGapBelow: number }> = [];
   for (const rank of ranksRendered) {
     const rows = tierRowAssignments.get(rank)!;
     for (let r = 0; r < rows.length; r++) {
-      const rowY = yCursor + r * (NODE_HEIGHT + ROW_GAP);
-      for (const slot of rows[r]) {
-        slot.y = rowY;
-      }
+      flatRows.push({
+        slots: rows[r],
+        baseGapBelow: r < rows.length - 1 ? ROW_GAP : TIER_GAP_BELOW,
+      });
     }
-    const tierHeight = rows.length * NODE_HEIGHT + (rows.length - 1) * ROW_GAP;
-    yCursor += tierHeight + TIER_GAP_BELOW;
+  }
+
+  const placedIds = new Set<string>();
+  for (const fr of flatRows) for (const s of fr.slots) placedIds.add(slotId(s));
+  const planEdges: LanePlanEdge[] = [];
+  for (const e of ownershipEdges) {
+    if (placedIds.has(e.from_entity_id) && placedIds.has(e.to_entity_id)) {
+      planEdges.push({ id: e.id, from: e.from_entity_id, to: e.to_entity_id });
+    }
+  }
+  // Cluster-placeholders hangen via gesynthetiseerde edges aan hun moeder
+  // (zelfde id-vorm als in StructureChartStep, zodat beide plannings matchen).
+  for (const { c } of clustersWithRank) {
+    const cid = clusterId(c);
+    if (placedIds.has(c.parent_id) && placedIds.has(cid)) {
+      planEdges.push({ id: `cluster-edge-${cid}`, from: c.parent_id, to: cid });
+    }
+  }
+  const lanePlan = planLanes(
+    flatRows.map((fr) => fr.slots.map((s) => ({ id: slotId(s), x: s.x }))),
+    planEdges,
+  );
+
+  let yCursor = 0;
+  for (let i = 0; i < flatRows.length; i++) {
+    for (const slot of flatRows[i].slots) slot.y = yCursor;
+    if (i < flatRows.length - 1) {
+      const lanes = lanePlan.laneCountByGap[i] ?? 0;
+      yCursor += NODE_HEIGHT + gapHeightForLanes(lanes, flatRows[i].baseGapBelow);
+    }
   }
 
   // Phase 8: write positions (convert from center-X to top-left for React Flow / PPTX)

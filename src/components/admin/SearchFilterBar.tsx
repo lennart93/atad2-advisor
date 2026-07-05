@@ -36,7 +36,7 @@ export function SearchFilterBar({
             type="button"
             onClick={() => onViewModeChange("list")}
             className={cn(
-              "inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium",
+              "inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-normal",
               viewMode === "list" ? "bg-ds-card shadow-sm text-foreground" : "text-muted-foreground"
             )}
           >
@@ -46,7 +46,7 @@ export function SearchFilterBar({
             type="button"
             onClick={() => onViewModeChange("flow")}
             className={cn(
-              "inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium",
+              "inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-normal",
               viewMode === "flow" ? "bg-ds-card shadow-sm text-foreground" : "text-muted-foreground"
             )}
           >

@@ -82,7 +82,7 @@ const AuditLogs = () => {
       <Seo title="Audit Logs" description="Security audit logs" canonical="/admin/audit" />
       <div className="flex items-end justify-between mb-4">
         <div>
-          <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-ds-ink-secondary mb-1">Admin</div>
+          <div className="text-[11px] font-normal uppercase tracking-[0.16em] text-ds-ink-secondary mb-1">Admin</div>
           <h1 className="text-2xl font-normal tracking-tight">Audit log</h1>
           <p className="mt-1 text-ds-ink-secondary">A running record of changes across the workspace, with who acted and what moved.</p>
         </div>
@@ -143,7 +143,7 @@ const AuditLogs = () => {
                     if (oldVal === newVal || key === "updated_at") return null;
                     return (
                       <div key={key} className="truncate">
-                        <span className="font-medium text-foreground">{key}:</span>{" "}
+                        <span className="font-normal text-foreground">{key}:</span>{" "}
                         <span className="text-muted-foreground line-through">
                           {String(oldVal).slice(0, 40)}
                         </span>{" "}

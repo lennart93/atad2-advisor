@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { StatusChip } from "@/components/admin/StatChip";
 import { cn } from "@/lib/utils";
+import { formatFiscalYears } from "@/utils/formatFiscalYears";
 import type { MemoCandidate } from "@/lib/admin/promptTuner";
 
 interface Props {
@@ -28,7 +29,7 @@ export function OriginalCandidatePicker({ candidates, selectedId, onSelect, onCo
 
   return (
     <div className="space-y-3">
-      <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground font-medium">
+      <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground font-normal">
         Pick the original this was improved from
       </div>
       {candidates.map((c, i) => {
@@ -42,9 +43,9 @@ export function OriginalCandidatePicker({ candidates, selectedId, onSelect, onCo
           >
             <div className="flex items-start justify-between gap-3 mb-1.5">
               <div className="min-w-0">
-                <div className="text-[13px] font-medium text-foreground truncate">
+                <div className="text-[13px] font-normal text-foreground truncate">
                   {c.taxpayer_name ?? "Unknown taxpayer"}
-                  {c.fiscal_year ? <span className="text-muted-foreground font-normal"> · FY {c.fiscal_year}</span> : null}
+                  {c.fiscal_year ? <span className="text-muted-foreground font-normal"> · FY {formatFiscalYears(c.fiscal_year)}</span> : null}
                 </div>
                 <div className="text-[11px] text-muted-foreground font-mono mt-0.5 truncate">{c.session_id}</div>
               </div>

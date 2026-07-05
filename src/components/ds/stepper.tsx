@@ -47,7 +47,7 @@ function StepBadge({ state, n }: { state: StepState; n: number }) {
   }
   if (state === "active") {
     return (
-      <span className="ds-tabular-nums flex size-5 shrink-0 items-center justify-center rounded-full bg-ds-accent text-[11px] font-medium text-ds-card">
+      <span className="ds-tabular-nums flex size-5 shrink-0 items-center justify-center rounded-full bg-ds-accent text-[11px] font-normal text-ds-card">
         {n}
       </span>
     );
@@ -65,6 +65,16 @@ function stepLabelClass(state: StepState) {
     state === "active" && "font-medium text-ds-ink",
     state === "done" && "text-ds-ink",
     state === "upcoming" && "text-ds-ink-secondary",
+  );
+}
+
+/** Zero-padded step number. Active is terracotta (the one brand accent),
+ *  done a touch darker than upcoming so completed steps read as settled. */
+function stepNumClass(state: StepState) {
+  return cn(
+    state === "active" && "text-brand-terracotta",
+    state === "done" && "text-ds-ink-secondary",
+    state === "upcoming" && "text-ds-ink-tertiary",
   );
 }
 
@@ -89,14 +99,14 @@ function Stepper({
   const [compactOpen, setCompactOpen] = React.useState(false);
 
   return (
-    <nav aria-label="Progress" className={cn("min-w-0", className)}>
+    <nav aria-label="Progress" className={cn(className)}>
       {/* Compact form below 1200px: a popover so done steps stay clickable */}
-      <div className="min-[1200px]:hidden">
+      <div className="flex justify-center min-[1200px]:hidden">
         <Popover open={compactOpen} onOpenChange={setCompactOpen}>
           <PopoverTrigger asChild>
             <button
               type="button"
-              className="inline-flex items-center gap-1.5 rounded-ds-control px-2 py-1 text-[13px] font-medium text-ds-ink transition-colors duration-150 hover:bg-ds-fill-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent"
+              className="inline-flex items-center gap-1.5 rounded-ds-control px-2 py-1 text-[13px] font-normal text-ds-ink transition-colors duration-150 hover:bg-ds-fill-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent"
             >
               <span className="ds-tabular-nums">
                 Step {current + 1} of {steps.length}
@@ -157,9 +167,13 @@ function Stepper({
         </Popover>
       </div>
 
-      {/* Full track from 1200px up: numbered (01-07), a 2px terracotta underline
-          marks the active step, no circle bubbles (editorial brand look). */}
-      <ol className="hidden min-w-0 items-center gap-5 min-[1200px]:flex">
+      {/* Full track from 1200px up: a centered band of numbered steps (01-07)
+          joined by hairline connectors, with a 2px terracotta underline + a
+          terracotta number on the active step (editorial brand look, no circle
+          bubbles). Fixed connectors + justify-center, never flex-1 — that keeps
+          the band centered instead of clustered left. Ref: design-reference
+          10-stepper-bar. */}
+      <ol className="hidden items-center justify-center min-[1200px]:flex">
         {steps.map((label, i) => {
           const isActive = i === current;
           const isDone = i < current || extraDoneSet.has(i);
@@ -167,15 +181,16 @@ function Stepper({
           const isClickable = !isLocked && !!onStepClick && extraDoneSet.has(i);
           const state: StepState = isActive ? "active" : isDone ? "done" : "upcoming";
           const num = String(i + 1).padStart(2, "0");
+          const isLast = i === steps.length - 1;
 
           const content = (
             <span
               className={cn(
-                "inline-flex min-w-0 items-center gap-1.5 border-b-2 pb-1.5",
+                "inline-flex items-center gap-1.5 whitespace-nowrap border-b-2 pb-1.5",
                 isActive ? "border-brand-terracotta" : "border-transparent",
               )}
             >
-              <span className="ds-tabular-nums text-[11px] text-ds-ink-tertiary">{num}</span>
+              <span className={cn("ds-tabular-nums text-[11px]", stepNumClass(state))}>{num}</span>
               {isDone && <span className="sr-only">Completed: </span>}
               <span className={stepLabelClass(state)}>{label}</span>
               {isLocked && (
@@ -185,12 +200,12 @@ function Stepper({
           );
 
           return (
-            <li key={i} className="flex min-w-0 items-center">
+            <li key={i} className="flex items-center">
               {isClickable ? (
                 <button
                   type="button"
                   onClick={() => onStepClick(i)}
-                  className="inline-flex min-w-0 items-center rounded-ds-chip transition-colors duration-150 hover:text-ds-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent"
+                  className="inline-flex items-center rounded-ds-chip transition-colors duration-150 hover:text-ds-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent"
                 >
                   {content}
                 </button>
@@ -200,7 +215,7 @@ function Stepper({
                     <TooltipTrigger asChild>
                       <span
                         tabIndex={0}
-                        className="inline-flex min-w-0 cursor-default items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent"
+                        className="inline-flex cursor-default items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent"
                       >
                         {content}
                       </span>
@@ -213,10 +228,19 @@ function Stepper({
               ) : (
                 <span
                   aria-current={isActive ? "step" : undefined}
-                  className="inline-flex min-w-0 items-center"
+                  className="inline-flex items-center"
                 >
                   {content}
                 </span>
+              )}
+              {!isLast && (
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "mx-2 h-px w-4 shrink-0",
+                    isDone ? "bg-ds-ink-tertiary" : "bg-ds-hairline",
+                  )}
+                />
               )}
             </li>
           );

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowRight, Copy, Trash2 } from "lucide-react";
+import { ArrowRight, Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ds";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -20,7 +20,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/sonner";
 import { FadeIn, MotionPage, StaggerChildren, staggerItem } from "@/components/motion";
 import { formatDate } from "@/utils/formatDate";
+import { formatFiscalYears } from "@/utils/formatFiscalYears";
 import { resumeUrlForSession } from "@/lib/assessment/resumeUrl";
+import { taxpayerDisplayName } from "@/lib/taxpayer";
 import { readLastStep } from "@/lib/assessment/lastStep";
 import { stepUrlForKey } from "@/lib/assessment/steps";
 import { groupSessionFacts } from "@/lib/dashboard/sessionFacts";
@@ -74,7 +76,7 @@ const LEDGER_COLS =
   // Fixed last column (not `auto`) so the 1fr client column resolves identically
   // in the header grid and every row grid — that is what makes columns line up.
   "sm:grid sm:grid-cols-[52px_minmax(0,1fr)_180px_150px_200px] sm:items-center sm:gap-4";
-const EYEBROW = "text-[11px] font-medium uppercase tracking-[0.16em] text-ds-ink-secondary";
+const EYEBROW = "text-[11px] font-normal uppercase tracking-[0.16em] text-ds-ink-secondary";
 
 const Index = () => {
   const { user, loading: authLoading } = useAuth();
@@ -228,16 +230,6 @@ const Index = () => {
     }
   };
 
-  const copySessionId = async (sessionId: string) => {
-    try {
-      await navigator.clipboard.writeText(sessionId);
-      toast.success("Session id copied");
-    } catch {
-      // Clipboard unavailable; nothing else to do.
-    }
-  };
-
-
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -254,8 +246,7 @@ const Index = () => {
         {/* Title block */}
         <header className="flex flex-col gap-8 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <span className={EYEBROW}>ATAD2 · Dutch corporate taxpayers</span>
-            <h1 className="mt-5 text-5xl font-normal leading-[0.98] tracking-[-0.03em] text-ds-ink sm:text-6xl">
+            <h1 className="text-5xl font-normal leading-[0.98] tracking-[-0.03em] text-ds-ink sm:text-6xl">
               Assessments
             </h1>
             <p className="mt-5 max-w-md text-[15px] text-ds-ink-secondary">
@@ -294,9 +285,6 @@ const Index = () => {
                 <p className="text-[13px] text-ds-ink-secondary">
                   Start your first ATAD2 assessment to see it here.
                 </p>
-                <Button variant="secondary" className="mt-1" onClick={() => navigate("/assessment")}>
-                  New assessment
-                </Button>
               </div>
             </FadeIn>
           ) : (
@@ -305,11 +293,14 @@ const Index = () => {
                 const ready = session.completed && Boolean(session.has_memorandum);
                 const inProgress = !session.completed;
                 const no = String(i + 1).padStart(2, "0");
+                // An assessment can name several entities (stored newline-joined);
+                // show them as one readable line. Single-entity is unchanged.
+                const taxpayerLabel = taxpayerDisplayName(session.taxpayer_name);
                 const dateLabel = inProgress ? "Started" : "Completed";
                 const actionLabel = inProgress ? "Resume" : "View report";
                 const ariaLabel = inProgress
-                  ? `Resume assessment for ${session.taxpayer_name}`
-                  : `Open report for ${session.taxpayer_name}`;
+                  ? `Resume assessment for ${taxpayerLabel}`
+                  : `Open report for ${taxpayerLabel}`;
                 const statusLabel = ready ? "Ready" : inProgress ? "In progress" : "Memo pending";
                 const dotClass = ready
                   ? "bg-brand-sage"
@@ -335,12 +326,12 @@ const Index = () => {
 
                       {/* Client */}
                       <h3 className="pointer-events-none relative truncate text-[19px] font-normal tracking-tight text-ds-ink sm:text-[22px]">
-                        {session.taxpayer_name}
+                        {taxpayerLabel}
                       </h3>
 
                       {/* Period */}
                       <div className="pointer-events-none relative flex flex-col gap-0.5">
-                        <span className="text-[13px] tabular-nums text-ds-ink">FY{session.fiscal_year}</span>
+                        <span className="text-[13px] tabular-nums text-ds-ink">FY{formatFiscalYears(session.fiscal_year)}</span>
                         <span className="text-[12px] text-ds-ink-secondary">
                           {dateLabel} {formatDate(session.created_at)}
                         </span>
@@ -364,16 +355,6 @@ const Index = () => {
                           {actionLabel}
                           <ArrowRight className="h-3.5 w-3.5" />
                         </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            copySessionId(session.session_id);
-                          }}
-                          aria-label="Copy session id"
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-sm text-ds-ink-tertiary transition-colors hover:bg-ds-fill-muted hover:text-ds-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent"
-                        >
-                          <Copy className="h-4 w-4" />
-                        </button>
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <button
@@ -388,7 +369,7 @@ const Index = () => {
                             <AlertDialogHeader>
                               <AlertDialogTitle>Delete assessment</AlertDialogTitle>
                               <AlertDialogDescription>
-                                Are you sure you want to permanently delete this assessment for {session.taxpayer_name}?
+                                Are you sure you want to permanently delete this assessment for {taxpayerLabel}?
                                 This will delete all answers and cannot be undone.
                               </AlertDialogDescription>
                             </AlertDialogHeader>

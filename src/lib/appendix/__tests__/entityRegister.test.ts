@@ -37,6 +37,67 @@ describe('buildEntityRegister', () => {
   });
 });
 
+describe('buildEntityRegister taxpayer fallback', () => {
+  it('anchors on the session taxpayer name when no entity is flagged', () => {
+    const entities = [ent('c1', 'TaxPayer BV', false), ent('c2', 'Sub Inc', false, 'US')];
+    const edges = [edge('c1', 'c2', 100)];
+    const reg = buildEntityRegister(entities, edges, [], 'TaxPayer B.V.');
+    expect(reg[0].role).toBe('Taxpayer');
+    expect(reg[0].name).toBe('TaxPayer BV');
+    expect(reg.find((e) => e.name === 'Sub Inc')!.role).toBe('Subsidiary');
+  });
+
+  it('normalises legal suffixes on both sides when matching the taxpayer name', () => {
+    const reg = buildEntityRegister([ent('c1', 'Acme Holding N.V.', false)], [], [], 'Acme Holding NV');
+    expect(reg[0]?.role).toBe('Taxpayer');
+  });
+
+  it('is case-insensitive when matching the taxpayer name', () => {
+    const reg = buildEntityRegister([ent('c1', 'Acme Holding BV', false)], [], [], 'acme holding bv');
+    expect(reg[0]?.role).toBe('Taxpayer');
+  });
+
+  it('still returns empty when the taxpayer name matches nothing', () => {
+    expect(buildEntityRegister([ent('c1', 'Unrelated Co', false)], [], [], 'Some Other BV')).toEqual([]);
+  });
+
+  it('prefers an explicit is_taxpayer flag over the name hint', () => {
+    const entities = [ent('c1', 'Flagged BV', true), ent('c2', 'Named BV', false)];
+    const reg = buildEntityRegister(entities, [], [], 'Named BV');
+    expect(reg[0].name).toBe('Flagged BV');
+  });
+});
+
+describe('buildEntityRegister multiple taxpayers', () => {
+  it('lists every flagged entity as its own Taxpayer row', () => {
+    const entities = [ent('c1', 'Alpha BV', true), ent('c2', 'Beta BV', true), ent('c3', 'Sub Inc', false, 'US')];
+    const edges = [edge('c1', 'c3', 100)];
+    const reg = buildEntityRegister(entities, edges);
+    const taxpayers = reg.filter((e) => e.role === 'Taxpayer');
+    expect(taxpayers.map((e) => e.name).sort()).toEqual(['Alpha BV', 'Beta BV']);
+    expect(taxpayers.map((e) => e.id)).toEqual(['E1', 'E2']);
+    // A subsidiary of one of the taxpayers is still classified against the set.
+    expect(reg.find((e) => e.name === 'Sub Inc')!.role).toBe('Subsidiary');
+  });
+
+  it('anchors several named entities from a newline-joined taxpayer name', () => {
+    const entities = [ent('c1', 'Alpha BV', false), ent('c2', 'Beta BV', false), ent('c3', 'Outsider BV', false)];
+    const reg = buildEntityRegister(entities, [], [], 'Alpha B.V.\nBeta B.V.');
+    const taxpayers = reg.filter((e) => e.role === 'Taxpayer');
+    expect(taxpayers.map((e) => e.name).sort()).toEqual(['Alpha BV', 'Beta BV']);
+    // An entity not named at intake is not a taxpayer.
+    expect(reg.find((e) => e.name === 'Outsider BV')?.role).not.toBe('Taxpayer');
+  });
+
+  it('does not list a named taxpayer twice when it also owns another taxpayer', () => {
+    const entities = [ent('c1', 'Parent BV', true), ent('c2', 'Child BV', true)];
+    const reg = buildEntityRegister(entities, [edge('c1', 'c2', 100)]);
+    expect(reg.filter((e) => e.name === 'Parent BV')).toHaveLength(1);
+    expect(reg.filter((e) => e.name === 'Child BV')).toHaveLength(1);
+    expect(reg.every((e) => e.role === 'Taxpayer')).toBe(true);
+  });
+});
+
 describe('buildEntityRegister ownership graph (multi-hop)', () => {
   it('labels indirect ancestors Parent and indirect descendants Subsidiary with effective %', () => {
     // top -100-> mid -60-> TP -100-> sub -50-> grandsub

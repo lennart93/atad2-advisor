@@ -22,7 +22,7 @@ export function FloatingPalette({ entities, taxpayerId, onCreateEntity }: Props)
     <>
       <div className="absolute top-6 left-6 z-10 flex gap-2" data-snapshot-exclude="true">
         <Button onClick={() => setEntityOpen(true)} size="sm" variant="outline">
-          <Plus className="w-4 h-4 mr-1" /> Entity
+          <Plus className="w-4 h-4 mr-1" /> Add entity
         </Button>
       </div>
       <AddEntityDialog

@@ -28,8 +28,9 @@ import {
   type OwnershipEdgeType,
 } from './edges/OwnershipEdge';
 import { NODE_WIDTH, NODE_HEIGHT } from '@/lib/structure/labelMeasure';
+import { routeOwnershipEdges } from '@/lib/structure/edgeRouting';
 import { taxpayerCenteredViewport, type ChartBounds } from '@/lib/structure/viewportFraming';
-import { computeConvergingLabelCounts } from '@/lib/structure/labelLayout';
+import { computeConvergingLabelCounts, computeSiblingChildCounts } from '@/lib/structure/labelLayout';
 import { FiscalUnityOverlay } from './overlays/FiscalUnityOverlay';
 import type { FrameLayout } from '@/lib/structure/fiscalUnityLayout';
 import type { StructureEntity, StructureEdge } from '@/lib/structure/types';
@@ -190,6 +191,29 @@ function StructureChartInner(props: StructureChartProps) {
       })),
     );
 
+    // Count how many ownership edges share each parent. 2+ → the parent fans
+    // out and the siblings' horizontal bus crosses the mid-line, so a straight
+    // child drops its % below the bus instead of onto the crossing.
+    const siblingCounts = computeSiblingChildCounts(
+      ownershipEdges.map((e) => ({ id: e.id, source: e.from_entity_id })),
+    );
+
+    // Baan-routing over de hele kaart: elke moeder-waaier krijgt een eigen
+    // horizontale rail en overlappende rails komen in aparte banen, zodat
+    // lijnen van verschillende moeders nooit op dezelfde hoogte samenvallen.
+    // Cluster-placeholders tellen mee als gewone nodes (hun edges ook).
+    const routing = routeOwnershipEdges({
+      nodes: [
+        ...props.entities.map((en) => ({ id: en.id, x: en.position_x, y: en.position_y })),
+        ...props.clusterNodes.map((c) => ({ id: c.id, x: c.position.x, y: c.position.y })),
+      ],
+      edges: ownershipEdges.map((e) => ({
+        id: e.id,
+        from: e.from_entity_id,
+        to: e.to_entity_id,
+      })),
+    });
+
     return ownershipEdges
       .map((e) => {
         // For long-skip routing: list center-X of every entity strictly between
@@ -220,25 +244,48 @@ function StructureChartInner(props: StructureChartProps) {
             ownership_pct: e.ownership_pct,
             onPctChange: props.onPctChange,
             intermediateXs,
+            routing: routing.get(e.id) ?? null,
             label_dx: e.label_dx,
             label_dy: e.label_dy,
             label_t: e.label_t,
             label_hidden: e.label_hidden,
             convergingLabels: convergeCounts.get(e.id) ?? 0,
+            siblingCount: siblingCounts.get(e.id) ?? 0,
             onLabelMove: props.onLabelMove,
             onLabelHide: props.onLabelHide,
           } satisfies OwnershipEdgeData,
         } as OwnershipEdgeType;
       });
-  }, [props.edges, props.entities, props.onPctChange, props.onLabelMove, props.onLabelHide]);
+  }, [props.edges, props.entities, props.clusterNodes, props.onPctChange, props.onLabelMove, props.onLabelHide]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<ChartNodeType>(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState<ChartEdgeType>(initialEdges);
 
   // Sync xyflow state when parent props change (extraction polling refreshes
   // entities/edges; without this the canvas stays at the initial value).
-  useEffect(() => { setNodes(initialNodes); }, [initialNodes, setNodes]);
-  useEffect(() => { setEdges(initialEdges); }, [initialEdges, setEdges]);
+  //
+  // Carry over React Flow's own `selected` flag while syncing. `initialNodes`
+  // recomputes on many parent re-renders (e.g. clicking a node updates parent
+  // state, which mints fresh inline callbacks feeding the memo). A plain
+  // setNodes(initialNodes) would clear the selection a frame after it appears —
+  // that is the "selection ring only flashes" bug. Preserving the flag keeps
+  // the ring on the clicked node until the user clicks elsewhere.
+  useEffect(() => {
+    setNodes((prev) => {
+      const selected = new Set(prev.filter((n) => n.selected).map((n) => n.id));
+      return selected.size === 0
+        ? initialNodes
+        : initialNodes.map((n) => (selected.has(n.id) ? { ...n, selected: true } : n));
+    });
+  }, [initialNodes, setNodes]);
+  useEffect(() => {
+    setEdges((prev) => {
+      const selected = new Set(prev.filter((e) => e.selected).map((e) => e.id));
+      return selected.size === 0
+        ? initialEdges
+        : initialEdges.map((e) => (selected.has(e.id) ? { ...e, selected: true } : e));
+    });
+  }, [initialEdges, setEdges]);
 
   // Refit the viewport whenever the set of nodes or their positions changes
   // (after auto-layout runs, after polling refresh, etc.). The static `fitView`
@@ -332,7 +379,7 @@ function StructureChartInner(props: StructureChartProps) {
   );
 
   return (
-    <div ref={wrapperRef} className="flex-1 w-full h-full" style={{ background: '#ffffff', width: '100%', height: '100%' }}>
+    <div ref={wrapperRef} className="flex-1 w-full h-full" style={{ background: '#faf8f4', width: '100%', height: '100%' }}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -364,9 +411,10 @@ function StructureChartInner(props: StructureChartProps) {
           selectedId={props.selectedGroupingId ?? null}
         />
         <Background
-          gap={props.gridVisible ? 8 : 40}
-          color={props.gridVisible ? 'rgba(0,0,0,0.05)' : 'rgba(0,0,0,0.03)'}
-          variant={props.gridVisible ? BackgroundVariant.Lines : BackgroundVariant.Dots}
+          gap={22}
+          size={1}
+          color={props.gridVisible ? 'rgba(22,21,15,0.05)' : 'rgba(22,21,15,0.03)'}
+          variant={BackgroundVariant.Dots}
         />
         <Controls />
       </ReactFlow>

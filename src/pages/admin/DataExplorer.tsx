@@ -61,7 +61,7 @@ const DataExplorer = () => {
       <Seo title="Admin Data Explorer" description="Read-only browser for Supabase tables" canonical="/admin/explorer" />
       <div className="flex items-end justify-between mb-4">
         <div>
-          <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-ds-ink-secondary mb-1">Admin</div>
+          <div className="text-[11px] font-normal uppercase tracking-[0.16em] text-ds-ink-secondary mb-1">Admin</div>
           <h1 className="text-2xl font-normal tracking-tight">Data Explorer</h1>
           <p className="text-ds-ink-secondary mt-1 text-[13px]">Browse Supabase tables directly, read-only, one table at a time.</p>
         </div>
@@ -108,7 +108,7 @@ const DataExplorer = () => {
                   {columns.slice(0, 8).map((col) => (
                     <th
                       key={col}
-                      className="text-left px-3 py-2.5 text-xs uppercase tracking-[0.18em] text-muted-foreground font-medium"
+                      className="text-left px-3 py-2.5 text-xs uppercase tracking-[0.18em] text-muted-foreground font-normal"
                     >
                       {col}
                     </th>

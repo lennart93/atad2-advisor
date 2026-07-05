@@ -42,7 +42,7 @@ export default function Prompts() {
       <Seo title="Admin Prompts" description="Review and edit the system prompts behind each assessment step" canonical="/admin/prompts" />
       <div className="flex items-end justify-between mb-6">
         <div>
-          <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-ds-ink-secondary mb-1">Admin</div>
+          <div className="text-[11px] font-normal uppercase tracking-[0.16em] text-ds-ink-secondary mb-1">Admin</div>
           <h1 className="text-2xl font-normal tracking-tight">Prompts</h1>
           <p className="text-ds-ink-secondary mt-1">
             The editable system prompts behind each assessment step. Review the active version, edit it, or roll back through its history.
@@ -55,7 +55,7 @@ export default function Prompts() {
         if (items.length === 0) return null;
         return (
           <section key={group} className="mb-6">
-            <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground font-medium mb-2">
+            <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground font-normal mb-2">
               {group}
             </div>
             <div className="space-y-3">
@@ -68,7 +68,7 @@ export default function Prompts() {
                   >
                     <div className="flex items-start justify-between gap-4 mb-3">
                       <div className="min-w-0">
-                        <div className="text-[13px] font-medium text-foreground truncate">{d.label}</div>
+                        <div className="text-[13px] font-normal text-foreground truncate">{d.label}</div>
                         <div className="text-[11px] text-muted-foreground mt-1 flex items-center gap-2 flex-wrap">
                           <span className="font-mono">{d.key}</span>
                           <span>·</span>
@@ -112,7 +112,7 @@ export default function Prompts() {
 
       {EXTERNAL_PROMPTS.length > 0 && (
         <section className="mb-6">
-          <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground font-medium mb-2">
+          <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground font-normal mb-2">
             External (managed outside this app)
           </div>
           <div className="space-y-3">
@@ -121,7 +121,7 @@ export default function Prompts() {
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <div className="text-[13px] font-medium text-foreground truncate">{p.label}</div>
+                      <div className="text-[13px] font-normal text-foreground truncate">{p.label}</div>
                       <StatusChip label="External" tone="neutral" />
                     </div>
                     <div className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1.5">

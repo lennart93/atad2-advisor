@@ -113,7 +113,7 @@ const ResetPassword = () => {
           <div className="flex justify-center">
             <AnimatedLogo size={56} />
           </div>
-          <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-ds-ink-secondary">{eyebrow}</p>
+          <p className="text-[11px] font-normal uppercase tracking-[0.16em] text-ds-ink-secondary">{eyebrow}</p>
           <h1 className="text-3xl sm:text-4xl font-normal tracking-tight text-ds-ink">
             {headline}
           </h1>

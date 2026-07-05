@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import PizZip from 'pizzip';
 import Docxtemplater from 'docxtemplater';
 import { buildMemoAppendicesXml } from '@/lib/appendix/docx/memoAppendices';
+import { preprocessMemoTemplate } from '@/lib/appendix/docx/memoTemplatePatches';
 import type { AppendixFacts, AppendixRow, SkeletonRow } from '@/lib/appendix/types';
 
 // The parser the app uses, reduced to what matters here: raw OOXML for the
@@ -25,7 +26,7 @@ const TEMPLATE = resolve(process.cwd(), 'templates/memo_atad2_with_structure_pla
 const DOC_DATA = {
   meta: { taxpayer_name: 'Dutch BidCo BV', fiscal_year: '2024', today_long: '13 June 2026', user_full_name: 'Tester' },
   sections: {
-    introduction: 'i', risk_outcome_line: 'Low', executive_summary_intro: 's', executive_summary_bullets: [],
+    introduction: 'i', risk_outcome_line: 'No risk identified', executive_summary_intro: 's', executive_summary_bullets: [],
     general_background_intro: 'b', general_background_bullets: [], technical_assessment: 't',
     conclusion_intro: 'c', conclusion_next_steps_bullets: [],
   },
@@ -68,18 +69,19 @@ describe('memo template renders the generated appendices + section properties', 
     expect(xml).toContain('{{@appendicesXml}}');
   });
 
-  it('injects Appendix 1 + 2 into a valid single-section .docx (Arabic, no Roman)', () => {
+  it('injects Appendix 1 + 2 into a valid two-section .docx (decimal body, lower-roman appendix)', () => {
     const out = render(buildMemoAppendicesXml(facts, rows, skeleton));
     expect(out.slice(0, 2).toString('hex')).toBe('504b');
     const xml = xmlOf(out);
-    expect(xml).toContain('Appendix 1: Facts and relationships');
-    expect(xml).toContain('Appendix 2: Condition-by-condition assessment');
+    expect(xml).toContain('Appendix 1: Classification and transaction overview');
+    expect(xml).toContain('Appendix 2: Technical overview');
     expect(xml).toContain('Dutch BidCo BV'); // suffix normalized (no dots)
     expect(xml).not.toContain('appendicesXml'); // placeholder consumed
-    // One decimal page-number section throughout; no Roman numerals.
-    expect((xml.match(/<w:sectPr\b/g) ?? []).length).toBe(1);
+    // Two page-number sections: a decimal body and a lower-roman appendix
+    // restarted at i, so the appendix does not continue the body's count.
+    expect((xml.match(/<w:sectPr\b/g) ?? []).length).toBe(2);
     expect(xml).toContain('<w:pgNumType w:fmt="decimal"/>');
-    expect(xml).not.toContain('lowerRoman');
+    expect(xml).toContain('<w:pgNumType w:fmt="lowerRoman" w:start="1"/>');
     expect(xml).toContain('w:left="1134"'); // 2 cm margins
     expect(xml).toContain('<w:tblLayout w:type="fixed"/>'); // fixed layout
     expect(xml).toContain('<w:cantSplit/>'); // condition rows kept together
@@ -114,5 +116,32 @@ describe('memo template renders the generated appendices + section properties', 
     });
     expect(hasIllegal).toBe(false);
     expect(xml).toContain('BidCo BV');
+  });
+
+  it('composes the template fixes with the appendix injection into one valid .docx', () => {
+    // Mirror DownloadMemoButton exactly: preprocess the zip, then render.
+    const zip = new PizZip(readFileSync(TEMPLATE));
+    preprocessMemoTemplate(zip);
+    const doc = new Docxtemplater(zip, {
+      paragraphLoop: true, linebreaks: true, delimiters: { start: '{{', end: '}}' }, nullGetter: () => '', parser: dotParser,
+    });
+    doc.render({ ...DOC_DATA, appendicesXml: buildMemoAppendicesXml(facts, rows, skeleton) });
+    const out = doc.getZip().generate({ type: 'nodebuffer' }) as Buffer;
+    expect(out.slice(0, 2).toString('hex')).toBe('504b'); // valid zip
+
+    const outZip = new PizZip(out);
+    const document = outZip.file('word/document.xml')!.asText();
+    const footer = outZip.file('word/footer1.xml')!.asText();
+    // Footer total gone; page field kept (decimal body + lower-roman appendix).
+    expect(footer).not.toContain('SECTIONPAGES');
+    expect(document).toContain('<w:pgNumType w:fmt="decimal"/>');
+    expect(document).toContain('<w:pgNumType w:fmt="lowerRoman" w:start="1"/>');
+    // The two stray blank paragraphs are gone.
+    expect(document).not.toContain('w14:paraId="6284A575"');
+    expect(document).not.toContain('w14:paraId="11AAEE03"');
+    // Document body stays balanced (excluding self-closing <w:p/> paragraphs).
+    const c = (re: RegExp) => (document.match(re) ?? []).length;
+    expect(c(/<w:p\b[^>]*(?<!\/)>/g)).toBe(c(/<\/w:p>/g));
+    expect(c(/<w:tc>/g)).toBe(c(/<\/w:tc>/g));
   });
 });

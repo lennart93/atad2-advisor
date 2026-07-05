@@ -36,10 +36,14 @@ describe('buildAppendixBlock', () => {
 
   it('prepends a clean <facts> block from confirmed facts only', () => {
     const facts: AppendixFacts = {
-      entities: [{ id: 'E1', chartEntityId: 'c1', name: 'Acme BV', jurisdiction: 'NL', entityType: 'BV', role: 'Taxpayer', ownershipPct: null, related: false, nlTaxStatus: null }],
+      entities: [
+        { id: 'E1', chartEntityId: 'c1', name: 'Acme BV', jurisdiction: 'NL', entityType: 'BV', role: 'Taxpayer', ownershipPct: null, related: false, nlTaxStatus: null },
+        { id: 'E2', chartEntityId: 'c2', name: 'US Hybrid LLC', jurisdiction: 'US', entityType: 'corporation', role: 'Group entity', ownershipPct: null, related: true, nlTaxStatus: 'transparent' },
+      ],
       actingTogether: [],
       classifications: [
-        { entityId: 'E1', homeState: 'NL', homeClass: 'opaque', sourceState: 'US', sourceClass: 'transparent', hybrid: true, status: 'confirmed', excludedFromClient: false, source: 'ai' },
+        // Foreign entity: NL sees it transparent, its home state (US) opaque -> a real hybrid mismatch.
+        { entityId: 'E2', homeState: 'US', homeClass: 'opaque', sourceState: 'NL', sourceClass: 'transparent', hybrid: true, status: 'confirmed', excludedFromClient: false, source: 'ai' },
         { entityId: 'E9', homeState: 'NL', homeClass: 'x', sourceState: null, sourceClass: null, hybrid: false, status: 'proposed', excludedFromClient: false, source: 'ai' },
       ],
       transactions: [],

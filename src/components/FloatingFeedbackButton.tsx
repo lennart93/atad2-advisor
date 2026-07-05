@@ -13,13 +13,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
@@ -40,13 +33,6 @@ const CATEGORY_ICONS: Record<Category, LucideIcon> = {
   idea: Lightbulb,
   question: HelpCircle,
   other: MoreHorizontal,
-};
-
-const CATEGORY_ICON_COLOR: Record<Category, string> = {
-  bug: "text-ds-ink-tertiary",
-  idea: "text-ds-ink-tertiary",
-  question: "text-ds-ink-tertiary",
-  other: "text-ds-ink-tertiary",
 };
 
 const PLACEHOLDERS: Record<Category, string> = {
@@ -103,7 +89,7 @@ export function FloatingFeedbackButton() {
         onClick={() => setOpen(true)}
         aria-label="Send feedback"
         style={{ bottom: "calc(var(--app-bottom-inset, 0px) + 20px)" }}
-        className="fixed left-5 z-30 inline-flex items-center gap-2 rounded-ds-control bg-foreground text-background px-4 py-2.5 text-sm font-medium shadow-lg shadow-black/15 transition-[bottom,box-shadow,transform] duration-fast hover:shadow-xl hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        className="fixed left-5 z-30 inline-flex items-center gap-2 rounded-ds-control bg-foreground text-background px-4 py-2.5 text-sm font-normal shadow-lg shadow-black/15 transition-[bottom,box-shadow,transform] duration-fast hover:shadow-xl hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
       >
         <MessageSquare size={16} />
         <span>Feedback</span>
@@ -116,53 +102,59 @@ export function FloatingFeedbackButton() {
           if (!next) reset();
         }}
       >
-        <DialogContent className="sm:max-w-[480px]">
+        <DialogContent className="sm:max-w-[480px] rounded-sm border-t-[3px] border-t-brand-terracotta bg-card">
           <DialogHeader>
-            <DialogTitle>Send feedback</DialogTitle>
+            <DialogTitle className="font-normal">Send feedback</DialogTitle>
             <DialogDescription>
-              Bugs, ideas, or questions. It all comes through to the team.
+              Bugs, ideas, or questions. It all reaches the team.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-3 py-2">
+          <div className="space-y-4 py-2">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              <span className="text-[11px] font-medium tracking-[0.16em] uppercase text-muted-foreground">
                 Type
-              </label>
-              <Select value={category} onValueChange={(v) => setCategory(v as Category)}>
-                <SelectTrigger className="h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {(Object.keys(CATEGORY_LABELS) as Category[]).map((c) => {
-                    const Icon = CATEGORY_ICONS[c];
-                    return (
-                      <SelectItem key={c} value={c}>
-                        <span className="flex items-center gap-2">
-                          <Icon size={14} className={CATEGORY_ICON_COLOR[c]} />
-                          {CATEGORY_LABELS[c]}
-                        </span>
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
+              </span>
+              <div className="grid grid-cols-4 gap-2">
+                {(Object.keys(CATEGORY_LABELS) as Category[]).map((c) => {
+                  const Icon = CATEGORY_ICONS[c];
+                  const selected = category === c;
+                  return (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setCategory(c)}
+                      className={`flex flex-col items-center gap-1.5 rounded-sm border py-3 text-xs transition-colors ${
+                        selected
+                          ? "border-foreground bg-background text-foreground"
+                          : "border-border text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      <Icon
+                        size={16}
+                        className={selected ? "text-brand-terracotta" : "text-muted-foreground"}
+                      />
+                      {CATEGORY_LABELS[c]}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              <span className="text-[11px] font-medium tracking-[0.16em] uppercase text-muted-foreground">
                 Message
-              </label>
+              </span>
               <Textarea
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 placeholder={PLACEHOLDERS[category]}
-                rows={5}
                 maxLength={5000}
                 autoFocus
+                className="min-h-[120px] focus-visible:border-brand-terracotta focus-visible:ring-brand-terracotta-soft focus-visible:ring-offset-0"
               />
               <div className="text-[11px] text-muted-foreground text-right">
-                {message.length}/5000
+                {message.length} / 5000
               </div>
             </div>
           </div>
@@ -172,8 +164,8 @@ export function FloatingFeedbackButton() {
               Cancel
             </Button>
             <Button onClick={handleSubmit} disabled={submitting || message.trim().length === 0}>
-              <Send className="size-4 mr-2" />
               {submitting ? "Sending…" : "Send feedback"}
+              <Send className="text-brand-terracotta" />
             </Button>
           </DialogFooter>
         </DialogContent>

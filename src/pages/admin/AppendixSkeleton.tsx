@@ -170,7 +170,7 @@ export default function AppendixSkeleton() {
       <Seo title="Admin · Appendix legal framework" description="Edit the ATAD2 technical-appendix rows" canonical="/admin/appendix-skeleton" />
       <div className="flex items-end justify-between mb-6">
         <div>
-          <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-ds-ink-secondary mb-1">Admin</div>
+          <div className="text-[11px] font-normal uppercase tracking-[0.16em] text-ds-ink-secondary mb-1">Admin</div>
           <h1 className="text-2xl font-normal tracking-tight text-ds-ink">Appendix legal framework</h1>
           <p className="text-sm text-ds-ink-secondary mt-1">
             The fixed rows of the technical appendix (art. 2 + 12aa-12af). Edits here flow into every new and regenerated appendix; the question wiring stays in code.

@@ -15,6 +15,7 @@ import {
   openCount,
   parseAnswer,
   planDraftWrites,
+  pointsLeadIn,
   REOPEN_SAFE_CONFIDENCE,
   resolvedCount,
   serializeAnswer,
@@ -625,6 +626,40 @@ describe("formatClientMessage", () => {
     const text = formatClientMessage([{ questionText: "Only one" }]);
     expect(text).toContain("1. Only one");
     expect(text).not.toContain("2.");
+  });
+});
+
+describe("pointsLeadIn", () => {
+  it("returns the stem for direct-clause points", () => {
+    expect(
+      pointsLeadIn([
+        { questionText: "for each of CCI, how it classifies S4." },
+        { questionText: "whether the interest is also deducted in the US." },
+      ]),
+    ).toBe("Could you please confirm:");
+  });
+
+  it("returns null when most points carry their own polite opener", () => {
+    expect(
+      pointsLeadIn([
+        { questionText: "Could you please confirm whether S4 is transparent?" },
+        { questionText: "Please share the residency certificate." },
+        { questionText: "whether the interest is also deducted in the US." },
+      ]),
+    ).toBeNull();
+  });
+
+  it("returns null for an empty list", () => {
+    expect(pointsLeadIn([])).toBeNull();
+  });
+
+  it("keeps the stem on an exact half-polite split (not a majority)", () => {
+    expect(
+      pointsLeadIn([
+        { questionText: "Could you please confirm X?" },
+        { questionText: "whether Y applies." },
+      ]),
+    ).toBe("Could you please confirm:");
   });
 });
 

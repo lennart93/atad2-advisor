@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "@/components/ui/app-toast";
 
 interface Props {
   promptKey: string;
@@ -31,9 +31,9 @@ export function PrefillPromptHistory({ promptKey, onClose }: Props) {
       if (error) throw error;
       await qc.invalidateQueries({ queryKey: ["prefill-prompt-history", promptKey] });
       await qc.invalidateQueries({ queryKey: ["admin-prompts-active"] });
-      toast({ title: "Activated" });
+      toast.success("Activated");
     } catch (e) {
-      toast({ title: "Failed to activate", description: String(e), variant: "destructive" });
+      toast.error("Failed to activate", { description: String(e) });
     }
   };
 

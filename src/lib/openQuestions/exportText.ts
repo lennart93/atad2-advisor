@@ -1,5 +1,6 @@
 import type { OpenQuestionGroups } from "./grouping";
 import type { OpenQuestionRow } from "./types";
+import { formatFiscalYears } from "@/utils/formatFiscalYears";
 
 export interface OpenQuestionExportItem {
   question: string;
@@ -22,7 +23,7 @@ export function formatOpenQuestionsText(
   meta: OpenQuestionExportMeta,
 ): string {
   const lines: string[] = [
-    `Open questions for ${meta.taxpayerName} (FY ${meta.fiscalYear})`,
+    `Open questions for ${meta.taxpayerName} (FY ${formatFiscalYears(meta.fiscalYear)})`,
     `Recorded on ${meta.dateLong}`,
     "",
   ];

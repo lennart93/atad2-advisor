@@ -11,6 +11,8 @@ import { mootNaRowIds } from "./mootness.ts";
 import { loadAppendixPrompt, loadPrompt } from "./promptsLoader.ts";
 import {
   buildEntityRegister,
+  countActingTogetherCandidates,
+  taxpayerDisplayName,
   type RawEntity, type RawEdge, type RawGroup, type AppendixFacts, type FactEntity, type ActingLikelihood,
   type Narrative, type NarrativeKey,
 } from "./factsBuild.ts";
@@ -37,6 +39,30 @@ function noDashes(s: string | null | undefined): string | null {
     .replace(/\s+,/g, ",")
     .replace(/,\s*,/g, ",")
     .trim();
+}
+
+/**
+ * Sanitize the model's per-row sources (prompt v5) for storage: only the two
+ * model-fillable kinds, a non-empty name, dash-free copy, and at most four
+ * entries. This is the REAL filter; the zod schema is deliberately loose (bad
+ * entries come through as null or off-vocabulary strings) so a source slip can
+ * never fail a whole section's parse. Derived rows are NOT the model's job;
+ * the frontend derives them from the live mootness set so they track advisor
+ * status edits.
+ */
+function sanitizeSources(
+  raw: Array<{ kind: string; name: string; note?: string | null } | null> | null | undefined,
+): Array<{ kind: "on_file" | "missing"; name: string; note: string | null }> {
+  const out: Array<{ kind: "on_file" | "missing"; name: string; note: string | null }> = [];
+  for (const s of raw ?? []) {
+    if (out.length >= 4) break;
+    if (!s || (s.kind !== "on_file" && s.kind !== "missing")) continue;
+    const name = noDashes(s.name)?.trim() ?? "";
+    if (!name) continue;
+    const note = noDashes(s.note ?? null)?.trim() || null;
+    out.push({ kind: s.kind, name, note });
+  }
+  return out;
 }
 
 const corsHeaders: Record<string, string> = {
@@ -159,7 +185,7 @@ async function runGeneration(c: SupabaseClient, appendixId: string, sessionId: s
     // the answers) we reuse the stored facts when the structure + documents
     // fingerprint is unchanged, skipping the sequential Claude call entirely.
     const rawChart = await loadChartRaw(c, sessionId);
-    const factEntities = buildEntityRegister(rawChart.entities, rawChart.edges, rawChart.groups);
+    const factEntities = buildEntityRegister(rawChart.entities, rawChart.edges, rawChart.groups, session?.taxpayer_name ?? null);
     const { data: priorRow } = await c
       .from("atad2_appendix").select("facts, facts_input_hash").eq("id", appendixId).maybeSingle();
     const priorFacts = (priorRow?.facts as AppendixFacts | null) ?? null;
@@ -168,7 +194,15 @@ async function runGeneration(c: SupabaseClient, appendixId: string, sessionId: s
       && priorFacts !== null
       && Array.isArray(priorFacts.entities)
       && priorFacts.entities.length > 0
-      && priorRow?.facts_input_hash === factsHash;
+      && priorRow?.facts_input_hash === factsHash
+      // Recompute a stored Part A whose acting-together came back empty while two
+      // or more parents/direct shareholders remain to assess, UNLESS that empty
+      // result was already settled by a successful pass (actingTogetherSettled).
+      // A legacy/failed empty still recomputes; a trusted empty is reused so the
+      // appendix is not regenerated on every revisit.
+      && !((priorFacts.actingTogether?.length ?? 0) === 0
+        && countActingTogetherCandidates(priorFacts.entities) >= 2
+        && priorFacts.actingTogetherSettled !== true);
     let factsToStore: AppendixFacts | null;
     let factsHashToStore: string | null;
     if (!factEntities.length) {
@@ -181,6 +215,9 @@ async function runGeneration(c: SupabaseClient, appendixId: string, sessionId: s
     } else {
       const built = await buildFacts(c, sessionId, factEntities, session ?? null, structureBlock, evidenceNotes);
       factsToStore = mergeFacts(priorFacts, built.facts);
+      // Carry the "acting-together settled" marker through the merge so a trusted
+      // empty stays reusable on the next run (see canReuseFacts above).
+      if (factsToStore && built.facts.actingTogetherSettled) factsToStore.actingTogetherSettled = true;
       // Only fingerprint a COMPLETE Part A. A degraded fallback (the Claude/KB
       // call failed and left classifications/acting-together empty) must not be
       // cached, otherwise the refine would reuse it and never retry the model.
@@ -191,14 +228,19 @@ async function runGeneration(c: SupabaseClient, appendixId: string, sessionId: s
     // Fill everything except the per-section skeleton, then swarm: one parallel
     // Claude call per section so the whole appendix comes back fast (wall-clock
     // is the slowest single section, not the sum of all rows).
+    // DOCUMENTS_LIST is metadata only (labels, not contents): it grounds the
+    // per-row source names in prompt v5; a v4 prompt has no placeholder and the
+    // replace is a no-op.
+    const documentsList = await loadDocumentsList(c, sessionId);
     const baseFilled = prompt.systemPrompt
-      .replace("{{TAXPAYER_NAME}}", session?.taxpayer_name ?? "")
+      .replace("{{TAXPAYER_NAME}}", taxpayerDisplayName(session?.taxpayer_name))
       .replace("{{FISCAL_YEAR}}", session?.fiscal_year ?? "")
       .replace("{{SESSION_ID}}", sessionId)
       .replace("{{FACTS_BLOCK}}", factsBlock)
       .replace("{{ANSWERS_BLOCK}}", answersBlock || "(no answers recorded)")
       .replace("{{STRUCTURE_BLOCK}}", structureBlock || "(no structure chart available)")
-      .replace("{{EVIDENCE_NOTES}}", evidenceNotes || "(none)");
+      .replace("{{EVIDENCE_NOTES}}", evidenceNotes || "(none)")
+      .replace("{{DOCUMENTS_LIST}}", documentsList || "(no documents on file)");
 
     const sectionOf = (rowId: string) => rowId.slice(0, rowId.lastIndexOf("."));
     const sectionGroups = new Map<string, ServerSkeletonRow[]>();
@@ -228,10 +270,11 @@ async function runGeneration(c: SupabaseClient, appendixId: string, sessionId: s
       const status = sk.allowedStates.includes(statusRaw) ? statusRaw : "Insufficient information";
       const reasoning = stripBoilerplate(noDashes(m?.reasoning)) ?? "The model did not return a grounded answer for this row; confirm manually.";
       const provenance = m?.provenance ?? "";
+      const sources = sanitizeSources(m?.sources);
       return {
         rowId: sk.rowId,
         aiStatus: status, aiReasoning: reasoning, aiProvenance: provenance,
-        status, reasoning, provenance,
+        status, reasoning, provenance, sources,
         excludedFromClient: false,
         source: "ai", stale: false, staleReason: null, editedBy: null, editedAt: null,
       };
@@ -258,7 +301,11 @@ async function runGeneration(c: SupabaseClient, appendixId: string, sessionId: s
       // Exclusion is a scope flag, preserved across regeneration regardless of source.
       const excludedFromClient = (prev?.excludedFromClient as boolean | undefined) ?? false;
       if (!prev || prev.source === "ai") return { ...fresh, excludedFromClient };
-      return { ...prev, aiStatus: fresh.aiStatus, aiReasoning: fresh.aiReasoning, aiProvenance: fresh.aiProvenance };
+      // Sources and the provenance trail are AI evidence, like aiProvenance:
+      // refresh them on an edited row too (provenance is never advisor-editable,
+      // so nothing is overwritten), so the source panel shows one generation's
+      // evidence instead of fresh documents next to a stale internal trail.
+      return { ...prev, aiStatus: fresh.aiStatus, aiReasoning: fresh.aiReasoning, aiProvenance: fresh.aiProvenance, provenance: fresh.provenance, sources: fresh.sources };
     });
 
     await c.from("atad2_appendix").update({
@@ -322,6 +369,23 @@ async function loadChartRaw(
     edges: (edges ?? []) as Array<RawEdge & { kind: string | null }>,
     groups: (groups ?? []) as RawGroup[],
   };
+}
+
+/**
+ * Metadata-only list of the session documents (labels + categories + relevance
+ * notes, never the contents): grounds the per-row source names in prompt v5
+ * without inflating the Part B swarm calls. Best-effort; an error just means
+ * the model gets "(no documents on file)" and emits no on_file sources.
+ */
+async function loadDocumentsList(c: SupabaseClient, sessionId: string): Promise<string> {
+  const { data: docs, error } = await c
+    .from("atad2_session_documents")
+    .select("doc_label, category, relevance_note")
+    .eq("session_id", sessionId);
+  if (error || !docs) return "";
+  return docs
+    .map((d) => `- ${d.doc_label} [${d.category}]${d.relevance_note ? `: ${d.relevance_note}` : ""}`)
+    .join("\n");
 }
 
 async function loadStructureBlock(c: SupabaseClient, sessionId: string): Promise<string> {
@@ -414,7 +478,7 @@ async function buildFacts(
     const kbBlock = await retrieveKb(c, queries);
 
     const user = fp.systemPrompt
-      .replace("{{TAXPAYER_NAME}}", session?.taxpayer_name ?? "")
+      .replace("{{TAXPAYER_NAME}}", taxpayerDisplayName(session?.taxpayer_name))
       .replace("{{FISCAL_YEAR}}", session?.fiscal_year ?? "")
       .replace("{{DOCUMENTS_BLOCK}}", docsBlock || "(no documents)")
       .replace("{{ENTITY_REGISTER}}", registerJson)
@@ -533,6 +597,13 @@ async function buildFacts(
         return Object.keys(out).length ? out : undefined;
       })(),
     };
+    // Reaching here means the facts model call SUCCEEDED. Its acting-together
+    // result is settled and trustworthy, even when empty: mark it so the Part A
+    // is cached (a real facts_input_hash is written) and not recomputed on every
+    // revisit. Only the failure path below stays incomplete, so a genuine
+    // model/KB failure still retries. An advisor who expects a group can force a
+    // fresh pass with the "Re-check relationships" action on the Facts page.
+    facts.actingTogetherSettled = true;
     return { facts, complete: true };
   } catch (err) {
     console.warn(JSON.stringify({ level: "warn", event: "appendix_facts_failed", message: String(err).slice(0, 300) }));
@@ -561,6 +632,12 @@ function mergeFacts(existing: AppendixFacts | null, fresh: AppendixFacts): Appen
     if (prev && (prev.status === "confirmed" || prev.source === "edited")) return prev;
     return { ...f, excludedFromClient: prev?.excludedFromClient ?? false };
   });
+  // Key on parties + kind. An edited flow keeps its whole prev object (assessment
+  // included) when its key still matches a fresh flow, which is the case for every
+  // assessment-only edit (characteristics / rationale / status override leave
+  // parties + kind untouched). Editing the parties or the type changes the key, so
+  // that particular edit may not survive a later regeneration; the assessment model
+  // is designed so the substantive work does not depend on those descriptive fields.
   const txKey = (t: { fromEntityId: string; toEntityId: string; kind: string }) => `${t.fromEntityId}|${t.toEntityId}|${t.kind}`;
   const exTx = new Map(existing.transactions.map((t) => [txKey(t), t]));
   const transactions = fresh.transactions.map((f) => {
@@ -594,9 +671,44 @@ function mergeFacts(existing: AppendixFacts | null, fresh: AppendixFacts): Appen
     const prev = exNarr[k];
     if (prev?.source === "edited") narratives[k] = prev;
   }
+  // Hand-added (manual) entities have no chart counterpart, so the deterministic
+  // rebuild above drops them. Carry them over, re-numbering to a fresh id past the
+  // highest chart id so they never collide, and remap anything that referenced the
+  // old id (its classification, and any kept acting-together membership).
+  const manual = existing.entities.filter((e) => e.manual);
+  let outEntities = entities;
+  let outClassifications = classifications;
+  let outActingTogether = actingTogether;
+  if (manual.length) {
+    let maxN = 0;
+    for (const e of entities) {
+      const m = /^E(\d+)$/.exec(e.id);
+      if (m) maxN = Math.max(maxN, Number(m[1]));
+    }
+    const remap = new Map<string, string>();
+    const carried = manual.map((e) => {
+      const newId = `E${++maxN}`;
+      if (newId !== e.id) remap.set(e.id, newId);
+      return { ...e, id: newId };
+    });
+    const remapId = (id: string) => remap.get(id) ?? id;
+    const manualIds = new Set(manual.map((e) => e.id));
+    const carriedCls = existing.classifications
+      .filter((c) => manualIds.has(c.entityId))
+      .map((c) => ({ ...c, entityId: remapId(c.entityId) }));
+    outEntities = [...entities, ...carried];
+    outClassifications = [...classifications, ...carriedCls];
+    outActingTogether = actingTogether.map((a) => ({
+      ...a,
+      memberEntityIds: a.memberEntityIds.map(remapId),
+    }));
+  }
   // Section-level exclusions are an advisor scope decision; carry them across regen.
   return renumberFacts({
-    entities, classifications, transactions, actingTogether,
+    entities: outEntities,
+    classifications: outClassifications,
+    transactions,
+    actingTogether: outActingTogether,
     excludedSections: existing.excludedSections,
     narratives: Object.keys(narratives).length ? narratives : undefined,
   });
@@ -617,9 +729,15 @@ function buildFactsBlock(facts: AppendixFacts | null): string {
   // Advisor edits win over the chart/AI base for grounding too.
   const effJur = (e: FactEntity) => e.edits?.jurisdiction ?? e.jurisdiction;
   const effStatus = (e: FactEntity) => e.edits?.nlTaxStatus ?? e.nlTaxStatus;
+  const effRole = (e: FactEntity) => e.edits?.relationType ?? e.role;
+  // Explicit-clear semantics: relatedPct: null means "no percentage", it must
+  // not fall back to the chart value (mirror of frontend effRelatedPct).
+  const effPct = (e: FactEntity) =>
+    e.edits?.relatedPct !== undefined ? e.edits.relatedPct : e.ownershipPct;
   const nlQual = (s: string | null | undefined) =>
     s === "transparent" ? "transparent for NL"
-      : (s === "resident" || s === "nonresident_pe" || s === "outside_cit") ? "non-transparent for NL"
+      : (s === "resident" || s === "nonresident_pe" || s === "outside_cit" || s === "non_transparent") ? "non-transparent for NL"
+      : s === "reverse_hybrid" ? "reverse hybrid for NL"
       : "NL qualification undetermined";
   const taxpayerName = entities.find((e) => e.id === "E1")?.name ?? "the taxpayer";
   const relNote = (e: FactEntity) =>
@@ -627,7 +745,7 @@ function buildFactsBlock(facts: AppendixFacts | null): string {
       : (e.related && e.relatedVia) ? `, related via ${nameOf(e.relatedVia)} (${e.relatedViaPct ?? "?"}%)`
       : e.related ? ", related (>25%)" : "";
   const ents = entities
-    .map((e) => `${e.id} ${e.name} [${effJur(e) ?? "?"}, ${e.role}${e.ownershipPct != null ? `, ${e.ownershipPct}%` : ""}${relNote(e)}, ${nlQual(effStatus(e))}]`)
+    .map((e) => `${e.id} ${e.name} [${effJur(e) ?? "?"}, ${effRole(e)}${effPct(e) != null ? `, ${effPct(e)}%` : ""}${relNote(e)}, ${nlQual(effStatus(e))}]`)
     .join("\n");
   const cls = classifications
     .map((c) => `${c.entityId} ${nameOf(c.entityId)}: home ${c.homeState} ${c.homeClass} vs source ${c.sourceState ?? "?"} ${c.sourceClass ?? "?"}${c.hybrid ? " (HYBRID mismatch)" : ""}`)

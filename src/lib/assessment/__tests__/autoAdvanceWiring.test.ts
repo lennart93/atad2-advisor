@@ -37,16 +37,19 @@ describe("Assessment.tsx auto-advance wiring", () => {
   });
 
   it("gates the early-return auto-advance on !blockAutoAdvance", () => {
-    // Branch 1: the "auto-advance immediately" path.
+    // Branch 1: the "auto-advance immediately" path. The branch may carry
+    // extra conditions (e.g. the "Always" comment-mode hold), so only the
+    // gate's presence in the condition is asserted, not the full expression.
     expect(assessmentSource).toMatch(
-      /if\s*\(\s*!\s*requiresExplanation\s*&&\s*!\s*blockAutoAdvance\s*\)/,
+      /if\s*\(\s*!\s*requiresExplanation\s*&&\s*!\s*blockAutoAdvance\b/,
     );
   });
 
   it("gates the post-context auto-advance on !blockAutoAdvance", () => {
-    // Branch 2: the "auto-advance after context check" path.
+    // Branch 2: the "auto-advance after context check" path. Same shape as
+    // branch 1: assert the gate is an input, allow trailing extra conditions.
     expect(assessmentSource).toMatch(
-      /if\s*\(\s*autoAdvance\s*&&\s*!\s*requiresExplanation\s*&&\s*!\s*blockAutoAdvance\s*\)/,
+      /if\s*\(\s*autoAdvance\s*&&\s*!\s*requiresExplanation\s*&&\s*!\s*blockAutoAdvance\b/,
     );
   });
 

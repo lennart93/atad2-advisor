@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { CheckSquare, ChevronRight, Copy, Square } from "lucide-react";
-import { Button, Card, StatusPill } from "@/components/ds";
+import { Button, StatusPill } from "@/components/ds";
 import {
   Collapsible,
   CollapsibleContent,
@@ -12,18 +12,18 @@ import type { DocumentsWorklist } from "@/hooks/useDocumentsWorklist";
 import {
   formatClientMessage,
   formatPointsList,
+  pointsLeadIn,
   type OpenPoint,
   type PointsCopyMeta,
 } from "@/lib/openQuestions/worklist";
+import { cn } from "@/lib/utils";
 import { OpenPointRow } from "./OpenPointRow";
 
 export interface WorklistPointsListProps {
   worklist: DocumentsWorklist;
-  /**
-   * Intro card above the list. Shown on the documents step; omitted in the
-   * questionnaire side panel, where that line no longer makes sense.
-   */
-  showIntro?: boolean;
+  /** Progress-counter verb: "confirmed" on the documents step, "answered" in
+   *  the questionnaire's open-questions side panel. */
+  confirmVerb?: "confirmed" | "answered";
 }
 
 /**
@@ -37,7 +37,7 @@ export interface WorklistPointsListProps {
  */
 export function WorklistPointsList({
   worklist,
-  showIntro = true,
+  confirmVerb = "confirmed",
 }: WorklistPointsListProps) {
   const { pathPoints, offPathPoints } = worklist;
 
@@ -90,8 +90,14 @@ export function WorklistPointsList({
   });
 
   const allPoints = [...pathPoints, ...offPathPoints];
-  const allResolved = worklist.openPoints === 0;
   const checkedPoints = allPoints.filter(isSelected);
+
+  // The collective stem the questions complete ("Could you please confirm: for
+  // each of ..."). Each point's text is a direct clause, so without the stem
+  // the list reads as bare fragments. Computed per list because a legacy set
+  // whose questions carry their own polite opener returns null (no stem).
+  const pathLeadIn = pointsLeadIn(pathPoints);
+  const offPathLeadIn = pointsLeadIn(offPathPoints);
   const meta: PointsCopyMeta = {
     taxpayerName: worklist.taxpayerName || "Taxpayer",
     fiscalYear: worklist.fiscalYear || "",
@@ -114,74 +120,103 @@ export function WorklistPointsList({
     });
 
   return (
-    <div className="space-y-6">
-      {showIntro && (
-        <Card className="p-5">
-          <p className="max-w-prose text-[13px] text-ds-ink">
-            {allResolved
-              ? "Everything was answered from your documents. No points are left to confirm."
-              : "Most of the questionnaire was answered from your documents. These points still need a quick confirmation."}
-          </p>
-        </Card>
-      )}
-
-      {/* Sticky actions: copy the selected points for the client, copy all of
-          them, and select / deselect which go into the client copy. */}
-      <div className="sticky top-0 z-10 -mt-2 flex flex-wrap items-center gap-2 rounded-ds-card border border-ds-hairline bg-ds-card px-3 py-2">
-        <CopyForClientButton points={checkedPoints} />
-        <CopyPointsButton
-          label="Copy all points"
-          variant="ghost"
-          points={allPoints}
-          meta={meta}
-        />
-        {pathPoints.length > 1 && (
-          <Button variant="ghost" size="sm" onClick={toggleSelectAll}>
-            {anyPathSelected ? <Square /> : <CheckSquare />}
-            {anyPathSelected ? "Deselect all" : "Select all"}
-          </Button>
-        )}
-        {worklist.totalPathPoints > 0 && (
-          <span className="ml-auto text-[13px] text-ds-ink-secondary ds-tabular-nums">
-            {worklist.resolvedPoints} of {worklist.totalPathPoints} answered
-          </span>
-        )}
+    <div className="space-y-7">
+      {/* Two copy actions as labeled cards: the client card copies the ticked
+          (likely-relevant) points; the all-points card opens a plain/email
+          choice. Counts are live (path vs all), never fixed numbers. */}
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <CopyForClientCard points={checkedPoints} />
+        <CopyAllPointsCard points={allPoints} meta={meta} />
       </div>
 
-      {pathPoints.length > 0 && (
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <h3 className="text-[13px] font-medium text-ds-ink">
-              Could you please confirm:
-            </h3>
-            <StatusPill status="neutral" className="ds-tabular-nums">
-              {pathPoints.length}
-            </StatusPill>
+      {/* Thin toolbar: bulk select for the client copy, a live progress
+          counter, and a segment-per-point meter that fills as each likely
+          point is answered. */}
+      {(pathPoints.length > 1 || worklist.totalPathPoints > 0) && (
+        <div className="space-y-3 border-y border-ds-hairline py-3">
+          <div className="flex items-center gap-3">
+            {pathPoints.length > 1 && (
+              <Button variant="ghost" size="sm" onClick={toggleSelectAll}>
+                {anyPathSelected ? <Square /> : <CheckSquare />}
+                {anyPathSelected ? "Deselect all" : "Select all"}
+              </Button>
+            )}
+            {worklist.totalPathPoints > 0 && (
+              <span className="ml-auto text-[13px] text-ds-ink-secondary ds-tabular-nums">
+                {/* Confirmed reads sage once any point is done, keeping it
+                    visually separate from the terracotta/slate categories. */}
+                <span
+                  className={cn(
+                    "font-medium",
+                    worklist.resolvedPoints > 0
+                      ? "text-brand-sage-deep"
+                      : "text-ds-ink",
+                  )}
+                >
+                  {worklist.resolvedPoints}
+                </span>{" "}
+                of {worklist.totalPathPoints} {confirmVerb}
+              </span>
+            )}
           </div>
-          {pathPoints.map((point) => (
-            <OpenPointRow key={point.id} {...rowProps(point)} />
-          ))}
+          {pathPoints.length > 0 && (
+            <div className="flex gap-1" aria-hidden="true">
+              {pathPoints.map((point) => (
+                <span
+                  key={point.id}
+                  className={cn(
+                    "h-1 flex-1 rounded-full",
+                    resolved(point) ? "bg-brand-sage" : "bg-ds-fill-muted",
+                  )}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {pathPoints.length > 0 && (
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="h-1.5 w-1.5 rounded-full bg-brand-terracotta" aria-hidden="true" />
+            <h3 className="text-[11px] font-medium uppercase tracking-wide text-ds-ink-secondary">
+              Likely relevant
+            </h3>
+            <span className="text-xs font-normal text-brand-terracotta-deep ds-tabular-nums">
+              {pathPoints.length} {pathPoints.length === 1 ? "point" : "points"}
+            </span>
+          </div>
+          {pathLeadIn && (
+            <p className="mt-3 text-[13px] text-ds-ink">{pathLeadIn}</p>
+          )}
+          <div className="mt-3 border-t border-ds-hairline">
+            {pathPoints.map((point) => (
+              <OpenPointRow key={point.id} {...rowProps(point)} />
+            ))}
+          </div>
         </div>
       )}
 
       {offPathPoints.length > 0 && (
-        <Collapsible className="rounded-ds-card border border-ds-hairline bg-ds-card">
-          <CollapsibleTrigger className="group flex w-full items-center gap-2 px-4 py-3 text-left text-[13px] font-medium text-ds-ink-secondary transition-colors hover:text-ds-ink">
-            <ChevronRight className="h-4 w-4 shrink-0 transition-transform group-data-[state=open]:rotate-90" />
-            <span>Other possible points</span>
-            <StatusPill status="neutral" className="ds-tabular-nums">
-              {offPathPoints.length}
-            </StatusPill>
-            <span className="ml-auto text-ds-ink-secondary">
-              unlikely to be relevant here
+        <Collapsible className="border-t border-ds-hairline">
+          <CollapsibleTrigger className="group flex w-full items-center gap-2 py-4 text-left text-[11px] font-medium uppercase tracking-wide text-ds-ink-secondary transition-colors hover:text-ds-ink">
+            <span className="h-1.5 w-1.5 rounded-full bg-brand-info" aria-hidden="true" />
+            <span>Contingent</span>
+            <span className="text-xs font-normal normal-case tracking-normal text-brand-info-deep ds-tabular-nums">
+              {offPathPoints.length} {offPathPoints.length === 1 ? "point" : "points"}
             </span>
+            <ChevronRight className="ml-auto h-4 w-4 shrink-0 transition-transform group-data-[state=open]:rotate-90" />
           </CollapsibleTrigger>
           <CollapsibleContent className="overflow-hidden data-[state=open]:animate-collapsible-down data-[state=closed]:animate-collapsible-up">
-            <div className="space-y-2 border-t border-ds-hairline p-3">
-              <p className="text-[13px] text-ds-ink-secondary">
-                Not expected on the current path. You can still answer or
-                include any of them.
-              </p>
+            <p className="max-w-prose pb-3 text-[13px] text-ds-ink-secondary">
+              These only matter if your answers to the questionnaire turn out
+              different than expected, for example because of the points above.
+              They are included when you copy all points.
+            </p>
+            {offPathLeadIn && (
+              <p className="pb-3 text-[13px] text-ds-ink">{offPathLeadIn}</p>
+            )}
+            <div className="border-t border-ds-hairline">
               {offPathPoints.map((point) => (
                 <OpenPointRow key={point.id} {...rowProps(point)} />
               ))}
@@ -193,12 +228,17 @@ export function WorklistPointsList({
   );
 }
 
+/** Shared chrome for the two copy cards: a hairline panel that reads as a
+ *  quiet action, dimmed and non-interactive when there is nothing to copy. */
+const COPY_CARD_CLASS =
+  "group flex flex-1 items-start gap-3 rounded-ds-card border border-ds-hairline bg-ds-card p-4 text-left transition-colors hover:border-ds-ink-tertiary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent disabled:pointer-events-none disabled:opacity-60";
+
 /**
  * Copy the selected points as a client-ready message in one click: a short
  * lead-in plus the numbered checked points, ready to paste into an email.
  * Disabled when nothing is selected.
  */
-function CopyForClientButton({ points }: { points: OpenPoint[] }) {
+function CopyForClientCard({ points }: { points: OpenPoint[] }) {
   const disabled = points.length === 0;
 
   const copy = async () => {
@@ -213,37 +253,39 @@ function CopyForClientButton({ points }: { points: OpenPoint[] }) {
   };
 
   return (
-    <Button
-      variant="secondary"
-      size="sm"
+    <button
+      type="button"
       disabled={disabled}
       title={disabled ? "Tick at least one point to copy." : undefined}
       onClick={() => void copy()}
+      className={cn(COPY_CARD_CLASS, "border-t-2 border-t-brand-terracotta")}
     >
-      <Copy />
-      Copy points for client
-      {points.length > 0 && (
-        <span className="ds-tabular-nums text-ds-ink-secondary">
-          ({points.length})
+      <Copy className="mt-0.5 h-4 w-4 shrink-0 text-brand-terracotta" />
+      <span className="min-w-0">
+        <span className="flex items-center gap-2">
+          <span className="text-[13px] font-medium text-ds-ink">Copy points for client</span>
+          <StatusPill
+            status="neutral"
+            className="ds-tabular-nums bg-brand-terracotta-soft text-brand-terracotta-deep"
+          >
+            {points.length}
+          </StatusPill>
         </span>
-      )}
-    </Button>
+        <span className="mt-1 block text-[13px] text-ds-ink-secondary">
+          The likely-relevant points, ready to send to your client.
+        </span>
+      </span>
+    </button>
   );
 }
 
-/** Copy a set of points as text, offering a plain list or an email-ready one. */
-function CopyPointsButton({
-  label,
+/** Copy every point as text, offering a plain list or an email-ready one. */
+function CopyAllPointsCard({
   points,
   meta,
-  variant = "secondary",
-  emptyHint,
 }: {
-  label: string;
   points: OpenPoint[];
   meta: PointsCopyMeta;
-  variant?: "secondary" | "ghost";
-  emptyHint?: string;
 }) {
   const [open, setOpen] = useState(false);
   const disabled = points.length === 0;
@@ -263,20 +305,27 @@ function CopyPointsButton({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button
-          variant={variant}
-          size="sm"
+        <button
+          type="button"
           disabled={disabled}
-          title={disabled ? emptyHint : undefined}
+          className={cn(COPY_CARD_CLASS, "border-t-2 border-t-brand-info")}
         >
-          <Copy />
-          {label}
-          {points.length > 0 && (
-            <span className="ds-tabular-nums text-ds-ink-secondary">
-              ({points.length})
+          <Copy className="mt-0.5 h-4 w-4 shrink-0 text-brand-info" />
+          <span className="min-w-0">
+            <span className="flex items-center gap-2">
+              <span className="text-[13px] font-medium text-ds-ink">Copy all points</span>
+              <StatusPill
+                status="neutral"
+                className="ds-tabular-nums bg-brand-info-soft text-brand-info-deep"
+              >
+                {points.length}
+              </StatusPill>
             </span>
-          )}
-        </Button>
+            <span className="mt-1 block text-[13px] text-ds-ink-secondary">
+              Everything, including the points that sit off the likely path.
+            </span>
+          </span>
+        </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-64 p-2">
         <p className="px-1 pb-1.5 text-xs text-ds-ink-secondary">Copy as</p>

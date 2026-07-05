@@ -123,7 +123,7 @@ const Tutorial = () => {
           <Link to="/" className="flex items-center gap-2.5">
             <AnimatedLogo size={26} interactive={false} />
             <div className="leading-tight">
-              <div className="text-[12.5px] font-medium tracking-tight">ATAD2 Advisor</div>
+              <div className="text-[12.5px] font-normal tracking-tight">ATAD2 Advisor</div>
               <div className="text-[10.5px] text-muted-foreground">A guided walkthrough</div>
             </div>
           </Link>
@@ -145,7 +145,7 @@ const Tutorial = () => {
             </span>
             <button
               onClick={close}
-              className="ml-1 inline-flex h-8 items-center gap-1.5 rounded-md border border-[hsl(var(--border-default))] bg-background px-2.5 text-[11.5px] font-medium text-foreground transition-colors hover:bg-muted"
+              className="ml-1 inline-flex h-8 items-center gap-1.5 rounded-md border border-[hsl(var(--border-default))] bg-background px-2.5 text-[11.5px] font-normal text-foreground transition-colors hover:bg-muted"
             >
               <X className="h-3.5 w-3.5" />
               Exit tour
@@ -158,7 +158,7 @@ const Tutorial = () => {
       <main className="mx-auto grid max-w-7xl grid-cols-1 gap-6 px-4 py-6 lg:grid-cols-[240px_1fr]">
         <aside className="hidden lg:block">
           <div className="sticky top-20">
-            <div className="px-2 text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+            <div className="px-2 text-[10px] font-normal uppercase tracking-[0.18em] text-muted-foreground">
               Chapters
             </div>
             <nav className="mt-2 flex flex-col gap-0.5">
@@ -196,7 +196,7 @@ const Tutorial = () => {
                     <span className="flex-1 min-w-0">
                       <span
                         className={cn(
-                          "block truncate font-medium tracking-tight",
+                          "block truncate font-normal tracking-tight",
                           active ? "text-foreground" : "text-foreground/80",
                         )}
                       >
@@ -228,7 +228,7 @@ const Tutorial = () => {
               {/* Chapter heading */}
               <div className="mb-5 flex flex-col gap-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                  <span className="text-[10px] font-normal uppercase tracking-[0.18em] text-muted-foreground">
                     Chapter {chapterIdx + 1} of {chapters.length}
                   </span>
                   {chapter.steps.length > 1 && (
@@ -252,7 +252,7 @@ const Tutorial = () => {
               <section className="grid grid-cols-1 gap-x-8 gap-y-4 lg:grid-cols-[1fr_280px]">
                 <div>
                   {step.heading && (
-                    <h2 className="text-lg font-medium tracking-tight">{step.heading}</h2>
+                    <h2 className="text-lg font-normal tracking-tight">{step.heading}</h2>
                   )}
                   <div className="mt-1 max-w-2xl space-y-2 text-[13.5px] leading-relaxed text-foreground">
                     {(Array.isArray(step.caption) ? step.caption : [step.caption]).map((p, i) => (
@@ -262,7 +262,7 @@ const Tutorial = () => {
                 </div>
                 {step.bullets && step.bullets.length > 0 && (
                   <div className="rounded-lg border border-[hsl(var(--border-subtle))] bg-muted/20 p-4">
-                    <div className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                    <div className="text-[10px] font-normal uppercase tracking-[0.18em] text-muted-foreground">
                       Good to know
                     </div>
                     <ul className="mt-2 space-y-1.5 text-[12.5px] leading-snug">
@@ -284,7 +284,7 @@ const Tutorial = () => {
             <button
               onClick={prev}
               disabled={flatPos === 0}
-              className="inline-flex h-9 items-center gap-1.5 rounded-md border border-[hsl(var(--border-default))] bg-background px-3 text-[12.5px] font-medium transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex h-9 items-center gap-1.5 rounded-md border border-[hsl(var(--border-default))] bg-background px-3 text-[12.5px] font-normal transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
               Previous
@@ -295,7 +295,7 @@ const Tutorial = () => {
             {flatPos < flatTotal - 1 ? (
               <button
                 onClick={next}
-                className="inline-flex h-9 items-center gap-1.5 rounded-md bg-foreground px-3 text-[12.5px] font-medium text-background shadow-btn-primary transition-transform hover:translate-y-[-1px]"
+                className="inline-flex h-9 items-center gap-1.5 rounded-md bg-foreground px-3 text-[12.5px] font-normal text-background shadow-btn-primary transition-transform hover:translate-y-[-1px]"
               >
                 Next
                 <ArrowRight className="h-3.5 w-3.5" />
@@ -303,7 +303,7 @@ const Tutorial = () => {
             ) : (
               <button
                 onClick={close}
-                className="inline-flex h-9 items-center gap-1.5 rounded-md bg-foreground px-3 text-[12.5px] font-medium text-background shadow-btn-primary transition-transform hover:translate-y-[-1px]"
+                className="inline-flex h-9 items-center gap-1.5 rounded-md bg-foreground px-3 text-[12.5px] font-normal text-background shadow-btn-primary transition-transform hover:translate-y-[-1px]"
               >
                 <Check className="h-3.5 w-3.5" />
                 Finish tour

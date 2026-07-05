@@ -40,10 +40,19 @@
   --ds-amber-bg: #faeeda;
   --ds-amber-text: #854f0b;
 
-  /* Semantic: green = complete */
-  --ds-green: #0f6e56;
-  --ds-green-bg: #e1f5ee;
-  --ds-green-text: #0f6e56;
+  /* Semantic: sage = complete / done / yes — the Svalner secondary marker.
+   * Was a cool teal; retuned to the warm brand sage. green-text is a deeper
+   * sage so 13px labels keep AA contrast on white (sage-deep alone is ~4:1). */
+  --ds-green: #79825a;       /* brand sage-deep — borders + check icons */
+  --ds-green-bg: #e8eadd;    /* brand sage-soft — pill / selected fill */
+  --ds-green-text: #5f6845;  /* deeper sage — readable as small text (AA) */
+
+  /* Semantic: slate blue = neutral / uncertain — the "Unknown" answer and
+   * other not-yet-known states. Calm, never alarming (distinct from amber
+   * risk). blue-text is a deeper slate so small labels keep AA on white. */
+  --ds-blue: #5c6f80;        /* brand-info — borders + question icons */
+  --ds-blue-bg: #e9edf0;     /* brand-info-soft — pill / selected fill */
+  --ds-blue-text: #4a5b6b;   /* brand-info-deep — readable as small text (AA) */
 
   /* Red: destructive actions only (never status decoration) */
   --ds-red: #b42318;
@@ -57,12 +66,14 @@
   --ds-radius-control: 2px;
   --ds-radius-card: 4px;
 
-  /* Type scale: 13px dense UI body, 15px forms, 18/22px headings.
+  /* Type scale: 13px dense UI body, 15px forms, 18/22px headings (at the
+   * default root). Expressed in rem so they scale with the global --app-scale
+   * root font-size (see index.css) instead of staying pinned at these px.
    * Weights 400 and 500 only. */
-  --ds-text-dense: 13px;
-  --ds-text-form: 15px;
-  --ds-text-heading: 18px;
-  --ds-text-heading-lg: 22px;
+  --ds-text-dense: 0.8125rem;     /* 13px */
+  --ds-text-form: 0.9375rem;      /* 15px */
+  --ds-text-heading: 1.125rem;    /* 18px */
+  --ds-text-heading-lg: 1.375rem; /* 22px */
 }
 
 .dark {
@@ -83,9 +94,13 @@
   --ds-amber-bg: rgba(186, 117, 23, 0.18);
   --ds-amber-text: #e8b369;
 
-  --ds-green: #3fae90;
-  --ds-green-bg: rgba(15, 110, 86, 0.2);
-  --ds-green-text: #5cc4a7;
+  --ds-green: #8e9669;       /* sage-deep, visible on dark paper */
+  --ds-green-bg: #37392d;    /* dark sage panel */
+  --ds-green-text: #adb587;  /* light sage — AA text on dark */
+
+  --ds-blue: #7d92a6;        /* slate, visible on dark paper */
+  --ds-blue-bg: #2b333b;     /* dark slate panel */
+  --ds-blue-text: #a9bccd;   /* light slate — AA text on dark */
 
   --ds-red: #c4453a;
   --ds-red-hover: #b93c31;

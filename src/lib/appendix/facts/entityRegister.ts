@@ -8,6 +8,8 @@ import {
   effectivePctFromSet,
   type OwnershipGraph,
 } from '@/lib/structure/ownershipGraph';
+import { normalizeEntityName } from '@/lib/legalName';
+import { parseTaxpayerNames } from '@/lib/taxpayer';
 
 const RELATED_THRESHOLD = 25;
 const FISCAL_UNITY_KIND = 'fiscal_unity';
@@ -32,18 +34,26 @@ export function buildEntityRegister(
   entities: StructureEntity[],
   edges: StructureEdge[],
   groupings: StructureGroup[] = [],
+  taxpayerName?: string | null,
 ): FactEntity[] {
-  const taxpayer = entities.find((e) => e.is_taxpayer) ?? null;
-  if (!taxpayer) return [];
+  const taxpayers = resolveTaxpayers(entities, taxpayerName);
+  if (!taxpayers.length) return [];
 
   const byId = new Map(entities.map((e) => [e.id, e]));
   const present = (id: string) => byId.has(id);
 
-  const fu = groupings.find(
-    (g) => g.kind === FISCAL_UNITY_KIND && Array.isArray(g.member_ids) && (g.member_ids as string[]).includes(taxpayer.id),
-  ) ?? null;
+  // A fiscal unity still collapses into one synthetic taxpayer, but only the
+  // single-taxpayer case (unchanged behaviour). When the assessment names several
+  // entities, each is listed as its own Taxpayer row instead.
+  const fu = taxpayers.length === 1
+    ? (groupings.find(
+        (g) => g.kind === FISCAL_UNITY_KIND && Array.isArray(g.member_ids) && (g.member_ids as string[]).includes(taxpayers[0].id),
+      ) ?? null)
+    : null;
   const memberIds: string[] = fu ? (fu.member_ids as string[]).filter(present) : [];
-  const memberSet = new Set<string>(fu ? memberIds : [taxpayer.id]);
+  // The taxpayer set drives the parent/subsidiary/related classification below:
+  // fiscal-unity members, or every named taxpayer entity, treated as one subject.
+  const memberSet = new Set<string>(fu ? memberIds : taxpayers.map((t) => t.id));
 
   const ownershipEdges = toOwnershipEdges(edges);
   const graph = buildOwnershipGraph(ownershipEdges);
@@ -75,7 +85,7 @@ export function buildEntityRegister(
       id: 'E1',
       chartEntityId: `fu:${fu.id}`,
       name: fu.label,
-      jurisdiction: (taxpayer.jurisdiction_iso as string | null) ?? null,
+      jurisdiction: (taxpayers[0].jurisdiction_iso as string | null) ?? null,
       entityType: 'Fiscal unity',
       role: 'Taxpayer',
       ownershipPct: null,
@@ -85,16 +95,20 @@ export function buildEntityRegister(
       memberEntityIds: memberIds,
     });
   } else {
-    out.push({
-      id: 'E1',
-      chartEntityId: taxpayer.id,
-      name: taxpayer.name,
-      jurisdiction: (taxpayer.jurisdiction_iso as string | null) ?? null,
-      entityType: (taxpayer.entity_type as string | null) ?? null,
-      role: 'Taxpayer',
-      ownershipPct: null,
-      related: false,
-      nlTaxStatus: null,
+    // One Taxpayer row per named entity (E1, E2, …). A single entity is E1,
+    // exactly as before.
+    taxpayers.forEach((taxpayer, i) => {
+      out.push({
+        id: `E${i + 1}`,
+        chartEntityId: taxpayer.id,
+        name: taxpayer.name,
+        jurisdiction: (taxpayer.jurisdiction_iso as string | null) ?? null,
+        entityType: (taxpayer.entity_type as string | null) ?? null,
+        role: 'Taxpayer',
+        ownershipPct: null,
+        related: false,
+        nlTaxStatus: null,
+      });
     });
   }
 
@@ -133,6 +147,41 @@ export function buildEntityRegister(
     }
   }
 
+  return out;
+}
+
+/**
+ * The taxpayer anchor(s) for the register. An assessment can name several entities
+ * that are the subject together; each becomes its own Taxpayer row.
+ *
+ * Prefer the extractor's is_taxpayer flags — every flagged entity is a taxpayer.
+ * That flag is an unreliable model boolean, though: an extraction can land with
+ * entities and NONE flagged (the structure prompt permits "at most one", i.e. zero,
+ * and the hard grounding rule drops the taxpayer when its legal name is not
+ * literally in the documents). So when nothing is flagged, fall back to the
+ * session's own named entities (newline-separated, suffix-normalised,
+ * case-insensitive); each name resolves to at most one entity. Returns an empty
+ * list only when there is genuinely no taxpayer to anchor on.
+ */
+function resolveTaxpayers(
+  entities: StructureEntity[],
+  taxpayerName?: string | null,
+): StructureEntity[] {
+  const flagged = entities.filter((e) => e.is_taxpayer);
+  if (flagged.length) return flagged;
+  const seen = new Set<string>();
+  const out: StructureEntity[] = [];
+  for (const raw of parseTaxpayerNames(taxpayerName)) {
+    const hint = normalizeEntityName(raw).toLowerCase();
+    if (!hint) continue;
+    const match = entities.find(
+      (e) => !seen.has(e.id) && normalizeEntityName(e.name).toLowerCase() === hint,
+    );
+    if (match) {
+      out.push(match);
+      seen.add(match.id);
+    }
+  }
   return out;
 }
 

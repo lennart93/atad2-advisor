@@ -1,7 +1,6 @@
 
 import { Suspense, lazy } from "react";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { Toaster } from "@/components/ui/toaster";
+import { Toaster } from "@/components/ui/app-toast";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
@@ -60,9 +59,6 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <AuthProvider>
-        {/* Sonner (used in parts of the app) */}
-        <Sonner />
-        {/* shadcn/use-toast toasts (used by DownloadMemoButton, etc.) */}
         <Toaster />
         <BrowserRouter>
           <ScrollRestoration />

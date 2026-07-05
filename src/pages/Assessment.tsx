@@ -12,23 +12,23 @@ import { aiHasExplanationForAnswer as computeAiHasExplanationForAnswer } from "@
 import { supabase } from "@/integrations/supabase/client";
 import {
   Button,
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
   FormField,
-  StatusPill,
+  OptionCheckbox,
 } from "@/components/ds";
+import { parseFiscalYears } from "@/utils/formatFiscalYears";
+import { parseTaxpayerNames, formatTaxpayerNames, taxpayerDisplayName } from "@/lib/taxpayer";
+import { WizardCard } from "@/components/assessment/WizardCard";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/sonner";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { cn } from "@/lib/utils";
 import {
   HelpCircle,
   CalendarIcon,
   Check,
   X,
+  Plus,
+  Link2,
   Lightbulb,
   BookOpen,
   ArrowLeft,
@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { format, parse, isValid } from "date-fns";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -43,6 +44,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AssessmentSidebar } from "@/components/AssessmentSidebar";
 import { QuestionExplanationInline } from "@/components/QuestionExplanationInline";
 import { CommentModeToggle, type CommentMode } from "@/components/assessment/CommentModeToggle";
+import { WhySuggestedTip } from "@/components/assessment/WhySuggestedTip";
 import { AutoGrowTextarea } from "@/components/ui/AutoGrowTextarea";
 import { ContextSkeleton, ContextEmptyState, ContextErrorState } from "@/components/ContextPanelStates";
 import { ContextPanelFallback } from "@/components/ContextPanelFallback";
@@ -86,13 +88,98 @@ interface Question {
 }
 
 interface SessionInfo {
-  taxpayer_name: string;
-  tax_year: string;
+  // One assessment can name several entities that are assessed together as the
+  // subject (the taxpayer). The list is held here (single-entity is a one-element
+  // list, the default) and stored newline-joined in atad2_sessions.taxpayer_name;
+  // see src/lib/taxpayer.ts. Always carries at least one (possibly empty) row so
+  // the first name field always renders.
+  taxpayer_names: string[];
+  // One assessment can cover several fiscal years. The selected years are held
+  // here as strings (e.g. ["2023", "2024"]) and stored as one comma-joined
+  // value in atad2_sessions.fiscal_year. A single-year assessment is just a
+  // one-element list.
+  tax_years: string[];
   tax_year_not_equals_calendar: boolean;
+  // When the fiscal period deviates from the calendar year, each selected year
+  // carries its own begin and end date (a single year is just a one-entry map).
+  // Keyed by year string, e.g. { "2026": { start: "2026-07-01", end: "2027-06-30" } }.
+  // On save these collapse to the overall span in period_start_date/period_end_date,
+  // the only shape downstream (dossier header, report) consumes.
+  period_dates?: Record<string, { start?: string; end?: string }>;
   period_start_date?: string;
   period_end_date?: string;
 }
 
+
+interface FiscalDateFieldProps {
+  id: string;
+  label: string;
+  /** Stored value in yyyy-MM-dd, or undefined when empty. */
+  value?: string;
+  onChange: (value: string | undefined) => void;
+}
+
+// A single fiscal date field: a dd/mm/yyyy text input paired with a calendar
+// popover. Used once per selected year for the custom-period start and end dates.
+const FiscalDateField = ({ id, label, value, onChange }: FiscalDateFieldProps) => (
+  <FormField label={label} htmlFor={id} required>
+    <div className="flex gap-2">
+      <Input
+        id={id}
+        placeholder="dd / mm / yyyy"
+        defaultValue={
+          value ? format(parse(value, "yyyy-MM-dd", new Date()), "dd/MM/yyyy") : ""
+        }
+        key={`${id}-${value ?? "empty"}`}
+        onBlur={(e) => {
+          const raw = e.target.value.trim();
+          if (raw === "") {
+            onChange(undefined);
+            return;
+          }
+          // Accept the spaced placeholder form ("dd / mm / yyyy") too.
+          const parsed = parse(raw.replace(/\s+/g, ""), "dd/MM/yyyy", new Date());
+          // Require a real 4-digit year so a mistype like "1/1/26" is not
+          // silently read as year 0026.
+          if (isValid(parsed) && parsed.getFullYear() >= 1000) {
+            onChange(format(parsed, "yyyy-MM-dd"));
+            e.target.value = format(parsed, "dd/MM/yyyy");
+            return;
+          }
+          // Unparseable or implausible: snap the box back to the stored value so
+          // it can never display a date that differs from what is saved.
+          e.target.value = value
+            ? format(parse(value, "yyyy-MM-dd", new Date()), "dd/MM/yyyy")
+            : "";
+        }}
+        className="flex-1"
+      />
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button type="button" variant="secondary" size="icon" aria-label="Pick a date">
+            <CalendarIcon className="h-4 w-4" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="start">
+          <Calendar
+            mode="single"
+            weekStartsOn={1}
+            selected={
+              value
+                ? (() => {
+                    const d = parse(value, "yyyy-MM-dd", new Date());
+                    return isValid(d) ? d : undefined;
+                  })()
+                : undefined
+            }
+            onSelect={(date) => onChange(date ? format(date, "yyyy-MM-dd") : undefined)}
+            initialFocus
+          />
+        </PopoverContent>
+      </Popover>
+    </div>
+  </FormField>
+);
 
 interface QuestionTextProps {
   question: string;
@@ -127,7 +214,7 @@ const QuestionText = ({ question, difficultTerm, termExplanation, exampleText }:
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <span className="font-medium text-ds-ink underline decoration-dotted decoration-ds-ink-tertiary underline-offset-2 hover:bg-ds-fill-muted rounded-sm px-1 cursor-pointer transition-colors duration-200">
+                    <span className="font-normal text-ds-ink underline decoration-dotted decoration-ds-ink-tertiary underline-offset-2 hover:bg-ds-fill-muted rounded-sm px-1 cursor-pointer transition-colors duration-200">
                       {matches[index]}
                     </span>
                   </TooltipTrigger>
@@ -135,7 +222,7 @@ const QuestionText = ({ question, difficultTerm, termExplanation, exampleText }:
                     <div className="flex items-start gap-2">
                       <Lightbulb className="h-4 w-4 mt-0.5 shrink-0 text-ds-ink-secondary" />
                       <div>
-                        <span className="font-medium text-ds-ink block mb-1">
+                        <span className="font-normal text-ds-ink block mb-1">
                           {difficultTerm}
                         </span>
                         <p className="text-[13px] leading-relaxed text-ds-ink-secondary">
@@ -182,7 +269,7 @@ const QuestionText = ({ question, difficultTerm, termExplanation, exampleText }:
             <div className="flex items-start gap-2 flex-1">
               <BookOpen className="h-4 w-4 mt-0.5 shrink-0 text-ds-ink-secondary" />
               <div className="flex-1">
-                <span className="font-medium text-ds-ink block mb-2">Example</span>
+                <span className="font-normal text-ds-ink block mb-2">Example</span>
                 <p className="text-[13px] leading-relaxed text-ds-ink-secondary">
                   {exampleText}
                 </p>
@@ -190,7 +277,7 @@ const QuestionText = ({ question, difficultTerm, termExplanation, exampleText }:
             </div>
             <button
               onClick={() => setShowExample(false)}
-              className="text-ds-ink-secondary hover:underline text-[13px] font-medium transition"
+              className="text-ds-ink-secondary hover:underline text-[13px] font-normal transition"
               type="button"
             >
               Close
@@ -247,10 +334,99 @@ const Assessment = () => {
   const [intakeClient, setIntakeClient] = useState<{ id: string; client_name: string } | null>(null);
 
   const [sessionInfo, setSessionInfo] = useState<SessionInfo>({
-    taxpayer_name: "",
-    tax_year: "",
+    taxpayer_names: [""],
+    tax_years: [],
     tax_year_not_equals_calendar: false,
   });
+
+  // The taxpayer field is one unified list: a single plain input by default,
+  // and from two entities on it reads as a numbered set. Every named entity is
+  // assessed together as the subject of this one assessment (one memo, one
+  // appendix).
+
+  // Set the name at one position in the taxpayer list.
+  const setTaxpayerNameAt = (index: number, value: string) =>
+    setSessionInfo((prev) => {
+      const next = [...prev.taxpayer_names];
+      next[index] = value;
+      return { ...prev, taxpayer_names: next };
+    });
+
+  // Append an empty name row (multi-entity editor only).
+  const addTaxpayerEntity = () =>
+    setSessionInfo((prev) => ({ ...prev, taxpayer_names: [...prev.taxpayer_names, ""] }));
+
+  // Remove one name row; never drops the last row (the field must always render).
+  const removeTaxpayerEntity = (index: number) =>
+    setSessionInfo((prev) => {
+      const next = prev.taxpayer_names.filter((_, i) => i !== index);
+      return { ...prev, taxpayer_names: next.length ? next : [""] };
+    });
+
+  // Assessing a single year is the norm and shows a dropdown. Ticking "Assess
+  // multiple years" switches to the year multi-select; "Just one year" switches
+  // back and collapses the selection to the most recent year.
+  const [multiYear, setMultiYear] = useState(false);
+
+  // Toggle a fiscal year in/out of the multi-select. Years are kept sorted so
+  // the stored value and the derived period are stable regardless of click order.
+  // Removing a year also drops any per-year period dates it held, so an unticked
+  // year leaves no stale dates behind.
+  const toggleTaxYear = (year: string) =>
+    setSessionInfo((prev) => {
+      const has = prev.tax_years.includes(year);
+      const next = has
+        ? prev.tax_years.filter((y) => y !== year)
+        : [...prev.tax_years, year];
+      next.sort((a, b) => Number(a) - Number(b));
+      let period_dates = prev.period_dates;
+      if (has && period_dates && period_dates[year]) {
+        period_dates = { ...period_dates };
+        delete period_dates[year];
+      }
+      return { ...prev, tax_years: next, period_dates };
+    });
+
+  // Set one end of one year's fiscal period. `undefined` clears that date.
+  const setYearDate = (year: string, which: "start" | "end", value: string | undefined) =>
+    setSessionInfo((prev) => ({
+      ...prev,
+      period_dates: {
+        ...prev.period_dates,
+        [year]: { ...prev.period_dates?.[year], [which]: value },
+      },
+    }));
+
+  // Keep only the period dates whose year is still selected.
+  const prunePeriodDates = (
+    period_dates: SessionInfo["period_dates"],
+    years: string[],
+  ): SessionInfo["period_dates"] => {
+    if (!period_dates) return period_dates;
+    const kept: Record<string, { start?: string; end?: string }> = {};
+    for (const y of years) if (period_dates[y]) kept[y] = period_dates[y];
+    return kept;
+  };
+
+  // Single-year (dropdown) selection: replaces the whole list with one year and
+  // drops any period dates that belonged to a previously chosen year.
+  const selectSingleYear = (year: string) =>
+    setSessionInfo((prev) => ({
+      ...prev,
+      tax_years: [year],
+      period_dates: prunePeriodDates(prev.period_dates, [year]),
+    }));
+
+  // Collapse a multi-year selection back to a single year: keep the most recent
+  // selected year (if any) and drop the rest, then show the dropdown again.
+  const switchToSingleYear = () => {
+    setSessionInfo((prev) => {
+      const newest = [...prev.tax_years].sort((a, b) => Number(b) - Number(a))[0];
+      const next = newest ? [newest] : [];
+      return { ...prev, tax_years: next, period_dates: prunePeriodDates(prev.period_dates, next) };
+    });
+    setMultiYear(false);
+  };
   const [dontShowBeforeYouStartAgain, setDontShowBeforeYouStartAgain] = useState(false);
   const [sessionStarted, setSessionStarted] = useState(false);
   const [sessionId, setSessionId] = useState<string>("");
@@ -341,10 +517,12 @@ const Assessment = () => {
           return;
         }
         setIntakeClient({ id: data.id, client_name: data.client_name });
-        // Prefill only while the field is still empty; never overwrite typing.
-        setSessionInfo(prev =>
-          prev.taxpayer_name ? prev : { ...prev, taxpayer_name: data.client_name }
-        );
+        // Prefill only while the single default field is still empty; never
+        // overwrite typing or a multi-entity list the user has started.
+        setSessionInfo(prev => {
+          const untouched = prev.taxpayer_names.length === 1 && !prev.taxpayer_names[0].trim();
+          return untouched ? { ...prev, taxpayer_names: [data.client_name] } : prev;
+        });
       } catch (err) {
         if (!cancelled) console.warn('Client prefill lookup failed:', err);
       }
@@ -541,9 +719,15 @@ const Assessment = () => {
         if (sessErr || !session || session.user_id !== user.id) return;
         if (cancelled) return;
 
+        // Parse the stored taxpayer_name back into the entity list (newline-
+        // joined; a legacy single name yields one row). The list numbers itself
+        // automatically once it holds more than one entity.
+        const resumedNames = parseTaxpayerNames(session.taxpayer_name);
         setSessionInfo({
-          taxpayer_name: session.taxpayer_name ?? "",
-          tax_year: session.fiscal_year ?? "",
+          taxpayer_names: resumedNames.length ? resumedNames : [""],
+          // Parse the stored value back into the multi-select list. Handles both
+          // the legacy single-year form and the comma-joined multi-year form.
+          tax_years: parseFiscalYears(session.fiscal_year).map(String),
           tax_year_not_equals_calendar: session.is_custom_period ?? false,
           period_start_date: session.period_start_date ?? undefined,
           period_end_date: session.period_end_date ?? undefined,
@@ -678,18 +862,34 @@ const Assessment = () => {
   };
 
   const validateAndShowWarning = () => {
-    if (!sessionInfo.taxpayer_name || !sessionInfo.tax_year) {
+    const namedEntities = sessionInfo.taxpayer_names.map((n) => n.trim()).filter(Boolean);
+    if (namedEntities.length === 0 || sessionInfo.tax_years.length === 0) {
       toast.error("Missing information", {
-        description: "Please fill in all required fields",
+        description: "Enter a taxpayer name and select at least one tax year",
       });
       return;
     }
 
-    if (sessionInfo.tax_year_not_equals_calendar && (!sessionInfo.period_start_date || !sessionInfo.period_end_date)) {
-      toast.error("Missing information", {
-        description: "Please fill in start and end dates for non-calendar tax year",
+    if (sessionInfo.tax_year_not_equals_calendar) {
+      const missingDates = sessionInfo.tax_years.some(
+        (y) => !sessionInfo.period_dates?.[y]?.start || !sessionInfo.period_dates?.[y]?.end,
+      );
+      if (missingDates) {
+        toast.error("Missing information", {
+          description: "Please fill in a start and end date for every selected year",
+        });
+        return;
+      }
+      const inverted = sessionInfo.tax_years.find((y) => {
+        const d = sessionInfo.period_dates?.[y];
+        return d?.start && d?.end && new Date(d.end) < new Date(d.start);
       });
-      return;
+      if (inverted) {
+        toast.error("Invalid date range", {
+          description: `End date cannot be before start date for year ${inverted}`,
+        });
+        return;
+      }
     }
 
     // If the user previously opted "Don't show again" → skip modal and start directly.
@@ -701,37 +901,54 @@ const Assessment = () => {
   };
 
   const startSession = async () => {
-    // Validation already done in validateAndShowWarning, proceed with session creation
+    // Validation (required dates + end>=start per year) already done in
+    // validateAndShowWarning before the confirmation dialog opened.
     setShowStartWarningDialog(false);
-
-    if (sessionInfo.tax_year_not_equals_calendar && sessionInfo.period_start_date && sessionInfo.period_end_date) {
-      if (new Date(sessionInfo.period_end_date) < new Date(sessionInfo.period_start_date)) {
-        toast.error("Invalid date range", {
-          description: "End date cannot be before start date",
-        });
-        return;
-      }
-    }
 
     setLoading(true);
     try {
       const newSessionId = crypto.randomUUID();
-      
-      const startDate = sessionInfo.tax_year_not_equals_calendar 
-        ? sessionInfo.period_start_date 
-        : `${sessionInfo.tax_year}-01-01`;
-      
-      const endDate = sessionInfo.tax_year_not_equals_calendar 
-        ? sessionInfo.period_end_date 
-        : `${sessionInfo.tax_year}-12-31`;
+
+      // Years are kept sorted in state; derive the assessed span from the
+      // earliest and latest selected year. A custom period (one shared window)
+      // overrides the calendar span when the user ticks the toggle.
+      const sortedYears = [...sessionInfo.tax_years].sort((a, b) => Number(a) - Number(b));
+      const firstYear = sortedYears[0];
+      const lastYear = sortedYears[sortedYears.length - 1];
+
+      // A custom period carries one begin/end date per year. The stored span is
+      // the earliest start and the latest end across those years (ISO dates sort
+      // chronologically), which is what the dossier header and report display.
+      const customStarts = sortedYears
+        .map((y) => sessionInfo.period_dates?.[y]?.start)
+        .filter((v): v is string => !!v)
+        .sort();
+      const customEnds = sortedYears
+        .map((y) => sessionInfo.period_dates?.[y]?.end)
+        .filter((v): v is string => !!v)
+        .sort();
+
+      const startDate = sessionInfo.tax_year_not_equals_calendar
+        ? customStarts[0]
+        : `${firstYear}-01-01`;
+
+      const endDate = sessionInfo.tax_year_not_equals_calendar
+        ? customEnds[customEnds.length - 1]
+        : `${lastYear}-12-31`;
 
       const { error } = await supabase
         .from('atad2_sessions')
         .insert({
           session_id: newSessionId,
           user_id: user?.id || null,
-          taxpayer_name: sessionInfo.taxpayer_name,
-          fiscal_year: sessionInfo.tax_year,
+          // Store the named entities as one newline-joined value in the existing
+          // TEXT column. A single entity stores one line (unchanged); the appendix
+          // and prompts treat every named entity together as the taxpayer.
+          taxpayer_name: formatTaxpayerNames(sessionInfo.taxpayer_names),
+          // Store the selected years as one comma-joined value in the existing
+          // TEXT column. Downstream display formats it; the AI prompts receive
+          // the readable list verbatim.
+          fiscal_year: sortedYears.join(", "),
           is_custom_period: sessionInfo.tax_year_not_equals_calendar,
           period_start_date: startDate,
           period_end_date: endDate,
@@ -1899,184 +2116,217 @@ const Assessment = () => {
   if (!sessionStarted) {
     return (
       <>
-        <div className="max-w-2xl mx-auto">
-            <Card>
-              <CardHeader>
-                <CardTitle>Start risk assessment</CardTitle>
-                <CardDescription>
-                  Please provide some basic information to begin your ATAD2 risk assessment
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <FormField label="Taxpayer name" htmlFor="taxpayer_name" required>
-                  <Input
-                    id="taxpayer_name"
-                    value={sessionInfo.taxpayer_name}
-                    onChange={(e) => setSessionInfo({...sessionInfo, taxpayer_name: e.target.value})}
-                    placeholder="Enter taxpayer name"
-                    required
-                  />
+        <WizardCard>
+              <h2 className="text-2xl font-normal tracking-tight text-ds-ink">Start risk assessment</h2>
+              <p className="mt-2 text-[15px] text-ds-ink-secondary">
+                Start with the taxpayer and the tax year. The rest follows step by step.
+              </p>
+              <div className="mt-7 space-y-6">
+                <FormField
+                  label="Taxpayer"
+                  htmlFor="taxpayer_name"
+                  required
+                >
+                  {(() => {
+                    // A single taxpayer is one plain input. From two entities on,
+                    // the set reads as an ordered list: each row gets a muted
+                    // number, a per-row remove revealed on hover/focus, and one
+                    // note that they are assessed together. Never show a lone "1",
+                    // a remove, or the note on the only row.
+                    const names = sessionInfo.taxpayer_names;
+                    const numbered = names.length >= 2;
+                    return (
+                      <div className="space-y-3">
+                        <div className="flex flex-col gap-2">
+                          {names.map((name, i) => (
+                            <div key={i} className="group flex items-center gap-3">
+                              {numbered && (
+                                <span className="w-[15px] shrink-0 text-right text-[13px] text-ds-ink-tertiary ds-tabular-nums">
+                                  {i + 1}
+                                </span>
+                              )}
+                              <Input
+                                id={i === 0 ? "taxpayer_name" : undefined}
+                                value={name}
+                                onChange={(e) => setTaxpayerNameAt(i, e.target.value)}
+                                placeholder="Legal entity name"
+                                required={i === 0}
+                                aria-label={numbered ? `Taxpayer entity ${i + 1} name` : undefined}
+                              />
+                              {numbered && (
+                                <button
+                                  type="button"
+                                  onClick={() => removeTaxpayerEntity(i)}
+                                  aria-label={`Remove entity ${i + 1}`}
+                                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-ds-control text-ds-ink-tertiary opacity-0 transition-[opacity,color,background-color] hover:bg-ds-accent-bg hover:text-ds-accent focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100"
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        <div
+                          className={cn(
+                            "flex items-center justify-between gap-4",
+                            // Align the action line under the input: 15px number
+                            // gutter + 12px row gap = 27px.
+                            numbered && "pl-[27px]",
+                          )}
+                        >
+                          <button
+                            type="button"
+                            onClick={addTaxpayerEntity}
+                            className="inline-flex items-center gap-1.5 text-[13px] font-normal text-ds-accent transition-colors hover:text-ds-accent-text"
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                            Add entity
+                          </button>
+                          {numbered && (
+                            <span className="inline-flex items-center gap-1.5 text-[12.5px] text-ds-ink-secondary">
+                              <Link2 className="h-3.5 w-3.5 shrink-0 text-ds-ink-tertiary" />
+                              Assessed together as one taxpayer
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </FormField>
 
                 <FormField label="Tax year" htmlFor="tax_year" required>
-                  <Select
-                    value={sessionInfo.tax_year}
-                    onValueChange={(value) => setSessionInfo({...sessionInfo, tax_year: value})}
-                  >
-                    <SelectTrigger id="tax_year">
-                      <SelectValue placeholder="Select tax year" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Array.from({ length: 6 }, (_, i) => {
-                        const year = new Date().getFullYear() - i;
-                        return (
-                          <SelectItem key={year} value={year.toString()}>
-                            {year}
-                          </SelectItem>
-                        );
-                      })}
-                    </SelectContent>
-                  </Select>
+                  {multiYear ? (
+                    <div className="space-y-2">
+                      <div
+                        id="tax_year"
+                        role="group"
+                        aria-label="Tax years"
+                        className="grid grid-cols-3 gap-2 sm:grid-cols-6"
+                      >
+                        {Array.from({ length: 6 }, (_, i) => {
+                          const year = (new Date().getFullYear() - i).toString();
+                          const checked = sessionInfo.tax_years.includes(year);
+                          return (
+                            <OptionCheckbox
+                              key={year}
+                              checked={checked}
+                              onToggle={() => toggleTaxYear(year)}
+                              className={cn(
+                                "ds-tabular-nums justify-center rounded-ds-control border px-3 py-2 transition-colors",
+                                checked
+                                  ? "border-ds-ink bg-ds-fill-muted"
+                                  : "border-ds-hairline bg-ds-card hover:border-ds-ink-tertiary",
+                              )}
+                            >
+                              {year}
+                            </OptionCheckbox>
+                          );
+                        })}
+                      </div>
+                      <p className="text-[13px] text-ds-ink-secondary">
+                        Selected years are assessed together in one assessment.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={switchToSingleYear}
+                        className="inline-flex items-center gap-1 text-[13px] text-ds-ink-secondary transition-colors hover:text-ds-ink"
+                      >
+                        <ArrowLeft className="h-3.5 w-3.5" />
+                        Just one year
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Select
+                        value={sessionInfo.tax_years[0] ?? ""}
+                        onValueChange={selectSingleYear}
+                      >
+                        <SelectTrigger id="tax_year" aria-label="Tax year">
+                          <SelectValue placeholder="Select a year" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.from({ length: 6 }, (_, i) => {
+                            const year = (new Date().getFullYear() - i).toString();
+                            return (
+                              <SelectItem key={year} value={year} className="ds-tabular-nums">
+                                {year}
+                              </SelectItem>
+                            );
+                          })}
+                        </SelectContent>
+                      </Select>
+                      <button
+                        type="button"
+                        onClick={() => setMultiYear(true)}
+                        className="text-[13px] text-ds-ink-secondary transition-colors hover:text-ds-ink"
+                      >
+                        Assess multiple years
+                      </button>
+                    </div>
+                  )}
                 </FormField>
 
                 <OptionToggle
                   id="tax-year-different"
-                  label="The tax year does not equal the calendar year"
-                  description="Only fill in a start and end date if the tax year deviates from the calendar year."
+                  variant="sage"
+                  label="The fiscal period does not match the calendar year"
+                  description="Add a start and end date for each selected year whose period does not follow the calendar year."
                   checked={sessionInfo.tax_year_not_equals_calendar}
                   onCheckedChange={(checked) => setSessionInfo({
                     ...sessionInfo,
                     tax_year_not_equals_calendar: checked,
-                    period_start_date: checked ? sessionInfo.period_start_date : undefined,
-                    period_end_date: checked ? sessionInfo.period_end_date : undefined,
+                    period_dates: checked ? sessionInfo.period_dates : undefined,
                   })}
                 >
-                    <div className="grid grid-cols-2 gap-4">
-                      <FormField label="Start date" htmlFor="period_start" required>
-                        <div className="flex gap-2">
-                          <Input
-                            id="period_start"
-                            placeholder="dd/mm/yyyy"
-                            defaultValue={
-                              sessionInfo.period_start_date
-                                ? format(parse(sessionInfo.period_start_date, "yyyy-MM-dd", new Date()), "dd/MM/yyyy")
-                                : ""
-                            }
-                            key={`period_start-${sessionInfo.period_start_date ?? "empty"}`}
-                            onBlur={(e) => {
-                              const raw = e.target.value.trim();
-                              if (raw === "") {
-                                setSessionInfo((s) => ({ ...s, period_start_date: undefined }));
-                                return;
-                              }
-                              const parsed = parse(raw, "dd/MM/yyyy", new Date());
-                              if (isValid(parsed)) {
-                                setSessionInfo((s) => ({ ...s, period_start_date: format(parsed, "yyyy-MM-dd") }));
-                                e.target.value = format(parsed, "dd/MM/yyyy");
-                              }
-                            }}
-                            className="flex-1"
-                          />
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <Button type="button" variant="secondary" size="icon" aria-label="Pick a date">
-                                <CalendarIcon className="h-4 w-4" />
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0" align="start">
-                              <Calendar
-                                mode="single"
-                                weekStartsOn={1}
-                                selected={
-                                  sessionInfo.period_start_date
-                                    ? (() => {
-                                        const d = parse(sessionInfo.period_start_date, "yyyy-MM-dd", new Date());
-                                        return isValid(d) ? d : undefined;
-                                      })()
-                                    : undefined
-                                }
-                                onSelect={(date) =>
-                                  setSessionInfo({
-                                    ...sessionInfo,
-                                    period_start_date: date ? format(date, "yyyy-MM-dd") : undefined,
-                                  })
-                                }
-                                initialFocus
-                              />
-                            </PopoverContent>
-                          </Popover>
+                    {(() => {
+                      // One start/end pair per selected year, newest first (the
+                      // order the year chips read). A single year needs no label;
+                      // multiple years each get a small "FINANCIAL YEAR {year}"
+                      // eyebrow. Blocks add/remove live as years are ticked.
+                      const years = [...sessionInfo.tax_years].sort((a, b) => Number(b) - Number(a));
+                      const multiple = years.length > 1;
+                      return (
+                        <div className="space-y-[18px]">
+                          {years.map((year) => (
+                            <div key={year} className="space-y-2">
+                              {multiple && (
+                                <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-ds-ink-tertiary">
+                                  Financial year {year}
+                                </div>
+                              )}
+                              <div className="grid grid-cols-2 gap-4">
+                                <FiscalDateField
+                                  id={`period_start_${year}`}
+                                  label="Start date"
+                                  value={sessionInfo.period_dates?.[year]?.start}
+                                  onChange={(v) => setYearDate(year, "start", v)}
+                                />
+                                <FiscalDateField
+                                  id={`period_end_${year}`}
+                                  label="End date"
+                                  value={sessionInfo.period_dates?.[year]?.end}
+                                  onChange={(v) => setYearDate(year, "end", v)}
+                                />
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                      </FormField>
-
-                      <FormField label="End date" htmlFor="period_end" required>
-                        <div className="flex gap-2">
-                          <Input
-                            id="period_end"
-                            placeholder="dd/mm/yyyy"
-                            defaultValue={
-                              sessionInfo.period_end_date
-                                ? format(parse(sessionInfo.period_end_date, "yyyy-MM-dd", new Date()), "dd/MM/yyyy")
-                                : ""
-                            }
-                            key={`period_end-${sessionInfo.period_end_date ?? "empty"}`}
-                            onBlur={(e) => {
-                              const raw = e.target.value.trim();
-                              if (raw === "") {
-                                setSessionInfo((s) => ({ ...s, period_end_date: undefined }));
-                                return;
-                              }
-                              const parsed = parse(raw, "dd/MM/yyyy", new Date());
-                              if (isValid(parsed)) {
-                                setSessionInfo((s) => ({ ...s, period_end_date: format(parsed, "yyyy-MM-dd") }));
-                                e.target.value = format(parsed, "dd/MM/yyyy");
-                              }
-                            }}
-                            className="flex-1"
-                          />
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <Button type="button" variant="secondary" size="icon" aria-label="Pick a date">
-                                <CalendarIcon className="h-4 w-4" />
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0" align="start">
-                              <Calendar
-                                mode="single"
-                                weekStartsOn={1}
-                                selected={
-                                  sessionInfo.period_end_date
-                                    ? (() => {
-                                        const d = parse(sessionInfo.period_end_date, "yyyy-MM-dd", new Date());
-                                        return isValid(d) ? d : undefined;
-                                      })()
-                                    : undefined
-                                }
-                                onSelect={(date) =>
-                                  setSessionInfo({
-                                    ...sessionInfo,
-                                    period_end_date: date ? format(date, "yyyy-MM-dd") : undefined,
-                                  })
-                                }
-                                initialFocus
-                              />
-                            </PopoverContent>
-                          </Popover>
-                        </div>
-                      </FormField>
-                    </div>
+                      );
+                    })()}
                 </OptionToggle>
 
-                <div className="flex justify-end pt-2">
+                <div className="pt-2">
                   <Button
                     disabled={loading}
+                    className="w-full gap-2"
                     onClick={validateAndShowWarning}
                   >
                     {loading ? "Starting assessment..." : "Start assessment"}
+                    {!loading && <ArrowRight className="h-4 w-4 text-brand-terracotta" />}
                   </Button>
                 </div>
-              </CardContent>
-            </Card>
-        </div>
+              </div>
+        </WizardCard>
 
         {/* Warning dialog that shows AFTER validation */}
         <Dialog open={showStartWarningDialog} onOpenChange={(open) => {
@@ -2087,7 +2337,7 @@ const Assessment = () => {
         }}>
           <DialogContent className="sm:max-w-lg">
             <DialogHeader>
-              <DialogTitle className="text-[18px] font-medium leading-snug tracking-tight text-ds-ink">Before you start</DialogTitle>
+              <DialogTitle className="text-[18px] font-normal leading-snug tracking-tight text-ds-ink">Before you start</DialogTitle>
               <DialogDescription className="text-[13px] text-ds-ink-secondary">
                 Please confirm the following before proceeding with the ATAD2 risk assessment.
               </DialogDescription>
@@ -2101,7 +2351,7 @@ const Assessment = () => {
                   onCheckedChange={(checked) => setConfirmations(prev => ({ ...prev, advisory: checked === true }))}
                 />
                 <label htmlFor="advisory" className="text-[13px] leading-relaxed cursor-pointer">
-                  <span className="font-medium text-ds-ink">Advisory tool & responsibility</span>
+                  <span className="font-normal text-ds-ink">Advisory tool & responsibility</span>
                   <br />
                   <span className="text-ds-ink-secondary">I understand that this tool is an analytical aid only and does not replace professional judgement. I remain fully responsible for the accuracy, completeness, and interpretation of the assessment.</span>
                 </label>
@@ -2114,7 +2364,7 @@ const Assessment = () => {
                   onCheckedChange={(checked) => setConfirmations(prev => ({ ...prev, highLevel: checked === true }))}
                 />
                 <label htmlFor="highLevel" className="text-[13px] leading-relaxed cursor-pointer">
-                  <span className="font-medium text-ds-ink">High-level ATAD2 risk indication</span>
+                  <span className="font-normal text-ds-ink">High-level ATAD2 risk indication</span>
                   <br />
                   <span className="text-ds-ink-secondary">I understand that the assessment provides a high-level indication of potential ATAD2 risk only and does not determine whether a mismatch actually exists or whether a tax adjustment, denial of deduction, or reassessment will occur.</span>
                 </label>
@@ -2127,7 +2377,7 @@ const Assessment = () => {
                   onCheckedChange={(checked) => setConfirmations(prev => ({ ...prev, factDriven: checked === true }))}
                 />
                 <label htmlFor="factDriven" className="text-[13px] leading-relaxed cursor-pointer">
-                  <span className="font-medium text-ds-ink">Completeness of information</span>
+                  <span className="font-normal text-ds-ink">Completeness of information</span>
                   <br />
                   <span className="text-ds-ink-secondary">I understand that the quality of the assessment depends entirely on the completeness and accuracy of the information I provide. The more relevant context I include, the more reliable the outcome will be.</span>
                 </label>
@@ -2251,9 +2501,10 @@ const Assessment = () => {
 
   return (
     <div>
-        <div className={showSidebar ? "grid grid-cols-1 lg:grid-cols-4 gap-6" : undefined}>
+        <WizardCard className="mx-auto max-w-5xl p-0">
+        <div className={showSidebar ? "lg:grid lg:grid-cols-3" : undefined}>
           {showSidebar && (
-          <div className="lg:col-span-1">
+          <div className="border-b border-ds-hairline p-8 lg:col-span-1 lg:border-b-0 lg:border-r">
             <AssessmentSidebar
               answers={answers}
               questionHistory={questionFlow.map(entry => ({
@@ -2280,9 +2531,7 @@ const Assessment = () => {
           </div>
           )}
 
-          <div className={showSidebar ? "lg:col-span-3" : undefined}>
-            <Card>
-              <CardContent className="p-5">
+          <div className={showSidebar ? "p-9 lg:col-span-2" : "p-9"}>
                 <motion.div
                   key={currentQuestion.question_id}
                   initial={{ opacity: 0, x: 8 }}
@@ -2292,9 +2541,9 @@ const Assessment = () => {
                 >
                   <div className="mb-6">
                     {currentQuestion.question_title && (
-                      <h2 className="mb-2 text-[13px] font-medium text-ds-ink-secondary">{currentQuestion.question_title}</h2>
+                      <h2 className="mb-3 text-[11px] font-medium uppercase tracking-[0.16em] text-ds-accent-text">{currentQuestion.question_title}</h2>
                     )}
-                    <p className="text-[22px] font-medium tracking-tight leading-snug text-left text-ds-ink">
+                    <p className="text-2xl sm:text-3xl font-normal tracking-tight leading-snug text-left text-ds-ink">
                       <QuestionText
                         question={currentQuestion.question}
                         difficultTerm={questionWithTerms.difficult_term}
@@ -2324,12 +2573,44 @@ const Assessment = () => {
                        const isSuggestedAnswer = !!currentPrefill?.suggested_answer
                          && option.answer_option.toLowerCase() === currentPrefill.suggested_answer
                          && (currentPrefill.confidence_pct ?? 0) >= 40;
-                       const rationaleTooltip = isSuggestedAnswer
-                         ? currentPrefill?.answer_rationale ?? null
-                         : null;
 
                        const OptionIcon =
                          answerType === 'yes' ? Check : answerType === 'no' ? X : HelpCircle;
+
+                       // Brand semantic scale, flat (no shadow/ring): every
+                       // answer owns a colour, previewed on hover and kept when
+                       // selected. Yes = sage, No = terracotta, Unknown = slate
+                       // blue (the neutral-uncertain accent). ds tokens are
+                       // final colors, so no /opacity.
+                       const semanticSelected =
+                         answerType === 'yes' ? 'border-ds-green bg-ds-green-bg'
+                         : answerType === 'no' ? 'border-ds-accent bg-ds-accent-bg'
+                         : 'border-ds-blue bg-ds-blue-bg';
+                       // Same colour previewed on hover for an UNSELECTED option,
+                       // so hovering Yes previews sage, No terracotta, Unknown
+                       // slate before clicking.
+                       const semanticHover =
+                         answerType === 'yes' ? 'hover:border-ds-green hover:bg-ds-green-bg'
+                         : answerType === 'no' ? 'hover:border-ds-accent hover:bg-ds-accent-bg'
+                         : 'hover:border-ds-blue hover:bg-ds-blue-bg';
+                       const semanticIcon =
+                         answerType === 'yes' ? 'text-ds-green-text'
+                         : answerType === 'no' ? 'text-ds-accent'
+                         : 'text-ds-blue-text';
+                       // Icon previews the same colour on hover while unselected.
+                       const semanticIconHover =
+                         answerType === 'yes' ? 'group-hover:text-ds-green-text'
+                         : answerType === 'no' ? 'group-hover:text-ds-accent'
+                         : 'group-hover:text-ds-blue-text';
+
+                       // "Previously answered" and the trailing arrow both sit at
+                       // the right edge (ml-auto), so show only one: the label
+                       // wins when revisiting an already-submitted answer.
+                       const isOriginalAnswer =
+                         isSelected && isViewingAnsweredQuestion &&
+                         selectedAnswer === questionFlow.find(entry =>
+                           entry.question.question_id === currentQuestion?.question_id
+                         )?.answer;
 
                        const answerButton = (
                          <button
@@ -2340,41 +2621,53 @@ const Assessment = () => {
                            aria-disabled={isLockedOut || undefined}
                            title={lockedReason ?? undefined}
                            className={`
-                             w-full p-4 rounded-ds-control border transition-colors duration-normal ease-emphasized text-left
+                             group w-full p-4 rounded-ds-control border transition-colors duration-normal ease-emphasized text-left
                              ${isLockedOut
                                ? 'border-ds-hairline bg-ds-fill-muted opacity-60 cursor-not-allowed'
                                : isSelected
-                               ? 'border-ds-ink bg-ds-fill-muted'
+                               ? semanticSelected
                                : isSuggestedAnswer
-                               ? 'border-ds-ink-tertiary bg-ds-card hover:bg-ds-fill-muted'
-                               : 'border-ds-hairline bg-ds-card hover:bg-ds-fill-muted'
+                               ? `border-ds-ink-tertiary bg-ds-card ${semanticHover}`
+                               : `border-ds-hairline bg-ds-card ${semanticHover}`
                              }
                              ${!isLockedOut && (loading || isTransitioning) ? 'opacity-50 cursor-not-allowed' : ''}
                              focus:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent
                            `}
                          >
                             <div className="flex items-center gap-3">
-                              <OptionIcon className="w-5 h-5 text-ds-ink-secondary" />
-                               <span className="text-[15px] font-medium text-ds-ink">
+                              <OptionIcon className={`w-5 h-5 transition-colors ${isSelected ? semanticIcon : isLockedOut ? 'text-ds-ink-secondary' : `text-ds-ink-secondary ${semanticIconHover}`}`} />
+                               <span className="text-[15px] font-normal text-ds-ink">
                                  {option.answer_option}
                                </span>
-                               {isSuggestedAnswer && (
-                                 <StatusPill status="triggered" className="ml-2 ds-tabular-nums">
-                                   suggested · {currentPrefill!.confidence_pct}%
-                                 </StatusPill>
-                               )}
-                               {/* Show "Previously answered" only for original submitted answers, not modified ones */}
-                               {isSelected && isViewingAnsweredQuestion && (() => {
-                                 const originalAnswer = questionFlow.find(entry =>
-                                   entry.question.question_id === currentQuestion?.question_id
-                                 )?.answer;
-                                 const isOriginalAnswer = selectedAnswer === originalAnswer;
-                                 return isOriginalAnswer && (
-                                   <span className="ml-auto text-[13px] text-ds-ink-secondary font-medium">
-                                     Previously answered
+                               {/* One right-pinned meta group so the "suggested" badge holds the
+                                   same x in default, hover and selected. The arrow always
+                                   reserves its slot and only fades in (opacity) on hover/selected,
+                                   never toggled with display/margin and the row never switches to
+                                   space-between, which is what made the badge jump. */}
+                               {isSuggestedAnswer ? (
+                                 <span className="ml-auto flex items-center gap-4 whitespace-nowrap">
+                                   <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-ds-green-text ds-tabular-nums">
+                                     suggested · {currentPrefill!.confidence_pct}%
                                    </span>
-                                 );
-                               })()}
+                                   {isOriginalAnswer ? (
+                                     <span className="text-[13px] font-normal text-ds-ink-secondary">
+                                       Previously answered
+                                     </span>
+                                   ) : (
+                                     <ArrowRight
+                                       aria-hidden="true"
+                                       className={`w-4 h-4 ${semanticIcon} transition-opacity duration-normal ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+                                     />
+                                   )}
+                                 </span>
+                               ) : isOriginalAnswer ? (
+                                 /* Show "Previously answered" only for original submitted answers, not modified ones */
+                                 <span className="ml-auto text-[13px] text-ds-ink-secondary font-normal">
+                                   Previously answered
+                                 </span>
+                               ) : isSelected ? (
+                                 <ArrowRight aria-hidden="true" className={`ml-auto w-4 h-4 ${semanticIcon}`} />
+                               ) : null}
                              </div>
                              {lockedReason && (
                                <p className="mt-2 text-xs italic text-ds-ink-secondary">
@@ -2384,19 +2677,33 @@ const Assessment = () => {
                            </button>
                        );
 
-                       if (!rationaleTooltip) return answerButton;
-
-                       return (
-                         <TooltipProvider key={index} delayDuration={150}>
-                           <Tooltip>
-                             <TooltipTrigger asChild>{answerButton}</TooltipTrigger>
-                             <TooltipContent side="right" align="start" className="max-w-sm whitespace-normal text-sm leading-relaxed">
-                               {rationaleTooltip}
-                             </TooltipContent>
-                           </Tooltip>
-                         </TooltipProvider>
-                       );
+                       return answerButton;
                        })}
+
+                     {/* The rationale behind the AI's suggestion, previously a
+                         loose tooltip on the whole suggested option. Now a
+                         quiet hover affordance under the options; the tooltip
+                         itself lives in WhySuggestedTip. */}
+                     {(() => {
+                       const suggestionApplies =
+                         !!currentPrefill?.suggested_answer
+                         && (currentPrefill.confidence_pct ?? 0) >= 40
+                         && currentQuestionOptions.some(
+                           (o) => o.answer_option.toLowerCase() === currentPrefill.suggested_answer,
+                         );
+                       const rationale = suggestionApplies
+                         ? currentPrefill?.answer_rationale?.trim()
+                         : null;
+                       if (!rationale) return null;
+                       return (
+                         <div className="pt-1">
+                           <WhySuggestedTip
+                             rationale={rationale}
+                             entityName={taxpayerDisplayName(formatTaxpayerNames(sessionInfo.taxpayer_names))}
+                           />
+                         </div>
+                       );
+                     })()}
                     </div>
 
                       {/* The AI's per-question prefill (suggestion + contextual hint
@@ -2414,6 +2721,7 @@ const Assessment = () => {
                         key={currentQuestion.question_id}
                         explanation={currentQuestion.question_explanation}
                         contextualHint={currentPrefill?.contextual_hint ?? null}
+                        isAnswered={!!selectedAnswer}
                         rowStart={
                           <CommentModeToggle
                             value={commentMode}
@@ -2473,7 +2781,7 @@ const Assessment = () => {
                         return (
                         <div
                           key={paneKey}
-                          className="bg-ds-fill-muted rounded-ds-control px-4 py-3 mb-8 border border-ds-hairline"
+                          className="mb-8"
                         >
                           {contextStatus === 'loading' && <ContextSkeleton />}
 
@@ -2486,13 +2794,6 @@ const Assessment = () => {
                               card. */}
                           {(contextStatus === 'ready' || contextStatus === 'idle' || !!effectivePrefill || forceComment || hasTypedComment) && (
                             <>
-                              <div className="flex items-center mb-3">
-                                <div className="flex items-center text-[13px] text-ds-ink">
-                                  <Lightbulb className="h-4 w-4 mr-2 text-ds-ink-secondary" />
-                                  <span>Explanation</span>
-                                </div>
-                              </div>
-
                               {effectivePrefill && currentQuestion && (
                                 <SuggestionCard
                                   prefill={effectivePrefill}
@@ -2506,6 +2807,9 @@ const Assessment = () => {
                                 </div>
                               )}
 
+                              <div className="mb-2 text-[13px] text-ds-ink-secondary">
+                                Add your own context (optional)
+                              </div>
                               <AutoGrowTextarea
                                 key={`explanation-${sessionId}-${qId}-${selectedAnswerId}`}
                                 value={textareaValue}
@@ -2528,7 +2832,7 @@ const Assessment = () => {
                                       )
                                     : "Provide context for your answer..."
                                 }
-                                className={`min-h-[120px] resize-none mt-3 transition-all duration-200 ${showExplanationShake ? 'explanation-shake' : ''} ${committingExplanation ? 'border-ds-ink bg-ds-fill-muted disabled:opacity-100 disabled:cursor-default' : 'border-ds-hairline bg-ds-card'}`}
+                                className={`min-h-[120px] resize-none transition-all duration-200 ${showExplanationShake ? 'explanation-shake' : ''} ${committingExplanation ? 'border-ds-ink bg-ds-fill-muted disabled:opacity-100 disabled:cursor-default' : 'border-ds-hairline bg-ds-card'}`}
                               />
                               {/* Friendly reminder message */}
                               {reminderMessage && (
@@ -2562,10 +2866,9 @@ const Assessment = () => {
                       />
 
                 </motion.div>
-              </CardContent>
-            </Card>
           </div>
         </div>
+        </WizardCard>
 
       <AssessmentFooterSlot
         left={

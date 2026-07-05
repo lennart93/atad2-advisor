@@ -32,11 +32,11 @@ export function KpiCard({
         <div>
           <div className="flex items-center gap-2 mb-2">
             <IconChip entity={entity} icon={icon} size="sm" />
-            <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground font-medium">{label}</span>
+            <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground font-normal">{label}</span>
           </div>
           <div
             className={cn(
-              "font-medium tracking-tight leading-none text-foreground tabular-nums",
+              "font-normal tracking-tight leading-none text-foreground tabular-nums",
               size === "lg" ? "text-3xl sm:text-4xl" : "text-3xl"
             )}
           >
@@ -46,7 +46,7 @@ export function KpiCard({
             <div className="text-[10px] text-muted-foreground mt-1.5 font-mono">{subLabel}</div>
           )}
           {trend && (
-            <div className="text-[11px] font-medium mt-1 text-ds-ink-secondary">
+            <div className="text-[11px] font-normal mt-1 text-ds-ink-secondary">
               {trend.direction === "up" ? "↑" : "↓"} {trend.label}
             </div>
           )}

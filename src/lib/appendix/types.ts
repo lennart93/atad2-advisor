@@ -1,4 +1,5 @@
 import type { ActingLikelihood } from './facts/actingLikelihood';
+import type { ActingBasis } from './facts/actingBasis';
 
 /**
  * The status an advisor (or the AI) records per row. One controlled vocabulary
@@ -48,6 +49,22 @@ export interface SkeletonRow {
 }
 
 /**
+ * One backing source the AI names for a row, shown in the per-row source panel
+ * (internal view only, like provenance):
+ *   - 'on_file': a session document that supports the deciding fact; note says
+ *     what it confirms.
+ *   - 'missing': a document or fact NOT in the file that holds up an
+ *     "Insufficient information" outcome; note says what it would settle.
+ * Rows generated before prompt v5 have no sources; the panel then falls back to
+ * the derived/mootness explanation and the raw provenance trail.
+ */
+export interface AppendixRowSource {
+  kind: 'on_file' | 'missing';
+  name: string;
+  note: string | null;
+}
+
+/**
  * One stored row: the AI output plus the current (possibly edited) value and audit
  * state. reasoning is the clean, export-safe narrative (the supporting fact and the
  * legal consequence in one), while provenance holds the raw internal trail (answer
@@ -61,6 +78,7 @@ export interface AppendixRow {
   status: Status | null;          // current; equals ai* until edited
   reasoning: string | null;       // fact + legal consequence in one, export-safe
   provenance: string | null;      // internal-only raw trail, excluded from export
+  sources?: AppendixRowSource[];  // AI-named backing documents; internal-only, absent on pre-v5 rows
   excludedFromClient: boolean;    // advisor hid this row; dropped + renumbered in the client export
   source: 'ai' | 'edited';
   stale: boolean;
@@ -120,8 +138,39 @@ export interface FactEntity {
    * Advisor overrides for the editable register fields. The base fields above are
    * rebuilt from the chart/AI on every regeneration; anything set here wins and is
    * preserved across regeneration (keyed by chartEntityId, like `hidden`).
+   * relationType/relatedPct override the relation-to-the-taxpayer line (and the
+   * Related % column); the *Reason keys override the reasoning shown under the
+   * relation, NL-classification and home-state blocks in the register detail.
    */
-  edits?: { jurisdiction?: string | null; entityType?: string | null; nlTaxStatus?: string | null };
+  edits?: {
+    jurisdiction?: string | null;
+    entityType?: string | null;
+    nlTaxStatus?: string | null;
+    relationType?: string | null;
+    relatedPct?: number | null;
+    relationReason?: string | null;
+    nlReason?: string | null;
+    localReason?: string | null;
+    /**
+     * Advisor's explicit membership of the "Related" (relevant) set, overriding the
+     * derived relevance. 'in' promotes an otherwise-Other entity into the relevant
+     * list; 'out' demotes an otherwise-relevant entity to Other. Absent = follow the
+     * derived relevance test. Distinct from `hidden` (client visibility).
+     */
+    relevanceOverride?: 'in' | 'out';
+    /**
+     * Advisor dismissed the inline "home-state classification required" flag: the
+     * foreign (home-state) classification is not relevant for this entity, without
+     * recording a transparent / non-transparent view.
+     */
+    localNotRelevant?: boolean;
+  };
+  /**
+   * Advisor added this entity by hand (not derived from the structure chart). It has
+   * no chart counterpart, so regeneration must carry it over rather than rebuild it;
+   * removing it deletes it outright instead of demoting it to "Other".
+   */
+  manual?: boolean;
   /** Advisor has marked this entity irrelevant; dropped from all client-facing exports. */
   hidden?: boolean;
   /** True on the synthetic taxpayer that represents a fiscal unity. */
@@ -151,6 +200,29 @@ export interface ActingTogetherCluster {
    */
   rationales?: Partial<Record<ActingLikelihood, string>>;
   excludedFromClient: boolean;
+  /**
+   * The advisor's explicit annex decision, overriding the likelihood-derived
+   * default. Undefined = follow the default (likely or higher is shown in the
+   * client annex). Set to true to disclose an unlikely grouping anyway, or false
+   * to leave a likely one out. See actingInClientAnnex.
+   */
+  includeInClient?: boolean;
+  /**
+   * How this grouping came to be:
+   *   'manual' - the advisor built it in the group builder. Manual groups are the
+   *              leading input: they (and only they) flow to the client appendix
+   *              and the memo. See actingInClientReport.
+   *   'ai'/undefined - a non-binding suggestion from the documents (legacy or a
+   *              hint). It never reaches the client on its own; the advisor adopts
+   *              it into a manual group first.
+   */
+  origin?: 'ai' | 'manual';
+  /** Manual groups: the legal basis (grondslag) category driving the suggestion text. */
+  basis?: ActingBasis;
+  /** Manual groups: the advisor-given group name (e.g. "The Jansen family"). */
+  name?: string;
+  /** Manual groups: the entity whose voting rights/capital the group acts over (fills [target]). */
+  targetEntityId?: string | null;
   source: 'ai' | 'edited';
 }
 
@@ -166,6 +238,40 @@ export interface ClassificationItem {
   source: 'ai' | 'edited';
 }
 
+/** One characteristic's answer. 'tbd' = to be determined; 'na' only on the quad ones. */
+export type TriState = 'yes' | 'no' | 'tbd';
+export type QuadState = TriState | 'na';
+/** The two buckets a transaction lands in, derived from the characteristics below. */
+export type TxStatus = 'needs' | 'no_risk';
+
+/**
+ * The advisor-editable substance of a transaction's ATAD2 assessment. Cross-border
+ * is context (a precondition); the four mismatch categories are what actually make
+ * a flow "needs assessment". Any category answered Yes or To be determined keeps the
+ * flow in "Needs assessment"; all cleared (No / N/A) yields "No risk identified".
+ *
+ * Unset fields fall back to a seed derived from the facts (jurisdictions,
+ * classifications) and the AI funnel flag, so an untouched transaction reproduces
+ * the AI's original bucket. `statusOverride` lets the advisor force the bucket
+ * regardless of the characteristics, with a mandatory reason.
+ *
+ * Purely advisor-authored: the AI never writes this. Preserved across regeneration
+ * because any edit stamps the transaction `source: 'edited'` (see mergeFacts).
+ */
+export interface TransactionAssessment {
+  crossBorder?: TriState;
+  hybridInstrument?: TriState;
+  hybridEntityMismatch?: QuadState;
+  importedMismatch?: QuadState;
+  permanentEstablishment?: QuadState;   // disregarded-PE / branch mismatch
+  /** Free-text reasoning shown in the panel and carried into the memo line. */
+  rationale?: string | null;
+  /** Advisor's explicit bucket, overriding the derived one. Null/absent = follow the characteristics. */
+  statusOverride?: TxStatus | null;
+  /** Required whenever statusOverride is set: why the advisor overrode the derived status. */
+  overrideReason?: string | null;
+}
+
 export interface TransactionItem {
   id: string;                  // "T1"
   fromEntityId: string;
@@ -174,10 +280,12 @@ export interface TransactionItem {
   instrument: string | null;
   note: string | null;
   articlesTested: string[];    // ["12aa(1)(a)","12ad"]
-  /** AI-proposed funnel relevance; advisor can flip it. Missing = relevant. */
+  /** AI-proposed funnel relevance; seeds the assessment when untouched. Missing = relevant. */
   relevant?: boolean;
-  /** Short AI reason why this flow is (not) relevant for ATAD2. */
+  /** Short AI reason why this flow is (not) relevant for ATAD2; the memo fallback when untouched. */
   relevanceReason?: string | null;
+  /** Advisor's editable characteristics + status override (see TransactionAssessment). */
+  assessment?: TransactionAssessment;
   status: FactStatus;
   excludedFromClient: boolean;
   source: 'ai' | 'edited';
@@ -212,6 +320,12 @@ export interface AppendixFacts {
   excludedSections?: AppendixSectionKey[];
   /** Per-section connective sentences (max ~2 sentences each). */
   narratives?: Partial<Record<NarrativeKey, Narrative>>;
+  /**
+   * True once a successful facts pass produced its acting-together assessment,
+   * even when the result is an empty group. Distinguishes a trusted, cacheable
+   * empty from a not-yet-run one, so the appendix is not regenerated on revisit.
+   */
+  actingTogetherSettled?: boolean;
 }
 
 /** The atad2_appendix row shape (rows stored as JSONB). */

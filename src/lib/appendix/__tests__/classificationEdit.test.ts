@@ -24,4 +24,19 @@ describe('withLocalQualification', () => {
     const next = withLocalQualification(base, 'E2', 'unknown', 'US');
     expect(next.classifications[0]).toMatchObject({ homeClass: '', source: 'edited' });
   });
+
+  it('stores the reverse-hybrid pick in the free-form homeClass spelling', () => {
+    const next = withLocalQualification(facts(), 'E2', 'reverse_hybrid', 'US');
+    expect(next.classifications[0]).toMatchObject({ homeClass: 'reverse hybrid', source: 'edited' });
+  });
+
+  it('confirms the row on both paths, so the advisor edit survives factsForClient', () => {
+    // factsForClient drops status 'proposed'; a hand-set classification must not
+    // show on screen but silently vanish from the memo and dossier exports.
+    const inserted = withLocalQualification(facts(), 'E2', 'transparent', 'US');
+    expect(inserted.classifications[0].status).toBe('confirmed');
+    const base = facts([{ entityId: 'E2', homeState: 'US', homeClass: 'opaque', sourceState: null, sourceClass: null, hybrid: true, status: 'proposed', excludedFromClient: false, source: 'ai' }]);
+    const updated = withLocalQualification(base, 'E2', 'transparent', 'US');
+    expect(updated.classifications[0].status).toBe('confirmed');
+  });
 });

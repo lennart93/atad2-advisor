@@ -139,7 +139,7 @@ const Dashboard = () => {
 
       <header className="flex items-end justify-between mb-6">
         <div>
-          <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-ds-ink-secondary mb-1">Admin</div>
+          <div className="text-[11px] font-normal uppercase tracking-[0.16em] text-ds-ink-secondary mb-1">Admin</div>
           <h1 className="text-3xl font-normal tracking-tight text-ds-ink">Dashboard</h1>
           <p className="text-ds-ink-secondary mt-1.5">An overview of activity across assessments, scores, and reports for the selected period.</p>
         </div>
@@ -156,7 +156,7 @@ const Dashboard = () => {
       </header>
 
       <section className="mb-6">
-        <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground font-medium mb-2">
+        <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground font-normal mb-2">
           Key metrics
         </div>
         <StaggerChildren className="grid grid-cols-4 gap-3">
@@ -196,7 +196,7 @@ const Dashboard = () => {
       </section>
 
       <section>
-        <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground font-medium mb-2">
+        <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground font-normal mb-2">
           Shortcuts
         </div>
         <StaggerChildren className="grid grid-cols-4 gap-3">
@@ -211,12 +211,12 @@ const Dashboard = () => {
                   >
                     <IconChip entity={s.entity} icon={s.icon} size="md" />
                     <div>
-                      <div className="text-[13px] font-medium text-foreground">{s.title}</div>
+                      <div className="text-[13px] font-normal text-foreground">{s.title}</div>
                       <div className="text-[11px] text-muted-foreground mt-0.5">{s.sub}</div>
                     </div>
                     {badge > 0 && (
                       <span
-                        className="absolute top-2 right-2 inline-flex items-center justify-center min-w-[20px] h-[20px] rounded-full bg-ds-ink text-ds-card text-[10px] font-medium px-1.5"
+                        className="absolute top-2 right-2 inline-flex items-center justify-center min-w-[20px] h-[20px] rounded-full bg-ds-ink text-ds-card text-[10px] font-normal px-1.5"
                         aria-label={`${badge} new`}
                       >
                         {badge > 99 ? "99+" : badge}

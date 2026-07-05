@@ -1,31 +1,4 @@
-import { useTheme } from "next-themes"
-import { Toaster as Sonner, toast } from "sonner"
-
-type ToasterProps = React.ComponentProps<typeof Sonner>
-
-const Toaster = ({ ...props }: ToasterProps) => {
-  const { theme = "system" } = useTheme()
-
-  return (
-    <Sonner
-      theme={theme as ToasterProps["theme"]}
-      className="toaster group"
-      position="bottom-right"
-      offset="calc(var(--app-bottom-inset, 0px) + 16px)"
-      toastOptions={{
-        classNames: {
-          toast:
-            "group toast group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg",
-          description: "group-[.toast]:text-muted-foreground",
-          actionButton:
-            "group-[.toast]:bg-primary group-[.toast]:text-primary-foreground",
-          cancelButton:
-            "group-[.toast]:bg-muted group-[.toast]:text-muted-foreground",
-        },
-      }}
-      {...props}
-    />
-  )
-}
-
-export { Toaster, toast }
+/* Compat shim: the toast implementation moved to app-toast.tsx (the on-brand
+ * component from design handoff 67, no sonner underneath). Call sites keep
+ * importing { toast } from "@/components/ui/sonner" unchanged. */
+export { Toaster, toast } from './app-toast';

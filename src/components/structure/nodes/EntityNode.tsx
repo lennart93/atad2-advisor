@@ -26,6 +26,14 @@ export type EntityNodeType = Node<EntityNodeData, 'entity'>;
 const NAME_LINE_HEIGHT = 14;        // 12px font + 2px leading
 const ASCENT_OFFSET = 11;           // distance from baseline of first line to its visual top
 
+// The brand grotesque (kept in sync with labelMeasure's FONT_SPEC so wrapped
+// line widths match what we render). Helvetica Neue is the loaded fallback.
+const CHART_FONT = "'Neue Haas Grotesk Display Pro', 'Helvetica Neue', Helvetica, Arial, sans-serif";
+
+// The "TAXPAYER" tab that straddles the top edge of the hero node.
+const TAXPAYER_PILL_W = 66;
+const TAXPAYER_PILL_H = 16;
+
 function EntityNodeComp({ id, data, selected }: NodeProps<EntityNodeType>) {
   const W = NODE_WIDTH;
   const H = NODE_HEIGHT;
@@ -155,7 +163,7 @@ function EntityNodeComp({ id, data, selected }: NodeProps<EntityNodeType>) {
               />
             )}
             <text
-              fontFamily="Inter, system-ui, sans-serif"
+              fontFamily={CHART_FONT}
               fontSize={12}
               fontWeight={500}
               style={{ fill: nameColor }}
@@ -170,14 +178,47 @@ function EntityNodeComp({ id, data, selected }: NodeProps<EntityNodeType>) {
             <text
               x={W / 2}
               y={H - 16}
-              fontFamily="Inter, system-ui, sans-serif"
+              fontFamily={CHART_FONT}
               fontSize={11}
-              fontWeight={600}
+              fontWeight={500}
+              letterSpacing={0.4}
               style={{ fill: secondaryColor }}
               textAnchor="middle"
             >
-              {secondaryLine}
+              {secondaryLine.toUpperCase()}
             </text>
+          </>
+        )}
+
+        {/* Taxpayer hero: a 3px terracotta letterhead line across the top edge
+            (rect shapes only) and a TAXPAYER tab straddling the top edge. */}
+        {isTaxpayer && !isIndividual && (
+          <>
+            {geom.outer.kind === 'rect' && (
+              <rect x={0} y={0} width={W} height={3} fill={PALETTE.taxpayerAccent} />
+            )}
+            <g>
+              <rect
+                x={(W - TAXPAYER_PILL_W) / 2}
+                y={-TAXPAYER_PILL_H / 2}
+                width={TAXPAYER_PILL_W}
+                height={TAXPAYER_PILL_H}
+                rx={TAXPAYER_PILL_H / 2}
+                fill={PALETTE.taxpayerAccent}
+              />
+              <text
+                x={W / 2}
+                y={3.5}
+                fontFamily={CHART_FONT}
+                fontSize={8}
+                fontWeight={500}
+                letterSpacing={1}
+                style={{ fill: PALETTE.taxpayerPillText }}
+                textAnchor="middle"
+              >
+                TAXPAYER
+              </text>
+            </g>
           </>
         )}
 
@@ -206,10 +247,10 @@ function EntityNodeComp({ id, data, selected }: NodeProps<EntityNodeType>) {
       {isIndividual && (
         <div style={{
           position: 'absolute', left: 0, right: 0, top: H + 4,
-          textAlign: 'center', fontFamily: 'Inter, system-ui, sans-serif', fontSize: 12,
+          textAlign: 'center', fontFamily: CHART_FONT, fontSize: 12,
         }}>
           <div style={{ fontWeight: 500, color: nameColor }}>{lines.join(' ')}</div>
-          <div style={{ fontSize: 10, color: secondaryColor }}>{secondaryLine}</div>
+          <div style={{ fontSize: 10, color: secondaryColor }}>{secondaryLine.toUpperCase()}</div>
         </div>
       )}
     </div>

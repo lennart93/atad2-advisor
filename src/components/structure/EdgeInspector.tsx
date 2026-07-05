@@ -9,7 +9,7 @@ interface Props {
   onDelete: () => void;
 }
 
-const FIELD_LABEL = 'block text-[10.5px] font-medium uppercase tracking-[0.06em] text-ds-ink-secondary mb-1.5';
+const FIELD_LABEL = 'block text-[10.5px] font-normal uppercase tracking-[0.06em] text-ds-ink-secondary mb-1.5';
 const INPUT_BASE = 'h-9 bg-white/70 border-ds-hairline focus-visible:ring-1 focus-visible:ring-ds-ink-tertiary focus-visible:ring-offset-0';
 
 export function EdgeInspector({ edge, onChange, onDelete }: Props) {
@@ -31,7 +31,7 @@ export function EdgeInspector({ edge, onChange, onDelete }: Props) {
 
       <label className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-md border border-ds-hairline bg-ds-fill-muted hover:bg-ds-fill-muted transition-colors cursor-pointer">
         <div className="flex flex-col">
-          <span className="text-[13px] font-medium text-ds-ink leading-tight">Show % on chart</span>
+          <span className="text-[13px] font-normal text-ds-ink leading-tight">Show % on chart</span>
           <span className="text-[11px] text-ds-ink-secondary leading-tight">Value still feeds the memo</span>
         </div>
         <Switch
@@ -44,7 +44,7 @@ export function EdgeInspector({ edge, onChange, onDelete }: Props) {
         <button
           type="button"
           onClick={() => onChange({ label_dx: null, label_dy: null, label_t: null })}
-          className="inline-flex items-center gap-1.5 text-[12px] text-ds-ink-secondary hover:text-ds-ink transition-colors font-medium"
+          className="inline-flex items-center gap-1.5 text-[12px] text-ds-ink-secondary hover:text-ds-ink transition-colors font-normal"
         >
           <RotateCcw className="h-3.5 w-3.5" />
           Reset label position
@@ -55,7 +55,7 @@ export function EdgeInspector({ edge, onChange, onDelete }: Props) {
         <button
           type="button"
           onClick={onDelete}
-          className="mt-2 inline-flex items-center gap-1.5 text-[12px] text-ds-red hover:bg-ds-red-bg rounded px-1 py-0.5 transition-colors font-medium"
+          className="mt-2 inline-flex items-center gap-1.5 text-[12px] text-ds-red hover:bg-ds-red-bg rounded px-1 py-0.5 transition-colors font-normal"
         >
           <Trash2 className="h-3.5 w-3.5" />
           Delete edge

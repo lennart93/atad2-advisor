@@ -3,7 +3,7 @@ import { ENTITY_TYPES, type EntityType } from '@/lib/structure/types';
 export function EntityPalette({ onAdd }: { onAdd: (t: EntityType) => void }) {
   return (
     <div className="w-48 shrink-0 border-r border-ds-hairline bg-ds-card p-3 flex flex-col gap-2 overflow-y-auto">
-      <div className="text-[13px] font-medium text-ds-ink-secondary">
+      <div className="text-[13px] font-normal text-ds-ink-secondary">
         Add entity
       </div>
       {ENTITY_TYPES.map(t => (

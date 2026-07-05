@@ -1,15 +1,13 @@
 // src/components/assessment/DossierTag.tsx
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { differenceInCalendarDays } from 'date-fns';
-import { Check, ChevronRight, Fingerprint, Folder, FolderOpen, Plus } from 'lucide-react';
+import { FileText, Folder, FolderOpen } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { StatusPill } from '@/components/ds';
-import { useOpenQuestions } from '@/hooks/useOpenQuestions';
 import { useSessionDocuments } from '@/hooks/usePrefill';
 import { DOCUMENT_CATEGORIES } from '@/lib/prefill/types';
 import { formatDate } from '@/utils/formatDate';
+import { formatFiscalYears, parseFiscalYears } from '@/utils/formatFiscalYears';
+import { taxpayerDisplayName } from '@/lib/taxpayer';
 import { cn } from '@/lib/utils';
 
 export interface DossierTagProps {
@@ -25,28 +23,27 @@ export interface DossierTagProps {
   completed: boolean;
 }
 
-const OUTCOME_PILLS: Record<string, { status: 'triggered' | 'insufficient' | 'complete'; label: string }> = {
-  risk_identified: { status: 'triggered', label: 'ATAD2 risk identified' },
-  insufficient_information: { status: 'insufficient', label: 'Insufficient information' },
-  low_risk: { status: 'complete', label: 'Low ATAD2 risk' },
+// Status dot + label by outcome. The dot colour follows the app's status
+// palette: terracotta (the accent) = in progress, amber = ATAD2 risk or
+// insufficient information, sage = no risk identified / done. Amber stays
+// risk-only, so the in-progress dot uses the terracotta accent (matching the
+// dashboard), not amber. The stored value stays `low_risk`; only the label changed.
+const OUTCOME_DOT: Record<string, { dot: string; label: string }> = {
+  risk_identified: { dot: 'bg-ds-amber', label: 'ATAD2 risk identified' },
+  insufficient_information: { dot: 'bg-ds-amber', label: 'Insufficient information' },
+  low_risk: { dot: 'bg-ds-green', label: 'No risk identified' },
 };
 
 const CATEGORY_LABELS = new Map(DOCUMENT_CATEGORIES.map((c) => [c.value as string, c.label]));
 
 const MAX_DOC_ROWS = 5;
 
-function daysAgoLabel(iso: string): string {
-  const days = differenceInCalendarDays(new Date(), new Date(iso));
-  if (days <= 0) return 'today';
-  if (days === 1) return '1 day ago';
-  return `${days} days ago`;
-}
-
 /**
  * The "which file am I working on" anchor, visible on every assessment step.
- * The folder tab opens a small cockpit: identity, where the assessment
- * stands, the documents feeding it, and a way out. Every row navigates
- * somewhere; the only static thing is who and which year.
+ * The folder tab opens a glanceable, read-only summary of the current session:
+ * who and which year, where the assessment stands, and the documents feeding
+ * it. No actions live here, adding documents and switching assessments happen
+ * on their own steps.
  */
 export function DossierTag({
   sessionId,
@@ -58,59 +55,48 @@ export function DossierTag({
   preliminaryOutcome,
   overrideOutcome,
   outcomeOverridden,
-  completed,
 }: DossierTagProps) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [hovered, setHovered] = useState(false);
-  const [copied, setCopied] = useState(false);
 
   // Cockpit data loads only once the card opens; the shell stays quiet.
   const { data: docs } = useSessionDocuments(open ? sessionId : null);
-  const { data: questionRows } = useOpenQuestions(open ? sessionId : null);
 
   if (!taxpayerName) return null;
 
+  // An assessment can name several entities (stored newline-joined); show them as
+  // one readable line. Single-entity is unchanged.
+  const taxpayerLabel = taxpayerDisplayName(taxpayerName);
   const FolderIcon = open || hovered ? FolderOpen : Folder;
-  const fyLabel = fiscalYear ? `FY${fiscalYear}` : null;
+  const fyLabel = fiscalYear ? `FY${formatFiscalYears(fiscalYear)}` : null;
 
-  // The boekjaar range only earns a mention when it is not simply the
-  // calendar year of the fiscal year.
+  // The boekjaar range only earns a mention when it is not simply the calendar
+  // span of the selected year(s). For a multi-year assessment that span runs
+  // from the first selected year's Jan 1 to the last year's Dec 31; only a real
+  // custom window deviates from it and earns the line.
+  const fyYears = parseFiscalYears(fiscalYear);
+  const fyMin = fyYears[0];
+  const fyMax = fyYears[fyYears.length - 1];
   const isCalendarYear =
-    !!fiscalYear &&
-    (!periodStart || periodStart === `${fiscalYear}-01-01`) &&
-    (!periodEnd || periodEnd === `${fiscalYear}-12-31`);
+    fyYears.length > 0 &&
+    (!periodStart || periodStart === `${fyMin}-01-01`) &&
+    (!periodEnd || periodEnd === `${fyMax}-12-31`);
   const showPeriod = !!periodStart && !!periodEnd && !isCalendarYear;
 
   const effectiveOutcome = outcomeOverridden && overrideOutcome ? overrideOutcome : preliminaryOutcome;
-  const outcomePill = effectiveOutcome ? OUTCOME_PILLS[effectiveOutcome] : undefined;
-  const outcomeHref = completed
-    ? `/assessment-report/${sessionId}`
-    : `/assessment-confirmation/${sessionId}`;
+  const outcome = effectiveOutcome ? OUTCOME_DOT[effectiveOutcome] : undefined;
 
-  const sentRows = (questionRows ?? []).filter((r) => r.status === 'taken_to_client');
-  const lastSentAt = sentRows
-    .map((r) => r.taken_to_client_at ?? r.updated_at)
-    .filter(Boolean)
-    .sort()
-    .at(-1);
-
+  // Clicking a document still jumps to the documents step; that is the one
+  // navigation the spec keeps. Everything else here is read-only.
   const goToDocuments = () => {
     setOpen(false);
     navigate(`/assessment/upload?session=${sessionId}`);
   };
 
-  const copyId = async () => {
-    try {
-      await navigator.clipboard.writeText(sessionId);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1500);
-    } catch {
-      // Clipboard unavailable; nothing actionable for the user here.
-    }
-  };
+  const docCount = docs?.length ?? 0;
 
-  const rowClasses =
+  const docRowClasses =
     'flex w-full items-center gap-2 rounded-ds-control px-2 py-1.5 text-left text-[13px] transition-colors duration-150 hover:bg-ds-fill-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent';
 
   return (
@@ -118,13 +104,13 @@ export function DossierTag({
       <PopoverTrigger asChild>
         <button
           type="button"
-          aria-label={`Current dossier: ${taxpayerName}${fyLabel ? `, ${fyLabel}` : ''}`}
+          aria-label={`Current dossier: ${taxpayerLabel}${fyLabel ? `, ${fyLabel}` : ''}`}
           onMouseEnter={() => setHovered(true)}
           onMouseLeave={() => setHovered(false)}
-          className="inline-flex max-w-[260px] shrink-0 items-center gap-2 rounded-ds-control border border-ds-hairline bg-ds-card px-2.5 py-1.5 text-left transition-colors duration-150 hover:bg-ds-fill-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent"
+          className="inline-flex max-w-[260px] min-w-0 items-center gap-2 rounded-ds-control border border-ds-hairline bg-ds-card px-2.5 py-1.5 text-left transition-colors duration-150 hover:bg-ds-fill-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent"
         >
           <FolderIcon className="size-3.5 shrink-0 text-ds-ink-secondary" aria-hidden="true" />
-          <span className="truncate text-[13px] font-medium text-ds-ink">{taxpayerName}</span>
+          <span className="truncate text-[13px] font-normal text-ds-ink">{taxpayerLabel}</span>
           {fyLabel && (
             <>
               <span aria-hidden="true" className="h-3 w-px shrink-0 bg-ds-hairline" />
@@ -135,131 +121,82 @@ export function DossierTag({
           )}
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-[330px] p-0">
-        {/* Identity: the one block that just states the facts. */}
-        <div className="px-3 py-3">
-          <p className="text-[13px] font-medium text-ds-ink">
-            {taxpayerName}
+      <PopoverContent
+        align="start"
+        className="w-[330px] border-t-2 border-t-ds-accent p-0 shadow-[0_18px_50px_rgba(20,18,12,0.16)]"
+      >
+        {/* Identity + status: who, which year, and where the assessment stands. */}
+        <div className="px-3.5 py-3">
+          <p className="text-[15px] font-normal text-ds-ink">
+            {taxpayerLabel}
             {fyLabel && (
-              <span className="ds-tabular-nums"> · {fyLabel}</span>
+              <>
+                <span className="text-ds-ink-tertiary"> · </span>
+                <span className="ds-tabular-nums">{fyLabel}</span>
+              </>
             )}
           </p>
-          <p className="ds-tabular-nums mt-0.5 text-[13px] text-ds-ink-secondary">
+          <p className="ds-tabular-nums mt-0.5 text-[12.5px] text-ds-ink-secondary">
             {showPeriod && (
               <>
                 Fiscal year {formatDate(periodStart)} to {formatDate(periodEnd)}
-                {startedAt && ' · '}
+                {startedAt && <span className="text-ds-ink-tertiary"> · </span>}
               </>
             )}
-            {startedAt && <>started {formatDate(startedAt)}</>}
+            {startedAt && <>Started {formatDate(startedAt)}</>}
           </p>
+
+          <div className="mt-2.5 flex items-center gap-2 text-[13px]">
+            <span
+              aria-hidden="true"
+              className={cn('size-[7px] shrink-0 rounded-full', outcome ? outcome.dot : 'bg-ds-accent')}
+            />
+            <span className="text-ds-ink">{outcome ? outcome.label : 'In progress'}</span>
+            <span className="text-[12px] text-ds-ink-tertiary">
+              {outcome
+                ? outcomeOverridden
+                  ? 'adjusted outcome'
+                  : 'preliminary outcome'
+                : 'No outcome yet'}
+            </span>
+          </div>
         </div>
 
-        {/* Status: where the assessment stands, with a way to jump there. */}
+        {/* Documents: what feeds the analysis. Rows still open the documents step. */}
         <div className="border-t border-ds-hairline px-1.5 py-1.5">
-          {outcomePill ? (
-            <button
-              type="button"
-              className={rowClasses}
-              onClick={() => {
-                setOpen(false);
-                navigate(outcomeHref);
-              }}
-            >
-              <StatusPill status={outcomePill.status}>{outcomePill.label}</StatusPill>
-              <span className="text-ds-ink-secondary">
-                {outcomeOverridden ? 'adjusted outcome' : 'preliminary outcome'}
-              </span>
-              <ChevronRight className="ml-auto size-3.5 shrink-0 text-ds-ink-tertiary" aria-hidden="true" />
-            </button>
+          <p className="px-2 pb-1 pt-1 text-[11px] font-medium uppercase tracking-[0.16em] text-ds-ink-tertiary">
+            Documents
+            {docCount > 0 && (
+              <>
+                {' · '}
+                <span className="ds-tabular-nums">{docCount}</span>
+              </>
+            )}
+          </p>
+          {docCount === 0 ? (
+            <p className="px-2 py-1.5 text-[13px] text-ds-ink-tertiary">No documents yet.</p>
           ) : (
-            <div className="flex items-center gap-2 px-2 py-1.5 text-[13px]">
-              <StatusPill status="neutral">In progress</StatusPill>
-              <span className="text-ds-ink-secondary">no outcome yet</span>
-            </div>
+            <>
+              {(docs ?? []).slice(0, MAX_DOC_ROWS).map((doc) => (
+                <button key={doc.id} type="button" className={docRowClasses} onClick={goToDocuments}>
+                  <FileText className="size-3.5 shrink-0 text-ds-ink-tertiary" aria-hidden="true" />
+                  <span className="min-w-0 flex-1 truncate text-ds-ink">
+                    {doc.doc_label || doc.filename}
+                  </span>
+                  <span className="shrink-0 rounded-ds-chip border border-ds-hairline px-1.5 py-0.5 text-[11px] text-ds-ink-secondary">
+                    {doc.status === 'summarizing'
+                      ? 'analyzing...'
+                      : CATEGORY_LABELS.get(doc.category) ?? doc.category}
+                  </span>
+                </button>
+              ))}
+              {docCount > MAX_DOC_ROWS && (
+                <p className="px-2 py-1.5 text-[13px] text-ds-ink-tertiary">
+                  and <span className="ds-tabular-nums">{docCount - MAX_DOC_ROWS}</span> more
+                </p>
+              )}
+            </>
           )}
-          {sentRows.length > 0 && (
-            <button
-              type="button"
-              className={rowClasses}
-              onClick={() => {
-                setOpen(false);
-                navigate(`/assessment/upload?session=${sessionId}&worklist=sent`);
-              }}
-            >
-              <span className="text-ds-ink">
-                <span className="ds-tabular-nums">{sentRows.length}</span>{' '}
-                {sentRows.length === 1 ? 'point' : 'points'} with the client
-                {lastSentAt && (
-                  <span className="text-ds-ink-secondary"> · {daysAgoLabel(lastSentAt)}</span>
-                )}
-              </span>
-              <ChevronRight className="ml-auto size-3.5 shrink-0 text-ds-ink-tertiary" aria-hidden="true" />
-            </button>
-          )}
-        </div>
-
-        {/* Documents: what feeds the analysis, plus the door to add more. */}
-        <div className="border-t border-ds-hairline px-1.5 py-1.5">
-          {(docs ?? []).slice(0, MAX_DOC_ROWS).map((doc) => (
-            <button key={doc.id} type="button" className={rowClasses} onClick={goToDocuments}>
-              <span className="min-w-0 truncate text-ds-ink">{doc.doc_label || doc.filename}</span>
-              <span className="ml-auto shrink-0 text-ds-ink-secondary">
-                {doc.status === 'summarizing'
-                  ? 'analyzing...'
-                  : CATEGORY_LABELS.get(doc.category) ?? doc.category}
-              </span>
-            </button>
-          ))}
-          {(docs?.length ?? 0) > MAX_DOC_ROWS && (
-            <button type="button" className={rowClasses} onClick={goToDocuments}>
-              <span className="text-ds-ink-secondary">
-                and <span className="ds-tabular-nums">{docs!.length - MAX_DOC_ROWS}</span> more
-              </span>
-              <ChevronRight className="ml-auto size-3.5 shrink-0 text-ds-ink-tertiary" aria-hidden="true" />
-            </button>
-          )}
-          <button type="button" className={rowClasses} onClick={goToDocuments}>
-            <Plus className="size-3.5 shrink-0 text-ds-ink-secondary" aria-hidden="true" />
-            <span className="text-ds-ink">Add a document</span>
-            <span className="ml-auto text-ds-ink-secondary">analysis updates</span>
-          </button>
-        </div>
-
-        {/* Footer: the way out, and the support escape hatch. */}
-        <div className="flex items-center justify-between border-t border-ds-hairline px-1.5 py-1.5">
-          <button
-            type="button"
-            className={cn(rowClasses, 'w-auto text-ds-ink-secondary hover:text-ds-ink')}
-            onClick={() => {
-              setOpen(false);
-              navigate('/');
-            }}
-          >
-            Other assessment
-          </button>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                aria-label="Copy session id for support"
-                onClick={copyId}
-                className={cn(
-                  'inline-flex size-7 items-center justify-center rounded-ds-control transition-colors duration-150 hover:bg-ds-fill-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent',
-                  copied ? 'text-ds-green' : 'text-ds-ink-secondary',
-                )}
-              >
-                {copied ? (
-                  <Check className="size-3.5" aria-hidden="true" />
-                ) : (
-                  <Fingerprint className="size-3.5" aria-hidden="true" />
-                )}
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">
-              {copied ? 'Copied' : 'Copy session id for support'}
-            </TooltipContent>
-          </Tooltip>
         </div>
       </PopoverContent>
     </Popover>

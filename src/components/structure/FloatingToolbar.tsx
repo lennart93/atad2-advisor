@@ -3,9 +3,13 @@ import { Button } from '@/components/ui/button';
 interface Props {
   isExtracting: boolean;
   busy?: boolean;
-  collapsedClusterCount: number;
-  onCollapseAll: () => void;
-  onExpandAll: () => void;
+  /** True while non-relevant entities are hidden (the default). */
+  hideNonRelevant: boolean;
+  /** How many non-relevant entities are currently folded away. */
+  nonRelevantCount: number;
+  /** Re-hide the non-relevant entities (the "Show all" affordance lives in the
+   *  top-right chip on the canvas). */
+  onCollapseNonRelevant: () => void;
   orphanCount: number;
   orphansVisible: boolean;
   onToggleOrphans: () => void;
@@ -18,9 +22,9 @@ interface Props {
 export function FloatingToolbar({
   isExtracting,
   busy,
-  collapsedClusterCount,
-  onCollapseAll,
-  onExpandAll,
+  hideNonRelevant,
+  nonRelevantCount,
+  onCollapseNonRelevant,
   orphanCount,
   orphansVisible,
   onToggleOrphans,
@@ -32,7 +36,7 @@ export function FloatingToolbar({
   const canCreateFiscalUnity = selectedEntityIds.length >= 2;
   return (
     <div
-      className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 bg-ds-card border border-ds-hairline rounded-lg shadow-lg px-3 py-2 flex items-center gap-3 text-sm"
+      className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 bg-ds-card border border-ds-hairline rounded-sm shadow-md px-3 py-2 flex items-center gap-3 text-sm"
       data-snapshot-exclude="true"
     >
       {isExtracting && (
@@ -44,18 +48,10 @@ export function FloatingToolbar({
           Refining structure…
         </span>
       )}
-      {collapsedClusterCount > 0 ? (
+      {!hideNonRelevant && nonRelevantCount > 0 && (
         <button
           type="button"
-          onClick={onExpandAll}
-          className="text-xs text-ds-ink-secondary hover:text-ds-ink px-2 py-1 rounded hover:bg-ds-fill-muted whitespace-nowrap"
-        >
-          {collapsedClusterCount} collapsed · Expand
-        </button>
-      ) : (
-        <button
-          type="button"
-          onClick={onCollapseAll}
+          onClick={onCollapseNonRelevant}
           className="text-xs text-ds-ink-secondary hover:text-ds-ink px-2 py-1 rounded hover:bg-ds-fill-muted whitespace-nowrap"
         >
           Collapse non-relevant

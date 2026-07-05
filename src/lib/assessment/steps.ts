@@ -8,16 +8,19 @@ export interface AssessmentStep {
   /** Full-bleed steps render directly into the flex-1 body with no
    *  centered/scroll wrapper — the structure-chart canvas needs the whole area. */
   fullBleed: boolean;
+  /** Form-like steps that render in the shared wizard card (a centered
+   *  max-w-3xl column with the white terracotta-topped panel). See WizardCard. */
+  card: boolean;
 }
 
 export const ASSESSMENT_STEPS: readonly AssessmentStep[] = [
-  { key: 'intake',       label: 'Intake',       wide: false, fullBleed: false },
-  { key: 'documents',    label: 'Documents',    wide: false, fullBleed: false },
-  { key: 'questions',    label: 'Questions',    wide: true,  fullBleed: false },
-  { key: 'confirmation', label: 'Confirmation', wide: false, fullBleed: false },
-  { key: 'appendix',     label: 'Appendix',     wide: true,  fullBleed: false },
-  { key: 'structure',    label: 'Structure',    wide: true,  fullBleed: true  },
-  { key: 'report',       label: 'Overview',     wide: false, fullBleed: false },
+  { key: 'intake',       label: 'Intake',       wide: false, fullBleed: false, card: true  },
+  { key: 'documents',    label: 'Documents',    wide: false, fullBleed: false, card: true  },
+  { key: 'questions',    label: 'Questions',    wide: true,  fullBleed: false, card: false },
+  { key: 'confirmation', label: 'Confirmation', wide: false, fullBleed: false, card: true  },
+  { key: 'appendix',     label: 'Appendix',     wide: true,  fullBleed: false, card: false },
+  { key: 'structure',    label: 'Structure',    wide: true,  fullBleed: true,  card: false },
+  { key: 'report',       label: 'Overview',     wide: false, fullBleed: false, card: false },
 ] as const;
 
 /**

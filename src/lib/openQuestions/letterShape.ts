@@ -1,4 +1,5 @@
 import type { OpenQuestionExportMeta } from "./exportText";
+import { formatFiscalYears } from "@/utils/formatFiscalYears";
 
 /**
  * Canonical frontend shape of the schema-v2 composed letter: a short prose
@@ -267,10 +268,23 @@ export function letterGroupViews(
 const POLITE_OPENER_RE = /^(could you|can you|please)\b/i;
 
 /**
- * Returns "Could you please confirm:" when the included questions (flattened
- * across all groups) are v2-style direct clauses. Returns null for legacy
- * letters where strictly more than half of the included questions open with
- * their own polite phrase, and for an empty included set.
+ * Whether a question opens with its own polite phrase ("Could you...",
+ * "Please..."). v2-style direct clauses ("for each of ...", "whether ...") do
+ * not; they are written to complete a shared "Could you please confirm:" stem.
+ * Shared by letterLeadIn and the on-screen points list (see pointsLeadIn).
+ */
+export function startsWithPoliteOpener(text: string): boolean {
+  return POLITE_OPENER_RE.test(text.trimStart());
+}
+
+/** The collective stem the direct-clause questions complete. */
+export const CONFIRM_LEAD_IN = "Could you please confirm:";
+
+/**
+ * Returns the lead-in when the included questions (flattened across all
+ * groups) are v2-style direct clauses. Returns null for legacy letters where
+ * strictly more than half of the included questions open with their own polite
+ * phrase, and for an empty included set.
  */
 export function letterLeadIn(
   letter: ComposedLetter,
@@ -281,10 +295,10 @@ export function letterLeadIn(
     .filter((question) => includedKeys.has(questionKey(question)));
   if (included.length === 0) return null;
   const politeCount = included.filter((question) =>
-    POLITE_OPENER_RE.test(question.text.trimStart()),
+    startsWithPoliteOpener(question.text),
   ).length;
   // Majority = strictly more than half start with a polite opener => legacy.
-  return politeCount > included.length / 2 ? null : "Could you please confirm:";
+  return politeCount > included.length / 2 ? null : CONFIRM_LEAD_IN;
 }
 
 /**
@@ -305,7 +319,7 @@ export function formatComposedLetterText(
 ): string {
   const blocks: string[][] = [
     [
-      `Questions for ${meta.taxpayerName} (FY ${meta.fiscalYear})`,
+      `Questions for ${meta.taxpayerName} (FY ${formatFiscalYears(meta.fiscalYear)})`,
       `Recorded on ${meta.dateLong}`,
     ],
   ];

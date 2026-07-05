@@ -16,21 +16,21 @@ export function BlockingBanner({ result, entities, onOpenEntity }: Props) {
       <div className="max-w-2xl w-full bg-ds-amber-bg border border-ds-hairline rounded-ds-card p-5">
         <div className="flex items-center gap-3 mb-4">
           <AlertTriangle className="w-6 h-6 text-ds-amber" />
-          <h2 className="text-[18px] font-medium leading-snug text-ds-amber-text">
+          <h2 className="text-[18px] font-normal leading-snug text-ds-amber-text">
             Chart cannot render. Fix the issues below first.
           </h2>
         </div>
 
         {result.missingFields.length > 0 && (
           <section className="mb-4">
-            <h3 className="ds-tabular-nums text-[13px] font-medium text-ds-ink mb-2">
+            <h3 className="ds-tabular-nums text-[13px] font-normal text-ds-ink mb-2">
               Missing required fields ({result.missingFields.length})
             </h3>
             <ul className="space-y-1">
               {result.missingFields.map((mf) => (
                 <li key={mf.entity_id} className="flex items-center justify-between text-[13px] text-ds-ink">
                   <span>
-                    <span className="font-medium">{entityName(mf.entity_id)}</span> is missing{' '}
+                    <span className="font-normal">{entityName(mf.entity_id)}</span> is missing{' '}
                     {mf.missing.join(' and ')}
                   </span>
                   <Button size="sm" variant="secondary" onClick={() => onOpenEntity(mf.entity_id)}>
@@ -44,7 +44,7 @@ export function BlockingBanner({ result, entities, onOpenEntity }: Props) {
 
         {result.cycles.length > 0 && (
           <section>
-            <h3 className="ds-tabular-nums text-[13px] font-medium text-ds-ink mb-2">
+            <h3 className="ds-tabular-nums text-[13px] font-normal text-ds-ink mb-2">
               Ownership cycles ({result.cycles.length})
             </h3>
             <ul className="space-y-1">

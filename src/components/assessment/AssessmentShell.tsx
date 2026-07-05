@@ -32,6 +32,7 @@ export default function AssessmentShell() {
   const fromOverview = searchParams.get('from') === 'overview';
   const overviewIndex = ASSESSMENT_STEPS.findIndex((s) => s.key === 'report');
   const structureIndex = ASSESSMENT_STEPS.findIndex((s) => s.key === 'structure');
+  const questionsIndex = ASSESSMENT_STEPS.findIndex((s) => s.key === 'questions');
   // Structure is reachable from Overview both directions: via the "Edit"
   // button on the chart card (when a chart was saved) AND via the Structure
   // tile in the top stepper. The stepper path matters when the user picked
@@ -135,7 +136,10 @@ export default function AssessmentShell() {
     <AssessmentShellContext.Provider value={ctxValue}>
       {/* DD2 — desktop-primary: min-width so nothing collapses absurdly. */}
       <div className="flex h-[calc(100vh-4rem)] min-w-[1024px] flex-col">
-        {/* Sub-header */}
+        {/* Sub-header: the dossier anchor sits beside the stepper on one row.
+            The stepper stays centered and at full width (hairline connectors,
+            design-reference 10-stepper-bar) in a flex-1 wrapper; the dossier
+            yields (truncates its name) before the stepper ever compresses. */}
         <div className="shrink-0 border-b border-ds-hairline bg-ds-card">
           <div className="mx-auto max-w-6xl px-4 py-3">
             <div className="flex items-center gap-4">
@@ -153,8 +157,11 @@ export default function AssessmentShell() {
                   completed={!!session?.completed}
                 />
               )}
-              <div className="min-w-0 flex-1">
+              {/* Reserves the stepper's full width (no min-w-0), so the dossier
+                  is what shrinks when the row gets tight, never the stepper. */}
+              <div className="flex flex-1 items-center justify-center">
                 <Stepper
+                  className="shrink-0"
                   steps={STEP_LABELS}
                   current={currentStep}
                   extraDone={extraDone}
@@ -163,14 +170,21 @@ export default function AssessmentShell() {
                   lockedIndexes={lockedIndexes}
                 />
               </div>
-              {/* Hidden on the Documents step: that page IS the open-points
-                  worklist, a header count would duplicate its progress. */}
-              {sessionId && stepDef?.key !== 'documents' && (
-                <OpenQuestionsButton
-                  sessionId={sessionId}
-                  onQuestionsStep={stepDef?.key === 'questions'}
-                />
-              )}
+              {/* The open-questions chip only earns its place while the
+                  questions are still being worked: up to and including the
+                  Questions step. Once the flow moves past Questions
+                  (Confirmation onward), a leftover count is noise, so the chip
+                  drops. Documents is hidden even earlier: that page IS the
+                  open-points worklist, so a header count would duplicate it. */}
+              {sessionId &&
+                currentStep >= 0 &&
+                currentStep <= questionsIndex &&
+                stepDef?.key !== 'documents' && (
+                  <OpenQuestionsButton
+                    sessionId={sessionId}
+                    onQuestionsStep={stepDef?.key === 'questions'}
+                  />
+                )}
             </div>
           </div>
         </div>
@@ -198,7 +212,12 @@ export default function AssessmentShell() {
             className={cn(
               stepDef?.fullBleed
                 ? 'flex-1'
-                : cn('mx-auto px-4 py-6', stepDef?.wide ? 'max-w-7xl' : 'max-w-6xl'),
+                : stepDef?.card
+                  ? // Form-like steps (Intake, Documents) share one centered
+                    // narrow column; the white terracotta-topped card lives in
+                    // the step itself (WizardCard).
+                    'mx-auto max-w-3xl px-6 py-12'
+                  : cn('mx-auto px-4 py-6', stepDef?.wide ? 'max-w-7xl' : 'max-w-6xl'),
             )}
           >
             <Outlet />

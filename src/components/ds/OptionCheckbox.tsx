@@ -40,7 +40,7 @@ export function OptionCheckbox({ checked, onToggle, disabled, children, classNam
       >
         {checked && <Check className="h-2.5 w-2.5 text-ds-card" strokeWidth={3} />}
       </span>
-      <span className="text-[13.5px] font-medium text-ds-ink-secondary">{children}</span>
+      <span className="text-[13.5px] font-normal text-ds-ink-secondary">{children}</span>
     </button>
   );
 }

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Loader2 } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { Button, ProcessChecklist, type ProcessStep } from '@/components/ds';
@@ -7,15 +7,18 @@ import { useAuth } from '@/hooks/useAuth';
 import { AssessmentFooterSlot } from '@/components/assessment/AssessmentFooterSlot';
 import { AppendixTable } from '@/components/appendix/AppendixTable';
 import {
-  loadAppendix, startAppendixGeneration, pollAppendixUntilReady, saveRowEdit, confirmAppendix, saveFacts, setAppendixSkip,
+  loadAppendix, startAppendixGeneration, pollAppendixUntilReady, saveRowEdit, confirmAppendix, saveFacts, setAppendixSkip, clearAppendixFactsCache,
 } from '@/lib/appendix/client';
 import type { StoredAppendix, AppendixRow, EditableField, AppendixFacts } from '@/lib/appendix/types';
 import { useAppendixSkeleton } from '@/lib/appendix/skeletonStore';
 import { loadChart } from '@/lib/structure/client';
 import { useUiBusySignal } from '@/stores/uiBusyStore';
 import { FactsPanel } from '@/components/appendix/FactsPanel';
+import { AppendixLoadingCard } from '@/components/appendix/AppendixLoadingCard';
 import { buildEntityRegister } from '@/lib/appendix/facts/entityRegister';
 import { emptyFacts } from '@/lib/appendix/facts/emptyFacts';
+import { actingTogetherCandidateCount } from '@/lib/appendix/facts/actingCandidates';
+import { supabase } from '@/integrations/supabase/client';
 
 type Phase = 'loading' | 'generating' | 'ready' | 'error';
 
@@ -45,6 +48,10 @@ function mergeServerUpdate(
 export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' | 'checklist' }) {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  // Reached via an Appendix "Edit" button on the finalized Overview. The footer
+  // then returns straight to the overview instead of walking the flow forward.
+  const fromOverview = searchParams.get('from') === 'overview';
   const { user } = useAuth();
   const { data: skeleton } = useAppendixSkeleton();
   const [appendix, setAppendix] = useState<StoredAppendix | null>(null);
@@ -52,6 +59,9 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
   const showSources = true;
   const [confirming, setConfirming] = useState(false);
   const [chart, setChart] = useState<{ entities: Parameters<typeof buildEntityRegister>[0]; edges: Parameters<typeof buildEntityRegister>[1]; groupings: Parameters<typeof buildEntityRegister>[2] } | null>(null);
+  // The session's declared taxpayer. Used to anchor the register when extraction
+  // flagged no is_taxpayer, so Part A does not fall back to an empty state.
+  const [taxpayerName, setTaxpayerName] = useState<string | null>(null);
   // Rows/facts the advisor edited this session, so a background refine poll does
   // not overwrite them on screen.
   const dirtyRowIds = useRef<Set<string>>(new Set());
@@ -71,6 +81,14 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
         }
       })
       .catch(() => { /* the overview is optional */ });
+    supabase
+      .from('atad2_sessions')
+      .select('taxpayer_name')
+      .eq('session_id', sessionId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!cancelled) setTaxpayerName((data?.taxpayer_name as string | null) ?? null);
+      });
     return () => { cancelled = true; };
   }, [sessionId]);
 
@@ -82,8 +100,12 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
     (async () => {
       try {
         let a = await loadAppendix(sessionId);
-        // Re-trigger generation when there is no row yet, a prior run errored,
-        // or a 'generating' row has gone stale (its background work never ran).
+        // Re-trigger generation only when there is genuinely no usable result:
+        // no row yet, a prior run errored, or a 'generating' row has gone stale
+        // (its background work never ran). A ready appendix is left as-is; the
+        // appendix is never rebuilt just because it was opened again. An empty
+        // acting-together with candidates is re-checked on demand via the
+        // "Re-check relationships" button, not automatically on every visit.
         const needsStart =
           !a ||
           a.generation_status === 'error' ||
@@ -180,6 +202,25 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
     }
   };
 
+  // Advisor-driven "re-ask the model for acting-together". Drops the Part A cache
+  // key first so the generation genuinely recomputes rather than reusing the
+  // stored empty result, then regenerates and folds the fresh facts in.
+  const handleRecheckRelationships = async () => {
+    if (!sessionId || !appendix) return;
+    setPhase('generating');
+    try {
+      await clearAppendixFactsCache(appendix.id);
+      await startAppendixGeneration(sessionId);
+      await pollAppendixUntilReady(sessionId, (upd) => {
+        setAppendix((prev) => mergeServerUpdate(prev, upd, dirtyRowIds.current, factsDirty.current));
+        setPhase(upd.generation_status === 'generating' ? 'generating' : upd.generation_status);
+      });
+    } catch (e) {
+      setPhase('error');
+      toast.error('Could not re-check relationships', { description: String(e) });
+    }
+  };
+
   const handleConfirm = async () => {
     if (!appendix || !user || !sessionId) return;
     setConfirming(true);
@@ -192,23 +233,44 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
     }
   };
 
-  const handleFactsChange = async (next: AppendixFacts) => {
+  // Facts edits commit per keystroke (the % input and the reasoning fields), so
+  // the writes are serialized: one in-flight save at a time, always writing the
+  // NEWEST snapshot next. Firing an await per keystroke instead would race, and
+  // an out-of-order completion could persist stale text over newer text.
+  const pendingFactsSave = useRef<{ id: string; facts: AppendixFacts } | null>(null);
+  const factsSaveInFlight = useRef(false);
+  const flushFactsSave = async () => {
+    if (factsSaveInFlight.current) return;
+    factsSaveInFlight.current = true;
+    try {
+      while (pendingFactsSave.current) {
+        const { id, facts } = pendingFactsSave.current;
+        pendingFactsSave.current = null;
+        try {
+          await saveFacts(id, facts);
+        } catch (e) {
+          toast.error('Could not save facts', { description: String(e) });
+        }
+      }
+    } finally {
+      factsSaveInFlight.current = false;
+    }
+  };
+
+  const handleFactsChange = (next: AppendixFacts) => {
     if (!appendix) return;
     factsDirty.current = true;
     setAppendix({ ...appendix, facts: next }); // optimistic
-    try {
-      await saveFacts(appendix.id, next);
-    } catch (e) {
-      toast.error('Could not save facts', { description: String(e) });
-    }
+    pendingFactsSave.current = { id: appendix.id, facts: next };
+    void flushFactsSave();
   };
 
   const factsToShow = useMemo(() => {
     const stored = appendix?.facts;
     if (stored && stored.entities.length) return stored;
-    if (chart) return { ...emptyFacts(), entities: buildEntityRegister(chart.entities, chart.edges, chart.groupings) };
+    if (chart) return { ...emptyFacts(), entities: buildEntityRegister(chart.entities, chart.edges, chart.groupings, taxpayerName) };
     return emptyFacts();
-  }, [appendix?.facts, chart]);
+  }, [appendix?.facts, chart, taxpayerName]);
 
   // Once an earlier pass has produced rows or facts, keep showing them while a
   // background refine (folding in the Q&A answers) runs, instead of blocking on
@@ -216,8 +278,16 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
   const hasContent = !!appendix && (appendix.rows.length > 0 || appendix.facts !== null);
   const refining = phase === 'generating';
 
+  // Part A landed with no acting-together group while related shareholders are
+  // present. It is left as-is (no automatic rebuild); the advisor can re-ask the
+  // model on demand with the button below.
+  const actingEmptyWithCandidates =
+    page === 'facts' &&
+    !!appendix?.facts &&
+    (appendix.facts.actingTogether?.length ?? 0) === 0 &&
+    actingTogetherCandidateCount(appendix.facts.entities) >= 2;
+
   if (phase === 'loading' || (phase === 'generating' && !hasContent)) {
-    const rowCount = appendix?.rows.length ?? 0;
     const steps: ProcessStep[] = [
       {
         id: 'register',
@@ -228,15 +298,9 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
         id: 'sections',
         label: 'Draft appendix sections',
         status: phase === 'generating' ? 'current' : 'pending',
-        detail: rowCount > 0 ? `${rowCount} rows` : undefined,
       },
     ];
-    return (
-      <div className="flex flex-col items-center justify-center gap-3 py-24">
-        <ProcessChecklist steps={steps} className="min-w-56 text-left" />
-        <p className="text-[13px] text-ds-ink-secondary">This can take a few minutes.</p>
-      </div>
-    );
+    return <AppendixLoadingCard partLabel={page === 'facts' ? 'Part A' : 'Part B'} steps={steps} />;
   }
 
   if (phase === 'error' || !appendix) {
@@ -285,12 +349,22 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
         </p>
       )}
 
+      {actingEmptyWithCandidates && !refining && (
+        <div className="flex items-center justify-between gap-3 rounded-md border border-[hsl(var(--border-subtle))] bg-muted/30 px-3 py-2 text-xs text-ds-ink-secondary">
+          <span>No acting-together group was found, although related shareholders are present. Re-check if one is expected.</span>
+          <Button variant="secondary" size="sm" className="shrink-0" onClick={handleRecheckRelationships}>
+            Re-check relationships
+          </Button>
+        </div>
+      )}
+
       <div className={skipped ? 'opacity-60' : undefined}>
         {page === 'facts' ? (
           <FactsPanel
             facts={factsToShow}
             onChange={appendix?.facts ? handleFactsChange : undefined}
             generated={!!appendix?.facts}
+            refining={refining}
           />
         ) : (
           // relatedParties is null on purpose: the associated-enterprises panel
@@ -301,9 +375,9 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
 
       <AssessmentFooterSlot
         left={
-          <>
+          fromOverview ? null : (
             <Button
-              variant="secondary"
+              variant="ghost"
               onClick={() =>
                 navigate(
                   page === 'facts'
@@ -315,26 +389,43 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
               <ArrowLeft className="h-4 w-4" />
               Previous
             </Button>
+          )
+        }
+        right={
+          <>
+            {/* Skip page sits to the left of the dark primary, which stays
+                right-most: the two forward actions are grouped on the right. */}
             <Button variant="secondary" onClick={handleToggleSkip}>
               {skipped ? 'Unskip page' : 'Skip page'}
             </Button>
+            {fromOverview ? (
+              // Edit-from-overview: edits auto-save and keep the appendix
+              // confirmed and in sync, so returning is a plain navigation, no
+              // re-confirm. Mirrors the structure chart's return button.
+              <Button
+                variant="primary"
+                onClick={() => navigate(`/assessment-report/${sessionId}`)}
+                disabled={refining}
+              >
+                {refining ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                {refining ? 'Finishing' : 'Done, return to overview'}
+                <ArrowRight className="h-4 w-4 text-[#e0a48f]" />
+              </Button>
+            ) : page === 'facts' ? (
+              <Button variant="primary" onClick={() => navigate(`/assessment-appendix/${sessionId}/checklist`)}>
+                Next
+                <ArrowRight className="h-4 w-4 text-[#e0a48f]" />
+              </Button>
+            ) : (
+              <Button variant="primary" onClick={handleConfirm} disabled={confirming || refining}>
+                {confirming || refining ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : null}
+                {refining ? 'Finishing' : 'Confirm appendix'}
+                <ArrowRight className="h-4 w-4 text-[#e0a48f]" />
+              </Button>
+            )}
           </>
-        }
-        right={
-          page === 'facts' ? (
-            <Button variant="secondary" onClick={() => navigate(`/assessment-appendix/${sessionId}/checklist`)}>
-              Next
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-          ) : (
-            <Button variant="primary" onClick={handleConfirm} disabled={confirming || refining}>
-              {confirming || refining ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : null}
-              {refining ? 'Finishing' : 'Confirm appendix'}
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-          )
         }
       />
     </div>

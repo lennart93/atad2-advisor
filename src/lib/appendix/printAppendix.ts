@@ -6,12 +6,13 @@ import type { AppendixFacts, AppendixRow, AppendixSectionKey, FactEntity, Narrat
 import { factsForClient } from './factsExport';
 import { visibleFacts } from './facts/visibleFacts';
 import { isSectionExcluded } from './facts/sections';
-import { effJurisdiction, effNlQualification } from './facts/entityFields';
+import { effJurisdiction, effNlQualification, effRelationType, effRelatedPct } from './facts/entityFields';
 import { nlQualificationLabel } from './facts/nlTaxStatus';
-import { actingLikelihoodLabel } from './facts/actingLikelihood';
+import { actingBasisLabel } from './facts/actingBasis';
 import { cleanReasoning } from './reasoningText';
-import { deriveConclusions, inScopeEntityIds, localQualification, entityHasQualificationDifference } from './facts/conclusions';
+import { deriveConclusions, inScopeEntityIds, effLocalQualification, entityHasQualificationDifference } from './facts/conclusions';
 import { relevantTransactions, accountedTransactionGroups } from './facts/relevance';
+import { txMemoReason } from './facts/transactionAssessment';
 import { countryName } from '@/lib/structure/countries';
 
 const jurLabel = (iso: string | null) => (iso ? `${countryName(iso)} (${iso})` : '');
@@ -126,18 +127,20 @@ export function buildAppendixPrintHtml(
     // Summary strip: deterministic funnel flags, computed from the same base
     // as the tables below (advisor edits included), never written by the model.
     const flags = deriveConclusions(f);
-    const at = flags.likelyActingTogether;
+    const at = flags.actingTogetherGroups;
     const strip =
       `<table>` +
       `<tr><td>Cross-border transactions with related parties</td><td>${flags.crossBorderRelatedFlows > 0 ? `${flags.crossBorderRelatedFlows} identified` : 'None identified'}</td></tr>` +
       `<tr><td>Hybrid qualification differences (NL vs local)</td><td>${flags.hybridDifferences > 0 ? `${flags.hybridDifferences} identified` : 'None identified'}</td></tr>` +
-      `<tr><td>Acting-together group considered likely</td><td>${at > 0 ? `${at} ${at === 1 ? 'cluster' : 'clusters'}` : 'None'}</td></tr>` +
+      `<tr><td>Acting-together groups</td><td>${at > 0 ? `${at} ${at === 1 ? 'group' : 'groups'}` : 'None'}</td></tr>` +
       `</table>`;
 
     // A.1 - The group and the taxpayer: taxpayer side (incl. fiscal-unity members) first.
     const isTaxpayerSide = (e: FactEntity) =>
       e.role === 'Taxpayer' || !!e.memberOfUnityId || !!e.inTaxpayerFiscalUnity;
     const roleText = (e: FactEntity): string => {
+      const edited = effRelationType(e);
+      if (edited) return edited + (e.inTaxpayerFiscalUnity ? ' (fiscal unity)' : '');
       if (e.role === 'Subsidiary' && e.directLink != null) {
         return e.directLink ? 'Subsidiary (direct)' : 'Subsidiary (indirect)';
       }
@@ -145,7 +148,11 @@ export function buildAppendixPrintHtml(
       return label + (e.inTaxpayerFiscalUnity ? ' (fiscal unity)' : '');
     };
     const positionNote = (e: FactEntity): string => {
-      if (e.role !== 'Group entity' || e.memberOfUnityId) return '';
+      if (e.role === 'Taxpayer' || e.memberOfUnityId) return '';
+      // The advisor's edited relation reasoning wins over any derived note.
+      const edited = e.edits?.relationReason?.trim();
+      if (edited) return `; ${edited}`;
+      if (e.role !== 'Group entity') return '';
       if (e.relatedVia) {
         const viaName = entityName(e.relatedVia);
         return e.relatedViaPct != null
@@ -179,12 +186,18 @@ export function buildAppendixPrintHtml(
     const relatedRows = f.entities
       .filter((e) => e.related && e.role !== 'Taxpayer' && !e.memberOfUnityId && !e.inTaxpayerFiscalUnity)
       .map((e) => {
-        const interest = e.ownershipPct != null
-          ? `${e.ownershipPct}%`
-          : (e.relatedVia && e.relatedViaPct != null)
-            ? `via ${esc(entityName(e.relatedVia))} (${e.relatedViaPct}%)`
-            : '';
-        return `<tr><td>${esc(e.name)}</td><td>${esc(e.role === 'Group entity' ? (e.shareholderOfTaxpayer ? 'Shareholder' : 'Other') : e.role)}</td><td>${interest}</td></tr>`;
+        // The advisor's edited percentage wins (including an explicit clear);
+        // otherwise the chart's direct or via-parent interest is shown.
+        const interest = e.edits?.relatedPct !== undefined
+          ? (effRelatedPct(e) != null ? `${effRelatedPct(e)}%` : '')
+          : e.ownershipPct != null
+            ? `${e.ownershipPct}%`
+            : (e.relatedVia && e.relatedViaPct != null)
+              ? `via ${esc(entityName(e.relatedVia))} (${e.relatedViaPct}%)`
+              : '';
+        const role = effRelationType(e)
+          ?? (e.role === 'Group entity' ? (e.shareholderOfTaxpayer ? 'Shareholder' : 'Other') : e.role);
+        return `<tr><td>${esc(e.name)}</td><td>${esc(role)}</td><td>${interest}</td></tr>`;
       }).join('');
     const relatedTable = relatedRows
       ? `<table><tr><th>Entity</th><th>Role</th><th>Interest</th></tr>${relatedRows}</table>`
@@ -192,19 +205,17 @@ export function buildAppendixPrintHtml(
 
     const atItems = f.actingTogether.map((a) => {
       const members = a.memberEntityIds.map((mid) => entityName(mid)).join(', ');
-      const pct = a.combinedPct != null ? ` (≈ ${a.combinedPct}%)` : '';
+      const title = a.name?.trim() ? esc(a.name.trim()) : esc(members);
+      const memberSuffix = a.name?.trim() ? ` (${esc(members)})` : '';
+      const basis = a.basis ? ` &middot; ${esc(actingBasisLabel(a.basis))}` : '';
       const excludedFlag = (internal && a.excludedFromClient) ? ` <span class="flag">excluded</span>` : '';
-      return `<li>${esc(members)}${pct} - <strong>${esc(actingLikelihoodLabel(a.likelihood))}</strong>${excludedFlag}: ${esc(a.reasoning)}</li>`;
+      return `<li><strong>${title}</strong>${memberSuffix}${basis}${excludedFlag}: ${esc(a.reasoning)}</li>`;
     }).join('');
-    // Dossier only: clusters below "likely" never reach the client (factsForClient
-    // drops them); account for them with one quiet line instead.
-    const allAt = internal ? [] : visibleFacts(facts).actingTogether.filter((a) => !a.excludedFromClient);
-    const downgradedAt = internal ? 0 : allAt.length - f.actingTogether.length;
-    const atAccounted = downgradedAt > 0
-      ? `<p class="accounted">${downgradedAt} candidate ${downgradedAt === 1 ? 'grouping was' : 'groupings were'} considered and not assessed as likely.</p>`
-      : '';
-    const atBlock = (!drop('actingTogether') && (atItems || atAccounted))
-      ? `<h3>Acting together</h3>${atItems ? `<ul>${atItems}</ul>` : ''}${atAccounted}`
+    // Clusters the advisor left out of the annex never reach the client
+    // (factsForClient drops them), and no "candidate grouping was considered"
+    // accounting line prints anywhere (handoff 68, fix 2).
+    const atBlock = (!drop('actingTogether') && atItems)
+      ? `<h3>Acting together</h3><ul>${atItems}</ul>`
       : '';
     const relatedBlock = !drop('relatedness')
       ? `<h2>A.2 · Related parties</h2>` + narrative('related') + relatedTable + atBlock
@@ -221,7 +232,7 @@ export function buildAppendixPrintHtml(
         `<td>${esc(entityName(t.fromEntityId))} &rarr; ${esc(entityName(t.toEntityId))}</td>` +
         `<td>${esc(t.kind)}</td>` +
         `<td>${esc(t.instrument)}</td>` +
-        `<td>${esc(t.relevanceReason ?? '')}</td>` +
+        `<td>${esc(txMemoReason(f, t))}</td>` +
         `<td>${t.articlesTested.map(esc).join(', ')}${excludedFlag}${proposedFlag}</td></tr>`
       );
     }).join('');
@@ -232,7 +243,7 @@ export function buildAppendixPrintHtml(
       ? `<table><tr>${txIdHeader}<th>Flow</th><th>Type</th><th>Instrument</th><th>Why relevant</th><th>Article(s)</th></tr>${relevantRows}</table>`
       : ((accountedTx.length > 0 || flowsNarrative) ? `<p class="accounted">No relevant intra-group transactions identified.</p>` : '');
     const accountedTxLines = accountedTx.map((g) =>
-      `<p class="accounted">${g.transactions.length} ${g.transactions.length === 1 ? 'transaction' : 'transactions'} not relevant: ${esc(g.reason)}</p>`,
+      `<p class="accounted">${g.transactions.length} ${g.transactions.length === 1 ? 'transaction' : 'transactions'}, no risk identified: ${esc(g.reason)}</p>`,
     ).join('');
     const flowsBlock = (!drop('transactions') && (flowsNarrative || flowsTable || accountedTxLines))
       ? `<h2>A.4 · Relevant transactions</h2>` + flowsNarrative + flowsTable + accountedTxLines
@@ -244,9 +255,14 @@ export function buildAppendixPrintHtml(
     const inScopeEnts = f.entities.filter((e) => scope.has(e.id));
     const clsRows = inScopeEnts.map((e) => {
       const c = clsByEntity.get(e.id);
-      const local = c
-        ? `${esc(nlQualificationLabel(localQualification(c.homeClass)))}${c.homeState ? ` (${esc(c.homeState)})` : ''}`
-        : 'To be determined';
+      const localQ = effLocalQualification(e, c);
+      // A Dutch entity's local view equals its NL classification (no home state in
+      // brackets); a foreign entity shows the home-state qualification and country.
+      const local = (effJurisdiction(e) ?? '').toUpperCase() === 'NL'
+        ? esc(nlQualificationLabel(localQ))
+        : c
+          ? `${esc(nlQualificationLabel(localQ))}${c.homeState ? ` (${esc(c.homeState)})` : ''}`
+          : 'To be determined';
       const mismatch = entityHasQualificationDifference(e, c);
       return (
         `<tr><td>${esc(e.name)}</td>` +
@@ -265,7 +281,7 @@ export function buildAppendixPrintHtml(
       : '';
 
     if (!registerBlock && !relatedBlock && !flowsBlock && !classBlock) return '';
-    return `<h2 style="font-size:13px;margin-top:0;">Part A &middot; Facts &amp; relationships</h2>${strip}${registerBlock}${relatedBlock}${classBlock}${flowsBlock}<hr style="margin:14px 0;border:none;border-top:1px solid #ccc;">`;
+    return `<h2 style="font-size:13px;margin-top:0;">Part A &middot; Entity classification &amp; relatedness</h2>${strip}${registerBlock}${relatedBlock}${classBlock}${flowsBlock}<hr style="margin:14px 0;border:none;border-top:1px solid #ccc;">`;
   })();
 
   return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>ATAD2 technical appendix</title>

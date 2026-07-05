@@ -10,7 +10,10 @@ import { cn } from "@/lib/utils";
  *
  * Lives inside OpenQuestionsButton so it shares the button ref, the live count
  * and the register's open state. The button only renders while something is
- * actively open (badge count > 0), so a zero count never reaches this hint.
+ * actively open (badge count > 0), so a zero count never reaches this hint. It
+ * also waits for `countSettled` before appearing: the chip shows a higher raw
+ * row count until the worklist finishes composing, and the hint freezes its
+ * label, so showing it early would leave the balloon and the chip disagreeing.
  *
  * Flip SHOW_OPEN_QUESTIONS_HINT_ONCE to false to show the hint on every entry
  * to the questionnaire instead of once per assessment. When true (default), a
@@ -61,6 +64,12 @@ export interface OpenQuestionsHintProps {
   anchorRef: RefObject<HTMLButtonElement>;
   /** Live open-questions count; drives the pluralised copy. */
   count: number;
+  /** True once `count` is the final merged client-question count. Until then the
+   *  chip falls back to the raw decision-tree row count (higher, before compose
+   *  bundles rows into questions); freezing that into the hint would make the
+   *  balloon read a larger number than the chip settles to. The hint waits for
+   *  this before it appears so its frozen label always matches the chip. */
+  countSettled: boolean;
   /** Scopes the persisted dismissed flag to this assessment. */
   sessionId: string;
   /** Only eligible to appear on the questionnaire (questions) step. */
@@ -74,6 +83,7 @@ export interface OpenQuestionsHintProps {
 export function OpenQuestionsHint({
   anchorRef,
   count,
+  countSettled,
   sessionId,
   active,
   panelOpen,
@@ -147,10 +157,16 @@ export function OpenQuestionsHint({
     [],
   );
 
-  // Schedule the entrance once the hint is eligible.
+  // Schedule the entrance once the hint is eligible. Wait for countSettled so
+  // the frozen label reads the final merged count, not the higher raw fallback
+  // the chip shows while the worklist is still composing.
   useEffect(() => {
     const eligible =
-      active && count > 0 && !panelOpen && !(SHOW_OPEN_QUESTIONS_HINT_ONCE && dismissed);
+      active &&
+      count > 0 &&
+      countSettled &&
+      !panelOpen &&
+      !(SHOW_OPEN_QUESTIONS_HINT_ONCE && dismissed);
     if (!eligible) return;
     if (SHOW_OPEN_QUESTIONS_HINT_ONCE && shownThisMountRef.current) return;
     const t = window.setTimeout(() => {
@@ -160,7 +176,7 @@ export function OpenQuestionsHint({
       setOpen(true);
     }, ENTRANCE_DELAY_MS);
     return () => window.clearTimeout(t);
-  }, [active, count, panelOpen, dismissed]);
+  }, [active, count, countSettled, panelOpen, dismissed]);
 
   // Opening the register always wins: dismiss the hint.
   useEffect(() => {
@@ -240,10 +256,10 @@ export function OpenQuestionsHint({
 
   if (!open) return null;
 
-  const label =
-    shownCount === 1
-      ? "1 question still open. You can answer it here."
-      : `${shownCount} questions still open. You can answer them here.`;
+  const primary =
+    shownCount === 1 ? "1 question still open." : `${shownCount} questions still open.`;
+  const secondary =
+    shownCount === 1 ? "You can answer it here." : "You can answer them here.";
 
   return createPortal(
     <div
@@ -252,23 +268,37 @@ export function OpenQuestionsHint({
       aria-live="polite"
       style={{ top: pos?.top ?? -9999, left: pos?.left ?? -9999 }}
       className={cn(
-        "fixed z-50 cursor-pointer select-none whitespace-nowrap rounded-ds-control bg-ds-accent px-3.5 py-2.5",
-        "text-[13px] leading-snug text-ds-card",
-        "shadow-[0_2px_4px_rgb(0_0_0/0.08),0_16px_34px_-16px_rgb(0_0_0/0.35)]",
-        "transition-[opacity,transform] duration-150 ease-out",
+        // The shared white "cloud" (same family as the Confirm-step reassurance),
+        // with the tail flipped to point up at the chip above it.
+        "fixed z-50 cursor-pointer select-none whitespace-nowrap rounded-ds-control border border-ds-hairline bg-ds-card px-3.5 py-2.5",
+        "text-[12.5px] leading-snug text-ds-ink",
+        "shadow-[0_14px_38px_rgba(20,18,12,0.13)]",
+        "transition-[opacity,transform] duration-[220ms] ease-[cubic-bezier(0.2,0.8,0.2,1)]",
         "motion-reduce:transition-[opacity] motion-reduce:duration-150",
         entered
           ? "translate-y-0 opacity-100"
-          : "-translate-y-1 opacity-0 motion-reduce:translate-y-0",
+          : "-translate-y-[5px] opacity-0 motion-reduce:translate-y-0",
       )}
     >
-      {/* Caret pointing up at the button; same near-black fill as the popover. */}
+      {/* Upward tail: a white square showing only its top-left edges, so it reads
+          as a point rising out of the cloud toward the chip. */}
       <span
         aria-hidden
-        className="absolute -top-[5px] h-2.5 w-2.5 rotate-45 rounded-[2px] bg-ds-accent"
+        className="absolute -top-[5px] h-2.5 w-2.5 rotate-45 border-l border-t border-ds-hairline bg-ds-card"
         style={{ left: pos ? pos.caretLeft - CARET_HALF : 0 }}
       />
-      {label}
+      <span className="inline-flex items-center gap-2">
+        {/* The only terracotta: a small pulsing dot that draws the eye without a
+            block of colour. Box-shadow ring only, so it never shifts layout. */}
+        <span
+          aria-hidden
+          className="size-[7px] shrink-0 rounded-full bg-ds-accent animate-terra-pulse motion-reduce:animate-none"
+        />
+        <span>
+          <span className="text-ds-ink">{primary}</span>{" "}
+          <span className="text-ds-ink-tertiary">{secondary}</span>
+        </span>
+      </span>
     </div>,
     document.body,
   );

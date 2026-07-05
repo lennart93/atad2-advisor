@@ -20,15 +20,26 @@ interface N8nPayload {
   risk_category?: string;
 }
 
-// HMAC signature verification
+// HMAC signature verification.
+//
+// FAIL CLOSED. This function runs with the service_role key (bypasses RLS) and
+// is the sole permitted inserter into atad2_reports, so the HMAC is the entire
+// trust boundary. A missing secret or a missing signature is a REJECTION, never
+// a pass — otherwise an attacker just omits the x-n8n-signature header to skip
+// the check and inject a forged report into any known session_id.
+//
+// DEPLOY REQUIREMENT: N8N_SIGNING_SECRET must be set on the VM (it is) AND the
+// n8n "generate-report" workflow must sign the raw body and send it as
+// `x-n8n-signature: sha256=<hex-or-base64 HMAC>`. Deploy this together with that
+// n8n change, or report insertion will 401.
 async function verifySignature(payload: string, signature: string | null, secret: string | null): Promise<boolean> {
   if (!secret) {
-    console.warn("N8N_SIGNING_SECRET is not set — skipping signature check");
-    return true;
+    console.error("N8N_SIGNING_SECRET is not configured — rejecting request (fail closed)");
+    return false;
   }
   if (!signature) {
-    console.warn("N8N_SIGNING_SECRET is set but no x-n8n-signature header received — allowing request (configure HMAC in n8n workflow to enforce)");
-    return true;
+    console.warn("Missing x-n8n-signature header — rejecting request (fail closed)");
+    return false;
   }
   const provided = signature.replace(/^sha256=/, "").trim();
   const enc = new TextEncoder();

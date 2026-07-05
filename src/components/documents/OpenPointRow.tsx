@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { CheckCircle2, ChevronRight, Loader2 } from "lucide-react";
+import { ArrowRight, Check, CheckCircle2, ChevronRight, Loader2 } from "lucide-react";
 import { Button, StatusPill } from "@/components/ds";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
@@ -61,49 +61,44 @@ export function OpenPointRow({
   const showAnswered = answered && !saving;
 
   return (
-    <div
-      className={cn(
-        "rounded-ds-card border border-ds-hairline bg-ds-card",
-        expanded && !answered && "border-l-2 border-l-ds-ink-tertiary",
-      )}
-    >
+    <div className="border-b border-ds-hairline">
       {/* The checkbox sits beside the toggle, never inside it, so selecting a
-          point for the client list does not expand or collapse the card. */}
-      <div className="flex items-center gap-3 px-4 py-3">
+          point for the client list does not expand or collapse the row. */}
+      <div className="flex items-start gap-3 py-5">
         <Checkbox
           checked={selected}
           onCheckedChange={(value) => onSelectChange(value === true)}
           aria-label="Include this point when asking the client"
-          className="shrink-0"
+          className="mt-0.5 h-5 w-5 shrink-0 rounded-[5px] border-ds-ink-tertiary data-[state=checked]:border-ds-green data-[state=checked]:bg-ds-green-bg data-[state=checked]:text-ds-green"
         />
         <button
           type="button"
           onClick={onToggle}
-          className="flex min-w-0 flex-1 items-center gap-3 text-left"
+          className="flex min-w-0 flex-1 items-start gap-3 text-left"
           aria-expanded={expanded}
         >
+          {point.number !== null && (
+            <span className="shrink-0 pt-px text-[13px] font-medium ds-tabular-nums text-ds-accent">
+              {String(point.number).padStart(2, "0")}
+            </span>
+          )}
           <span
             className={cn(
-              "min-w-0 flex-1 text-[13px] font-medium leading-snug text-ds-ink",
+              "min-w-0 flex-1 text-[15px] font-normal leading-relaxed text-ds-ink",
               !expanded && "truncate",
             )}
           >
-            {point.number !== null && (
-              <span className="ds-tabular-nums text-ds-ink-secondary">
-                {point.number}.{" "}
-              </span>
-            )}
             {point.questionText}
           </span>
           {showAnswered && (
-            <StatusPill status="complete" className="shrink-0">
+            <StatusPill status="complete" className="ml-auto mt-0.5 shrink-0">
               <CheckCircle2 aria-hidden="true" />
               Answered
             </StatusPill>
           )}
           <ChevronRight
             className={cn(
-              "h-4 w-4 shrink-0 text-ds-ink-secondary transition-transform",
+              "ml-auto mt-0.5 h-4 w-4 shrink-0 text-ds-ink-secondary transition-transform",
               expanded && "rotate-90",
             )}
           />
@@ -111,7 +106,7 @@ export function OpenPointRow({
       </div>
 
       {expanded && (
-        <div className="space-y-3 border-t border-ds-hairline px-4 py-4">
+        <div className="space-y-3 pb-5 pl-[52px]">
           {saving ? (
             <p className="flex items-center gap-2 py-1 text-[13px] text-ds-ink-secondary">
               <Loader2 className="h-4 w-4 motion-safe:animate-spin text-ds-ink-secondary" />
@@ -165,7 +160,7 @@ function PointResolution({
   return (
     <div className="space-y-3">
       <div className="rounded-ds-control bg-ds-fill-muted px-3 py-2">
-        <p className="text-[13px] font-medium text-ds-ink-secondary ds-tabular-nums">
+        <p className="text-[13px] font-normal text-ds-ink-secondary ds-tabular-nums">
           {point.status === "answered_by_client"
             ? `Client reply, recorded ${formatDate(point.answeredAt)}`
             : `Your input, saved ${formatDate(point.answeredAt)}`}
@@ -217,6 +212,9 @@ function ContextForm({
 }) {
   const [context, setContext] = useState(point.answerDetail ?? "");
   const [saving, setSaving] = useState(false);
+  // A brief "Saved" confirmation on the button. Clears after a moment or as
+  // soon as the advisor edits the note again.
+  const [justSaved, setJustSaved] = useState(false);
   // The last value committed to the server. Auto-save only fires for changes
   // against this baseline, which also stops a blur and an explicit Save from
   // both firing for the same text.
@@ -237,6 +235,7 @@ function ContextForm({
     savedBaselineRef.current = context;
     try {
       await onSave(context);
+      setJustSaved(true);
     } finally {
       setSaving(false);
     }
@@ -265,50 +264,106 @@ function ContextForm({
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
 
-  return (
-    <div className="space-y-3">
-      <div className="space-y-1.5">
-        <label htmlFor={fieldId} className="block text-[13px] font-medium text-ds-ink">
-          What you know about this
-        </label>
-        <Textarea
-          id={fieldId}
-          value={context}
-          onChange={(event) => setContext(event.target.value)}
-          onBlur={handleBlur}
-          onKeyDown={handleKeyDown}
-          rows={3}
-          disabled={disabled}
-          placeholder="A short factual note"
-          className="bg-ds-card text-[13px]"
-        />
-      </div>
+  // Let the "Saved" confirmation settle back to the resting state.
+  useEffect(() => {
+    if (!justSaved) return;
+    const timer = setTimeout(() => setJustSaved(false), 2000);
+    return () => clearTimeout(timer);
+  }, [justSaved]);
 
-      <div className="flex flex-wrap items-center gap-2">
-        {/* preventDefault on mousedown keeps focus in the field, so clicking
-            Save (or Cancel) never blurs it and never double-fires auto-save. */}
-        <Button
-          variant="secondary"
-          size="sm"
-          disabled={disabled || !canSave}
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => void save()}
-        >
-          {saving && <Loader2 className="motion-safe:animate-spin" />}
-          {saving ? "Working it out..." : "Save answer"}
-        </Button>
-        {onCancel && (
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={disabled}
+  const buttonState: SaveState = saving
+    ? "saving"
+    : justSaved
+      ? "done"
+      : canSave
+        ? "ready"
+        : "idle";
+
+  // One contained inset, indented to line up under the question: the label, the
+  // field, then a footer that pairs a quiet helper with the Save button.
+  return (
+    <div className="rounded-ds-control border border-ds-hairline border-l-2 border-l-ds-green bg-ds-card px-[17px] pb-4 pt-[15px]">
+      <label
+        htmlFor={fieldId}
+        className="block text-[10.5px] font-medium uppercase tracking-[0.1em] text-ds-ink-secondary"
+      >
+        What you know about this
+      </label>
+      <Textarea
+        id={fieldId}
+        value={context}
+        onChange={(event) => {
+          setContext(event.target.value);
+          if (justSaved) setJustSaved(false);
+        }}
+        onBlur={handleBlur}
+        onKeyDown={handleKeyDown}
+        disabled={disabled}
+        placeholder="A short factual note, anything you already know that settles this point."
+        className="mt-[9px] min-h-16 resize-y rounded-ds-control border-ds-hairline bg-ds-card text-[13px] text-ds-ink placeholder:text-ds-ink-tertiary focus-visible:border-ds-green focus-visible:ring-0 focus-visible:ring-offset-0"
+      />
+      <div className="mt-3 flex items-center justify-between gap-3">
+        <span className="text-[11px] text-ds-ink-tertiary">
+          {canSave
+            ? "Saved with your session."
+            : "Optional. You can leave it for later."}
+        </span>
+        <div className="flex items-center gap-3">
+          {/* preventDefault on mousedown keeps focus in the field, so clicking
+              Save (or Cancel) never blurs it and never double-fires auto-save. */}
+          {onCancel && (
+            <button
+              type="button"
+              disabled={disabled}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={onCancel}
+              className="text-[13px] text-ds-ink-secondary transition-colors hover:text-ds-ink disabled:opacity-50"
+            >
+              Cancel
+            </button>
+          )}
+          <SaveNoteButton
+            state={buttonState}
             onMouseDown={(event) => event.preventDefault()}
-            onClick={onCancel}
-          >
-            Cancel
-          </Button>
-        )}
+            onClick={() => void save()}
+          />
+        </div>
       </div>
     </div>
+  );
+}
+
+/** The Save control's resting/active states (see OPEN-QUESTIONS-ITEM-REWORK). */
+type SaveState = "idle" | "ready" | "saving" | "done";
+
+/**
+ * Save note, three states: idle (a quiet outline while the field is empty),
+ * ready (solid ink, the inviting state once there is text), and done (a brief
+ * sage confirmation). A spinner shows while the note is being written.
+ */
+function SaveNoteButton({
+  state,
+  ...props
+}: { state: SaveState } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
+  const styles: Record<SaveState, string> = {
+    idle: "border-ds-ink-tertiary bg-ds-card text-ds-ink hover:border-ds-accent hover:text-ds-accent",
+    ready: "border-ds-ink bg-ds-ink text-ds-card hover:border-ds-ink-hover hover:bg-ds-ink-hover",
+    saving: "border-ds-ink bg-ds-ink text-ds-card",
+    done: "border-ds-green bg-ds-green-bg text-ds-green-text",
+  };
+  const Icon = state === "saving" ? Loader2 : state === "ready" ? ArrowRight : Check;
+  return (
+    <button
+      type="button"
+      className={cn(
+        "inline-flex items-center gap-2 rounded-ds-control border px-[17px] py-2 text-[13px] font-medium transition-colors disabled:cursor-not-allowed [&_svg]:size-4 [&_svg]:shrink-0",
+        styles[state],
+      )}
+      {...props}
+      disabled={state === "saving" || state === "done"}
+    >
+      <Icon className={cn(state === "saving" && "motion-safe:animate-spin")} />
+      {state === "done" ? "Saved" : "Save note"}
+    </button>
   );
 }

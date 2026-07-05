@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AdminCard } from "@/components/admin/AdminCard";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "@/components/ui/app-toast";
 import { PrefillPromptEditor } from "@/components/admin/prefill/PrefillPromptEditor";
 import { DiffView } from "@/components/admin/prompt-tuner/DiffView";
 import { AnalysisPanel } from "@/components/admin/prompt-tuner/AnalysisPanel";
@@ -66,7 +66,7 @@ export default function PromptTuner() {
       setMemoCandidates(rows);
       setSelectedId(rows[0]?.source_row_id ?? null);
     },
-    onError: (e) => toast({ title: "Search failed", description: String(e instanceof Error ? e.message : e), variant: "destructive" }),
+    onError: (e) => toast.error("Search failed", { description: String(e instanceof Error ? e.message : e) }),
   });
 
   const loadAppendix = useMutation({
@@ -75,14 +75,14 @@ export default function PromptTuner() {
       setAppendixCandidates(rows);
       setSelectedId(rows[0]?.edit_id ?? null);
     },
-    onError: (e) => toast({ title: "Load failed", description: String(e instanceof Error ? e.message : e), variant: "destructive" }),
+    onError: (e) => toast.error("Load failed", { description: String(e instanceof Error ? e.message : e) }),
   });
 
   const analyze = useMutation({
     mutationFn: (pair: ConfirmedPair) =>
       analyzeImprovement({ outputType: tab, originalText: pair.original, improvedText: pair.improved }),
     onSuccess: (a) => setAnalysis(a),
-    onError: (e) => toast({ title: "Analysis failed", description: String(e instanceof Error ? e.message : e), variant: "destructive" }),
+    onError: (e) => toast.error("Analysis failed", { description: String(e instanceof Error ? e.message : e) }),
   });
 
   const confirmMemoSelection = () => {
@@ -119,7 +119,7 @@ export default function PromptTuner() {
     <main>
       <Seo title="Admin Prompt Tuner" description="Turn an improved output into a sharper prompt" canonical="/admin/prompt-tuner" />
       <div className="mb-6">
-        <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-ds-ink-secondary mb-1">Admin</div>
+        <div className="text-[11px] font-normal uppercase tracking-[0.16em] text-ds-ink-secondary mb-1">Admin</div>
         <h1 className="text-2xl font-normal tracking-tight">Prompt Tuner</h1>
         <p className="text-sm text-ds-ink-secondary mt-1 max-w-2xl">
           Paste an improved output to surface the original, see what changed and why, and get a sharper
@@ -139,7 +139,7 @@ export default function PromptTuner() {
         {!confirmed && tab === "memo" && (
           <>
             <AdminCard>
-              <label className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground font-medium block mb-2">
+              <label className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground font-normal block mb-2">
                 Improved memo
               </label>
               <Textarea
@@ -162,7 +162,7 @@ export default function PromptTuner() {
 
             {manualMode ? (
               <AdminCard>
-                <label className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground font-medium block mb-2">
+                <label className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground font-normal block mb-2">
                   Paste the original (AI) memo
                 </label>
                 <Textarea
@@ -220,7 +220,7 @@ export default function PromptTuner() {
           <>
             <AdminCard>
               <div className="flex items-center justify-between gap-3 mb-3">
-                <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground font-medium">
+                <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground font-normal">
                   Original vs improved
                 </div>
                 <Button variant="ghost" size="sm" onClick={resetFlow}>Start over</Button>

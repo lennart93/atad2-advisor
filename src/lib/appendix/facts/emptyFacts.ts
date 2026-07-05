@@ -13,5 +13,6 @@ export function normalizeFacts(facts: Partial<AppendixFacts> | null | undefined)
     transactions: Array.isArray(facts?.transactions) ? facts!.transactions : [],
     ...(Array.isArray(facts?.excludedSections) ? { excludedSections: facts!.excludedSections } : {}),
     ...(facts?.narratives && typeof facts.narratives === 'object' && !Array.isArray(facts.narratives) ? { narratives: facts.narratives } : {}),
+    ...(facts?.actingTogetherSettled ? { actingTogetherSettled: true } : {}),
   };
 }

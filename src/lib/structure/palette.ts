@@ -7,28 +7,34 @@ export const PALETTE = {
   nl: '#ffffff',
   foreign: '#ffffff',
   individual: '#ffffff',
-  // Edge label background: plain white text panel, no chip.
-  background: '#ffffff',
-  ownershipStroke: '#8a8980',
+  // Edge label background: the warm-paper canvas colour, so the % chip masks
+  // the line behind the number and the connector "shows through" cleanly.
+  background: '#faf8f4',
+  // Connectors are warm taupe hairlines (Svalner brand), not near-black.
+  ownershipStroke: '#cdc7ba',
   ownershipSelectedStroke: 'var(--ds-ink)',
   // Reserved (currently unused) styling for a triggered mismatch finding, with
   // its own dash pattern so it reads differently from a (solid) selected edge.
   mismatchStroke: 'var(--ds-ink)',
   mismatchDasharray: '6 3',
-  normalTransactionStroke: '#8a8980',
+  normalTransactionStroke: '#cdc7ba',
   transactionDasharray: '3 3',
-  text: '#1a1a1a',
-  textMuted: '#5f5e5a',
-  // Inner hybrid glyphs and the outer shape outline are both hairline-dark
-  // now that fills are white.
-  innerStroke: '#1a1a1a',
-  outerStroke: '#1a1a1a',
-  nodeStroke: '#1a1a1a',
-  // The taxpayer node renders on a white fill with an ink outline; the shape
-  // and the secondary text line carry its meaning, not a colored wash.
-  taxpayerFill: '#ffffff',
-  taxpayerStroke: 'var(--ds-ink)',
-  taxpayerText: 'var(--ds-ink)',
+  // Brand ink for the node name; warm grey for the jurisdiction line.
+  text: '#16150f',
+  textMuted: '#57534a',
+  // Inner hybrid glyphs stay a readable warm grey; the outer shape outline is
+  // the brand taupe hairline now that fills are white.
+  innerStroke: '#57534a',
+  outerStroke: '#cdc7ba',
+  nodeStroke: '#cdc7ba',
+  // The taxpayer node is the hero: soft terracotta fill + terracotta outline +
+  // a 3px terracotta letterhead line and a TAXPAYER pill (see EntityNode). The
+  // name itself stays ink so it reads as the subject, not a coloured label.
+  taxpayerFill: '#f0ddd5',
+  taxpayerStroke: '#c25c3c',
+  taxpayerText: '#16150f',
+  taxpayerAccent: '#c25c3c',
+  taxpayerPillText: '#ffffff',
   // Interaction affordances (selection, focus, reconnect drop targets).
   selectedStroke: 'var(--ds-ink)',
   focusStroke: 'var(--ds-accent)',

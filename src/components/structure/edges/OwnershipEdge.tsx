@@ -9,16 +9,11 @@ import {
   type ReactFlowState,
 } from '@xyflow/react';
 import { PALETTE } from '@/lib/structure/palette';
-import { NODE_WIDTH } from '@/lib/structure/labelMeasure';
-import { MIN_GAP } from '@/lib/structure/tierLayout';
+import { computeSafeDetourX, type RoutedEdgeSpec } from '@/lib/structure/edgeRouting';
 
-// Half-column step used as a probe distance when looking for a safe detour
-// column away from target.X. Matches tierLayout's column packing.
-const COL_STEP = NODE_WIDTH + MIN_GAP;
-const COL_STEP_HALF = COL_STEP / 2;
-// Minimum clearance between the detour vertical and any intermediate-row
-// entity body. NODE_WIDTH/2 + 4px margin so the line doesn't graze a node edge.
-const SAFE_HALF_WIDTH = NODE_WIDTH / 2 + 4;
+// Herexport voor bestaande imports/tests; de implementatie woont in de
+// routing-lib zodat de baan-planning en de fallback dezelfde logica delen.
+export { computeSafeDetourX };
 
 export interface PathInputs {
   sourceX: number;
@@ -30,8 +25,55 @@ export interface PathInputs {
    * target-row in Y. The long-skip vertical must avoid these columns to
    * prevent the visual "edge runs behind a node" problem.
    * When omitted or empty, falls back to a half-step heuristic.
+   * Alleen gebruikt door de legacy fallback (routing ontbreekt).
    */
   intermediateXs?: number[];
+  /**
+   * Baan-routing uit routeOwnershipEdges (StructureChart). Wanneer aanwezig
+   * tekent de edge orthogonaal via de toegewezen rail-Y's, zodat horizontale
+   * balken van verschillende moeders nooit op dezelfde hoogte samenvallen.
+   * Ontbreekt de routing (los gesleepte node, opwaartse edge), dan valt de
+   * tekening terug op het oude smoothstep/long-skip gedrag.
+   */
+  routing?: RoutedEdgeSpec | null;
+}
+
+/**
+ * Orthogonaal pad langs hoekpunten met afgeronde bochten. Segmenten korter
+ * dan de bocht-straal krijgen een kleinere straal zodat het pad nooit
+ * "terugkrult".
+ */
+function roundedOrthPath(pts: Array<{ x: number; y: number }>): string {
+  const r = 4;
+  const p: Array<{ x: number; y: number }> = [];
+  for (const pt of pts) {
+    const last = p[p.length - 1];
+    if (last && Math.abs(last.x - pt.x) < 0.01 && Math.abs(last.y - pt.y) < 0.01) continue;
+    p.push(pt);
+  }
+  if (p.length < 2) return '';
+  let d = `M ${p[0].x} ${p[0].y}`;
+  for (let i = 1; i < p.length - 1; i++) {
+    const prev = p[i - 1];
+    const cur = p[i];
+    const next = p[i + 1];
+    const inLen = Math.hypot(cur.x - prev.x, cur.y - prev.y);
+    const outLen = Math.hypot(next.x - cur.x, next.y - cur.y);
+    const rad = Math.min(r, inLen / 2, outLen / 2);
+    if (rad < 0.5) {
+      d += ` L ${cur.x} ${cur.y}`;
+      continue;
+    }
+    const inDx = Math.sign(cur.x - prev.x);
+    const inDy = Math.sign(cur.y - prev.y);
+    const outDx = Math.sign(next.x - cur.x);
+    const outDy = Math.sign(next.y - cur.y);
+    d += ` L ${cur.x - inDx * rad} ${cur.y - inDy * rad}`;
+    d += ` Q ${cur.x} ${cur.y} ${cur.x + outDx * rad} ${cur.y + outDy * rad}`;
+  }
+  const last = p[p.length - 1];
+  d += ` L ${last.x} ${last.y}`;
+  return d;
 }
 
 export interface PathResult {
@@ -42,45 +84,63 @@ export interface PathResult {
   detourX?: number;
 }
 
-/**
- * Pick a detour column for the long vertical drop. Prefers target.X itself
- * (the cleanest visual: straight drop into the target's top-handle), and
- * only steps sideways into a column gap when target.X is blocked by an
- * intermediate-row entity. Probes outward in small steps, alternating sides
- * with a slight bias toward the source side first (matches the natural
- * direction the line is already travelling).
- */
-export function computeSafeDetourX(
-  targetX: number,
-  sourceX: number,
-  intermediateXs: number[],
-): number {
-  const isFree = (x: number) =>
-    !intermediateXs.some((ix) => Math.abs(x - ix) < SAFE_HALF_WIDTH);
-
-  // First try target column itself — clean straight drop.
-  if (isFree(targetX)) return targetX;
-
-  const xDir = targetX > sourceX ? 1 : -1;
-  // Probe sequence: half-step toward source, half-step away, full step
-  // toward source, full step away, 1.5 step toward source, 1.5 step away.
-  // The toward-source bias keeps the visual flow consistent with the path's
-  // existing direction.
-  const offsets = [
-    -xDir * COL_STEP_HALF, xDir * COL_STEP_HALF,
-    -xDir * COL_STEP,      xDir * COL_STEP,
-    -xDir * COL_STEP * 1.5, xDir * COL_STEP * 1.5,
-  ];
-  for (const dx of offsets) {
-    const candidate = targetX + dx;
-    if (isFree(candidate)) return candidate;
-  }
-  // Fallback: targetX anyway (collision is unavoidable with current layout).
-  return targetX;
-}
-
 /** Pure path computation, extracted for testability. */
 export function computeOwnershipPath(p: PathInputs): PathResult {
+  // Baan-routing aanwezig → orthogonaal tekenen via de toegewezen rails.
+  if (p.routing) {
+    const r = p.routing;
+    if (r.kind === 'straight' || r.railY1 == null) {
+      // Uitgelijnde bron/dochter → één schone verticaal. Zijn de X'en NIET
+      // gelijk (een versleepte node, of routing die even achterloopt op de
+      // live handle-posities), dan NOOIT een diagonale M→L trekken: val terug
+      // op een haakse daal → verdeel → daal via de midlijn. Zo blijven de
+      // segmenten altijd horizontaal/verticaal, ook buiten de nette layout.
+      if (Math.abs(p.targetX - p.sourceX) < 0.5) {
+        return {
+          path: `M ${p.sourceX} ${p.sourceY} L ${p.targetX} ${p.targetY}`,
+          isLongSkip: r.kind === 'longskip',
+        };
+      }
+      const midY = (p.sourceY + p.targetY) / 2;
+      const path = roundedOrthPath([
+        { x: p.sourceX, y: p.sourceY },
+        { x: p.sourceX, y: midY },
+        { x: p.targetX, y: midY },
+        { x: p.targetX, y: p.targetY },
+      ]);
+      return { path, isLongSkip: r.kind === 'longskip' };
+    }
+    if (r.kind === 'adjacent') {
+      const path = roundedOrthPath([
+        { x: p.sourceX, y: p.sourceY },
+        { x: p.sourceX, y: r.railY1 },
+        { x: p.targetX, y: r.railY1 },
+        { x: p.targetX, y: p.targetY },
+      ]);
+      return { path, isLongSkip: false };
+    }
+    // longskip: via de daal-kolom; met of zonder invoeg-rail boven de dochter.
+    const detourX = r.detourX ?? p.targetX;
+    if (r.railY2 == null || Math.abs(detourX - p.targetX) < 0.5) {
+      const path = roundedOrthPath([
+        { x: p.sourceX, y: p.sourceY },
+        { x: p.sourceX, y: r.railY1 },
+        { x: p.targetX, y: r.railY1 },
+        { x: p.targetX, y: p.targetY },
+      ]);
+      return { path, isLongSkip: true, detourX };
+    }
+    const path = roundedOrthPath([
+      { x: p.sourceX, y: p.sourceY },
+      { x: p.sourceX, y: r.railY1 },
+      { x: detourX, y: r.railY1 },
+      { x: detourX, y: r.railY2 },
+      { x: p.targetX, y: r.railY2 },
+      { x: p.targetX, y: p.targetY },
+    ]);
+    return { path, isLongSkip: true, detourX };
+  }
+
   const isStraight = Math.abs(p.targetX - p.sourceX) < 5;
   const dy = Math.abs(p.targetY - p.sourceY);
   const isLongSkip = !isStraight && dy > 200;
@@ -145,6 +205,62 @@ export function computeOwnershipPath(p: PathInputs): PathResult {
 // staan in de "meerdere eigenaren"-modus (chart-px).
 const PARENT_DROP_OFFSET = 22;
 
+// Hoe ver BOVEN de top-handle van de dochter het %-label standaard rust als het
+// niet in het midden van de lijn mag staan (chart-px). Net onder de bus.
+const NEAR_CHILD_OFFSET = 14;
+
+export interface DefaultLabelPosInput {
+  sourceX: number;
+  sourceY: number;
+  targetX: number;
+  targetY: number;
+  /**
+   * How many visible % labels converge on this edge's CHILD (incl. itself).
+   * >= 2 means several owners share the child.
+   */
+  convergingOwners: number;
+  /**
+   * How many ownership edges share this edge's PARENT (incl. itself). >= 2
+   * means the parent fans out to siblings whose smooth-step routes form one
+   * shared horizontal bus at the mid-line.
+   */
+  siblingCount: number;
+}
+
+/**
+ * Smart resting position (absolute chart coords) for an ownership-% label,
+ * before any manual offset. Pure so the placement rules are unit-testable.
+ *
+ * The whole placement policy lives here:
+ * - Several owners on one child → drop each % under its OWN parent so they
+ *   spread out instead of stacking above the shared child. BUT only when that
+ *   parent owns a single child: under a fan-out hub "below the parent" could
+ *   mean any of its lines, so a hub's converging % goes to the child end.
+ * - A lone straight edge centres its % on the line (cleanest single drop).
+ * - A straight edge under a fan-out hub would land its centred % on the
+ *   siblings' shared bus, so it drops to the child like a non-straight edge.
+ * - Any other edge rests its % just above its child, below the bus.
+ */
+export function computeDefaultLabelPos(p: DefaultLabelPosInput): { x: number; y: number } {
+  const isStraight = Math.abs(p.targetX - p.sourceX) < 5;
+  const range = p.targetY - p.sourceY;
+  const parentIsHub = p.siblingCount >= 2;
+
+  // Drop under the own parent only when that parent has a single, unambiguous
+  // line down — never under a fan-out hub.
+  const underParent = p.convergingOwners >= 2 && !parentIsHub;
+  if (underParent) {
+    return { x: p.sourceX, y: p.sourceY + PARENT_DROP_OFFSET };
+  }
+
+  const nearChild = !isStraight || parentIsHub;
+  const t =
+    nearChild && Math.abs(range) > 1
+      ? (p.targetY - NEAR_CHILD_OFFSET - p.sourceY) / range
+      : 0.5;
+  return { x: p.targetX, y: p.sourceY + range * t };
+}
+
 export interface OwnershipEdgeData extends Record<string, unknown> {
   ownership_pct: number | null;
   onPctChange?: (edgeId: string, newPct: number) => void;
@@ -154,6 +270,11 @@ export interface OwnershipEdgeData extends Record<string, unknown> {
    * out of intermediate-row entity columns. Computed in StructureChart.
    */
   intermediateXs?: number[];
+  /**
+   * Baan-routing (rail-Y's + daal-kolom) uit routeOwnershipEdges, berekend in
+   * StructureChart over de hele kaart. Null/afwezig → legacy tekening.
+   */
+  routing?: RoutedEdgeSpec | null;
   /**
    * Persisted free 2D label offset (chart px) from the target's top handle.
    * NULL on both = not hand-placed; fall back to legacy label_t, then the
@@ -173,6 +294,12 @@ export interface OwnershipEdgeData extends Record<string, unknown> {
    * child, so siblings don't stack and none sits on the bus crossing.
    */
   convergingLabels?: number;
+  /**
+   * How many ownership edges share this edge's parent (incl. itself). >= 2
+   * means the parent fans out to siblings whose horizontal bus crosses the
+   * mid-line, so a STRAIGHT child must rest its % below the bus, not on it.
+   */
+  siblingCount?: number;
   /** User clicked the label's × — suppress the % on the chart (value kept). */
   label_hidden?: boolean | null;
   onLabelMove?: (edgeId: string, dx: number, dy: number) => void;
@@ -202,33 +329,20 @@ export function OwnershipEdge({
   const { path } = computeOwnershipPath({
     sourceX, sourceY, targetX, targetY,
     intermediateXs: data?.intermediateXs,
+    routing: data?.routing,
   });
 
-  const isStraight = Math.abs(targetX - sourceX) < 5;
   const range = targetY - sourceY;
 
-  // Slimme standaardpositie (absolute chart-coords):
-  // - 1 eigenaar: het % staat direct BOVEN de dochter (rechte lijn: midden,
-  //   anders vlak boven de dochter, zoals voorheen).
-  // - 2+ eigenaren op dezelfde dochter: zet elk % op zijn EIGEN lijn, vlak
-  //   onder de eigen moeder. Zo waaieren ze vanzelf uit (moeders staan uit
-  //   elkaar) en valt de rechte-boven-de-dochter-eigenaar niet meer op de
-  //   bus-kruising.
-  const underParent = (data?.convergingLabels ?? 0) >= 2;
-  let defX: number;
-  let defY: number;
-  if (underParent) {
-    defX = sourceX;
-    defY = sourceY + PARENT_DROP_OFFSET;
-  } else {
-    const t = isStraight
-      ? 0.5
-      : Math.abs(range) > 1
-        ? (targetY - 14 - sourceY) / range
-        : 0.5;
-    defX = targetX;
-    defY = sourceY + range * t;
-  }
+  // Slimme standaardpositie (absolute chart-coords). Het hele beleid (midden,
+  // vlak boven de dochter, of onder de eigen moeder) zit in computeDefaultLabelPos;
+  // hier geven we alleen de tellingen door: hoeveel eigenaren op deze dochter
+  // samenkomen en hoeveel lijnen uit de moeder vertakken.
+  const { x: defX, y: defY } = computeDefaultLabelPos({
+    sourceX, sourceY, targetX, targetY,
+    convergingOwners: data?.convergingLabels ?? 0,
+    siblingCount: data?.siblingCount ?? 0,
+  });
 
   // Handmatige offsets worden bewaard t.o.v. een STABIEL referentiepunt (de
   // top-handle van de dochter) zodat ze niet verspringen als de modus wisselt.
@@ -316,7 +430,7 @@ export function OwnershipEdge({
         path={path}
         style={{
           stroke: selected ? PALETTE.ownershipSelectedStroke : PALETTE.ownershipStroke,
-          strokeWidth: selected ? 1.75 : 1,
+          strokeWidth: selected ? 2 : 1.5,
         }}
       />
       {showLabel && (
@@ -334,7 +448,7 @@ export function OwnershipEdge({
               transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
               background: PALETTE.background,
               padding: '1px 4px',
-              fontFamily: 'Inter, system-ui, sans-serif',
+              fontFamily: "'Neue Haas Grotesk Display Pro', 'Helvetica Neue', Helvetica, Arial, sans-serif",
               fontSize: 11,
               fontWeight: 500,
               color: PALETTE.textMuted,
@@ -361,7 +475,7 @@ export function OwnershipEdge({
                 style={{
                   width: 50, fontSize: 11, padding: '2px 4px',
                   border: '1px solid #8a8980', borderRadius: 2,
-                  fontFamily: 'Inter, system-ui, sans-serif',
+                  fontFamily: "'Neue Haas Grotesk Display Pro', 'Helvetica Neue', Helvetica, Arial, sans-serif",
                 }}
                 onClick={(e) => e.stopPropagation()}
               />

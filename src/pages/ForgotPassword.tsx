@@ -70,7 +70,7 @@ const ForgotPassword = () => {
           <div className="flex justify-center">
             <AnimatedLogo size={56} />
           </div>
-          <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-ds-ink-secondary">
+          <p className="text-[11px] font-normal uppercase tracking-[0.16em] text-ds-ink-secondary">
             {submitted ? "Reset email sent" : "Account recovery"}
           </p>
           <h1 className="text-3xl sm:text-4xl font-normal tracking-tight text-foreground">
@@ -80,7 +80,7 @@ const ForgotPassword = () => {
           <p className="text-base text-ds-ink-secondary leading-relaxed">
             {submitted
               ? "If an account exists for this email, a reset link is on its way."
-              : "Enter your work email and a link to reset your password will be sent."}
+              : "Enter your Svalner Atlas email and a link to reset your password will be sent."}
           </p>
         </div>
 

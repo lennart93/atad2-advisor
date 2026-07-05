@@ -98,7 +98,12 @@ All colors MUST be HSL.
     --brand-sage: 71 20% 53%;             /* #97a06f */
     --brand-sage-deep: 74 18% 43%;        /* #79825a */
     --brand-sage-soft: 70 24% 89%;        /* #e8eadd */
+    --brand-info: 208 16% 43%;            /* #5c6f80 slate blue, neutral/uncertain */
+    --brand-info-deep: 209 18% 35%;       /* #4a5b6b */
+    --brand-info-soft: 206 19% 93%;       /* #e9edf0 */
     --brand-warning: 40 62% 44%;          /* amber, on-brand */
+    --brand-warning-deep: 36 64% 30%;     /* dark amber, readable on soft */
+    --brand-warning-soft: 41 56% 90%;     /* light cream amber */
 
     --sidebar-background: 40 30% 98%;
     --sidebar-foreground: 40 8% 32%;
@@ -177,7 +182,12 @@ All colors MUST be HSL.
     --brand-sage: 71 24% 62%;
     --brand-sage-deep: 71 18% 50%;
     --brand-sage-soft: 70 12% 20%;
+    --brand-info: 208 20% 60%;
+    --brand-info-deep: 208 16% 50%;
+    --brand-info-soft: 208 14% 22%;
     --brand-warning: 40 60% 56%;
+    --brand-warning-deep: 40 55% 70%;
+    --brand-warning-soft: 40 30% 22%;
 
     --sidebar-background: 45 9% 6%;
     --sidebar-foreground: 40 8% 74%;
@@ -207,6 +217,21 @@ All colors MUST be HSL.
     @apply border-border;
   }
 
+  /* Global UI scale — a TRUE zoom, like pressing Ctrl+ to 115% while the browser
+     itself stays at 100%. Unlike the old root-font-size trick (which only grew
+     rem-based type/spacing), this scales EVERYTHING uniformly: icons, images,
+     borders and fixed px sizes too, so the whole tool reads a touch closer.
+     We apply it on the document element so `vh`/`vw` resolve against the zoomed
+     viewport in modern browsers — full-height screens (h-screen / min-h-screen)
+     still fill exactly one screen instead of overflowing by the scale factor.
+     Tune the factor in one place via --app-scale. */
+  :root {
+    --app-scale: 1.15;
+  }
+  html {
+    zoom: var(--app-scale);
+  }
+
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-sans);
@@ -215,6 +240,28 @@ All colors MUST be HSL.
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+}
+
+/* ---------------------------------------------------------------------------
+   Zoom ↔ viewport-height correction.
+   The `zoom: var(--app-scale)` on <html> scales layout, but browser engines do
+   NOT divide `vh`/`svh` by the zoom (verified: a 100vh box renders at 100vh ×
+   scale). So every full-height shell would overflow the screen by the scale
+   factor — a phantom scrollbar and footers pushed off-screen. We divide only
+   the viewport-height term by the scale so these fill exactly one screen again;
+   fixed px/rem offsets (headers, gutters) stay as-is because they are zoomed
+   identically to the real bars they sit under.
+   These override Tailwind's own utilities by living later in @layer utilities.
+   NOTE: this is an exhaustive list of the viewport-height classes in use — add
+   a line here whenever a new `100vh`/`100svh`/`100dvh` class is introduced. */
+@layer utilities {
+  .min-h-screen              { min-height: calc(100vh / var(--app-scale, 1)); }
+  .min-h-svh                 { min-height: calc(100svh / var(--app-scale, 1)); }
+  .h-svh                     { height: calc(100svh / var(--app-scale, 1)); }
+  .min-h-\[calc\(100vh-4rem\)\]  { min-height: calc(100vh / var(--app-scale, 1) - 4rem); }
+  .h-\[calc\(100vh-4rem\)\]      { height: calc(100vh / var(--app-scale, 1) - 4rem); }
+  .max-h-\[calc\(100vh-200px\)\] { max-height: calc(100vh / var(--app-scale, 1) - 200px); }
+  .max-h-\[calc\(100vh-2rem\)\]  { max-height: calc(100vh / var(--app-scale, 1) - 2rem); }
 }
 
 /* Basis-typografie in het rapport */
@@ -234,7 +281,7 @@ All colors MUST be HSL.
   line-height: 1.2;
   margin-top: 1.5rem;       /* witregel boven titel */
   margin-bottom: 0.5rem;    /* kleine ruimte onder titel */
-  font-weight: 600;
+  font-weight: 500;
 }
 
 /* Lijsten als echte bullets, nette spacing */
@@ -350,3 +397,28 @@ All colors MUST be HSL.
 
 /* --- Tabular numerals utility --- */
 .tabular { font-variant-numeric: tabular-nums; }
+
+/* --- Structure chart: brand the stock React Flow zoom controls ---
+   A flat white hairline +/- stack instead of React Flow's default shadowed
+   chrome, matching the Svalner editorial look (RULE 3: 2px radius, flat). */
+.react-flow__controls {
+  box-shadow: 0 1px 2px rgb(27 26 24 / 0.08);
+  border: 1px solid hsl(var(--border));
+  border-radius: 2px;
+  overflow: hidden;
+}
+.react-flow__controls-button {
+  width: 28px;
+  height: 28px;
+  background: hsl(var(--card));
+  border-bottom: 1px solid hsl(var(--border));
+}
+.react-flow__controls-button:last-child {
+  border-bottom: none;
+}
+.react-flow__controls-button:hover {
+  background: hsl(var(--secondary));
+}
+.react-flow__controls-button svg {
+  fill: hsl(var(--foreground));
+}

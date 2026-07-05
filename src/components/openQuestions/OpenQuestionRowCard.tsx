@@ -66,7 +66,7 @@ export function OpenQuestionRowCard({
             <p className="text-[13px] text-ds-ink-secondary">{gateHint}</p>
           )}
 
-          <p className="text-[13px] font-medium leading-snug text-ds-ink">
+          <p className="text-[13px] font-normal leading-snug text-ds-ink">
             {questionText}
           </p>
 
@@ -82,7 +82,7 @@ export function OpenQuestionRowCard({
 
           {row.client_answer && (
             <div className="rounded-ds-control border border-ds-hairline bg-ds-fill-muted px-3 py-2">
-              <p className="text-[13px] font-medium text-ds-ink-secondary ds-tabular-nums">
+              <p className="text-[13px] font-normal text-ds-ink-secondary ds-tabular-nums">
                 Client said on {formatDate(row.client_answer_at)}
               </p>
               <p className="mt-1 whitespace-pre-wrap text-[13px] text-ds-ink">

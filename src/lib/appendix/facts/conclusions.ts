@@ -1,6 +1,7 @@
 import type { AppendixFacts, FactEntity } from '@/lib/appendix/types';
 import { visibleFacts } from './visibleFacts';
-import { effJurisdiction, effNlTaxStatus } from './entityFields';
+import { actingInClientReport } from './actingAnnex';
+import { effJurisdiction, effNlTaxStatus, effNlQualification } from './entityFields';
 import { nlQualification, type NlQualification } from './nlTaxStatus';
 import { relevantTransactions } from './relevance';
 
@@ -12,7 +13,8 @@ import { relevantTransactions } from './relevance';
 export interface ConclusionFlags {
   crossBorderRelatedFlows: number;
   hybridDifferences: number;
-  likelyActingTogether: number;
+  /** Advisor-built acting-together groups that reach the client report. */
+  actingTogetherGroups: number;
 }
 
 /** Map the model's free-form local classification to the NL qualification vocabulary. */
@@ -20,7 +22,28 @@ export function localQualification(homeClass: string | null | undefined): NlQual
   const c = (homeClass ?? '').trim().toLowerCase();
   if (c === 'transparent') return 'transparent';
   if (c === 'opaque' || c === 'non-transparent') return 'non-transparent';
+  if (c === 'reverse hybrid' || c === 'reverse-hybrid' || c === 'reverse_hybrid') return 'reverse-hybrid';
   return 'undetermined';
+}
+
+/** True when an entity's own jurisdiction is the Netherlands (its home state is NL). */
+function isDutchEntity(e: FactEntity): boolean {
+  return (effJurisdiction(e) ?? '').toUpperCase() === 'NL';
+}
+
+/**
+ * The effective local (home-state) qualification of an entity. A Dutch entity's
+ * home state IS the Netherlands, so its local qualification equals the NL
+ * qualification by construction: nothing separate is asked for or stored, and a
+ * hybrid mismatch is impossible. Every other entity uses the model's / advisor's
+ * home-state classification (homeClass).
+ */
+export function effLocalQualification(
+  e: FactEntity,
+  c: { homeClass: string } | null | undefined,
+): NlQualification {
+  if (isDutchEntity(e)) return effNlQualification(e);
+  return localQualification(c?.homeClass);
 }
 
 /** True when this entity's derived NL qualification and the model's local (home-state) qualification are both determined and differ, or the model flagged the row hybrid. */
@@ -29,6 +52,10 @@ export function entityHasQualificationDifference(
   c: { homeClass: string; hybrid: boolean } | undefined,
 ): boolean {
   if (!c) return false;
+  // A Dutch entity's home state is the Netherlands, so its local view equals its
+  // NL view by construction; a hybrid mismatch is impossible regardless of any
+  // stale home-state classification the model may have proposed.
+  if (isDutchEntity(e)) return false;
   if (c.hybrid) return true;
   const nl = nlQualification(effNlTaxStatus(e));
   const local = localQualification(c.homeClass);
@@ -65,11 +92,11 @@ export function deriveConclusions(facts: AppendixFacts): ConclusionFlags {
 
   const hybridIds = hybridEntityIds(f, byId);
 
-  const likelyActingTogether = f.actingTogether.filter(
-    (a) => !a.excludedFromClient && (a.likelihood === 'likely' || a.likelihood === 'highly_likely'),
-  ).length;
+  // The manually-built groups the advisor put forward for the client (AI hints do
+  // not count: they are non-binding until adopted).
+  const actingTogetherGroups = f.actingTogether.filter(actingInClientReport).length;
 
-  return { crossBorderRelatedFlows, hybridDifferences: hybridIds.size, likelyActingTogether };
+  return { crossBorderRelatedFlows, hybridDifferences: hybridIds.size, actingTogetherGroups };
 }
 
 /**

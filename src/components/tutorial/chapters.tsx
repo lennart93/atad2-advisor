@@ -11,7 +11,7 @@ function LiveOnlyPlaceholder({ label }: { label: string }) {
         <Lock className="h-4 w-4" />
       </div>
       <div className="flex-1 min-w-0">
-        <div className="text-[10.5px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+        <div className="text-[10.5px] font-normal uppercase tracking-[0.18em] text-muted-foreground">
           {label}
         </div>
         <p className="mt-0.5 text-[13px] leading-relaxed text-foreground/80">
@@ -48,7 +48,7 @@ const HERO = (
         className="flex flex-col gap-3"
       >
         <div className="text-xs uppercase tracking-[0.22em] text-muted-foreground">A guided tour</div>
-        <h2 className="text-3xl font-medium tracking-tight">ATAD2 Advisor</h2>
+        <h2 className="text-3xl font-normal tracking-tight">ATAD2 Advisor</h2>
         <p className="max-w-md text-sm text-muted-foreground">
           From intake to memo in six confident steps. This tour shows every screen of the live app
           so you can run a full ATAD2 risk assessment with zero guesswork.
@@ -121,7 +121,7 @@ export const CHAPTERS: Chapter[] = [
         caption:
           "The Get started card launches a fresh assessment. The Tutorial card opens this very tour. The History section lists everything you’ve already started, with a status, a date, and a single action.",
         bullets: [
-          "Each assessment belongs to one taxpayer and one fiscal year — you can have many open at once",
+          "Each assessment belongs to one taxpayer and one or more fiscal years; you can have many open at once",
           "Resume picks up at the exact step you left off",
           "The trash icon deletes everything for that assessment, after a confirmation",
         ],
@@ -134,18 +134,18 @@ export const CHAPTERS: Chapter[] = [
   {
     id: "intake",
     title: "Start an assessment",
-    teaser: "Step 1 of 6 — taxpayer and fiscal year.",
+    teaser: "Step 1 of 6: taxpayer and fiscal years.",
     intro:
-      "Every assessment starts with two facts: who it’s for, and which fiscal year you’re assessing. Keep it short — the app fills in everything else from the documents you upload next.",
+      "Every assessment starts with two facts: who it’s for, and which fiscal years you’re assessing. Keep it short. The app fills in everything else from the documents you upload next.",
     steps: [
       {
-        heading: "Taxpayer and fiscal year",
+        heading: "Taxpayer and fiscal years",
         caption:
-          "Enter the legal taxpayer name and pick the fiscal year from the dropdown. If the year doesn’t match the calendar year, tick the checkbox to reveal period start and end dates.",
+          "Enter the legal taxpayer name and select one or more fiscal years. They are assessed together in this one assessment. If the period doesn’t match the calendar year, tick the checkbox to reveal one shared start and end date.",
         bullets: [
-          "Use the legal name — it appears in the final memo",
-          "The fiscal year is the year being assessed, not today’s year",
-          "You can change either field later by reopening the session",
+          "Use the legal name; it appears in the final memo",
+          "Select every year you want covered by this assessment, not today’s year",
+          "You can reopen the session later to review it",
         ],
         visual: <Shot src={`${SHOT}/03-intake-filled.png`} url="app.atad2.tax/assessment" alt="Start risk assessment form with taxpayer name and tax year filled in" />,
       },

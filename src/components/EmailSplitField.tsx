@@ -157,7 +157,7 @@ export const EmailSplitField = React.forwardRef<HTMLInputElement, EmailSplitFiel
 
     return (
       <div className="space-y-2">
-        <Label htmlFor={id} className="text-sm font-medium">
+        <Label htmlFor={id} className="text-sm font-normal">
           Email address {required && <span className="text-destructive">*</span>}
         </Label>
         

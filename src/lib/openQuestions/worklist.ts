@@ -1,6 +1,13 @@
-import { questionKey, type ComposedLetter, type LetterTable } from "./letterShape";
+import {
+  CONFIRM_LEAD_IN,
+  questionKey,
+  startsWithPoliteOpener,
+  type ComposedLetter,
+  type LetterTable,
+} from "./letterShape";
 import type { QuestionBranchRow } from "./projectedPath";
 import type { OpenQuestionRow } from "./types";
+import { formatFiscalYears } from "@/utils/formatFiscalYears";
 
 /**
  * The documents-step worklist: the questions the documents could NOT answer,
@@ -334,6 +341,22 @@ export function partitionPointsByPath(
   };
 }
 
+/**
+ * The "Could you please confirm:" stem shown above a list of points on screen,
+ * the same lead-in the client copy and the composed letter use. The points are
+ * direct clauses ("for each of ...", "whether ...") written to complete this
+ * stem, so without it they read as bare fragments. Returns null for a legacy
+ * set where most points carry their own polite opener (the stem would double
+ * up) and for an empty list, mirroring letterLeadIn exactly.
+ */
+export function pointsLeadIn(points: { questionText: string }[]): string | null {
+  if (points.length === 0) return null;
+  const politeCount = points.filter((point) =>
+    startsWithPoliteOpener(point.questionText),
+  ).length;
+  return politeCount > points.length / 2 ? null : CONFIRM_LEAD_IN;
+}
+
 export function openCount(points: OpenPoint[]): number {
   return points.filter((point) => point.status === "open").length;
 }
@@ -539,7 +562,7 @@ export function formatPointsList(
   withIntro: boolean,
 ): string {
   const header = `Points to confirm, ${meta.taxpayerName}${
-    meta.fiscalYear ? ` (FY ${meta.fiscalYear})` : ""
+    meta.fiscalYear ? ` (FY ${formatFiscalYears(meta.fiscalYear)})` : ""
   }`;
   const numbered = points.map((point, index) => `${index + 1}. ${point.questionText}`);
   const blocks: string[] = [header];

@@ -2,12 +2,13 @@ import { APPENDIX_SKELETON } from './skeleton';
 import type { AppendixFacts, AppendixRow, SkeletonRow, StoredAppendix } from './types';
 import { factsForClient } from './factsExport';
 import { isSectionExcluded } from './facts/sections';
-import { effJurisdiction, effNlQualification } from './facts/entityFields';
+import { effJurisdiction, effNlQualification, effRelationType, effRelatedPct } from './facts/entityFields';
 import { nlQualificationLabel } from './facts/nlTaxStatus';
-import { actingLikelihoodLabel } from './facts/actingLikelihood';
+import { actingBasisLabel } from './facts/actingBasis';
 import { cleanReasoning } from './reasoningText';
 import { deriveConclusions } from './facts/conclusions';
 import { relevantTransactions, accountedTransactionGroups } from './facts/relevance';
+import { txMemoReason } from './facts/transactionAssessment';
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
@@ -17,28 +18,49 @@ function buildFactsSummary(facts: AppendixFacts): string {
   // memo grounding (it feeds the client-facing memo). Read from `f` (which preserves
   // excludedSections) so this stays in lockstep with the dossier.
   const ex = (key: Parameters<typeof isSectionExcluded>[1]) => isSectionExcluded(f, key);
-  const nameOf = (id: string) => f.entities.find((e) => e.id === id)?.name ?? id;
+  const byId = new Map(f.entities.map((e) => [e.id, e]));
+  const nameOf = (id: string) => byId.get(id)?.name ?? id;
+  // A Dutch entity's home state is the Netherlands, so it can never be a hybrid
+  // mismatch; never label it as one in the grounding (matches the read-time guard
+  // and the NL-guarded conclusion count below, which would otherwise contradict it).
+  const isHybridDiff = (c: AppendixFacts['classifications'][number]) => {
+    const e = byId.get(c.entityId);
+    if (e && (effJurisdiction(e) ?? '').toUpperCase() === 'NL') return false;
+    return c.hybrid;
+  };
   const showRelated = !ex('relatedness');
   const ents = ex('entityRegister') ? '' : f.entities
     .map((e) => {
       const jur = effJurisdiction(e);
       const nlQual = nlQualificationLabel(effNlQualification(e));
-      return `- ${esc(nameOf(e.id))} (${jur ?? '?'}, ${e.role}${e.ownershipPct != null ? `, ${e.ownershipPct}%` : ''}${showRelated && e.related ? ', related' : ''}, NL: ${esc(nlQual)})`;
+      // Advisor edits win here too: the memo must never be grounded on a stake
+      // or relation the appendix tables no longer show.
+      const role = effRelationType(e) ?? e.role;
+      const pct = effRelatedPct(e);
+      return `- ${esc(nameOf(e.id))} (${jur ?? '?'}, ${role}${pct != null ? `, ${pct}%` : ''}${showRelated && e.related ? ', related' : ''}, NL: ${esc(nlQual)})`;
     })
     .join('\n');
   const cls = ex('classification') ? '' : [...f.classifications]
-    .sort((a, b) => Number(b.hybrid) - Number(a.hybrid)) // hybrids first
-    .map((c) => `- ${esc(nameOf(c.entityId))}: home ${esc(c.homeState)} ${esc(c.homeClass)} vs source ${esc(c.sourceState ?? '?')} ${esc(c.sourceClass ?? '?')}${c.hybrid ? ' (hybrid mismatch)' : ''}`)
+    .sort((a, b) => Number(isHybridDiff(b)) - Number(isHybridDiff(a))) // hybrids first
+    .map((c) => `- ${esc(nameOf(c.entityId))}: home ${esc(c.homeState)} ${esc(c.homeClass)} vs source ${esc(c.sourceState ?? '?')} ${esc(c.sourceClass ?? '?')}${isHybridDiff(c) ? ' (hybrid mismatch)' : ''}`)
     .join('\n');
   const relTx = ex('transactions') ? [] : relevantTransactions(f);
   const tx = relTx
-    .map((t) => `- ${esc(nameOf(t.fromEntityId))} -> ${esc(nameOf(t.toEntityId))}: ${esc(t.kind)}${t.instrument ? ` (${esc(t.instrument)})` : ''}${t.relevanceReason ? ` [why: ${esc(t.relevanceReason)}]` : ''}${t.articlesTested.length ? ` [${t.articlesTested.map(esc).join(', ')}]` : ''}`)
+    .map((t) => {
+      const why = txMemoReason(f, t);
+      return `- ${esc(nameOf(t.fromEntityId))} -> ${esc(nameOf(t.toEntityId))}: ${esc(t.kind)}${t.instrument ? ` (${esc(t.instrument)})` : ''}${why ? ` [why: ${esc(why)}]` : ''}${t.articlesTested.length ? ` [${t.articlesTested.map(esc).join(', ')}]` : ''}`;
+    })
     .join('\n');
   const txAccounted = ex('transactions') ? '' : accountedTransactionGroups(f)
     .map((g) => `- ${g.transactions.length} ${g.transactions.length === 1 ? 'transaction' : 'transactions'} assessed as not relevant (${esc(g.reason)})`)
     .join('\n');
   const at = ex('actingTogether') ? '' : f.actingTogether
-    .map((a) => `- ${a.memberEntityIds.map((id) => esc(nameOf(id))).join(' + ')} ~ ${a.combinedPct ?? '?'}%: ${esc(actingLikelihoodLabel(a.likelihood))} - ${esc(a.reasoning)}`)
+    .map((a) => {
+      const members = a.memberEntityIds.map((id) => esc(nameOf(id))).join(' + ');
+      const title = a.name?.trim() ? `${esc(a.name.trim())} (${members})` : members;
+      const basis = a.basis ? ` [${esc(actingBasisLabel(a.basis))}]` : '';
+      return `- ${title}${basis}: ${esc(a.reasoning)}`;
+    })
     .join('\n');
   // Conclusions are derived from the same client-filtered base the block renders
   // from, so the memo can never claim more than its own grounding shows.
@@ -46,7 +68,7 @@ function buildFactsSummary(facts: AppendixFacts): string {
   const conclusions = [
     `- Cross-border transactions with related parties: ${flags.crossBorderRelatedFlows}`,
     `- Hybrid qualification differences (NL vs local): ${flags.hybridDifferences}`,
-    `- Acting-together clusters considered likely: ${flags.likelyActingTogether}`,
+    `- Acting-together groups (advisor-defined): ${flags.actingTogetherGroups}`,
   ].join('\n');
   const parts = [
     `Conclusion flags (computed):\n${conclusions}`,

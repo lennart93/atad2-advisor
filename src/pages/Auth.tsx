@@ -332,12 +332,13 @@ const Auth = () => {
   const heading = activeTab === "signin" ? "Sign in" : "Create your account";
   const subheading =
     activeTab === "signin"
-      ? "Sign in to your Svalner Atlas account to continue."
+      ? "Log in with your Svalner Atlas email address to continue."
       : "Set up your access to the ATAD2 risk assessment.";
 
   return (
-    <div className="grid min-h-[calc(100vh-4rem)] lg:grid-cols-2">
-      {/* ── Left: editorial brand panel (hidden on small screens) ── */}
+    <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center bg-background p-4 sm:p-6">
+      <div className="grid w-full max-w-5xl overflow-hidden rounded-sm border border-border shadow-[0_24px_70px_-28px_rgba(0,0,0,0.30)] lg:min-h-[620px] lg:grid-cols-2">
+        {/* ── Left: editorial brand panel (hidden on small screens) ── */}
       <aside className="relative hidden flex-col justify-between overflow-hidden p-12 text-background lg:flex"
         style={{ background: "linear-gradient(158deg, #1f1c15 0%, #15130d 52%, #100e09 100%)" }}>
         {/* Oversized brand mark as a quiet watermark for depth (static, not the animated one) */}
@@ -360,11 +361,11 @@ const Auth = () => {
           <div className="[&_img]:brightness-0 [&_img]:invert">
             <AnimatedLogo size={34} />
           </div>
-          <span className="text-[15px] font-medium tracking-tight">Svalner Atlas</span>
+          <span className="text-[15px] font-normal tracking-tight">Svalner Atlas</span>
         </div>
 
         <div className="relative z-10">
-          <div className="mb-5 text-[11px] font-medium uppercase tracking-[0.2em] text-brand-terracotta">
+          <div className="mb-5 text-[11px] font-normal uppercase tracking-[0.2em] text-brand-terracotta">
             ATAD2 Risk Assessment
           </div>
           <h2 className="max-w-sm text-[33px] font-normal leading-[1.16] tracking-[-0.025em]">
@@ -376,7 +377,7 @@ const Auth = () => {
           </p>
         </div>
 
-        <div className="relative z-10 border-t border-background/10 pt-5 text-[11px] font-medium uppercase tracking-[0.14em] text-background/45">
+        <div className="relative z-10 border-t border-background/10 pt-5 text-[11px] font-normal uppercase tracking-[0.14em] text-background/45">
           Powered by Svalner Atlas Advisors
         </div>
       </aside>
@@ -387,13 +388,13 @@ const Auth = () => {
           {/* Mobile-only brand mark (left panel is hidden < lg) */}
           <div className="mb-8 flex items-center gap-3 lg:hidden">
             <AnimatedLogo size={36} />
-            <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+            <span className="text-[11px] font-normal uppercase tracking-[0.18em] text-muted-foreground">
               Svalner Atlas
             </span>
           </div>
 
           <header className="mb-8">
-            <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+            <span className="text-[11px] font-normal uppercase tracking-[0.18em] text-muted-foreground">
               {activeTab === "signin" ? "Welcome back" : "Get started"}
             </span>
             <h1 className="mt-3 text-3xl font-normal tracking-[-0.02em] text-foreground">
@@ -461,7 +462,7 @@ const Auth = () => {
                   )}
 
                   {/* Helper text that changes to hint when needed */}
-                  <p id="email-helper" className={cn("text-sm transition-all duration-200", showEmailHint ? "text-foreground font-medium animate-fade-in" : "text-muted-foreground")} role={showEmailHint ? "status" : undefined} aria-live={showEmailHint ? "polite" : undefined}>
+                  <p id="email-helper" className={cn("text-sm transition-all duration-200", showEmailHint ? "text-foreground font-normal animate-fade-in" : "text-muted-foreground")} role={showEmailHint ? "status" : undefined} aria-live={showEmailHint ? "polite" : undefined}>
                     {showEmailHint
                       ? "No need to add @svalneratlas.com, that's already included"
                       : "Fill in only the part before @. The domain is fixed."
@@ -584,7 +585,7 @@ const Auth = () => {
                 <div ref={step2Ref} className="space-y-3 animate-fade-in">
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <Label className="text-sm font-medium">
+                      <Label className="text-sm font-normal">
                         {currentStep === 2 ? "Does this look like your email?" : "Your email address"}
                       </Label>
                       {currentStep > 2 && (
@@ -604,7 +605,7 @@ const Auth = () => {
 
                     {!isEditingEmail ? (
                       <div className="inline-flex items-center rounded-sm bg-muted px-3 py-2">
-                        <span className="text-sm font-medium">
+                        <span className="text-sm font-normal">
                           {localPart}@{DOMAIN}
                         </span>
                       </div>
@@ -706,6 +707,7 @@ const Auth = () => {
             </TabsContent>
           </Tabs>
         </MotionPage>
+      </div>
       </div>
     </div>
   );

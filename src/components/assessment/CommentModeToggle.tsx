@@ -48,7 +48,7 @@ export function CommentModeToggle({ value, onChange, className }: CommentModeTog
           key={opt.value}
           value={opt.value}
           className={cn(
-            "rounded-ds-chip px-3 py-1 text-center text-[12px] font-medium leading-none transition-colors duration-fast",
+            "rounded-ds-chip px-3 py-1 text-center text-[12px] font-normal leading-none transition-colors duration-fast",
             "focus:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent focus-visible:ring-offset-1 focus-visible:ring-offset-ds-card",
             "data-[state=checked]:bg-ds-fill-muted data-[state=checked]:text-ds-ink",
             "data-[state=unchecked]:bg-transparent data-[state=unchecked]:text-ds-ink-secondary data-[state=unchecked]:hover:text-ds-ink",

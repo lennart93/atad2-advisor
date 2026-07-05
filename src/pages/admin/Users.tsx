@@ -113,7 +113,7 @@ const Users = () => {
       <Seo title="Admin Users & Roles" description="Manage users and roles" canonical="/admin/users" />
       <div className="flex items-end justify-between mb-4">
         <div>
-          <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-ds-ink-secondary mb-1">Admin</div>
+          <div className="text-[11px] font-normal uppercase tracking-[0.16em] text-ds-ink-secondary mb-1">Admin</div>
           <h1 className="text-2xl font-normal tracking-tight">Users &amp; Roles</h1>
           <p className="mt-1 text-sm text-ds-ink-secondary">
             Review everyone with access and adjust their role. Changes take effect immediately and are logged.
@@ -147,7 +147,7 @@ const Users = () => {
               >
                 <IconChip icon={Icon} size="md" />
                 <div className="min-w-0 flex-1">
-                  <div className="text-[13px] font-medium truncate">
+                  <div className="text-[13px] font-normal truncate">
                     {p.full_name || p.email}
                     {isSelf && <span className="ml-2 text-[10px] text-muted-foreground font-normal">(you)</span>}
                   </div>

@@ -46,11 +46,14 @@ const dotParser = (tag: string) => ({
 import { supabase } from '@/integrations/supabase/client';
 import { loadAppendix } from '@/lib/appendix/client';
 import { buildMemoAppendicesXml } from '@/lib/appendix/docx/memoAppendices';
+import { preprocessMemoTemplate } from '@/lib/appendix/docx/memoTemplatePatches';
 import { loadAppendixSkeleton } from '@/lib/appendix/skeletonStore';
 import { normalizeEntityName } from '@/lib/legalName';
+import { taxpayerDisplayName } from '@/lib/taxpayer';
+import { formatFiscalYears } from '@/utils/formatFiscalYears';
 import { Button } from '@/components/ds';
 import { Download, Loader2 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from '@/components/ui/app-toast';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 
 type Props = {
@@ -81,11 +84,14 @@ export default function DownloadMemoButton({
   includeChecklistAppendix,
 }: Props) {
   const [loading, setLoading] = useState(false);
-  const { toast } = useToast();
 
   async function handleDownload() {
     setLoading(true);
-    
+    const toastId = toast.working('Preparing Word document', {
+      description: 'Assembling sections and appendices. This can take a few minutes.',
+    });
+
+
     try {
       // A) Get memo if not provided
       let memo = memoMarkdown;
@@ -182,6 +188,13 @@ export default function DownloadMemoButton({
       if (!docxData.meta.taxpayer_name && sessionData?.taxpayer_name) {
         docxData.meta.taxpayer_name = sessionData.taxpayer_name;
       }
+      // One assessment can name several entities (stored newline-joined). Collapse
+      // to a readable single line for the memo title + filename; a single entity is
+      // unchanged. Only when a value is present, so the required-meta check below
+      // still catches a genuinely missing name.
+      if (docxData.meta.taxpayer_name) {
+        docxData.meta.taxpayer_name = taxpayerDisplayName(docxData.meta.taxpayer_name);
+      }
       if (!docxData.meta.fiscal_year && sessionData?.fiscal_year != null) {
         docxData.meta.fiscal_year = String(sessionData.fiscal_year);
       }
@@ -215,6 +228,11 @@ export default function DownloadMemoButton({
 
       // E) Render DOCX using v4 API
       const zip = new PizZip(templateArrayBuffer);
+
+      // Client-side template fixes (footer page number, stray blank lines) applied
+      // before docxtemplater runs, so they ship with the frontend without a
+      // re-upload of the Storage template.
+      preprocessMemoTemplate(zip);
 
       // 1x1 transparante PNG als fallback — voorkomt crash van de image-module
       // als er geen structure-chart snapshot beschikbaar is.
@@ -314,7 +332,7 @@ export default function DownloadMemoButton({
           meta: { taxpayer_name: 'TestCo BV', fiscal_year: '2024' },
           sections: {
             introduction: 'Intro text\nLine 2',
-            risk_outcome_line: 'Low risk',
+            risk_outcome_line: 'No risk identified',
             executive_summary_bullets: ['Point A', 'Point B'],
             general_background: 'Background…',
             technical_assessment: 'Assessment…',
@@ -438,29 +456,33 @@ export default function DownloadMemoButton({
       // filename are stripped. The taxpayer name is normalised to the house form.
       const cleanFsName = (s: string) =>
         s.replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim();
-      const taxpayer = cleanFsName(normalizeEntityName(docxData?.meta?.taxpayer_name) || 'Taxpayer');
-      const fy = cleanFsName(String(docxData?.meta?.fiscal_year || ''));
+      const taxpayerDisplay = normalizeEntityName(docxData?.meta?.taxpayer_name) || 'Taxpayer';
+      const taxpayer = cleanFsName(taxpayerDisplay);
+      const fy = cleanFsName(formatFiscalYears(String(docxData?.meta?.fiscal_year || '')));
       const fileName = `ATAD2 Memo ${taxpayer}${fy ? ` ${fy}` : ''}.docx`;
 
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(a.href);
+      const saveBlob = () => {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(a.href);
+      };
+      saveBlob();
 
-      toast({
-        title: "Downloaded",
-        description: "Word document downloaded successfully.",
+      toast.success('Word document ready', {
+        id: toastId,
+        description: `ATAD2 memo · ${taxpayerDisplay}.`,
+        action: { label: 'Open', onClick: saveBlob },
       });
 
     } catch (error: any) {
       console.error('Download error:', error);
-      toast({
-        title: "Error",
-        description: error?.message || 'Failed to download Word document',
-        variant: "destructive",
+      toast.error('Download failed', {
+        id: toastId,
+        description: error?.message || 'The Word document could not be built.',
       });
     } finally {
       setLoading(false);

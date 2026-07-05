@@ -28,6 +28,49 @@ interface ExtractStructureRequest {
   phase?: Phase;
 }
 
+/**
+ * Insert one AI-extracted entity, tolerating the (chart_id, lower(name)) UNIQUE
+ * index. If a concurrent extract-structure pipeline already inserted the same
+ * entity, Postgres raises 23505; treat that as "already there" and return the
+ * winning row's id so the temp_id still maps to a real UUID (its ownership edges
+ * survive). See migration 20260703120000_structure_entities_dedupe_unique.sql.
+ */
+async function insertEntityDedup(
+  client: SupabaseClient,
+  chartId: string,
+  e: Stage1OutputT["entities"][number],
+): Promise<string> {
+  const { data, error } = await client
+    .from("atad2_structure_entities")
+    .insert({
+      chart_id: chartId,
+      name: e.name,
+      legal_form: e.legal_form ?? null,
+      jurisdiction_iso: e.jurisdiction_iso.toUpperCase(),
+      entity_type: e.entity_type,
+      is_taxpayer: e.is_taxpayer,
+      source: "ai_extracted",
+    })
+    .select("id")
+    .single();
+  if (!error && data) return data.id as string;
+  if ((error as { code?: string } | null)?.code === "23505") {
+    // A concurrent run won the insert. Re-select its row by case-insensitive name
+    // so this temp_id still resolves to a real UUID and its edges are kept.
+    const pattern = e.name.replace(/([\\%_])/g, "\\$1"); // escape ilike metachars
+    const { data: existing, error: selErr } = await client
+      .from("atad2_structure_entities")
+      .select("id")
+      .eq("chart_id", chartId)
+      .ilike("name", pattern)
+      .limit(1)
+      .maybeSingle();
+    if (selErr) throw selErr;
+    if (existing) return existing.id as string;
+  }
+  throw error;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -343,6 +386,97 @@ async function runStage2Refine(
 
 // ----- Phase runners (implemented in Tasks 6 and 7) -----
 
+// Legal-suffix normalisation, mirror of src/lib/legalName.ts, used to match the
+// session's declared taxpayer name against extracted entity names.
+const SUFFIX_REPLACEMENTS: ReadonlyArray<[RegExp, string]> = [
+  [/\bB\.\s*V\.?/g, "BV"],
+  [/\bN\.\s*V\.?/g, "NV"],
+  [/\bC\.\s*V\.?/g, "CV"],
+  [/\bV\.\s*O\.\s*F\.?/g, "VOF"],
+  [/\bS\.\s*à\s*r\.?\s*l\.?/gi, "Sàrl"],
+  [/\bS\.\s*A\.\s*R\.\s*L\.?/g, "SARL"],
+  [/\bL\.\s*L\.\s*C\.?/g, "LLC"],
+  [/\bL\.\s*P\.?/g, "LP"],
+  [/\bG\.\s*m\.\s*b\.\s*H\.?/g, "GmbH"],
+  [/\bL\.\s*t\.\s*d\.?/g, "Ltd"],
+  [/\bLtd\./g, "Ltd"],
+  [/\bInc\./g, "Inc"],
+  [/\bp\.\s*l\.\s*c\.?/gi, "plc"],
+  [/\bS\.\s*A\.(?!\s*R)/g, "SA"],
+  [/\bA\.\s*G\./g, "AG"],
+];
+
+function normalizeEntityName(name: string | null | undefined): string {
+  let s = String(name ?? "").trim();
+  for (const [re, rep] of SUFFIX_REPLACEMENTS) s = s.replace(re, rep);
+  return s.replace(/\s{2,}/g, " ").trim();
+}
+
+// One assessment can name several entities that are the subject together; the
+// list is stored newline-joined in taxpayer_name. Mirror of parseTaxpayerNames in
+// src/lib/taxpayer.ts (Deno cannot import from src/).
+function parseTaxpayerNames(stored?: string | null): string[] {
+  if (!stored) return [];
+  return stored.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+}
+
+/**
+ * Guarantee the chart carries the declared taxpayer(s). The extractor sets
+ * is_taxpayer as a model boolean per entity and the grounding rule can drop the flag
+ * when a legal name is not literally in the documents. The intake names are ground
+ * truth for who the subject is.
+ *
+ * Single named entity (the default): unchanged legacy backstop. Only when the model
+ * flagged nothing, flag the one entity whose name matches (suffix-normalised,
+ * case-insensitive) so Part A does not collapse to empty; otherwise trust the model.
+ *
+ * Several named entities (a deliberate multi-entity intake): flag every extracted
+ * entity that matches a named entity, additively, so all named subjects appear
+ * together as the taxpayer regardless of which ones the model happened to flag.
+ */
+async function ensureTaxpayersFlagged(
+  client: SupabaseClient,
+  chartId: string,
+  taxpayerName: string | null,
+): Promise<void> {
+  const names = parseTaxpayerNames(taxpayerName);
+  if (!names.length) return;
+  const { data: ents } = await client
+    .from("atad2_structure_entities")
+    .select("id, name, is_taxpayer")
+    .eq("chart_id", chartId);
+  if (!ents || ents.length === 0) return;
+
+  const hints = new Set(names.map((n) => normalizeEntityName(n).toLowerCase()).filter(Boolean));
+  if (!hints.size) return;
+  const matches = ents.filter((e) => hints.has(normalizeEntityName(e.name as string).toLowerCase()));
+
+  // Single-entity: defer to the model unless it flagged nothing.
+  if (names.length <= 1) {
+    if (ents.some((e) => e.is_taxpayer)) return;
+    const match = matches[0];
+    if (!match) return;
+    await client.from("atad2_structure_entities").update({ is_taxpayer: true }).eq("id", match.id);
+    console.log(JSON.stringify({
+      level: "info", event: "taxpayer_flag_backstopped",
+      chart_id: chartId, entity_id: match.id,
+    }));
+    return;
+  }
+
+  // Multi-entity: the named list is authoritative; flag each named match not
+  // already flagged.
+  const toFlag = matches.filter((e) => !e.is_taxpayer);
+  if (!toFlag.length) return;
+  for (const m of toFlag) {
+    await client.from("atad2_structure_entities").update({ is_taxpayer: true }).eq("id", m.id);
+  }
+  console.log(JSON.stringify({
+    level: "info", event: "taxpayers_flagged_from_intake",
+    chart_id: chartId, entity_ids: toFlag.map((m) => m.id), named: names.length,
+  }));
+}
+
 async function clearAiExtracted(client: SupabaseClient, chartId: string): Promise<void> {
   // Edges first to satisfy FK from edges -> entities.
   const { error: edgesDelErr } = await client
@@ -370,6 +504,9 @@ async function runPhaseA(
     const prompts = await loadStructurePrompts(serviceClient);
     const docsBlock = await loadDocumentsBlock(serviceClient, sessionId);
     const taxpayerName = await loadTaxpayerName(serviceClient, sessionId);
+    // One assessment can name several entities. The prompt gets a readable list so
+    // the model flags each; the backstop below uses the raw newline-joined value.
+    const taxpayerDisplay = parseTaxpayerNames(taxpayerName).join(", ") || taxpayerName;
     const cachedSystem = `<documents>\n${docsBlock}\n</documents>`;
 
     // Idempotency: clear any prior ai_extracted rows for this chart so a
@@ -379,7 +516,7 @@ async function runPhaseA(
     // ----- Stage 1: entities -----
     let stage1: Stage1OutputT;
     try {
-      stage1 = await runStage1Initial(prompts, cachedSystem, taxpayerName);
+      stage1 = await runStage1Initial(prompts, cachedSystem, taxpayerDisplay);
     } catch (err) {
       console.error(JSON.stringify({
         level: "error", event: "phaseA_stage1_failed",
@@ -393,21 +530,7 @@ async function runPhaseA(
 
     const tempIdToUuid = new Map<string, string>();
     for (const e of stage1.entities) {
-      const { data, error } = await serviceClient
-        .from("atad2_structure_entities")
-        .insert({
-          chart_id: chartId,
-          name: e.name,
-          legal_form: e.legal_form ?? null,
-          jurisdiction_iso: e.jurisdiction_iso.toUpperCase(),
-          entity_type: e.entity_type,
-          is_taxpayer: e.is_taxpayer,
-          source: "ai_extracted",
-        })
-        .select("id")
-        .single();
-      if (error) throw error;
-      tempIdToUuid.set(e.temp_id, data.id);
+      tempIdToUuid.set(e.temp_id, await insertEntityDedup(serviceClient, chartId, e));
     }
 
     // ----- Stage 2: ownership (graceful) -----
@@ -441,6 +564,7 @@ async function runPhaseA(
       });
     }
 
+    await ensureTaxpayersFlagged(serviceClient, chartId, taxpayerName);
     await setStatus(serviceClient, chartId, "phase_a_ready");
   } finally {
     stopHeartbeat();
@@ -458,6 +582,7 @@ async function runPhaseB(
     const docsBlock = await loadDocumentsBlock(serviceClient, sessionId);
     const qaText = await loadQaAnswersText(serviceClient, sessionId);
     const taxpayerName = await loadTaxpayerName(serviceClient, sessionId);
+    const taxpayerDisplay = parseTaxpayerNames(taxpayerName).join(", ") || taxpayerName;
     const cachedSystem =
       `<documents>\n${docsBlock}\n</documents>\n` +
       `<qa_answers>\n${qaText}\n</qa_answers>`;
@@ -475,7 +600,7 @@ async function runPhaseB(
       // (ent_1..ent_N) that map back to DB UUIDs via existingAi.tempIdToUuid.
       await setStatus(serviceClient, chartId, "extracting:refining");
       try {
-        stage1 = await runStage1Refine(prompts, cachedSystem, taxpayerName, existingAi.entities);
+        stage1 = await runStage1Refine(prompts, cachedSystem, taxpayerDisplay, existingAi.entities);
       } catch (err) {
         console.error(JSON.stringify({
           level: "error", event: "phaseB_stage1_refine_failed",
@@ -492,7 +617,7 @@ async function runPhaseB(
       await setStatus(serviceClient, chartId, "extracting:stage1");
       await clearAiExtracted(serviceClient, chartId);
       try {
-        stage1 = await runStage1Initial(prompts, cachedSystem, taxpayerName);
+        stage1 = await runStage1Initial(prompts, cachedSystem, taxpayerDisplay);
       } catch (err) {
         console.error(JSON.stringify({
           level: "error", event: "phaseB_stage1_initial_failed",
@@ -505,21 +630,7 @@ async function runPhaseB(
       }
       tempIdToUuid = new Map<string, string>();
       for (const e of stage1.entities) {
-        const { data, error } = await serviceClient
-          .from("atad2_structure_entities")
-          .insert({
-            chart_id: chartId,
-            name: e.name,
-            legal_form: e.legal_form ?? null,
-            jurisdiction_iso: e.jurisdiction_iso.toUpperCase(),
-            entity_type: e.entity_type,
-            is_taxpayer: e.is_taxpayer,
-            source: "ai_extracted",
-          })
-          .select("id")
-          .single();
-        if (error) throw error;
-        tempIdToUuid.set(e.temp_id, data.id);
+        tempIdToUuid.set(e.temp_id, await insertEntityDedup(serviceClient, chartId, e));
       }
     }
 
@@ -578,6 +689,7 @@ async function runPhaseB(
       if (insErr) throw insErr;
     }
 
+    await ensureTaxpayersFlagged(serviceClient, chartId, taxpayerName);
     const { error: finalUpdateErr } = await serviceClient
       .from("atad2_structure_charts")
       .update({
@@ -700,21 +812,7 @@ async function applyEntityDiff(
       if (error) throw error;
       outMap.set(e.temp_id, existingUuid);
     } else {
-      const { data, error } = await client
-        .from("atad2_structure_entities")
-        .insert({
-          chart_id: chartId,
-          name: e.name,
-          legal_form: e.legal_form ?? null,
-          jurisdiction_iso: e.jurisdiction_iso.toUpperCase(),
-          entity_type: e.entity_type,
-          is_taxpayer: e.is_taxpayer,
-          source: "ai_extracted",
-        })
-        .select("id")
-        .single();
-      if (error) throw error;
-      outMap.set(e.temp_id, data.id as string);
+      outMap.set(e.temp_id, await insertEntityDedup(client, chartId, e));
     }
   }
 

@@ -34,9 +34,9 @@ export function FloatingInspector({
 
   return (
     <aside
-      className="absolute top-4 right-4 z-10 w-[320px] max-h-[calc(100vh-2rem)] overflow-y-auto
+      className="absolute top-4 right-4 z-10 w-[360px] max-h-[calc(100vh-2rem)] overflow-y-auto
                  bg-white/95 backdrop-blur-md
-                 border border-ds-hairline
+                 border border-ds-hairline border-t-[3px] border-t-brand-terracotta
                  rounded-ds-card
                  shadow-[0_12px_32px_-12px_rgba(0,0,0,0.16),0_2px_8px_-2px_rgba(0,0,0,0.06)]"
       role="dialog"
@@ -44,7 +44,7 @@ export function FloatingInspector({
       data-snapshot-exclude="true"
     >
       <header className="flex items-center justify-between px-4 pt-3 pb-2.5 border-b border-ds-hairline">
-        <h2 className="text-[13px] font-medium text-ds-ink-secondary">
+        <h2 className="text-[13px] font-normal text-ds-ink-secondary">
           {sectionLabel}
         </h2>
         <button

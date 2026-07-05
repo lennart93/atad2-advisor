@@ -39,7 +39,7 @@ export default function PrefillJobs() {
     <main>
       <div className="flex items-end justify-between mb-6">
         <div>
-          <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-ds-ink-secondary mb-1">Admin</div>
+          <div className="text-[11px] font-normal uppercase tracking-[0.16em] text-ds-ink-secondary mb-1">Admin</div>
           <h1 className="text-2xl font-normal tracking-tight">Pre-Fill Jobs</h1>
           <p className="mt-1 text-sm text-ds-ink-secondary">A record of automated answer pre-fill runs, with timing, status, and estimated cost for each session.</p>
         </div>
@@ -55,12 +55,12 @@ export default function PrefillJobs() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border">
-              <th className="text-left px-4 py-2.5 text-xs uppercase tracking-[0.18em] text-muted-foreground font-medium">Session</th>
-              <th className="text-left px-4 py-2.5 text-xs uppercase tracking-[0.18em] text-muted-foreground font-medium">Started</th>
-              <th className="text-left px-4 py-2.5 text-xs uppercase tracking-[0.18em] text-muted-foreground font-medium">Duration</th>
-              <th className="text-left px-4 py-2.5 text-xs uppercase tracking-[0.18em] text-muted-foreground font-medium">Status</th>
-              <th className="text-left px-4 py-2.5 text-xs uppercase tracking-[0.18em] text-muted-foreground font-medium">Cost</th>
-              <th className="text-right px-4 py-2.5 text-xs uppercase tracking-[0.18em] text-muted-foreground font-medium"></th>
+              <th className="text-left px-4 py-2.5 text-xs uppercase tracking-[0.18em] text-muted-foreground font-normal">Session</th>
+              <th className="text-left px-4 py-2.5 text-xs uppercase tracking-[0.18em] text-muted-foreground font-normal">Started</th>
+              <th className="text-left px-4 py-2.5 text-xs uppercase tracking-[0.18em] text-muted-foreground font-normal">Duration</th>
+              <th className="text-left px-4 py-2.5 text-xs uppercase tracking-[0.18em] text-muted-foreground font-normal">Status</th>
+              <th className="text-left px-4 py-2.5 text-xs uppercase tracking-[0.18em] text-muted-foreground font-normal">Cost</th>
+              <th className="text-right px-4 py-2.5 text-xs uppercase tracking-[0.18em] text-muted-foreground font-normal"></th>
             </tr>
           </thead>
           <tbody>
@@ -163,19 +163,19 @@ function JobDetailDrawer({ jobId, onClose }: { jobId: string; onClose: () => voi
           <DialogTitle className="font-mono text-base">Job {jobId.slice(0, 8)}</DialogTitle>
         </DialogHeader>
         <pre className="text-xs font-mono bg-muted/40 border border-border p-3 rounded-md">{JSON.stringify(job, null, 2)}</pre>
-        <h3 className="text-xs uppercase tracking-[0.18em] text-muted-foreground font-medium mt-4 mb-2">Document summaries</h3>
+        <h3 className="text-xs uppercase tracking-[0.18em] text-muted-foreground font-normal mt-4 mb-2">Document summaries</h3>
         {summaries?.map((s) => (
           <details key={s.document_id} className="text-xs">
             <summary className="cursor-pointer hover:text-foreground transition-colors duration-fast">{s.doc_label}</summary>
             <pre className="bg-muted/40 border border-border p-2 mt-1 font-mono rounded-md">{JSON.stringify(s.summary_json, null, 2)}</pre>
           </details>
         ))}
-        <h3 className="text-xs uppercase tracking-[0.18em] text-muted-foreground font-medium mt-4 mb-2">Question prefills</h3>
+        <h3 className="text-xs uppercase tracking-[0.18em] text-muted-foreground font-normal mt-4 mb-2">Question prefills</h3>
         <div className="space-y-1.5">
           {prefills?.map((p) => (
             <div key={p.id} className="border border-border rounded-md p-2 text-xs">
               <div className="flex items-center gap-2 mb-1">
-                <span className="font-mono font-medium">Q{p.question_id}</span>
+                <span className="font-mono font-normal">Q{p.question_id}</span>
                 <span className="text-muted-foreground">·</span>
                 <span>{p.user_action}</span>
               </div>

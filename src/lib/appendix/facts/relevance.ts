@@ -1,12 +1,19 @@
 import type { AppendixFacts, TransactionItem } from '@/lib/appendix/types';
+import {
+  isTransactionRelevant, needsAssessmentTransactions, noRiskTransactions, txMemoReason,
+} from './transactionAssessment';
+
+// The relevance buckets are now derived from the transaction assessment (the five
+// editable characteristics + any override), not the raw AI flag. These thin
+// wrappers keep the long-standing call sites (memo, print, conclusions, scope)
+// pointed at a single source of truth.
 
 /** Missing flag = relevant: the safe default for old sessions and partial AI output. */
-export function isTransactionRelevant(t: TransactionItem): boolean {
-  return t.relevant !== false;
-}
+export { isTransactionRelevant };
 
+/** Every flow whose assessment lands it in "Needs assessment". */
 export function relevantTransactions(facts: AppendixFacts): TransactionItem[] {
-  return facts.transactions.filter(isTransactionRelevant);
+  return needsAssessmentTransactions(facts);
 }
 
 export interface AccountedGroup {
@@ -14,14 +21,11 @@ export interface AccountedGroup {
   transactions: TransactionItem[];
 }
 
-const FALLBACK_REASON = 'Assessed as not relevant';
-
-/** Non-relevant transactions grouped by reason, insertion-ordered, for the accounted summary lines. */
+/** "No risk identified" flows grouped by their memo reason, insertion-ordered, for the accounted summary lines. */
 export function accountedTransactionGroups(facts: AppendixFacts): AccountedGroup[] {
   const groups = new Map<string, TransactionItem[]>();
-  for (const t of facts.transactions) {
-    if (isTransactionRelevant(t)) continue;
-    const reason = t.relevanceReason?.trim() || FALLBACK_REASON;
+  for (const t of noRiskTransactions(facts)) {
+    const reason = txMemoReason(facts, t) || 'No hybrid element identified';
     const arr = groups.get(reason) ?? [];
     arr.push(t);
     groups.set(reason, arr);
@@ -29,7 +33,11 @@ export function accountedTransactionGroups(facts: AppendixFacts): AccountedGroup
   return [...groups.entries()].map(([reason, transactions]) => ({ reason, transactions }));
 }
 
-/** Advisor flips a relevance marking; the stale AI reason is cleared. The flip survives regeneration via mergeFacts. */
+/**
+ * Advisor forces the "No risk identified" / "Needs assessment" bucket. Kept for the
+ * few callers that only need the coarse flip; the panel uses the richer
+ * withTxStatusOverride. The flip survives regeneration via mergeFacts.
+ */
 export function withTransactionRelevance(facts: AppendixFacts, id: string, relevant: boolean): AppendixFacts {
   return {
     ...facts,

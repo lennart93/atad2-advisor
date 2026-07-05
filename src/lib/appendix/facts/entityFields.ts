@@ -57,14 +57,49 @@ export function effNlQualificationReason(e: FactEntity): string | null {
   return null;
 }
 
-type EditableField = 'jurisdiction' | 'entityType' | 'nlTaxStatus';
+/**
+ * The advisor's relation-type override ("Parent", "Sister company", ...); null
+ * when the derived role still stands.
+ */
+export function effRelationType(e: FactEntity): string | null {
+  return e.edits?.relationType ?? null;
+}
+
+/**
+ * The effective related-party percentage: the advisor's override wins, including
+ * an explicit clear (relatedPct: null reads as "no percentage", it does NOT fall
+ * back to the chart value).
+ */
+export function effRelatedPct(e: FactEntity): number | null {
+  const edited = e.edits?.relatedPct;
+  return edited !== undefined ? edited : e.ownershipPct ?? e.relatedViaPct ?? null;
+}
+
+/** The advisor's edited relation reasoning, else the given derived fallback. */
+export function effRelationReason(e: FactEntity, derived: string | null): string | null {
+  return e.edits?.relationReason ?? derived;
+}
+
+/** The advisor's edited NL-classification reasoning, else the AI/default line. */
+export function effNlReason(e: FactEntity): string | null {
+  return e.edits?.nlReason ?? effNlQualificationReason(e);
+}
+
+/** The advisor's edited home-state reasoning, else the given derived fallback. */
+export function effLocalReason(e: FactEntity, derived: string | null): string | null {
+  return e.edits?.localReason ?? derived;
+}
+
+type EditableField =
+  | 'jurisdiction' | 'entityType' | 'nlTaxStatus'
+  | 'relationType' | 'relatedPct' | 'relationReason' | 'nlReason' | 'localReason';
 
 /** Immutably set one advisor override on the entity with the given register id. */
 export function withEntityEdit(
   facts: AppendixFacts,
   id: string,
   field: EditableField,
-  value: string | null,
+  value: string | number | null,
 ): AppendixFacts {
   return {
     ...facts,

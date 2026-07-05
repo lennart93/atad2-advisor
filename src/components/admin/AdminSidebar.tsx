@@ -31,7 +31,7 @@ const linkClasses = ({ isActive }: { isActive: boolean }) =>
   cn(
     "flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors duration-fast border-l-2",
     isActive
-      ? "bg-ds-fill-muted border-l-ds-ink text-ds-ink font-medium"
+      ? "bg-ds-fill-muted border-l-ds-ink text-ds-ink font-normal"
       : "border-l-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground hover:border-l-border"
   );
 
@@ -50,7 +50,7 @@ export function AppSidebar() {
           <span>Back to dashboard</span>
         </NavLink>
 
-        <div className="mt-4 mb-1 px-3 text-xs uppercase tracking-[0.18em] text-muted-foreground font-medium">
+        <div className="mt-4 mb-1 px-3 text-xs uppercase tracking-[0.18em] text-muted-foreground font-normal">
           {sectionLabel}
         </div>
         {ITEMS.map((item) => {
@@ -60,7 +60,7 @@ export function AppSidebar() {
               <IconChip icon={item.icon} size="sm" />
               <span className="flex-1">{item.title}</span>
               {badge > 0 && (
-                <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-ds-ink text-ds-card text-[10px] font-medium px-1">
+                <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-ds-ink text-ds-card text-[10px] font-normal px-1">
                   {badge > 99 ? "99+" : badge}
                 </span>
               )}

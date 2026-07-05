@@ -24,7 +24,7 @@ export function OpenQuestionsWorklistBody({
   if (worklist.phase === "error") {
     return (
       <div className="space-y-3 py-2">
-        <p className="text-[13px] font-medium text-ds-ink">
+        <p className="text-[13px] font-normal text-ds-ink">
           The points couldn't be prepared.
         </p>
         {worklist.composeError?.message && (
@@ -61,5 +61,6 @@ export function OpenQuestionsWorklistBody({
     );
   }
 
-  return <WorklistPointsList worklist={worklist} showIntro={false} />;
+  // The side panel reads "answered" (not "confirmed") to match the drawer copy.
+  return <WorklistPointsList worklist={worklist} confirmVerb="answered" />;
 }

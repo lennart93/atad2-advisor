@@ -31,7 +31,8 @@ describe('relevance', () => {
     expect(groups).toHaveLength(2);
     expect(groups[0]).toMatchObject({ reason: 'Within the fiscal unity' });
     expect(groups[0].transactions.map((t) => t.id)).toEqual(['T2', 'T3']);
-    expect(groups[1].reason).toBe('Assessed as not relevant');
+    // A no-risk flow with no reason of its own falls back to the derived clause.
+    expect(groups[1].reason).toBe('No hybrid element identified');
   });
 
   it('withTransactionRelevance flips the flag and marks the item edited', () => {

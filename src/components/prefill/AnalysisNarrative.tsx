@@ -16,6 +16,12 @@ export interface AnalysisNarrativeProps {
   phase?: TickerPhase;
   /** Session taxpayer name; a few rotating lines mention it when known. */
   taxpayerName?: string | null;
+  /**
+   * Override the paragraph styling. Defaults to the standalone ticker look;
+   * the analyze card's coffee block passes a tuned class so the ticker sits
+   * as the smaller sub-line under the reassurance copy.
+   */
+  className?: string;
 }
 
 /**
@@ -33,6 +39,7 @@ export function AnalysisNarrative({
   sessionId,
   phase = "analyzing",
   taxpayerName = null,
+  className = "truncate px-1 text-[13px] text-ds-ink-secondary",
 }: AnalysisNarrativeProps) {
   const { data: prefills } = useAllPrefills(sessionId);
   const { data: documents } = useSessionDocuments(sessionId);
@@ -74,10 +81,7 @@ export function AnalysisNarrative({
   if (line === null) return null;
 
   return (
-    <p
-      aria-live="polite"
-      className="truncate px-1 text-[13px] text-ds-ink-secondary"
-    >
+    <p aria-live="polite" className={className}>
       {line}
     </p>
   );

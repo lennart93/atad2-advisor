@@ -217,41 +217,62 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
 
   const [status, setStatus] = useState<ChartStatus | 'loading'>('loading');
 
+  // Telt elke keer op dat we verse data van de server hebben gezet. De
+  // layout-effect luistert hierop, zodat de kaart na ÉLKE server-refresh
+  // (initiële load, elke poll-tick tijdens extractie, re-extract) opnieuw in
+  // het nette rijen-raster snapt. Voorheen draaide de layout alleen als het
+  // AANTAL entiteiten/edges veranderde; een refresh met oude of rommelige
+  // posities uit de database kwam dan rauw op het scherm — de "warboel".
+  const [serverEpoch, setServerEpoch] = useState(0);
+  const applyServerData = useCallback(
+    (loaded: {
+      chart: Chart;
+      entities: StructureEntity[];
+      edges: StructureEdge[];
+      groupings: StructureGroup[];
+    }) => {
+      setChart(loaded.chart);
+      setEntities(loaded.entities);
+      setEdgesState(loaded.edges);
+      setGroupings(loaded.groupings);
+      setServerEpoch((n) => n + 1);
+    },
+    [],
+  );
+
 const [busy, setBusy] = useState(false);
   // Tracks which clusters the user has explicitly COLLAPSED. Default empty =
   // nothing collapsed = the chart opens fully expanded. New entities from
   // Phase B inherit the default (not in the set → expanded).
   const [collapsedClusters, setCollapsedClusters] = useState<Set<string>>(new Set());
-  // Persist collapse state per chart in localStorage so the editor opens with
-  // the same set the user last saw. Keeps the editor symmetric with the
-  // overview snapshot, which captures whatever was collapsed at navigate-time.
-  // hydratedKey is state (not a ref) so React commits the hydrate setState
-  // before the write effect re-runs — otherwise the write would wipe the saved
-  // entry with the still-empty initial Set in the same render.
-  const collapseStorageKey = chart ? `atad2.collapsedClusters:${chart.id}` : null;
-  const [hydratedKey, setHydratedKey] = useState<string | null>(null);
+  // Non-relevant entities (siblings off the taxpayer's relevant chain) used to
+  // be hidden by default. Per advisor feedback the chart now shows every
+  // connected entity by default; hiding them is an opt-in declutter ("Collapse
+  // non-relevant" in the toolbar). The choice is persisted per chart so a
+  // deliberate collapse survives a revisit, while a fresh chart opens showing
+  // all. The storage key is bumped to v2 so stale v1 "hidden" prefs (written by
+  // the old hidden-by-default behaviour) don't resurrect the old default.
+  const hidePrefKey = chart ? `atad2.hideNonRelevant.v2:${chart.id}` : null;
+  const [hideNonRelevant, setHideNonRelevant] = useState(false);
+  const [hidePrefHydrated, setHidePrefHydrated] = useState<string | null>(null);
   useEffect(() => {
-    if (!collapseStorageKey || hydratedKey === collapseStorageKey) return;
+    if (!hidePrefKey || hidePrefHydrated === hidePrefKey) return;
     try {
-      const raw = window.localStorage.getItem(collapseStorageKey);
-      if (raw) {
-        const ids = JSON.parse(raw);
-        if (Array.isArray(ids)) setCollapsedClusters(new Set(ids.filter((s) => typeof s === 'string')));
-      }
+      const raw = window.localStorage.getItem(hidePrefKey);
+      setHideNonRelevant(raw === 'true'); // only an explicit collapse hides; default shows all
     } catch {
-      // Corrupt entry: ignore and start expanded.
+      // Corrupt/unavailable storage: keep the default (show all).
     }
-    setHydratedKey(collapseStorageKey);
-  }, [collapseStorageKey, hydratedKey]);
+    setHidePrefHydrated(hidePrefKey);
+  }, [hidePrefKey, hidePrefHydrated]);
   useEffect(() => {
-    if (!collapseStorageKey || hydratedKey !== collapseStorageKey) return;
+    if (!hidePrefKey || hidePrefHydrated !== hidePrefKey) return;
     try {
-      if (collapsedClusters.size === 0) window.localStorage.removeItem(collapseStorageKey);
-      else window.localStorage.setItem(collapseStorageKey, JSON.stringify([...collapsedClusters]));
+      window.localStorage.setItem(hidePrefKey, hideNonRelevant ? 'true' : 'false');
     } catch {
       // Quota/private-mode: silently degrade to in-memory only.
     }
-  }, [collapseStorageKey, collapsedClusters, hydratedKey]);
+  }, [hidePrefKey, hideNonRelevant, hidePrefHydrated]);
   const [clusterLayout, setClusterLayout] = useState<ClusterLayout>([]);
   const activeClustersRef = useRef<Cluster[]>([]);
   // Capture API handed up from StructureChart on init — used by goNext to grab
@@ -269,7 +290,7 @@ const [busy, setBusy] = useState(false);
   // were extracted but never wired into the ownership graph are excluded from
   // the rendered chart, the layout pass, the toolbar counts, and exports.
   // Entities hidden in the appendix are also excluded from the BFS.
-  const visibleEntities = useMemo(() => {
+  const connectedEntities = useMemo(() => {
     if (entities.length === 0) return entities;
     const hidden = hiddenChartIds;
     const ownership = edges.filter((e) => e.kind === 'ownership');
@@ -293,6 +314,27 @@ const [busy, setBusy] = useState(false);
     }
     return entities.filter((e) => connected.has(e.id) && !hidden.has(e.id));
   }, [entities, edges, hiddenChartIds]);
+
+  // Which connected entities are non-relevant siblings (the clusterable long
+  // tail). These are hidden by default and summarised in the "N non-related
+  // entities hidden" chip; "Show all" reveals them.
+  const clusteredIds = useMemo(() => {
+    if (connectedEntities.length === 0) return new Set<string>();
+    const ownership = edges.filter((e) => e.kind === 'ownership');
+    const taxpayer = connectedEntities.find((e) => e.is_taxpayer);
+    return groupNonRelevantSiblings(
+      connectedEntities, ownership, taxpayer?.id ?? '', groupings,
+    ).clusteredIds;
+  }, [connectedEntities, edges, groupings]);
+
+  const visibleEntities = useMemo(
+    () =>
+      hideNonRelevant
+        ? connectedEntities.filter((e) => !clusteredIds.has(e.id))
+        : connectedEntities,
+    [connectedEntities, clusteredIds, hideNonRelevant],
+  );
+  const hiddenNonRelevantCount = clusteredIds.size;
 
   const visibleEdges = useMemo(() => {
     const ids = new Set(visibleEntities.map((e) => e.id));
@@ -411,10 +453,7 @@ const [busy, setBusy] = useState(false);
       const loaded = await loadChart(sessionId);
       if (loaded?.chart) {
         if (aborted) return;
-        setChart(loaded.chart);
-        setEntities(loaded.entities);
-        setEdgesState(loaded.edges);
-        setGroupings(loaded.groupings);
+        applyServerData(loaded);
         setStatus(loaded.chart.status as ChartStatus);
         // Poll if extraction is mid-flight. For phase_a_ready, auto-trigger
         // Phase B: Assessment.tsx fires it fire-and-forget after Q&A, but if
@@ -426,12 +465,7 @@ const [busy, setBusy] = useState(false);
           if (aborted) return;
           setStatus(s);
           const refreshed = await loadChart(sessionId);
-          if (refreshed && !aborted) {
-            setChart(refreshed.chart);
-            setEntities(refreshed.entities);
-            setEdgesState(refreshed.edges);
-            setGroupings(refreshed.groupings);
-          }
+          if (refreshed && !aborted) applyServerData(refreshed);
         };
         if (loaded.chart.status.startsWith('extracting:')) {
           await pollUntilTerminal(loaded.chart.id, onPollTick);
@@ -456,22 +490,14 @@ const [busy, setBusy] = useState(false);
           attempts += 1;
           const polled = await loadChart(sessionId);
           if (polled?.chart) {
-            setChart(polled.chart);
-            setEntities(polled.entities);
-            setEdgesState(polled.edges);
-            setGroupings(polled.groupings);
+            applyServerData(polled);
             setStatus(polled.chart.status as ChartStatus);
             if (polled.chart.status.startsWith('extracting:')) {
               await pollUntilTerminal(polled.chart.id, async (s) => {
                 if (aborted) return;
                 setStatus(s);
                 const refreshed = await loadChart(sessionId);
-                if (refreshed && !aborted) {
-                  setChart(refreshed.chart);
-                  setEntities(refreshed.entities);
-                  setEdgesState(refreshed.edges);
-                  setGroupings(refreshed.groupings);
-                }
+                if (refreshed && !aborted) applyServerData(refreshed);
               });
             }
             return;
@@ -483,21 +509,13 @@ const [busy, setBusy] = useState(false);
           await startExtraction(sessionId, 'refine');
           const refreshed = await loadChart(sessionId);
           if (refreshed) {
-            setChart(refreshed.chart);
-            setEntities(refreshed.entities);
-            setEdgesState(refreshed.edges);
-            setGroupings(refreshed.groupings);
+            applyServerData(refreshed);
             setStatus(refreshed.chart.status as ChartStatus);
             await pollUntilTerminal(refreshed.chart.id, async (s) => {
               if (aborted) return;
               setStatus(s);
               const ref2 = await loadChart(sessionId);
-              if (ref2 && !aborted) {
-                setChart(ref2.chart);
-                setEntities(ref2.entities);
-                setEdgesState(ref2.edges);
-                setGroupings(ref2.groupings);
-              }
+              if (ref2 && !aborted) applyServerData(ref2);
             });
           }
         } catch (err) {
@@ -547,25 +565,23 @@ const [busy, setBusy] = useState(false);
         return p ? { ...e, position_x: p.x, position_y: p.y } : e;
       }),
     );
-    for (const [, p] of result.positions) updateEntityPosition(p.id, p.x, p.y);
+    // Persist alleen posities die écht veranderd zijn. De layout draait nu ook
+    // op elke poll-tick tijdens extractie; zonder deze check zou elke tick N
+    // schrijfacties afvuren die bovendien de eerstvolgende refresh-lees
+    // kunnen inhalen (en dan oude posities terug op het scherm zetten).
+    const prevById = new Map(visibleEntities.map((e) => [e.id, e]));
+    for (const [, p] of result.positions) {
+      const prev = prevById.get(p.id);
+      if (
+        prev &&
+        Math.abs(prev.position_x - p.x) < 0.5 &&
+        Math.abs(prev.position_y - p.y) < 0.5
+      ) continue;
+      updateEntityPosition(p.id, p.x, p.y);
+    }
 
     setClusterLayout(buildClusterLayout(activeClusters, result.clusterPositions, visibleEntities));
   }, [chart, visibleEntities, visibleEdges, collapsedClusters, validation.hasBlocking, groupings]);
-
-  // "Collapse all": fold every cluster that the current data shape can produce.
-  // Recompute against the live entity/edge set so newly-arrived Phase B
-  // entities also collapse instead of staying visible.
-  const handleCollapseAll = useCallback(() => {
-    const ownership = visibleEdges.filter((e) => e.kind === 'ownership');
-    const taxpayer = visibleEntities.find((e) => e.is_taxpayer);
-    const { clusters } = groupNonRelevantSiblings(
-      visibleEntities,
-      ownership,
-      taxpayer?.id ?? '',
-      groupings,
-    );
-    setCollapsedClusters(new Set(clusters.map((c) => clusterId(c))));
-  }, [visibleEntities, visibleEdges, groupings]);
 
   // Re-bind onExpand handlers each render so they capture current state.
   // Expanding a cluster removes its ID from the collapsed set.
@@ -591,13 +607,18 @@ const [busy, setBusy] = useState(false);
   // Re-run layout on every meaningful data change. Sync, deterministic, fast
   // (<5ms for 200 entities). No (0,0) gate; ensures the chart never appears
   // stacked at the origin even if stored positions are stale.
+  //
+  // serverEpoch zit erbij zodat óók een refresh die alleen posities/metadata
+  // wijzigt (zelfde aantallen) de kaart terug in het nette raster zet. Een
+  // handmatige sleep van de gebruiker telt niet als server-refresh en blijft
+  // dus gewoon staan tot de volgende databewerking.
   useEffect(() => {
     if (!chart) return;
     if (entities.length === 0) return;
     if (validation.hasBlocking) return;
     runLayout();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chart?.id, entities.length, edges.length, collapsedClusters, validation.hasBlocking, groupings.length]);
+  }, [chart?.id, serverEpoch, entities.length, edges.length, collapsedClusters, validation.hasBlocking, groupings.length, hideNonRelevant]);
 
   // Fiscale-eenheid kaders worden binnen de viewport gerenderd als React
   // Flow nodes (zodat ze meegaan in de PNG-capture). De geometrie hangt af
@@ -627,11 +648,7 @@ const [busy, setBusy] = useState(false);
     await pollUntilTerminal(chart.id, async (s) => {
       setStatus(s);
       const refreshed = await loadChart(sessionId);
-      if (refreshed) {
-        setEntities(refreshed.entities);
-        setEdgesState(refreshed.edges);
-        setGroupings(refreshed.groupings);
-      }
+      if (refreshed) applyServerData(refreshed);
     });
     try {
       const loadedGroupings = await listGroupings(chart.id);
@@ -729,6 +746,21 @@ const [busy, setBusy] = useState(false);
     });
     setEdgesState((prev) => [...prev, created]);
   };
+
+  // Fiscal-unity frame handlers, kept referentially stable so StructureChart's
+  // `initialNodes` memo doesn't rebuild the whole node array on every parent
+  // re-render (which would otherwise churn the canvas and fight selection).
+  const handleGroupingFrameClick = useCallback((groupId: string) => {
+    setSelectedGroupingId((prev) => (prev === groupId ? null : groupId));
+    setSelection(null);
+  }, []);
+  const handleGroupingLabelClick = useCallback(
+    (groupId: string, screenX: number, screenY: number) => {
+      const g = groupings.find((x) => x.id === groupId);
+      if (g) setEditingGrouping({ grouping: g, screenX, screenY });
+    },
+    [groupings],
+  );
 
   const selectedEntity =
     selection?.kind === 'node' ? entities.find((e) => e.id === selection.id) ?? null : null;
@@ -852,7 +884,7 @@ const [busy, setBusy] = useState(false);
               ) : (
                 <>
                   Save structure chart and continue
-                  <ArrowRight />
+                  <ArrowRight className="text-brand-terracotta" />
                 </>
               )}
             </Button>
@@ -877,10 +909,7 @@ const [busy, setBusy] = useState(false);
                   // Refresh chart state so the UI flips to draft_ready immediately.
                   const refreshed = await loadChart(sessionId);
                   if (refreshed) {
-                    setChart(refreshed.chart);
-                    setEntities(refreshed.entities);
-                    setEdgesState(refreshed.edges);
-                    setGroupings(refreshed.groupings);
+                    applyServerData(refreshed);
                     setStatus(refreshed.chart.status as ChartStatus);
                   }
                 } : undefined}
@@ -889,12 +918,7 @@ const [busy, setBusy] = useState(false);
                   await pollUntilTerminal(chart.id, async (s) => {
                     setStatus(s);
                     const refreshed = await loadChart(sessionId);
-                    if (refreshed) {
-                      setChart(refreshed.chart);
-                      setEntities(refreshed.entities);
-                      setEdgesState(refreshed.edges);
-                      setGroupings(refreshed.groupings);
-                    }
+                    if (refreshed) applyServerData(refreshed);
                   });
                 } : undefined}
               />
@@ -903,7 +927,7 @@ const [busy, setBusy] = useState(false);
             <div className="absolute inset-0 flex items-center justify-center bg-ds-card">
               <div className="flex flex-col items-center gap-3 text-center max-w-md px-6">
                 <AnimatedLogo state="idle" size={36} className="opacity-35" />
-                <div className="text-[15px] font-medium text-ds-ink">Extraction failed</div>
+                <div className="text-[15px] font-normal text-ds-ink">Extraction failed</div>
                 <p className="text-[13px] text-ds-ink-secondary">
                   {(chart?.warnings as Array<{ stage: number; message: string }> | undefined)?.[0]?.message ?? 'Unknown error.'}
                 </p>
@@ -950,14 +974,8 @@ const [busy, setBusy] = useState(false);
                 onCaptureReady={(api) => {
                   captureApiRef.current = api;
                 }}
-                onGroupingLabelClick={(groupId, screenX, screenY) => {
-                  const g = groupings.find((x) => x.id === groupId);
-                  if (g) setEditingGrouping({ grouping: g, screenX, screenY });
-                }}
-                onGroupingFrameClick={(groupId) => {
-                  setSelectedGroupingId((prev) => (prev === groupId ? null : groupId));
-                  setSelection(null);
-                }}
+                onGroupingLabelClick={handleGroupingLabelClick}
+                onGroupingFrameClick={handleGroupingFrameClick}
                 onGroupingBoundsOverride={async (groupId, deltas) => {
                   // Optimistisch in lokale state, dan persist via updateGrouping.
                   // bounds_override = null wist de handmatige override → terug
@@ -984,12 +1002,26 @@ const [busy, setBusy] = useState(false);
 
               <StructureRefiningCallout chartId={chart?.id ?? null} status={status} />
 
+              {hideNonRelevant && hiddenNonRelevantCount > 0 && !selection && (
+                <button
+                  type="button"
+                  onClick={() => setHideNonRelevant(false)}
+                  data-snapshot-exclude="true"
+                  className="absolute top-6 right-6 z-10 inline-flex items-center gap-2 rounded-sm border border-ds-hairline bg-ds-card px-3 py-1.5 text-[12px] text-ds-ink-secondary shadow-sm transition-colors hover:bg-ds-fill-muted hover:text-ds-ink"
+                >
+                  <span className="tabular-nums">{hiddenNonRelevantCount}</span>
+                  <span>non-related entities hidden</span>
+                  <span className="text-ds-ink-tertiary">·</span>
+                  <span className="font-medium text-brand-terracotta">Show all</span>
+                </button>
+              )}
+
               <FloatingToolbar
                 isExtracting={typeof status === 'string' && status.startsWith('extracting:')}
                 busy={busy}
-                collapsedClusterCount={collapsedClusters.size}
-                onExpandAll={() => setCollapsedClusters(new Set())}
-                onCollapseAll={handleCollapseAll}
+                hideNonRelevant={hideNonRelevant}
+                nonRelevantCount={hiddenNonRelevantCount}
+                onCollapseNonRelevant={() => setHideNonRelevant(true)}
                 orphanCount={tierResult?.orphans.length ?? 0}
                 orphansVisible={showOrphans}
                 onToggleOrphans={() => setShowOrphans((v) => !v)}

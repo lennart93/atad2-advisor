@@ -2,22 +2,15 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  Button,
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-  FormField,
-  StatusPill,
-} from "@/components/ds";
-import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ds";
+import { WizardCard } from "@/components/assessment/WizardCard";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
 import { AssessmentFooterSlot } from "@/components/assessment/AssessmentFooterSlot";
-import { ArrowLeft, AlertTriangle, Info, CheckCircle } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { taxpayerDisplayName } from "@/lib/taxpayer";
+import { ArrowLeft, ArrowRight, AlertTriangle, Check, Info, CheckCircle, Pencil } from "lucide-react";
 
 type OutcomeType = 'risk_identified' | 'insufficient_information' | 'low_risk';
 
@@ -28,25 +21,83 @@ interface SessionData {
   outcome_confirmed: boolean;
 }
 
+/** Small uppercase section label, matching the restyled wizard-card screens. */
+const EYEBROW = "text-[11px] font-medium uppercase tracking-[0.16em] text-ds-ink-secondary";
+
 const outcomeConfig: Record<
   OutcomeType,
-  { label: string; icon: typeof AlertTriangle; status: "triggered" | "insufficient" | "complete" }
+  {
+    label: string;
+    /** One-line, plain-language reading of what the outcome means. */
+    subtitle: string;
+    icon: typeof AlertTriangle;
+    /** Round-token tint + icon colour on the preliminary outcome block. */
+    tokenBg: string;
+    tokenFg: string;
+    /** Alternative-outcome card: one-line consequence shown under the title. */
+    description: string;
+    /** Persistent icon colour on the card (the card's colour anchor). */
+    cardIcon: string;
+    /** Selected-card styling, colour-matched to the outcome. */
+    cardSelBorder: string;
+    cardSelBg: string;
+    cardSelTitle: string;
+    /** Border + fill of the radio when this card is selected. */
+    cardRadio: string;
+    /** Hover border on an unselected card. */
+    cardHover: string;
+  }
 > = {
+  low_risk: {
+    label: "No risk identified",
+    subtitle: "No hybrid mismatch was identified on the responses given.",
+    icon: CheckCircle,
+    tokenBg: "bg-ds-green-bg",
+    tokenFg: "text-ds-green",
+    description:
+      "No hybrid mismatch is present, so there is nothing to report in the memorandum.",
+    cardIcon: "text-ds-green",
+    cardSelBorder: "border-ds-green",
+    cardSelBg: "bg-ds-green-bg",
+    cardSelTitle: "text-ds-green-text",
+    cardRadio: "border-ds-green text-ds-green",
+    cardHover: "hover:border-ds-green",
+  },
   risk_identified: {
     label: "ATAD2 risk identified",
+    subtitle: "A potential hybrid mismatch fires on the responses given.",
     icon: AlertTriangle,
-    status: "triggered"
+    tokenBg: "bg-ds-accent-bg",
+    tokenFg: "text-ds-accent",
+    description:
+      "A hybrid mismatch is present and should be reported in the memorandum.",
+    cardIcon: "text-ds-accent",
+    cardSelBorder: "border-ds-accent",
+    cardSelBg: "bg-ds-accent-bg",
+    // Title stays ink, not deep terracotta: accent-text on accent-bg is only
+    // 4.38:1 (below AA for this 13.5px label). The terracotta identity is
+    // carried by the border, fill, icon and radio; ink keeps AA in both themes.
+    cardSelTitle: "text-ds-ink",
+    cardRadio: "border-ds-accent text-ds-accent",
+    cardHover: "hover:border-ds-accent",
   },
   insufficient_information: {
     label: "Insufficient information",
+    subtitle: "The responses leave the ATAD2 position open.",
     icon: Info,
-    status: "insufficient"
+    // Top block stays slate (unchanged); the card uses amber to stay
+    // consistent with the appendix's "Insufficient info" status.
+    tokenBg: "bg-ds-blue-bg",
+    tokenFg: "text-ds-blue",
+    description:
+      "The file cannot yet settle the outcome; more is needed before it can be concluded.",
+    cardIcon: "text-ds-amber",
+    cardSelBorder: "border-ds-amber",
+    cardSelBg: "bg-ds-amber-bg",
+    cardSelTitle: "text-ds-amber-text",
+    cardRadio: "border-ds-amber text-ds-amber",
+    cardHover: "hover:border-ds-amber",
   },
-  low_risk: {
-    label: "Low ATAD2 risk",
-    icon: CheckCircle,
-    status: "complete"
-  }
 };
 
 const AssessmentConfirmation = () => {
@@ -204,12 +255,6 @@ const AssessmentConfirmation = () => {
     setSelectedOverrideOutcome(null);
   };
 
-  const handleBackFromContext = () => {
-    setShowContextForm(false);
-    setAdditionalContext("");
-    setPendingConfirmType(null);
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
@@ -220,274 +265,376 @@ const AssessmentConfirmation = () => {
 
   if (!sessionData || !sessionData.preliminary_outcome) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-ds-page">
-        <div className="text-center">
-          <p className="text-[13px] text-ds-ink-secondary">Session not found</p>
-          <Button variant="secondary" onClick={() => navigate("/")} className="mt-4">
-            Return to dashboard
-          </Button>
-        </div>
+      <div className="flex flex-col items-center justify-center py-24 text-center">
+        <p className="text-[13px] text-ds-ink-secondary">Session not found</p>
+        <Button variant="secondary" onClick={() => navigate("/")} className="mt-4">
+          Return to dashboard
+        </Button>
       </div>
     );
   }
 
   const outcome = sessionData.preliminary_outcome as OutcomeType;
-  const config = outcomeConfig[outcome];
-  const OutcomeIcon = config.icon;
+
+  // The outcome block reflects the adjusted outcome once an override has been
+  // chosen and confirmed (the context step), otherwise the preliminary one.
+  const isAdjusted = pendingConfirmType === 'override' && !!selectedOverrideOutcome;
+  const shownOutcome = isAdjusted ? (selectedOverrideOutcome as OutcomeType) : outcome;
+  const shownConfig = outcomeConfig[shownOutcome];
+  const ShownIcon = shownConfig.icon;
 
   // Filter out current outcome for override selection
   const availableOverrideOutcomes = Object.entries(outcomeConfig).filter(
     ([key]) => key !== outcome
   );
 
-  return (
-    <div className="max-w-2xl mx-auto">
-      <Card>
-          <CardHeader>
-            <CardTitle>
-              Preliminary ATAD2 assessment
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Intro text */}
-            <p className="text-[13px] text-ds-ink-secondary">
-              This preliminary outcome for{" "}
-              <span className="text-ds-ink font-medium">{sessionData.taxpayer_name}</span>{" "}
-              was determined from the responses, ahead of the assessment report.
-            </p>
+  const reasonShort = reasonCharCount > 0 && reasonCharCount < MIN_REASON_LENGTH;
+  const contextShort = contextCharCount > 0 && contextCharCount < 100;
+  // The 100-character gate, surfaced by the progress track + live counter so a
+  // disabled Continue button always reads as "not yet" rather than "broken".
+  const contextSatisfied = contextCharCount >= 100;
 
-            {/* Preliminary outcome */}
-            <div className="py-4 border-y border-ds-hairline">
-              <p className="text-[13px] text-ds-ink-secondary mb-2">
-                Preliminary outcome
-              </p>
-              {pendingConfirmType === 'override' && selectedOverrideOutcome ? (
-                // Show the adjusted outcome when in override flow
-                (() => {
-                  const overrideConfig = outcomeConfig[selectedOverrideOutcome];
-                  const OverrideIcon = overrideConfig.icon;
-                  return (
-                    <div className="flex items-center gap-2">
-                      <StatusPill status={overrideConfig.status}>
-                        <OverrideIcon />
-                        {overrideConfig.label}
-                      </StatusPill>
-                      <span className="text-[13px] text-ds-ink-secondary">(adjusted)</span>
-                    </div>
-                  );
-                })()
-              ) : (
-                <StatusPill status={config.status}>
-                  <OutcomeIcon />
-                  {config.label}
-                </StatusPill>
+  return (
+    <>
+      <WizardCard>
+        {/* Header */}
+        <h1 className="text-2xl font-normal tracking-tight text-ds-ink">
+          Preliminary assessment
+        </h1>
+        <p className="mt-2 text-[13px] leading-relaxed text-ds-ink-secondary">
+          Based on the responses, here is the preliminary ATAD2 outcome for{" "}
+          <span className="text-ds-ink">{taxpayerDisplayName(sessionData.taxpayer_name)}</span>, ahead
+          of the full assessment report. Confirm it, or adjust it if it does not
+          match your expectations.
+        </p>
+
+        {/* Outcome block */}
+        <div className="mt-8 border-t border-ds-hairline pt-6">
+          <p className={EYEBROW}>Preliminary outcome</p>
+          <div className="mt-4 flex items-center gap-4">
+            <div
+              className={cn(
+                "flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-full",
+                shownConfig.tokenBg,
               )}
+            >
+              <ShownIcon className={cn("h-[18px] w-[18px]", shownConfig.tokenFg)} />
+            </div>
+            <div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-normal tracking-tight text-ds-ink">
+                  {shownConfig.label}
+                </span>
+                {isAdjusted && (
+                  <span className="text-[13px] text-ds-ink-secondary">(adjusted)</span>
+                )}
+              </div>
+              <p className="text-[13px] text-ds-ink-secondary">{shownConfig.subtitle}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Body: context form / default / override form */}
+        {showContextForm ? (
+          <div className="mt-8 space-y-5 border-t border-ds-hairline pt-6 animate-in fade-in-50 duration-300">
+            {/* Label row: pencil + eyebrow on the left, an Optional tag on the
+                right (the field can be skipped, so say so). */}
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Pencil
+                    className="h-[15px] w-[15px] text-ds-accent"
+                    strokeWidth={1.7}
+                  />
+                  <span className={EYEBROW}>Additional context</span>
+                </div>
+                <span className="shrink-0 rounded-full bg-ds-fill-muted px-2.5 py-[3px] text-[11px] text-ds-ink-secondary">
+                  Optional
+                </span>
+              </div>
+              <p className="text-[13.5px] leading-relaxed text-ds-ink-secondary">
+                Anything that should shape the memorandum: background,
+                considerations, or specific points to address. Skip if there is
+                nothing to add.
+              </p>
             </div>
 
-            {/* Context Form - shown after confirm or override */}
-            {showContextForm ? (
-              <div className="space-y-5 animate-in fade-in-50 duration-300">
-                <p className="text-[13px] text-ds-ink-secondary">
-                  Add any context that should shape the memorandum.
-                </p>
-
-                {suggestedAdditionalContext && !suggestedAccepted && (
-                  <Card className="bg-ds-fill-muted">
-                    <CardContent className="space-y-3 pt-5">
-                      <p className="text-[13px] font-medium text-ds-ink-secondary">
-                        Suggested context from your documents
-                      </p>
-                      <p className="whitespace-pre-wrap text-[13px] text-ds-ink">{suggestedAdditionalContext}</p>
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={() => {
-                            const next = additionalContext.trim().length === 0
-                              ? suggestedAdditionalContext
-                              : `${additionalContext}\n\n${suggestedAdditionalContext}`;
-                            setAdditionalContext(next);
-                            setSuggestedAccepted(true);
-                          }}
-                        >
-                          Accept
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setSuggestedAccepted(true)}
-                        >
-                          Dismiss
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-
-                <FormField
-                  label="Additional context"
-                  error={
-                    contextCharCount > 0 && contextCharCount < 100
-                      ? `${100 - contextCharCount} more characters needed`
-                      : undefined
-                  }
-                >
-                  {({ id, describedBy, invalid }) => (
-                    <Textarea
-                      id={id}
-                      aria-describedby={describedBy}
-                      aria-invalid={invalid}
-                      placeholder="Background, considerations, or specific points to address. At least 100 characters, or use Skip."
-                      value={additionalContext}
-                      onChange={(e) => setAdditionalContext(e.target.value)}
-                      className="min-h-[100px] resize-none text-[15px]"
-                    />
-                  )}
-                </FormField>
-              </div>
-            ) : !showOverrideForm ? (
-              /* Confirmation section */
-              <div className="space-y-5">
-                <p className="text-[13px] text-ds-ink-secondary">
-                  Before continuing, please confirm whether this preliminary outcome
-                  aligns with your own expectations.
-                </p>
-              </div>
-            ) : (
-              /* Override Form - inline */
-              <div className="space-y-5">
-                <p className="text-[13px] text-ds-ink-secondary">
-                  Please explain why you do not agree with the preliminary outcome
-                  and select the outcome you consider more appropriate.
-                </p>
-
-                {/* Reason textarea */}
-                <FormField
-                  label="Your reasoning"
-                  error={
-                    reasonCharCount > 0 && reasonCharCount < MIN_REASON_LENGTH
-                      ? `${MIN_REASON_LENGTH - reasonCharCount} more characters needed`
-                      : undefined
-                  }
-                >
-                  {({ id, describedBy, invalid }) => (
-                    <Textarea
-                      id={id}
-                      aria-describedby={describedBy}
-                      aria-invalid={invalid}
-                      placeholder="Why the preliminary outcome does not fit, in at least 100 characters."
-                      value={overrideReason}
-                      onChange={(e) => setOverrideReason(e.target.value)}
-                      className="min-h-[100px] resize-none text-[15px]"
-                    />
-                  )}
-                </FormField>
-
-                {/* Alternative outcome selection */}
-                <FormField label="Alternative outcome">
-                  <RadioGroup
-                    value={selectedOverrideOutcome || ""}
-                    onValueChange={(value) => setSelectedOverrideOutcome(value as OutcomeType)}
-                    className="space-y-2"
+            {suggestedAdditionalContext && !suggestedAccepted && (
+              <div className="space-y-3 rounded-ds-control border border-ds-hairline bg-ds-fill-muted p-4">
+                <p className={EYEBROW}>Suggested context from your documents</p>
+                <p className="whitespace-pre-wrap text-[13px] text-ds-ink">{suggestedAdditionalContext}</p>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => {
+                      const next = additionalContext.trim().length === 0
+                        ? suggestedAdditionalContext
+                        : `${additionalContext}\n\n${suggestedAdditionalContext}`;
+                      setAdditionalContext(next);
+                      setSuggestedAccepted(true);
+                    }}
                   >
-                    {availableOverrideOutcomes.map(([key, cfg]) => {
-                      const Icon = cfg.icon;
-                      return (
-                        <div
-                          key={key}
-                          className={`flex items-center space-x-3 p-3 rounded-ds-control border cursor-pointer transition-colors ${
-                            selectedOverrideOutcome === key
-                              ? "border-ds-ink bg-ds-fill-muted"
-                              : "border-ds-hairline hover:bg-ds-fill-muted"
-                          }`}
-                          onClick={() => setSelectedOverrideOutcome(key as OutcomeType)}
-                        >
-                          <RadioGroupItem value={key} id={key} />
-                          <Icon className="h-4 w-4 text-ds-ink-tertiary" />
-                          <Label htmlFor={key} className="cursor-pointer flex-1 text-[13px] font-normal text-ds-ink">
-                            {cfg.label}
-                          </Label>
-                        </div>
-                      );
-                    })}
-                  </RadioGroup>
-                </FormField>
-
-                {/* Confirmation note - only when valid */}
-                {isOverrideValid && (
-                  <p className="text-[13px] text-ds-ink-secondary">
-                    Your explanation will be taken into account when generating the
-                    assessment report and memorandum.
-                  </p>
-                )}
+                    Accept
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setSuggestedAccepted(true)}
+                  >
+                    Dismiss
+                  </Button>
+                </div>
               </div>
             )}
-          </CardContent>
-          <CardFooter>
-            {showContextForm ? (
-              <>
-                <Button
-                  variant="primary"
-                  onClick={() => handleFinalConfirm(false)}
-                  disabled={submitting || additionalContext.trim().length < 100}
-                >
-                  Continue
-                </Button>
-                <Button
-                  variant="ghost"
-                  onClick={() => handleFinalConfirm(true)}
-                  disabled={submitting}
-                >
-                  Skip
-                </Button>
-              </>
-            ) : showOverrideForm ? (
-              <>
-                <Button
-                  variant="primary"
-                  onClick={handleConfirmOverride}
-                  disabled={!isOverrideValid || submitting}
-                >
-                  Confirm and continue
-                </Button>
-                <Button
-                  variant="ghost"
-                  onClick={handleCancelOverride}
-                  disabled={submitting}
-                >
-                  Cancel
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button
-                  variant="primary"
-                  onClick={handleConfirm}
-                  disabled={submitting}
-                >
-                  Confirm outcome
-                </Button>
-                <Button
-                  variant="secondary"
-                  onClick={handleAdjust}
-                  disabled={submitting}
-                >
-                  Adjust
-                </Button>
-              </>
-            )}
-          </CardFooter>
-        </Card>
 
-        <AssessmentFooterSlot
-          left={
-            <Button variant="secondary" onClick={() => navigate(`/assessment?session=${sessionId}`)}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Previous
-            </Button>
-          }
-        />
-    </div>
+            {/* Textarea, with the 100-character rule made visible underneath. */}
+            <div>
+              <textarea
+                id="additional-context"
+                aria-invalid={contextShort}
+                aria-describedby="additional-context-counter"
+                placeholder="For example: a recent restructuring, a pending ruling, or a position you want the memorandum to take into account."
+                value={additionalContext}
+                onChange={(e) => setAdditionalContext(e.target.value)}
+                className="block min-h-[150px] w-full resize-y rounded-[3px] border border-ds-hairline bg-[#fffdfa] px-4 py-[15px] text-[15px] leading-[1.6] text-ds-ink outline-none transition-colors placeholder:text-ds-ink-tertiary focus:border-ds-accent focus:bg-white focus:shadow-[0_0_0_3px_rgba(194,92,60,0.1)]"
+              />
+
+              {/* Progress track: terra while below the minimum, sage once met. */}
+              <div className="mt-3 h-[3px] w-full overflow-hidden rounded-[2px] bg-[#ece8e0]">
+                <div
+                  className={cn(
+                    "h-full rounded-[2px] transition-[width] duration-200",
+                    contextSatisfied ? "bg-[#97a06f]" : "bg-ds-accent",
+                  )}
+                  style={{ width: `${Math.min(100, contextCharCount)}%` }}
+                />
+              </div>
+
+              {/* Footer: drafting note on the left, live counter on the right. */}
+              <div className="mt-[11px] flex items-center justify-between gap-3">
+                <span className="text-[12.5px] text-ds-ink-secondary">
+                  This text is used when the memorandum is drafted.
+                </span>
+                {contextSatisfied ? (
+                  <span
+                    id="additional-context-counter"
+                    className="flex shrink-0 items-center gap-1 text-[12.5px] tabular-nums text-ds-green-text"
+                  >
+                    {contextCharCount} characters
+                    <Check className="h-3.5 w-3.5 text-ds-green" strokeWidth={2} />
+                  </span>
+                ) : (
+                  <span
+                    id="additional-context-counter"
+                    className="shrink-0 text-[12.5px] tabular-nums text-ds-ink-secondary"
+                  >
+                    {contextCharCount} / 100 minimum
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Skip sits left of the dark primary, which stays right-most. Skip is a
+                visible outlined button (it is the actual way forward while Continue
+                is gated on 100+ characters). */}
+            <div className="flex items-center gap-2.5 pt-1">
+              <Button
+                variant="secondary"
+                onClick={() => handleFinalConfirm(true)}
+                disabled={submitting}
+              >
+                Skip
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => handleFinalConfirm(false)}
+                disabled={submitting || contextCharCount < 100}
+                className="disabled:pointer-events-auto disabled:cursor-not-allowed disabled:bg-[#d8d3c8] disabled:opacity-100"
+              >
+                Continue
+                <ArrowRight className={contextSatisfied ? "text-[#e0a48f]" : undefined} />
+              </Button>
+            </div>
+          </div>
+        ) : !showOverrideForm ? (
+          /* Default: confirm or adjust */
+          <div className="mt-8 space-y-5 border-t border-ds-hairline pt-6">
+            <p className="text-[13px] text-ds-ink-secondary">
+              Does this preliminary outcome align with your own expectations?
+            </p>
+            <div className="flex items-center gap-2.5">
+              <Button variant="secondary" onClick={handleAdjust} disabled={submitting}>
+                Adjust
+              </Button>
+              <Button variant="primary" onClick={handleConfirm} disabled={submitting}>
+                <Check />
+                Confirm outcome
+              </Button>
+            </div>
+          </div>
+        ) : (
+          /* Adjust: reasoning + alternative outcome */
+          <div className="mt-8 space-y-5 border-t border-ds-hairline pt-6 animate-in fade-in-50 duration-300">
+            <p className="text-[13px] leading-relaxed text-ds-ink-secondary">
+              If this does not match your expectations, set out your reasoning
+              and choose the outcome you consider more appropriate. Both are
+              carried into the memorandum.
+            </p>
+
+            {/* Your reasoning: same field language as Additional context. */}
+            <div className="space-y-2.5">
+              <div className="flex items-center gap-2">
+                <Pencil
+                  className="h-[15px] w-[15px] text-ds-accent"
+                  strokeWidth={1.7}
+                />
+                <span className={EYEBROW}>Your reasoning</span>
+              </div>
+              <p className="text-[13.5px] leading-relaxed text-ds-ink-secondary">
+                Set out why the preliminary outcome does not fit, with the facts
+                that support your view. The memorandum cites this directly.
+              </p>
+            </div>
+
+            <div>
+              <textarea
+                id="override-reason"
+                aria-invalid={reasonShort}
+                aria-describedby="override-reason-counter"
+                placeholder="Set out why the preliminary outcome does not fit, with the facts that support your view."
+                value={overrideReason}
+                onChange={(e) => setOverrideReason(e.target.value)}
+                className="block min-h-[120px] w-full resize-y rounded-[3px] border border-ds-hairline bg-[#fffdfa] px-4 py-[15px] text-[15px] leading-[1.6] text-ds-ink outline-none transition-colors placeholder:text-ds-ink-tertiary focus:border-ds-accent focus:bg-white focus:shadow-[0_0_0_3px_rgba(194,92,60,0.1)]"
+              />
+
+              {/* Progress track: terra below the minimum, sage once met. */}
+              <div className="mt-3 h-[3px] w-full overflow-hidden rounded-[2px] bg-[#ece8e0]">
+                <div
+                  className={cn(
+                    "h-full rounded-[2px] transition-[width] duration-200",
+                    isReasonValid ? "bg-[#97a06f]" : "bg-ds-accent",
+                  )}
+                  style={{ width: `${Math.min(100, reasonCharCount)}%` }}
+                />
+              </div>
+
+              {/* Footer: requirement note on the left, live counter on the right. */}
+              <div className="mt-[11px] flex items-center justify-between gap-3">
+                <span className="text-[12.5px] text-ds-ink-secondary">
+                  Required when you adjust the outcome.
+                </span>
+                {isReasonValid ? (
+                  <span
+                    id="override-reason-counter"
+                    className="flex shrink-0 items-center gap-1 text-[12.5px] tabular-nums text-ds-green-text"
+                  >
+                    {reasonCharCount} characters
+                    <Check className="h-3.5 w-3.5 text-ds-green" strokeWidth={2} />
+                  </span>
+                ) : (
+                  <span
+                    id="override-reason-counter"
+                    className="shrink-0 text-[12.5px] tabular-nums text-ds-ink-secondary"
+                  >
+                    {reasonCharCount} / {MIN_REASON_LENGTH} minimum
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Alternative outcome: informative, colour-coded cards. */}
+            <div className="space-y-2.5">
+              <p className={EYEBROW}>Alternative outcome</p>
+              <RadioGroup
+                value={selectedOverrideOutcome || ""}
+                onValueChange={(value) => setSelectedOverrideOutcome(value as OutcomeType)}
+                className="gap-2.5"
+              >
+                {availableOverrideOutcomes.map(([key, cfg]) => {
+                  const Icon = cfg.icon;
+                  const isSel = selectedOverrideOutcome === key;
+                  return (
+                    <div
+                      key={key}
+                      className={cn(
+                        "flex cursor-pointer items-start gap-3 rounded-[3px] border px-[18px] py-[15px] transition-colors",
+                        isSel
+                          ? cn(cfg.cardSelBorder, cfg.cardSelBg)
+                          : cn("border-ds-hairline", cfg.cardHover),
+                      )}
+                      onClick={() => setSelectedOverrideOutcome(key as OutcomeType)}
+                    >
+                      <RadioGroupItem
+                        value={key}
+                        id={key}
+                        className={cn(
+                          "mt-[3px]",
+                          isSel
+                            ? cfg.cardRadio
+                            : "border-ds-ink-tertiary text-ds-ink-tertiary",
+                        )}
+                      />
+                      <Icon
+                        className={cn("mt-[1px] h-4 w-4 shrink-0", cfg.cardIcon)}
+                        strokeWidth={1.8}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <Label
+                          htmlFor={key}
+                          className={cn(
+                            "block cursor-pointer text-[13.5px]",
+                            isSel
+                              ? cn("font-medium", cfg.cardSelTitle)
+                              : "font-normal text-ds-ink",
+                          )}
+                        >
+                          {cfg.label}
+                        </Label>
+                        <p className="mt-1 text-[12.5px] leading-relaxed text-ds-ink-secondary">
+                          {cfg.description}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </RadioGroup>
+            </div>
+
+            {/* Cancel sits left of the dark primary, which stays right-most. Confirm
+                is gated on 100+ characters AND an alternative selected. */}
+            <div className="flex items-center gap-2.5 pt-1">
+              <Button
+                variant="ghost"
+                onClick={handleCancelOverride}
+                disabled={submitting}
+                className="text-ds-ink-secondary hover:bg-transparent hover:text-ds-ink"
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                onClick={handleConfirmOverride}
+                disabled={!isOverrideValid || submitting}
+                className="disabled:pointer-events-auto disabled:cursor-not-allowed disabled:bg-[#d8d3c8] disabled:opacity-100"
+              >
+                Confirm and continue
+                <ArrowRight className={isOverrideValid ? "text-[#e0a48f]" : undefined} />
+              </Button>
+            </div>
+          </div>
+        )}
+      </WizardCard>
+
+      <AssessmentFooterSlot
+        left={
+          <Button variant="secondary" onClick={() => navigate(`/assessment?session=${sessionId}`)}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Previous
+          </Button>
+        }
+      />
+    </>
   );
 };
 

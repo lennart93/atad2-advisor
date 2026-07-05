@@ -14,6 +14,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { formatDate } from "@/utils/formatDate";
+import { formatFiscalYears } from "@/utils/formatFiscalYears";
 
 export interface SessionRowProps {
   sessionId: string;
@@ -40,7 +41,7 @@ export function SessionRow({
     <div className="flex items-center justify-between gap-4 rounded-ds-card border border-ds-hairline bg-ds-card p-4 transition-colors duration-150 hover:bg-ds-fill-muted">
       <div className="min-w-0 flex-1">
         <div className="mb-1.5 flex items-center gap-3">
-          <h3 className="truncate text-[15px] font-medium tracking-tight text-ds-ink">
+          <h3 className="truncate text-[15px] font-normal tracking-tight text-ds-ink">
             {taxpayerName}
           </h3>
           <Tooltip>
@@ -63,7 +64,7 @@ export function SessionRow({
           </Tooltip>
         </div>
         <p className="tabular text-[13px] text-ds-ink-secondary">
-          FY{fiscalYear} · completed {formatDate(completedAt)}
+          FY{formatFiscalYears(fiscalYear)} · completed {formatDate(completedAt)}
         </p>
       </div>
       <div className="flex items-center gap-2">

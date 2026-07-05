@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button, StatusPill } from "@/components/ds";
 import { useOpenQuestionsView } from "@/hooks/useOpenQuestions";
+import { useDocumentsWorklist } from "@/hooks/useDocumentsWorklist";
 import { OpenQuestionsSheet } from "./OpenQuestionsSheet";
 import { OpenQuestionsHint } from "./OpenQuestionsHint";
 
@@ -38,7 +39,24 @@ export function OpenQuestionsButton({
   const buttonRef = useRef<HTMLButtonElement>(null);
   // Queries inside the view hook are disabled while sessionId is null, so
   // calling it before the guard below is safe and keeps hook order stable.
-  const { badgeCount } = useOpenQuestionsView(sessionId);
+  const { badgeCount: rawBadgeCount } = useOpenQuestionsView(sessionId);
+  // The chip must count the SAME merged "Likely relevant" points the panel
+  // shows, not the raw decision-tree rows behind them: the compose step bundles
+  // several rows into one client question (e.g. 15 rows -> 8 questions), so a
+  // chip that counts rows while the panel counts questions reads as a bug. Use
+  // the worklist's open path-point count once the merged list is ready, and
+  // fall back to the raw active count only while it is still composing, so the
+  // chip never blinks out. The worklist reuses the letter the documents step
+  // already cached, so this rarely triggers a fresh compose.
+  //
+  // openPoints counts only still-open points, so it matches the panel's
+  // "X of N answered" line and counts down as the advisor resolves each one.
+  // Points sent to the client read as resolved here (as they do in the panel)
+  // and live on in the dedicated "Points with the client" view, so the chip
+  // reflects outstanding advisor work rather than every point ever raised.
+  const worklist = useDocumentsWorklist(sessionId ?? "");
+  const badgeCount =
+    worklist.phase === "ready" ? worklist.openPoints : rawBadgeCount;
 
   const wantsSentWorklist = searchParams.get("worklist") === "sent";
   useEffect(() => {
@@ -76,6 +94,7 @@ export function OpenQuestionsButton({
       <OpenQuestionsHint
         anchorRef={buttonRef}
         count={badgeCount}
+        countSettled={worklist.phase === "ready"}
         sessionId={sessionId}
         active={onQuestionsStep}
         panelOpen={sheetOpen}

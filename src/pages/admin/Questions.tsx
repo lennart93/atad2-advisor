@@ -86,7 +86,7 @@ const Questions = () => {
       />
       <div className="flex items-end justify-between mb-4">
         <div>
-          <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-ds-ink-secondary mb-1">Admin</div>
+          <div className="text-[11px] font-normal uppercase tracking-[0.16em] text-ds-ink-secondary mb-1">Admin</div>
           <h1 className="text-2xl font-normal tracking-tight">Questions</h1>
           <p className="text-ds-ink-secondary mt-1">The assessment question bank with branching logic and risk weighting. Edit a question to adjust its wording, branches, and routing.</p>
         </div>
@@ -186,16 +186,16 @@ function QuestionList({
                 : ""
             }`}
           >
-            <div className="flex items-center justify-center h-6 w-6 rounded-md bg-muted text-[10px] font-mono font-medium text-muted-foreground shrink-0 mt-0.5">
+            <div className="flex items-center justify-center h-6 w-6 rounded-md bg-muted text-[10px] font-mono font-normal text-muted-foreground shrink-0 mt-0.5">
               {i + 1}
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[11px] font-mono font-medium text-ds-ink-secondary">
+                <span className="text-[11px] font-mono font-normal text-ds-ink-secondary">
                   {q.question_id}
                 </span>
                 {q.question_title && (
-                  <span className="text-[12px] font-medium truncate">
+                  <span className="text-[12px] font-normal truncate">
                     · {q.question_title}
                   </span>
                 )}
@@ -214,7 +214,7 @@ function QuestionList({
                     key={b.id}
                     className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-1.5 py-0.5 text-[10px]"
                   >
-                    <span className="font-medium">{b.answer_option}</span>
+                    <span className="font-normal">{b.answer_option}</span>
                     <span className="text-muted-foreground">
                       → {b.next_question_id || "END"}
                     </span>

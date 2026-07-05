@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { computeOwnershipPath, computeSafeDetourX } from '../OwnershipEdge';
+import {
+  computeOwnershipPath,
+  computeSafeDetourX,
+  computeDefaultLabelPos,
+} from '../OwnershipEdge';
 import { NODE_WIDTH } from '@/lib/structure/labelMeasure';
 import { MIN_GAP } from '@/lib/structure/tierLayout';
 
@@ -78,15 +82,67 @@ describe('computeSafeDetourX — obstacle avoidance', () => {
   });
 
   it('falls back to targetX when every probe is blocked', () => {
-    // Pack obstacles densely so no probe within range is free.
+    // Pack obstacles densely so no probe within range is free (incl. the
+    // ±2-step probes the lane routing added).
     const obstacles = [
       0, // target
       -HALF_STEP, +HALF_STEP,
       -STEP, +STEP,
       -STEP * 1.5, +STEP * 1.5,
+      -STEP * 2, +STEP * 2,
     ];
     const detour = computeSafeDetourX(0, 100, obstacles);
     expect(detour).toBe(0); // fallback
+  });
+});
+
+describe('computeDefaultLabelPos — % resting placement', () => {
+  // Single-tier fan-out: parent bottom at y=100, children top at y=200.
+  const parent = { sourceX: 500, sourceY: 100, targetY: 200 };
+
+  it('centres a LONE straight edge on the line (single child, single owner)', () => {
+    const pos = computeDefaultLabelPos({
+      ...parent, targetX: 500, convergingOwners: 1, siblingCount: 1,
+    });
+    expect(pos.x).toBe(500);
+    expect(pos.y).toBe(150); // midpoint of 100..200
+  });
+
+  it('drops a straight edge BELOW the bus when its parent fans out', () => {
+    const pos = computeDefaultLabelPos({
+      ...parent, targetX: 500, convergingOwners: 1, siblingCount: 4,
+    });
+    // No longer the midpoint — rests just above the child, clear of the bus.
+    expect(pos.x).toBe(500);
+    expect(pos.y).toBe(200 - 14);
+    expect(pos.y).toBeGreaterThan(150); // strictly below the bus crossing
+  });
+
+  it('rests a non-straight single-owner edge just above its child', () => {
+    const pos = computeDefaultLabelPos({
+      ...parent, targetX: 800, convergingOwners: 1, siblingCount: 1,
+    });
+    expect(pos.x).toBe(800);
+    expect(pos.y).toBe(200 - 14);
+  });
+
+  it('drops a converging % under its OWN parent when that parent has one child', () => {
+    const pos = computeDefaultLabelPos({
+      ...parent, targetX: 800, convergingOwners: 2, siblingCount: 1,
+    });
+    // Single-child holdco → anchored under the source, on its one line down.
+    expect(pos.x).toBe(500);
+    expect(pos.y).toBe(100 + 22);
+  });
+
+  it('sends a converging % to the CHILD when its parent is a fan-out hub', () => {
+    // S4 Energy case: 6 children (hub) AND one of several owners of the child.
+    const pos = computeDefaultLabelPos({
+      ...parent, targetX: 1200, convergingOwners: 3, siblingCount: 6,
+    });
+    // Under a hub "below the parent" is ambiguous, so the % goes to the child.
+    expect(pos.x).toBe(1200);
+    expect(pos.y).toBe(200 - 14);
   });
 });
 

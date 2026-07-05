@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { deriveConclusions, inScopeEntityIds, localQualification } from '@/lib/appendix/facts/conclusions';
+import { deriveConclusions, inScopeEntityIds, localQualification, effLocalQualification, entityHasQualificationDifference } from '@/lib/appendix/facts/conclusions';
 import type { AppendixFacts, FactEntity, TransactionItem, ClassificationItem } from '@/lib/appendix/types';
 
 const ent = (id: string, patch: Partial<FactEntity> = {}): FactEntity => ({
@@ -36,7 +36,7 @@ describe('deriveConclusions', () => {
     const f = facts({
       entities: [
         ent('E1', { role: 'Taxpayer' }),
-        ent('E2', { nlTaxStatus: 'transparent' }), // NL: transparent; local opaque -> divergence
+        ent('E2', { jurisdiction: 'US', nlTaxStatus: 'transparent' }), // NL view transparent; local (US) opaque -> divergence
         ent('E3'),                                 // NL: non-transparent; local opaque -> no divergence
       ],
       classifications: [
@@ -48,15 +48,15 @@ describe('deriveConclusions', () => {
     expect(deriveConclusions(f).hybridDifferences).toBe(1);
   });
 
-  it('counts likely+ acting-together clusters that are not excluded', () => {
+  it('counts advisor-built acting-together groups that are not hidden (AI hints do not count)', () => {
     const f = facts({
       actingTogether: [
-        { id: 'A1', memberEntityIds: ['E1', 'E2'], combinedPct: 30, likelihood: 'likely', reasoning: '', excludedFromClient: false, source: 'ai' },
-        { id: 'A2', memberEntityIds: ['E1', 'E3'], combinedPct: 30, likelihood: 'highly_likely', reasoning: '', excludedFromClient: true, source: 'ai' },
-        { id: 'A3', memberEntityIds: ['E2', 'E3'], combinedPct: 30, likelihood: 'unlikely', reasoning: '', excludedFromClient: false, source: 'ai' },
+        { id: 'A1', memberEntityIds: ['E1', 'E2'], combinedPct: 30, likelihood: 'likely', reasoning: '', origin: 'manual', excludedFromClient: false, source: 'edited' },
+        { id: 'A2', memberEntityIds: ['E1', 'E3'], combinedPct: 30, likelihood: 'likely', reasoning: '', origin: 'manual', excludedFromClient: true, source: 'edited' },
+        { id: 'A3', memberEntityIds: ['E2', 'E3'], combinedPct: 30, likelihood: 'highly_likely', reasoning: '', origin: 'ai', excludedFromClient: false, source: 'ai' },
       ],
     });
-    expect(deriveConclusions(f).likelyActingTogether).toBe(1);
+    expect(deriveConclusions(f).actingTogetherGroups).toBe(1);
   });
 
   it('ignores a hybrid classification row whose entity is no longer in the register', () => {
@@ -90,7 +90,7 @@ describe('deriveConclusions', () => {
 describe('inScopeEntityIds', () => {
   it('includes the taxpayer, parties to relevant flows, and hybrid-flagged entities; nothing else', () => {
     const f = facts({
-      entities: [ent('E1', { role: 'Taxpayer' }), ent('E2', { jurisdiction: 'US' }), ent('E3'), ent('E4')],
+      entities: [ent('E1', { role: 'Taxpayer' }), ent('E2', { jurisdiction: 'US' }), ent('E3'), ent('E4', { jurisdiction: 'US' })],
       transactions: [tx('T1', 'E1', 'E2'), tx('T2', 'E1', 'E3', { relevant: false })],
       classifications: [cls('E4', { hybrid: true })],
     });
@@ -99,10 +99,47 @@ describe('inScopeEntityIds', () => {
 
   it('includes an entity with a derived NL-vs-local divergence even without a hybrid flag or transaction', () => {
     const f = facts({
-      entities: [ent('E1', { role: 'Taxpayer' }), ent('E2', { nlTaxStatus: 'transparent' })],
+      entities: [ent('E1', { role: 'Taxpayer' }), ent('E2', { jurisdiction: 'US', nlTaxStatus: 'transparent' })],
       classifications: [cls('E2', { homeClass: 'opaque' })], // hybrid: false
     });
     expect(inScopeEntityIds(f).has('E2')).toBe(true);
+  });
+});
+
+describe('Dutch entities have no separate home-state view', () => {
+  it('entityHasQualificationDifference is always false for an NL entity, even with a stale divergent or hybrid classification', () => {
+    const nl = ent('E2', { jurisdiction: 'NL', nlTaxStatus: 'transparent' });
+    // A US home-state classification on an NL entity is contradictory; it must
+    // never surface as a hybrid mismatch.
+    expect(entityHasQualificationDifference(nl, cls('E2', { homeClass: 'opaque' }))).toBe(false);
+    expect(entityHasQualificationDifference(nl, cls('E2', { hybrid: true }))).toBe(false);
+  });
+
+  it('deriveConclusions and inScope ignore a stale hybrid flag on an NL entity', () => {
+    const f = facts({
+      entities: [ent('E1', { role: 'Taxpayer' }), ent('E2', { jurisdiction: 'NL', nlTaxStatus: 'transparent' })],
+      classifications: [cls('E2', { homeClass: 'opaque', hybrid: true })],
+    });
+    expect(deriveConclusions(f).hybridDifferences).toBe(0);
+    expect(inScopeEntityIds(f).has('E2')).toBe(false);
+  });
+});
+
+describe('effLocalQualification', () => {
+  it('mirrors the NL qualification for a Dutch entity, ignoring any home-state classification', () => {
+    const nlResident = ent('E1', { jurisdiction: 'NL', nlTaxStatus: 'resident' });
+    expect(effLocalQualification(nlResident, undefined)).toBe('non-transparent');
+    // A stale transparent home-state classification does not override the NL view.
+    expect(effLocalQualification(nlResident, cls('E1', { homeClass: 'transparent' }))).toBe('non-transparent');
+
+    const nlTransparent = ent('E2', { jurisdiction: 'NL', nlTaxStatus: 'transparent' });
+    expect(effLocalQualification(nlTransparent, undefined)).toBe('transparent');
+  });
+
+  it('uses the home-state classification for a foreign entity', () => {
+    const us = ent('E3', { jurisdiction: 'US', nlTaxStatus: 'transparent' });
+    expect(effLocalQualification(us, cls('E3', { homeClass: 'opaque' }))).toBe('non-transparent');
+    expect(effLocalQualification(us, undefined)).toBe('undetermined');
   });
 });
 
@@ -112,5 +149,10 @@ describe('localQualification', () => {
     expect(localQualification('Opaque')).toBe('non-transparent');
     expect(localQualification('disregarded')).toBe('undetermined');
     expect(localQualification(null)).toBe('undetermined');
+  });
+  it('recognises the reverse-hybrid spellings', () => {
+    expect(localQualification('reverse hybrid')).toBe('reverse-hybrid');
+    expect(localQualification('Reverse Hybrid')).toBe('reverse-hybrid');
+    expect(localQualification('reverse_hybrid')).toBe('reverse-hybrid');
   });
 });

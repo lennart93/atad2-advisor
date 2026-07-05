@@ -21,7 +21,7 @@ function PageHeader({ title, subtitle, actions, className, ...props }: PageHeade
       {...props}
     >
       <div className="min-w-0">
-        <h1 className="text-[22px] font-medium leading-tight tracking-tight text-ds-ink">
+        <h1 className="text-[22px] font-normal leading-tight tracking-tight text-ds-ink">
           {title}
         </h1>
         {subtitle != null && (

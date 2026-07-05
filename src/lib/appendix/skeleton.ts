@@ -21,7 +21,7 @@ export const APPENDIX_SKELETON: SkeletonRow[] = [
   { rowId: '1.2', sectionId: '1', sectionTitle: S1, legalBasis: 'N/A', conditionTested: 'A cross-border element is present', effect: null, kind: 'gate', allowedStates: STATUS, drivenByQuestionIds: ['Q3'], relatedView: 'none' },
 
   // Section 2 - Definitions (art. 12ac)
-  { rowId: '2.1', sectionId: '2', sectionTitle: S2, legalBasis: 'Article 12ac par. 2 CIT Act', conditionTested: 'Associated enterprise / related party: an interest of more than 25% (raised to 50% for hybrid-entity cases), aggregated across an acting-together group', effect: null, kind: 'gate', allowedStates: STATUS, drivenByQuestionIds: ['Q28'], relatedView: 'inline' },
+  { rowId: '2.1', sectionId: '2', sectionTitle: S2, legalBasis: 'Article 12ac par. 2 CIT Act', conditionTested: 'Associated enterprise / related party: an interest of more than 25%, aggregated across an acting-together group', effect: null, kind: 'gate', allowedStates: STATUS, drivenByQuestionIds: ['Q28'], relatedView: 'inline' },
   { rowId: '2.2', sectionId: '2', sectionTitle: S2, legalBasis: 'Article 12ac CIT Act', conditionTested: 'A structured arrangement is present (the mismatch is priced into the terms, or the arrangement is designed to produce it)', effect: null, kind: 'gate', allowedStates: STATUS, drivenByQuestionIds: ['Q28'], relatedView: 'none' },
   { rowId: '2.3', sectionId: '2', sectionTitle: S2, legalBasis: 'Article 12ac CIT Act', conditionTested: 'Dual-inclusion income is present (income included in the tax base of both states that can absorb a mismatch)', effect: null, kind: 'gate', allowedStates: STATUS, drivenByQuestionIds: ['Q4d', 'Q11', 'Q25'], relatedView: 'none' },
 

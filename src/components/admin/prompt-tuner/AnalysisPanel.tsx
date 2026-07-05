@@ -22,7 +22,7 @@ export function AnalysisPanel({ analysis, targetKey, onCreateDraft }: Props) {
   return (
     <div className="space-y-4">
       <AdminCard>
-        <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground font-medium mb-2">
+        <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground font-normal mb-2">
           What changed and why
         </div>
         <p className="text-sm text-foreground whitespace-pre-wrap">{analysis.summary_of_changes}</p>
@@ -30,18 +30,18 @@ export function AnalysisPanel({ analysis, targetKey, onCreateDraft }: Props) {
 
       {analysis.changes.length > 0 && (
         <AdminCard>
-          <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground font-medium mb-3">
+          <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground font-normal mb-3">
             Edits, intent, and the prompt gap
           </div>
           <div className="space-y-3">
             {analysis.changes.map((c, i) => (
               <div key={i} className="border border-border rounded-md p-3 bg-muted/20">
-                <div className="text-sm font-medium text-foreground">{c.what}</div>
+                <div className="text-sm font-normal text-foreground">{c.what}</div>
                 <div className="text-xs text-muted-foreground mt-1.5">
-                  <span className="font-medium text-foreground/80">Intent:</span> {c.inferred_intent}
+                  <span className="font-normal text-foreground/80">Intent:</span> {c.inferred_intent}
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
-                  <span className="font-medium text-foreground/80">Prompt gap:</span> {c.prompt_gap}
+                  <span className="font-normal text-foreground/80">Prompt gap:</span> {c.prompt_gap}
                 </div>
               </div>
             ))}
@@ -51,7 +51,7 @@ export function AnalysisPanel({ analysis, targetKey, onCreateDraft }: Props) {
 
       {analysis.prompt_weaknesses.length > 0 && (
         <AdminCard>
-          <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground font-medium mb-2">
+          <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground font-normal mb-2">
             Prompt weaknesses
           </div>
           <ul className="list-disc pl-5 space-y-1 text-sm text-foreground">
@@ -64,7 +64,7 @@ export function AnalysisPanel({ analysis, targetKey, onCreateDraft }: Props) {
 
       <AdminCard>
         <div className="flex items-center justify-between gap-3 mb-2">
-          <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground font-medium">
+          <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground font-normal">
             Proposed prompt for <span className="font-mono normal-case tracking-normal">{targetKey}</span>
           </div>
           <Button size="sm" variant="outline" onClick={copyPrompt}>
@@ -77,7 +77,7 @@ export function AnalysisPanel({ analysis, targetKey, onCreateDraft }: Props) {
         </pre>
         {analysis.suggested_notes && (
           <p className="text-xs text-muted-foreground mt-2">
-            <span className="font-medium text-foreground/80">Suggested notes:</span> {analysis.suggested_notes}
+            <span className="font-normal text-foreground/80">Suggested notes:</span> {analysis.suggested_notes}
           </p>
         )}
         <div className="flex justify-end mt-3">

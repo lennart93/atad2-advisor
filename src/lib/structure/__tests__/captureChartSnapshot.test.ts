@@ -24,6 +24,40 @@ describe('computeSnapshotViewport', () => {
     expect(Number.isNaN(vp.width)).toBe(false);
     expect(Number.isNaN(vp.height)).toBe(false);
   });
+
+  it('floors a tiny single-entity chart to the minimum canvas with breathing room', () => {
+    // A lone taxpayer node (~160x130). Without a floor this crops tight and the
+    // box balloons when the Overview scales it to fill the height.
+    const bounds = { x: 0, y: 0, width: 160, height: 130 };
+    const vp = computeSnapshotViewport(bounds, {
+      padding: 0.1, maxWidth: 2400, maxHeight: 2400, minWidth: 600, minHeight: 400,
+    });
+    expect(vp.width).toBeGreaterThanOrEqual(600);
+    expect(vp.height).toBeGreaterThanOrEqual(400);
+    // The node occupies only a fraction of the floored canvas → whitespace, not
+    // a tight crop that fills the frame.
+    expect(160 / vp.width).toBeLessThan(0.5);
+  });
+
+  it('never magnifies a small chart beyond its natural size', () => {
+    const bounds = { x: 0, y: 0, width: 160, height: 130 };
+    const vp = computeSnapshotViewport(bounds, {
+      padding: 0.1, maxWidth: 2400, maxHeight: 2400, minWidth: 600, minHeight: 400,
+    });
+    expect(vp.transform.zoom).toBeLessThanOrEqual(1);
+  });
+
+  it('leaves a chart already larger than the floor untouched (tight crop preserved)', () => {
+    const bounds = { x: 0, y: 0, width: 1200, height: 800 };
+    const floored = computeSnapshotViewport(bounds, {
+      padding: 0.1, maxWidth: 2400, maxHeight: 2400, minWidth: 600, minHeight: 400,
+    });
+    const unfloored = computeSnapshotViewport(bounds, {
+      padding: 0.1, maxWidth: 2400, maxHeight: 2400,
+    });
+    expect(floored.width).toBe(unfloored.width);
+    expect(floored.height).toBe(unfloored.height);
+  });
 });
 
 describe('isUsablePngDataUrl', () => {

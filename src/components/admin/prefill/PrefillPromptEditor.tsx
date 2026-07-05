@@ -5,7 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "@/components/ui/app-toast";
 
 interface Props {
   promptKey: string;
@@ -21,7 +21,7 @@ interface Props {
 export function PrefillPromptEditor({ promptKey, placeholdersHint, initialSystemPrompt, initialNotes, onClose }: Props) {
   const [systemPrompt, setSystemPrompt] = useState("");
   const [template, setTemplate] = useState("");
-  const [model, setModel] = useState("claude-opus-4-7");
+  const [model, setModel] = useState("claude-opus-4-8");
   const [temperature, setTemperature] = useState(0);
   const [maxTokens, setMaxTokens] = useState(8000);
   const [notes, setNotes] = useState("");
@@ -57,7 +57,7 @@ export function PrefillPromptEditor({ promptKey, placeholdersHint, initialSystem
 
   const save = async () => {
     if (!notes.trim()) {
-      toast({ title: "Notes required", description: "Describe what changed and why.", variant: "destructive" });
+      toast.error("Notes required", { description: "Describe what changed and why." });
       return;
     }
     setSaving(true);
@@ -86,10 +86,10 @@ export function PrefillPromptEditor({ promptKey, placeholdersHint, initialSystem
       });
       if (error) throw error;
 
-      toast({ title: "Saved new version", description: `v${nextVersion} saved as inactive. Activate from the history view.` });
+      toast.success("Saved new version", { description: `v${nextVersion} saved as inactive. Activate from the history view.` });
       onClose();
     } catch (e) {
-      toast({ title: "Save failed", description: String(e), variant: "destructive" });
+      toast.error("Save failed", { description: String(e) });
     } finally {
       setSaving(false);
     }

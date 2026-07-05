@@ -4,13 +4,38 @@ const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") || "https://app-atad2-prod
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cleanup-secret',
+}
+
+// Constant-time string comparison so the shared-secret check does not leak
+// length/first-mismatch timing.
+function timingSafeEqualStr(a: string, b: string): boolean {
+  if (a.length !== b.length) return false
+  let r = 0
+  for (let i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  return r === 0
 }
 
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
+  }
+
+  // Authorize the caller BEFORE any service-role work. This endpoint runs with
+  // the service_role key and performs destructive cross-tenant deletes, so it
+  // must not be reachable by anyone who knows the URL. The scheduler/cron must
+  // send `x-cleanup-secret: <CLEANUP_SECRET>`. Fail closed: reject if the secret
+  // is unset or does not match.
+  // DEPLOY REQUIREMENT: set CLEANUP_SECRET on the VM and configure whatever
+  // invokes this function (cron / scheduler) to send the matching header.
+  const expectedSecret = Deno.env.get('CLEANUP_SECRET') ?? ''
+  const providedSecret = req.headers.get('x-cleanup-secret') ?? ''
+  if (!expectedSecret || !timingSafeEqualStr(expectedSecret, providedSecret)) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
   }
 
   try {
@@ -94,15 +119,14 @@ Deno.serve(async (req) => {
       console.log(`Deleted: ${session.taxpayer_name} (session: ${session.session_id}, downloaded: ${session.docx_downloaded_at})`)
     }
     
+    // Return counts only. Do NOT include session_id / taxpayer_name in the
+    // response body: that would disclose confidential client identities to the
+    // caller. Per-session detail stays in the server-side audit log above.
     return new Response(
-      JSON.stringify({ 
-        success: true, 
+      JSON.stringify({
+        success: true,
         message: `Deleted ${expiredSessions.length} expired sessions`,
-        deleted_count: expiredSessions.length,
-        deleted_sessions: expiredSessions.map(s => ({
-          session_id: s.session_id,
-          taxpayer_name: s.taxpayer_name
-        }))
+        deleted_count: expiredSessions.length
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )

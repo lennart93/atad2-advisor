@@ -1,5 +1,8 @@
+import { ArrowRight, X } from "lucide-react";
+import { Button } from "@/components/ds";
 import {
   Sheet,
+  SheetClose,
   SheetContent,
   SheetDescription,
   SheetHeader,
@@ -14,7 +17,7 @@ const SHEET_WIDTH = {
   storageKey: "atad2:openQuestionsSheetWidth",
   min: 360,
   max: 900,
-  defaultWidth: 480,
+  defaultWidth: 760,
 } as const;
 
 export interface OpenQuestionsSheetProps {
@@ -31,6 +34,12 @@ export interface OpenQuestionsSheetProps {
 /**
  * Slide-over with the open-questions register. Mounted from the assessment
  * sub-header button (T5).
+ *
+ * The default (non-sent) view is the same "Points to confirm" body the
+ * documents step shows, given the editorial drawer treatment: a paper panel
+ * with a neutral hairline edge, a fixed header, a scrolling body and a fixed
+ * footer whose height never changes, so the side panel and that step read as
+ * one experience.
  */
 export function OpenQuestionsSheet({
   sessionId,
@@ -49,23 +58,33 @@ export function OpenQuestionsSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="overflow-y-auto"
+        hideClose
+        className="flex flex-col gap-0 bg-ds-card p-0"
         style={{ width, maxWidth: "95vw" }}
       >
-        <SheetHeader>
-          <SheetTitle className="text-[18px] font-medium text-ds-ink">
-            {sentOnly ? "Points with the client" : "Open questions"}
-          </SheetTitle>
+        {/* Fixed header: title, one muted line, and an outline close button. */}
+        <SheetHeader className="shrink-0 space-y-1.5 border-b border-ds-hairline px-8 py-6 text-left">
+          <div className="flex items-start justify-between gap-4">
+            <SheetTitle className="text-2xl font-normal tracking-tight text-ds-ink">
+              {sentOnly ? "Points with the client" : "Open questions"}
+            </SheetTitle>
+            <SheetClose className="-mr-1 -mt-1 inline-flex shrink-0 items-center justify-center rounded-ds-control border border-ds-hairline p-2 text-ds-ink-secondary transition-colors hover:bg-ds-fill-muted hover:text-ds-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent focus-visible:ring-offset-2">
+              <X className="h-4 w-4" />
+              <span className="sr-only">Close</span>
+            </SheetClose>
+          </div>
           <SheetDescription className="text-[13px] text-ds-ink-secondary">
             {sentOnly
               ? "Sent to the client, waiting for an answer."
-              : "Questions the documents could not answer."}
+              : "The documents couldn't answer these. Answer them here, or come back later, your progress is saved."}
           </SheetDescription>
         </SheetHeader>
-        <div className="mt-4">
-          {/* Sent-only (opened from the dossier card) keeps the flat register
-              list; the normal view mirrors the documents step's "Points to
-              confirm" so the side panel and that step are one experience. */}
+
+        {/* Scrolling body. Sent-only (opened from the dossier card) keeps the
+            flat register list; the normal view mirrors the documents step's
+            "Points to confirm" so the side panel and that step are one
+            experience. */}
+        <div className="min-h-0 flex-1 overflow-y-auto px-8 py-6">
           {sentOnly ? (
             <OpenQuestionsPanel
               sessionId={sessionId}
@@ -78,6 +97,26 @@ export function OpenQuestionsSheet({
             <OpenQuestionsWorklistBody sessionId={sessionId} />
           )}
         </div>
+
+        {/* Fixed footer: reassurance on the left, the brand Continue button on
+            the right, on one row so the bar never changes height. Continue
+            simply dismisses the drawer back to the questionnaire. */}
+        {!sentOnly && (
+          <div className="flex shrink-0 items-center justify-between gap-4 border-t border-ds-hairline px-8 py-4">
+            <span className="text-[13px] text-ds-ink-secondary">
+              You can come back to open points later.
+            </span>
+            <Button
+              variant="primary"
+              className="shrink-0"
+              onClick={() => onOpenChange(false)}
+            >
+              Continue to questionnaire
+              <ArrowRight className="text-brand-terracotta" />
+            </Button>
+          </div>
+        )}
+
         {/* Drag the left edge to resize; the chosen width is remembered. Kept
             last in the DOM so opening the sheet still focuses the panel body,
             not the handle; Escape and click-away to close are untouched. */}

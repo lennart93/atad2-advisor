@@ -16,7 +16,7 @@ export interface FormFieldProps
   label: string;
   /** Falls back to a generated id; pass the control's id if it has one. */
   htmlFor?: string;
-  /** Adds "(required)" to the label text. No red asterisks. */
+  /** Adds a terracotta "*" after the label text. */
   required?: boolean;
   /** Persistent helper text under the control. */
   helper?: string;
@@ -52,11 +52,11 @@ function FormField({
     <div className={cn("ds-field space-y-1.5", className)} {...props}>
       <label
         htmlFor={id}
-        className="block text-[13px] font-medium leading-none text-ds-ink"
+        className="block text-[13px] font-normal leading-none text-ds-ink"
       >
         {label}
         {required && (
-          <span className="font-normal text-ds-ink-secondary"> (required)</span>
+          <span className="font-normal text-brand-terracotta"> *</span>
         )}
       </label>
       {typeof children === "function"

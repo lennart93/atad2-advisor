@@ -17,7 +17,7 @@ export const SKELETON_ROWS: ServerSkeletonRow[] = [
   { rowId: "1.1", legalBasis: "Article 2(1) / Article 3 CIT Act", conditionTested: "The taxpayer is subject to Dutch corporate income tax, as a resident or as a non-resident with a Dutch permanent establishment", allowedStates: S, drivenByQuestionIds: ["Q1", "Q2"] },
   { rowId: "1.2", legalBasis: "N/A", conditionTested: "A cross-border element is present", allowedStates: S, drivenByQuestionIds: ["Q3"] },
 
-  { rowId: "2.1", legalBasis: "Article 12ac par. 2 CIT Act", conditionTested: "Associated enterprise / related party: an interest of more than 25% (raised to 50% for hybrid-entity cases), aggregated across an acting-together group", allowedStates: S, drivenByQuestionIds: ["Q28"] },
+  { rowId: "2.1", legalBasis: "Article 12ac par. 2 CIT Act", conditionTested: "Associated enterprise / related party: an interest of more than 25%, aggregated across an acting-together group", allowedStates: S, drivenByQuestionIds: ["Q28"] },
   { rowId: "2.2", legalBasis: "Article 12ac CIT Act", conditionTested: "A structured arrangement is present (the mismatch is priced into the terms, or the arrangement is designed to produce it)", allowedStates: S, drivenByQuestionIds: ["Q28"] },
   { rowId: "2.3", legalBasis: "Article 12ac CIT Act", conditionTested: "Dual-inclusion income is present (income included in the tax base of both states that can absorb a mismatch)", allowedStates: S, drivenByQuestionIds: ["Q4d", "Q11", "Q25"] },
 

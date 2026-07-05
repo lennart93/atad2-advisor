@@ -29,7 +29,7 @@ export function QuestionNode({ data }: NodeProps) {
         <span className="text-[10px] font-normal text-ds-ink-secondary">{d.question_id}</span>
         <RiskChip points={maxRisk} />
       </div>
-      <div className="text-[11px] font-medium text-foreground line-clamp-2">
+      <div className="text-[11px] font-normal text-foreground line-clamp-2">
         {d.question_title || "(untitled)"}
       </div>
       <div className="mt-1.5 flex flex-wrap gap-1">

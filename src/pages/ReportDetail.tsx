@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Seo } from "@/components/Seo";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "@/components/ui/app-toast";
 import { Download, ArrowLeft, Archive } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import DownloadMemoButton from "@/components/DownloadMemoButton";
@@ -15,7 +15,6 @@ const ReportDetail = () => {
   const { reportId } = useParams<{ reportId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const { data: report, isLoading, error } = useQuery({
@@ -50,16 +49,14 @@ const ReportDetail = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast({ title: "Report archived" });
+      toast.success("Report archived");
       queryClient.invalidateQueries({ queryKey: ["reports"] });
       queryClient.invalidateQueries({ queryKey: ["report", reportId] });
       navigate("/");
     },
     onError: (error) => {
-      toast({
-        title: "Error archiving report",
+      toast.error("Could not archive the report", {
         description: error.message,
-        variant: "destructive",
       });
     },
   });
@@ -152,7 +149,7 @@ const ReportDetail = () => {
         
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-ds-ink-secondary">
+            <p className="text-[11px] font-normal uppercase tracking-[0.16em] text-ds-ink-secondary">
               ATAD2 report
             </p>
             <h1 className="text-2xl font-normal tracking-tight">
@@ -206,24 +203,24 @@ const ReportDetail = () => {
       <div className="grid gap-6 mb-6">
         {/* Metadata Card */}
         <Card className="p-6">
-          <h2 className="text-lg font-medium mb-4">Report details</h2>
+          <h2 className="text-lg font-normal mb-4">Report details</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {report.model && (
               <div>
                 <p className="text-sm text-muted-foreground">Model</p>
-                <p className="font-medium">{report.model}</p>
+                <p className="font-normal">{report.model}</p>
               </div>
             )}
             {report.total_risk !== null && (
               <div>
                 <p className="text-sm text-muted-foreground">Total risk</p>
-                <p className="font-medium">{report.total_risk} points</p>
+                <p className="font-normal">{report.total_risk} points</p>
               </div>
             )}
             {report.answers_count !== null && (
               <div>
                 <p className="text-sm text-muted-foreground">Questions answered</p>
-                <p className="font-medium">{report.answers_count}</p>
+                <p className="font-normal">{report.answers_count}</p>
               </div>
             )}
           </div>
@@ -231,7 +228,7 @@ const ReportDetail = () => {
 
         {/* Report Content */}
         <Card className="p-6">
-          <h2 className="text-lg font-medium mb-4">Report content</h2>
+          <h2 className="text-lg font-normal mb-4">Report content</h2>
           <div className="prose prose-sm max-w-none">
             <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">
               {report.report_md}

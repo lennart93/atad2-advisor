@@ -21,6 +21,13 @@ interface Props {
   defaultOpen?: boolean;
   /** Called when the interaction finishes: list selection, dismissal, or custom-input blur. NOT called when switching into custom mode. */
   onSettled?: () => void;
+  /**
+   * 'facts' tightens the picker for the appendix entity table: the trigger is a
+   * flag + ISO code (not the full name) with a terracotta ring, and the dropdown
+   * gets the narrow elevated panel with the terracotta-selected item. 'default'
+   * is the wide name-led picker used by the structure inspector.
+   */
+  variant?: 'default' | 'facts';
 }
 
 /**
@@ -29,7 +36,8 @@ interface Props {
  * the UI into a free-text input for non-standard codes (e.g. legacy alpha-3 or
  * sub-national designators the AI extractor produced).
  */
-export function JurisdictionPicker({ id, value, onChange, placeholder = 'Select a country…', className, defaultOpen, onSettled }: Props) {
+export function JurisdictionPicker({ id, value, onChange, placeholder = 'Select a country…', className, defaultOpen, onSettled, variant = 'default' }: Props) {
+  const facts = variant === 'facts';
   const [customMode, setCustomMode] = useState(() => value !== '' && !isKnownCountryIso(value));
   const [open, setOpen] = useState(!!defaultOpen);
   // A list selection (or the switch into custom mode) closes the popover
@@ -90,45 +98,99 @@ export function JurisdictionPicker({ id, value, onChange, placeholder = 'Select 
       }}
     >
         <PopoverTrigger asChild>
-          <Button
-            id={id}
-            variant="outline"
-            role="combobox"
-            aria-expanded={open}
-            className={cn('w-full justify-between font-normal', className)}
-          >
-            <span className={cn('flex items-center gap-2 truncate', !value && 'text-muted-foreground')}>
-              {value && <CountryFlag iso={value} />}
-              {value ? `${countryName(value)} (${value})` : placeholder}
-            </span>
-            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-          </Button>
+          {facts ? (
+            <Button
+              id={id}
+              variant="outline"
+              role="combobox"
+              aria-expanded={open}
+              className={cn(
+                'h-7 w-auto justify-between gap-1.5 rounded-[3px] border-brand-terracotta bg-white px-1.5 font-normal text-foreground ring-2 ring-brand-terracotta/20 hover:bg-white',
+                className,
+              )}
+            >
+              <span className={cn('flex items-center gap-1.5', !value && 'text-muted-foreground')}>
+                {value && <CountryFlag iso={value} className="!h-[13px] !w-[18px] shadow-[0_0_0_1px_rgba(20,18,12,0.08)]" />}
+                <span className={cn('text-[13.5px] tracking-[0.02em] tabular-nums', value && 'uppercase')}>{value || placeholder}</span>
+              </span>
+              <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 opacity-50" />
+            </Button>
+          ) : (
+            <Button
+              id={id}
+              variant="outline"
+              role="combobox"
+              aria-expanded={open}
+              className={cn('w-full justify-between font-normal', className)}
+            >
+              <span className={cn('flex items-center gap-2 truncate', !value && 'text-muted-foreground')}>
+                {value && <CountryFlag iso={value} />}
+                {value ? `${countryName(value)} (${value})` : placeholder}
+              </span>
+              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          )}
         </PopoverTrigger>
-        <PopoverContent className="w-[300px] p-0" align="start">
+        <PopoverContent
+          className={cn(
+            facts
+              ? 'w-[280px] rounded-[5px] p-0 shadow-[0_20px_48px_-14px_rgba(20,18,12,0.30)]'
+              : 'w-[300px] p-0',
+          )}
+          align="start"
+        >
           <Command>
             <CommandInput placeholder="Search country or code…" />
-            <CommandList>
+            <CommandList className={cn(facts && 'max-h-[232px]')}>
               <CommandEmpty>No match.</CommandEmpty>
               <CommandGroup>
-                {items.map(({ iso, name }) => (
-                  <CommandItem
-                    key={iso}
-                    value={`${name} ${iso}`}
-                    onSelect={() => {
-                      suppressSettle.current = true;
-                      onChange(iso);
-                      setOpen(false);
-                      onSettled?.();
-                    }}
-                  >
-                    <Check
-                      className={cn('mr-2 h-4 w-4', value === iso ? 'opacity-100' : 'opacity-0')}
-                    />
-                    <CountryFlag iso={iso} className="mr-2" />
-                    <span className="flex-1 truncate">{name}</span>
-                    <span className="ml-2 text-xs text-muted-foreground tabular-nums">{iso}</span>
-                  </CommandItem>
-                ))}
+                {items.map(({ iso, name }) => {
+                  const selected = value === iso;
+                  if (facts) {
+                    return (
+                      <CommandItem
+                        key={iso}
+                        value={`${name} ${iso}`}
+                        onSelect={() => {
+                          suppressSettle.current = true;
+                          onChange(iso);
+                          setOpen(false);
+                          onSettled?.();
+                        }}
+                        className={cn(
+                          'gap-2 rounded-[3px] px-2 py-1.5 text-[13.5px]',
+                          selected
+                            ? 'bg-[#faf2ee] data-[selected=true]:bg-[#faf2ee]'
+                            : 'data-[selected=true]:bg-[#faf7f2]',
+                        )}
+                      >
+                        <CountryFlag iso={iso} className="!h-[13px] !w-[18px] shadow-[0_0_0_1px_rgba(20,18,12,0.08)]" />
+                        <span className="flex-1 truncate text-foreground">{name}</span>
+                        <span className={cn('text-xs tabular-nums', selected ? 'text-brand-terracotta-deep' : 'text-muted-foreground')}>{iso}</span>
+                        {selected && <Check className="h-3.5 w-3.5 text-brand-terracotta" />}
+                      </CommandItem>
+                    );
+                  }
+                  return (
+                    <CommandItem
+                      key={iso}
+                      value={`${name} ${iso}`}
+                      onSelect={() => {
+                        suppressSettle.current = true;
+                        onChange(iso);
+                        setOpen(false);
+                        onSettled?.();
+                      }}
+                    >
+                      <Check
+                        className={cn('mr-2 h-4 w-4', selected ? 'opacity-100' : 'opacity-0')}
+                      />
+                      <CountryFlag iso={iso} className="mr-2" />
+                      <span className="flex-1 truncate">{name}</span>
+                      <span className="ml-2 text-xs text-muted-foreground tabular-nums">{iso}</span>
+                    </CommandItem>
+                  );
+                })}
               </CommandGroup>
               <CommandGroup className="sticky bottom-0 bg-popover border-t border-border">
                 <CommandItem
@@ -141,7 +203,7 @@ export function JurisdictionPicker({ id, value, onChange, placeholder = 'Select 
                   }}
                   className="text-muted-foreground"
                 >
-                  Not in list, enter code manually
+                  {facts ? 'Not in the list? Enter a code manually' : 'Not in list, enter code manually'}
                 </CommandItem>
               </CommandGroup>
             </CommandList>

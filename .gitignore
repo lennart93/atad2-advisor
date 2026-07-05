@@ -42,6 +42,9 @@ TODOS.md
 supabase/.temp/
 .playwright-mcp/
 
+# Build artifacts
+tsconfig.app.tsbuildinfo
+
 # Local design/preview mockups (not for production)
 sidebar-preview.html
 stepper-preview.html

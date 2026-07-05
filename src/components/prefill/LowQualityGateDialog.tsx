@@ -1,3 +1,4 @@
+import { Plus } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ds';
 import { DOCUMENT_CATEGORIES, type DocumentCategory } from '@/lib/prefill/types';
@@ -32,10 +33,10 @@ export function LowQualityGateDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="rounded-sm border-t-[3px] border-t-brand-terracotta bg-card">
         <DialogHeader>
-          <DialogTitle>
-            {isEmpty ? 'Continue without documents?' : 'Add more documents?'}
+          <DialogTitle className="font-normal">
+            {isEmpty ? 'Continue without documents?' : 'Add another document?'}
           </DialogTitle>
           <DialogDescription>
             {isEmpty
@@ -44,11 +45,12 @@ export function LowQualityGateDialog({
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button variant="secondary" onClick={() => onOpenChange(false)}>
-            {isEmpty ? 'Cancel' : 'Add more documents'}
-          </Button>
-          <Button variant="primary" onClick={onConfirm}>
+          <Button variant="secondary" onClick={onConfirm}>
             {isEmpty ? 'Continue without' : 'Continue anyway'}
+          </Button>
+          <Button variant="primary" onClick={() => onOpenChange(false)}>
+            {isEmpty ? 'Add documents' : 'Add a document'}
+            <Plus className="text-brand-terracotta" />
           </Button>
         </DialogFooter>
       </DialogContent>

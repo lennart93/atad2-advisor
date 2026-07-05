@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   effJurisdiction, effEntityType, effNlTaxStatus, effNlQualification, effNlQualificationReason,
+  effRelationType, effRelatedPct, effRelationReason, effNlReason, effLocalReason,
   DEFAULT_NL_NON_TRANSPARENT_REASON, withEntityEdit,
 } from '@/lib/appendix/facts/entityFields';
 import { emptyFacts } from '@/lib/appendix/facts/emptyFacts';
@@ -62,6 +63,28 @@ describe('effNlQualification - deterministic NL default', () => {
   });
   it('prefers an AI/advisor reason over the synthesized default reason', () => {
     expect(effNlQualificationReason({ ...nlCorp, nlTaxStatusReason: 'Custom reason.' })).toBe('Custom reason.');
+  });
+});
+
+describe('relation and reasoning overrides', () => {
+  it('effRelatedPct: edit wins, an explicit clear does not fall back to the chart', () => {
+    expect(effRelatedPct(base)).toBe(100);
+    expect(effRelatedPct({ ...base, edits: { relatedPct: 62.7 } })).toBe(62.7);
+    expect(effRelatedPct({ ...base, edits: { relatedPct: null } })).toBeNull();
+    // no ownershipPct: falls back to the via-parent stake
+    expect(effRelatedPct({ ...base, ownershipPct: null, relatedViaPct: 30 })).toBe(30);
+  });
+  it('effRelationType is null until the advisor picks one', () => {
+    expect(effRelationType(base)).toBeNull();
+    expect(effRelationType({ ...base, edits: { relationType: 'Sister company' } })).toBe('Sister company');
+  });
+  it('reason overrides win over the derived fallback', () => {
+    expect(effRelationReason(base, 'derived')).toBe('derived');
+    expect(effRelationReason({ ...base, edits: { relationReason: 'mine' } }, 'derived')).toBe('mine');
+    expect(effNlReason({ ...nlCorp, edits: { nlReason: 'my nl reason' } })).toBe('my nl reason');
+    expect(effNlReason(nlCorp)).toBe(DEFAULT_NL_NON_TRANSPARENT_REASON);
+    expect(effLocalReason(base, 'derived local')).toBe('derived local');
+    expect(effLocalReason({ ...base, edits: { localReason: 'my local' } }, 'derived local')).toBe('my local');
   });
 });
 

@@ -25,7 +25,7 @@ export interface ProcessChecklistProps extends React.HTMLAttributes<HTMLDivEleme
 }
 
 /**
- * One row per pipeline step: done (green check), current (neutral spinner),
+ * One row per pipeline step: done (green check), current (terracotta spinner),
  * pending (muted), error (amber). When everything is done and a
  * `completedLabel` is given, the list collapses to the single status line
  * pattern from the client-letter screen.
@@ -47,7 +47,7 @@ function ProcessChecklist({
         {...props}
       >
         <CheckCircle2 className="size-4 shrink-0 text-ds-green" aria-hidden="true" />
-        <p className="text-[13px] font-medium text-ds-ink">{completedLabel}</p>
+        <p className="text-[13px] font-normal text-ds-ink">{completedLabel}</p>
         {meta != null && (
           <span className="ds-tabular-nums ml-auto text-xs text-ds-ink-secondary">
             {meta}
@@ -66,7 +66,7 @@ function ProcessChecklist({
               <Check className="size-4 shrink-0 text-ds-green" strokeWidth={2.5} aria-hidden="true" />
             ) : step.status === "current" ? (
               <Loader2
-                className="size-4 shrink-0 text-ds-ink-secondary motion-safe:animate-spin"
+                className="size-4 shrink-0 text-ds-accent motion-safe:animate-spin"
                 aria-hidden="true"
               />
             ) : step.status === "error" ? (
@@ -89,7 +89,7 @@ function ProcessChecklist({
             <span
               className={cn(
                 "text-[13px]",
-                step.status === "current" && "font-medium text-ds-ink",
+                step.status === "current" && "font-normal text-ds-ink",
                 step.status === "done" && "text-ds-ink",
                 step.status === "error" && "text-ds-ink",
                 step.status === "pending" && "text-ds-ink-secondary",

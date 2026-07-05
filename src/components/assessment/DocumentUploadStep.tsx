@@ -11,16 +11,28 @@ export function DocumentUploadStep({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-[18px] font-medium tracking-tight text-ds-ink">Supporting documents</h2>
-        <p className="mt-1 text-[13px] text-ds-ink-secondary">
-          Documents are read to answer as much of the questionnaire as possible;
-          whatever cannot be determined becomes a short list of points to confirm.
+        <h2 className="text-2xl font-normal tracking-tight text-ds-ink">Supporting documents</h2>
+        <p className="mt-2 text-[15px] text-ds-ink-secondary">
+          Add the documents you already have. We read them to pre-fill as many
+          answers as possible, then hand you a short list of anything left to confirm.
         </p>
       </div>
       {!locked && (
-        <div className="rounded-ds-control bg-ds-fill-muted p-4 text-[13px] text-ds-ink-secondary">
-          PDF, images (PNG/JPG/WEBP), Word (.docx, .rtf), PowerPoint (.pptx),
-          Excel (.xlsx, .xlsm), text/CSV/Markdown. Max 15 MB per file, 100 MB per session.
+        <div className="border-t border-ds-hairline">
+          <div className="flex gap-5 border-b border-ds-hairline py-3">
+            <span className="w-20 shrink-0 pt-0.5 text-[11px] font-medium uppercase tracking-[0.12em] text-ds-ink-secondary">
+              Accepted
+            </span>
+            <span className="text-[13px] text-ds-ink">
+              PDF, Word, PowerPoint, Excel, images, and text & Markdown files
+            </span>
+          </div>
+          <div className="flex gap-5 border-b border-ds-hairline py-3">
+            <span className="w-20 shrink-0 pt-0.5 text-[11px] font-medium uppercase tracking-[0.12em] text-ds-ink-secondary">
+              Limits
+            </span>
+            <span className="text-[13px] text-ds-ink">15 MB per file · 100 MB per session</span>
+          </div>
         </div>
       )}
       <DocumentUploader sessionId={sessionId} locked={locked} />
