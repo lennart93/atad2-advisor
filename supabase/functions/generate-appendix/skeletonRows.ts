@@ -49,7 +49,7 @@ export const SKELETON_ROWS: ServerSkeletonRow[] = [
   { rowId: "7.1", legalBasis: "Article 12af CIT Act", conditionTested: "A deduction was denied in an earlier year under art. 12aa(1)(e), (f) or (g), or art. 12ae, or income was included under art. 12ab(1)", allowedStates: S, drivenByQuestionIds: [] },
   { rowId: "7.2", legalBasis: "Article 12af CIT Act", conditionTested: "Dual-inclusion income arises in a later year than the denial, allowing the earlier deduction to be taken (recapture)", allowedStates: S, drivenByQuestionIds: [] },
 
-  { rowId: "8.1", legalBasis: "Article 2 CIT Act", conditionTested: "A related participant treats the Dutch partnership as transparent while it is regarded as non-transparent in the Netherlands or another state (reverse-hybrid classification conflict)", allowedStates: S, drivenByQuestionIds: ["Q4"] },
+  { rowId: "8.1", legalBasis: "Article 2 CIT Act", conditionTested: "A related participant regards the Dutch partnership as non-transparent (independently taxable) while the Netherlands treats it as transparent (reverse-hybrid classification conflict)", allowedStates: S, drivenByQuestionIds: ["Q4"] },
   { rowId: "8.2", legalBasis: "Article 2 par. 11 CIT Act", conditionTested: "50% or more of the voting rights, capital or profit is held, directly or indirectly, by related entities in a state that regards the partnership as taxable", allowedStates: S, drivenByQuestionIds: ["Q4"] },
   { rowId: "8.3", legalBasis: "Article 2 par. 12 CIT Act", conditionTested: "The collective-investment exception applies (a UCITS or AIF holding tradable securities with a diversified portfolio)", allowedStates: S, drivenByQuestionIds: [] },
 ];
