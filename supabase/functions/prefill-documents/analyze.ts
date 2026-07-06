@@ -56,6 +56,12 @@ export async function runAnalyzeOne(
   pdfRefs: PdfRef[] = [],
   taxpayerName: string = "",
   fiscalYear: string = "",
+  // Factsheet pipeline: the cross-document, pre-analysed group fact sheet as a
+  // ready-to-inject text block, plus the version it came from. Both optional so
+  // this function can go live BEFORE swarm prompt v18 (which consumes the block)
+  // and before any factsheet exists — an empty block is a no-op prefix.
+  factsheetBlock: string = "",
+  factsheetVersion: number | null = null,
 ): Promise<{ ok: boolean; error?: string; usage?: Record<string, number> }> {
   const started = Date.now();
 
@@ -87,7 +93,15 @@ export async function runAnalyzeOne(
     // text-prefix block so everything before the question is cached, written
     // once per session and read by every other question call in the swarm.
     const attachmentList = buildAttachmentList(pdfRefs, imageRefs);
-    const cachedTextPrefix = docPrefix + attachmentList;
+    // Inject the verified group fact sheet BEFORE the raw documents, but still
+    // inside the cached text prefix (the cache_control marker sits on this
+    // combined block), so it is written once per session and read by every
+    // question call. Empty block => no section (placeholder-safe: the function
+    // ships before prompt v18 and before any factsheet exists).
+    const factsheetSection = factsheetBlock.trim()
+      ? `## Verified group fact sheet (cross-document, pre-analysed)\n\n${factsheetBlock.trim()}\n\n`
+      : "";
+    const cachedTextPrefix = factsheetSection + docPrefix + attachmentList;
 
     type CacheableBlock = AnthropicBlock & { cache_control?: { type: "ephemeral" } };
     const prefix: CacheableBlock[] = [];
@@ -182,13 +196,13 @@ export async function runAnalyzeOne(
       .upsert({
         session_id: sessionId,
         question_id: questionId,
-        suggested_toelichting: truncate(parsed.suggested_toelichting, 1000),
+        suggested_toelichting: truncate(parsed.suggested_toelichting, 4000),
         source_refs: parsed.source_refs,
         suggested_answer: parsed.suggested_answer,
         confidence_pct: parsed.confidence_pct,
-        answer_rationale: truncate(parsed.answer_rationale, 200),
+        answer_rationale: truncate(parsed.answer_rationale, 300),
         contextual_hint: truncate(parsed.contextual_hint, 1000),
-        suggested_toelichting_unknown: truncate(unknownToelichting, 1000),
+        suggested_toelichting_unknown: truncate(unknownToelichting, 4000),
         client_question: truncate(parsed.client_question, 450),
         user_action: "pending",
       }, { onConflict: "session_id,question_id" });
@@ -206,6 +220,28 @@ export async function runAnalyzeOne(
         error: upsertErr.message ?? String(upsertErr),
       }));
       return { ok: false, error: `upsert failed: ${upsertErr.message ?? upsertErr}` };
+    }
+
+    // factsheet_version + evidence live on columns added by the factsheet-pipeline
+    // migration. Write them as a SEPARATE, failure-tolerant follow-up (same
+    // pattern as committed_text in usePrefill): if that migration has not reached
+    // this DB yet, a combined upsert would fail the whole row. RE-RUN SAFETY: the
+    // client only re-fires analyze_one for rows with user_action='pending', so
+    // this upsert never clobbers an advisor-accepted/dismissed/resolved row;
+    // contradictions on recorded answers flow through the existing reopen
+    // mechanism (confidence >= 60) in sync_open_questions_from_prefill.
+    if (factsheetVersion !== null || parsed.evidence) {
+      const { error: fsErr } = await serviceClient
+        .from("atad2_question_prefills")
+        .update({ factsheet_version: factsheetVersion, evidence: parsed.evidence ?? null })
+        .eq("session_id", sessionId)
+        .eq("question_id", questionId);
+      if (fsErr) {
+        console.warn(JSON.stringify({
+          level: "warn", event: "prefill_factsheet_cols_update_failed",
+          session_id: sessionId, question_id: questionId, error: fsErr.message ?? String(fsErr),
+        }));
+      }
     }
 
     console.log(JSON.stringify({

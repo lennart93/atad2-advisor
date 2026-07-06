@@ -294,11 +294,21 @@ const [busy, setBusy] = useState(false);
     if (entities.length === 0) return entities;
     const hidden = hiddenChartIds;
     const ownership = edges.filter((e) => e.kind === 'ownership');
-    const taxpayer = entities.find((e) => e.is_taxpayer && !hidden.has(e.id));
-    const anchorId = taxpayer?.id ?? entities.find((e) => !hidden.has(e.id))?.id;
-    if (!anchorId) return entities.filter((e) => !hidden.has(e.id));
-    const connected = new Set<string>([anchorId]);
-    const queue = [anchorId];
+    // Every declared taxpayer anchors its own tree. A multi-entity intake
+    // (several separate taxpayers) produces disconnected ownership trees, so a
+    // walk from a single anchor only reaches one tree and silently drops the
+    // rest. Seed from ALL taxpayers so every taxpayer's structure stays on the
+    // chart; fall back to the first visible entity when nothing is flagged.
+    const anchorIds = entities
+      .filter((e) => e.is_taxpayer && !hidden.has(e.id))
+      .map((e) => e.id);
+    if (anchorIds.length === 0) {
+      const fallback = entities.find((e) => !hidden.has(e.id))?.id;
+      if (fallback) anchorIds.push(fallback);
+    }
+    if (anchorIds.length === 0) return entities.filter((e) => !hidden.has(e.id));
+    const connected = new Set<string>(anchorIds);
+    const queue = [...anchorIds];
     while (queue.length > 0) {
       const cur = queue.shift()!;
       for (const e of ownership) {

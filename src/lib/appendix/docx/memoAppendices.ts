@@ -22,7 +22,7 @@ import { factsForClient } from '../factsExport';
 import { isSectionExcluded } from '../facts/sections';
 import { effJurisdiction, effEntityType, effNlQualification, effRelationType, effRelatedPct } from '../facts/entityFields';
 import { nlQualificationLabel } from '../facts/nlTaxStatus';
-import { effLocalQualification, entityHasQualificationDifference } from '../facts/conclusions';
+import { effLocalQualification, entityHasQualificationDifference, dutchForeignClassification } from '../facts/conclusions';
 import { relevantTransactions } from '../facts/relevance';
 import { noRiskTransactions, txMemoReason } from '../facts/transactionAssessment';
 import { shortTransactionType } from '../facts/transactionCategory';
@@ -411,6 +411,11 @@ function factsAppendix(rawFacts: AppendixFacts, pageBreakBefore: boolean): strin
         clsSecond = state
           ? `${state}: ${nlQualificationLabel(localQ)}`
           : nlQualificationLabel(localQ);
+      } else {
+        // A Dutch entity only carries a second line when the advisor added a
+        // foreign classification (how another state sees this NL entity).
+        const foreign = dutchForeignClassification(e, c);
+        if (foreign) clsSecond = `${foreign.state}: ${nlQualificationLabel(foreign.qual)}`;
       }
       const clsParas =
         para(run(nlQualificationLabel(nlQ), { color: CLS_INK }), {

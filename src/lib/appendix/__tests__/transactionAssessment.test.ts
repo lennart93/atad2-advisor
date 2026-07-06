@@ -88,6 +88,21 @@ describe('editing a characteristic moves the status and the memo line', () => {
     expect(txMemoReason(next, next.transactions[0])).toBe('Ordinary trade payable, no hybrid feature.');
   });
 
+  it('resolving hybrid entity mismatch = No clears the flow instead of re-flagging the instrument', () => {
+    // The screenshot case: NL taxpayer -> US, foreign view unset, AI-relevant. The
+    // flow seeds to "needs · possible hybrid entity mismatch". When the advisor
+    // determines there is no entity mismatch and sets it to No, the flow must move
+    // to "No risk", not silently re-open the instrument seed.
+    const f = facts([ent('E1', 'NL', { role: 'Taxpayer' }), ent('E2', 'US')], [tx('T1', 'E1', 'E2')]);
+    expect(effHybridEntityMismatch(f, f.transactions[0])).toBe('tbd');
+    expect(effTxStatus(f, f.transactions[0])).toBe('needs');
+    const next = withTxCharacteristic(f, 'T1', 'hybridEntityMismatch', 'no');
+    const t = next.transactions[0];
+    expect(effHybridEntityMismatch(next, t)).toBe('no');
+    expect(effHybridInstrument(next, t)).toBe('no'); // not nudged back to 'tbd'
+    expect(effTxStatus(next, t)).toBe('no_risk');
+  });
+
   it('setting cross-border = No relaxes the mismatch seeds to N/A', () => {
     const f = facts([ent('E1', 'NL', { role: 'Taxpayer' }), ent('E2', 'US')], [tx('T1', 'E1', 'E2')]);
     expect(effTxStatus(f, f.transactions[0])).toBe('needs');

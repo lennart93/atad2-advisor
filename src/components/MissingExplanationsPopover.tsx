@@ -27,21 +27,25 @@ const MissingExplanationsPopover: React.FC<MissingExplanationsPopoverProps> = ({
   onTriggerClick,
   children,
 }) => {
+  // Nothing is missing, nothing to warn about: never open the popover, even if a
+  // live answer update drops the count to zero while it was already open.
+  const shouldShow = isOpen && missingCount > 0;
+
   const handleTriggerClick = () => {
-    if (isOpen && onTriggerClick) {
+    if (shouldShow && onTriggerClick) {
       onTriggerClick();
       onOpenChange(false);
     }
   };
 
   return (
-    <Popover open={isOpen} onOpenChange={onOpenChange}>
+    <Popover open={shouldShow} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild onClick={handleTriggerClick}>
         {children}
       </PopoverTrigger>
       {/* Modal moment: a light ink wash dims the page behind the popover.
           pointer-events-none so outside clicks still reach (and close) it. */}
-      {isOpen &&
+      {shouldShow &&
         createPortal(
           <div
             aria-hidden

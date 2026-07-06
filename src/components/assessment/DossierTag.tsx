@@ -1,6 +1,5 @@
 // src/components/assessment/DossierTag.tsx
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { FileText, Folder, FolderOpen } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useSessionDocuments } from '@/hooks/usePrefill';
@@ -56,7 +55,6 @@ export function DossierTag({
   overrideOutcome,
   outcomeOverridden,
 }: DossierTagProps) {
-  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [hovered, setHovered] = useState(false);
 
@@ -87,17 +85,11 @@ export function DossierTag({
   const effectiveOutcome = outcomeOverridden && overrideOutcome ? overrideOutcome : preliminaryOutcome;
   const outcome = effectiveOutcome ? OUTCOME_DOT[effectiveOutcome] : undefined;
 
-  // Clicking a document still jumps to the documents step; that is the one
-  // navigation the spec keeps. Everything else here is read-only.
-  const goToDocuments = () => {
-    setOpen(false);
-    navigate(`/assessment/upload?session=${sessionId}`);
-  };
-
   const docCount = docs?.length ?? 0;
 
-  const docRowClasses =
-    'flex w-full items-center gap-2 rounded-ds-control px-2 py-1.5 text-left text-[13px] transition-colors duration-150 hover:bg-ds-fill-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent';
+  // Read-only rows: this card is a glance, not a nav surface, so the document
+  // rows carry no hover/pointer affordance.
+  const docRowClasses = 'flex w-full items-center gap-2 rounded-ds-control px-2 py-1.5 text-left text-[13px]';
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -178,7 +170,7 @@ export function DossierTag({
           ) : (
             <>
               {(docs ?? []).slice(0, MAX_DOC_ROWS).map((doc) => (
-                <button key={doc.id} type="button" className={docRowClasses} onClick={goToDocuments}>
+                <div key={doc.id} className={docRowClasses}>
                   <FileText className="size-3.5 shrink-0 text-ds-ink-tertiary" aria-hidden="true" />
                   <span className="min-w-0 flex-1 truncate text-ds-ink">
                     {doc.doc_label || doc.filename}
@@ -188,7 +180,7 @@ export function DossierTag({
                       ? 'analyzing...'
                       : CATEGORY_LABELS.get(doc.category) ?? doc.category}
                   </span>
-                </button>
+                </div>
               ))}
               {docCount > MAX_DOC_ROWS && (
                 <p className="px-2 py-1.5 text-[13px] text-ds-ink-tertiary">

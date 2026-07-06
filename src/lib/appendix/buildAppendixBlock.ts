@@ -6,7 +6,7 @@ import { effJurisdiction, effNlQualification, effRelationType, effRelatedPct } f
 import { nlQualificationLabel } from './facts/nlTaxStatus';
 import { actingBasisLabel } from './facts/actingBasis';
 import { cleanReasoning } from './reasoningText';
-import { deriveConclusions } from './facts/conclusions';
+import { deriveConclusions, entityHasQualificationDifference } from './facts/conclusions';
 import { relevantTransactions, accountedTransactionGroups } from './facts/relevance';
 import { txMemoReason } from './facts/transactionAssessment';
 
@@ -20,13 +20,13 @@ function buildFactsSummary(facts: AppendixFacts): string {
   const ex = (key: Parameters<typeof isSectionExcluded>[1]) => isSectionExcluded(f, key);
   const byId = new Map(f.entities.map((e) => [e.id, e]));
   const nameOf = (id: string) => byId.get(id)?.name ?? id;
-  // A Dutch entity's home state is the Netherlands, so it can never be a hybrid
-  // mismatch; never label it as one in the grounding (matches the read-time guard
-  // and the NL-guarded conclusion count below, which would otherwise contradict it).
+  // The same derived hybrid test the strip count, the screen and the exports use:
+  // a foreign entity with an NL-vs-home divergence, or a Dutch entity carrying an
+  // advisor-added foreign classification. Keeps this grounding in lockstep with the
+  // conclusion count below (which reads the same function).
   const isHybridDiff = (c: AppendixFacts['classifications'][number]) => {
     const e = byId.get(c.entityId);
-    if (e && (effJurisdiction(e) ?? '').toUpperCase() === 'NL') return false;
-    return c.hybrid;
+    return !!e && entityHasQualificationDifference(e, c);
   };
   const showRelated = !ex('relatedness');
   const ents = ex('entityRegister') ? '' : f.entities

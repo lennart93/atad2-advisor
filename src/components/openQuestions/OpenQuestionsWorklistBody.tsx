@@ -1,11 +1,20 @@
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ds";
 import { WorklistPointsList } from "@/components/documents/WorklistPointsList";
-import { useDocumentsWorklist } from "@/hooks/useDocumentsWorklist";
+import type { DocumentsWorklist } from "@/hooks/useDocumentsWorklist";
 import { useOpenQuestionsView } from "@/hooks/useOpenQuestions";
 
 export interface OpenQuestionsWorklistBodyProps {
   sessionId: string;
+  /**
+   * The SAME worklist instance the sub-header chip counts from. The chip and
+   * this list must be one computation in one phase: two separate
+   * useDocumentsWorklist instances hold their own letter/phase state and can
+   * disagree (chip says "1", the list has nothing), which is exactly the
+   * mismatch this panel exists to avoid. So the owner (the chip) creates the
+   * instance and hands it down here.
+   */
+  worklist: DocumentsWorklist;
 }
 
 /**
@@ -17,9 +26,9 @@ export interface OpenQuestionsWorklistBodyProps {
  */
 export function OpenQuestionsWorklistBody({
   sessionId,
+  worklist,
 }: OpenQuestionsWorklistBodyProps) {
   const view = useOpenQuestionsView(sessionId);
-  const worklist = useDocumentsWorklist(sessionId);
 
   if (worklist.phase === "error") {
     return (

@@ -11,14 +11,14 @@ import {
   withEntityEdit,
 } from '@/lib/appendix/facts/entityFields';
 import { nlQualificationLabel, nlTaxStatusLabel, NL_CLASSIFICATION_OPTIONS, type NlQualification } from '@/lib/appendix/facts/nlTaxStatus';
-import { withLocalQualification } from '@/lib/appendix/facts/classificationEdit';
+import { withLocalQualification, withForeignClassificationState, clearForeignClassification } from '@/lib/appendix/facts/classificationEdit';
 import {
   addManualEntity, promoteToRelevant, removeFromRelevant, setHomeStateInline,
   effRelevanceOverride, effLocalNotRelevant, type HomeStateChoice,
 } from '@/lib/appendix/facts/entitySet';
 import { actingInClientReport } from '@/lib/appendix/facts/actingAnnex';
 import { ActingTogetherSection } from '@/components/appendix/ActingTogetherSection';
-import { effLocalQualification, entityHasQualificationDifference } from '@/lib/appendix/facts/conclusions';
+import { effLocalQualification, entityHasQualificationDifference, dutchForeignClassification } from '@/lib/appendix/facts/conclusions';
 import { relevantTransactions } from '@/lib/appendix/facts/relevance';
 import {
   noRiskTransactions, effTxStatus, txStatusReason, txMemoReason, isTxStatusOverridden,
@@ -430,6 +430,13 @@ export function FactsPanel({ facts, onChange, generated, refining, embedded }: P
   // The register row whose reasoning detail is expanded (one open at a time).
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const toggleRow = (id: string) => setExpandedRow((cur) => (cur === id ? null : id));
+  // Dutch entity rows whose optional "foreign classification" block has been
+  // opened by hand (a stored foreign classification also opens it, so this only
+  // holds rows that are mid-add with nothing persisted yet).
+  const [foreignOpen, setForeignOpen] = useState<Set<string>>(new Set());
+  const openForeign = (id: string) => setForeignOpen((s) => new Set(s).add(id));
+  const closeForeign = (id: string) =>
+    setForeignOpen((s) => { const n = new Set(s); n.delete(id); return n; });
   // The transaction row whose reasoning detail is expanded (one open at a time).
   const [expandedTx, setExpandedTx] = useState<string | null>(null);
   const toggleTx = (id: string) => setExpandedTx((cur) => (cur === id ? null : id));
@@ -568,10 +575,12 @@ export function FactsPanel({ facts, onChange, generated, refining, embedded }: P
     const status = effNlTaxStatus(e);
     const nlQual = effNlQualification(e);
     const c = clsByEntity.get(e.id);
-    // A Dutch entity's home state is the Netherlands, so it has no separate
-    // home-state view at all: only a foreign entity gets the second
-    // classification block, whose value can be set and can diverge.
+    // A Dutch entity's home state is the Netherlands, so it has no automatic
+    // second block; the advisor can still add an optional foreign classification
+    // (how another state sees this NL entity) to bring a hybrid mismatch in.
     const isNl = (jur ?? '').toUpperCase() === 'NL';
+    const foreignCls = isNl ? dutchForeignClassification(e, c) : null;
+    const showForeign = isNl && (foreignCls != null || foreignOpen.has(e.id));
     const localQual = effLocalQualification(e, c);
     const mismatch = hasMismatch(e);
     const flagged = showHomeStateFlag(e);
@@ -884,6 +893,83 @@ export function FactsPanel({ facts, onChange, generated, refining, embedded }: P
                       />
                     </DetailBlock>
                   )}
+
+                  {/* Foreign classification (Dutch entities): optional and off by
+                      default. The advisor opts in to record how another state
+                      classifies this NL entity, bringing a hybrid mismatch into scope. */}
+                  {isNl && (showForeign ? (
+                    <DetailBlock label="Foreign classification" tag={foreignCls?.state || 'another state'}>
+                      {editable ? (
+                        <>
+                          <div className="flex flex-wrap items-center gap-2.5">
+                            <JurisdictionPicker
+                              variant="facts"
+                              value={foreignCls?.state ?? ''}
+                              onChange={(iso) => onChange!(withForeignClassificationState(facts, e.id, iso || null))}
+                              placeholder="Country…"
+                            />
+                            <Select
+                              value={foreignCls?.qual ?? 'undetermined'}
+                              onValueChange={(v) => {
+                                const mapped = v === 'transparent' ? 'transparent'
+                                  : v === 'non-transparent' ? 'opaque'
+                                    : v === 'reverse-hybrid' ? 'reverse_hybrid'
+                                      : 'unknown';
+                                onChange!(withLocalQualification(facts, e.id, mapped, foreignCls?.state ?? ''));
+                              }}
+                            >
+                              <SelectTrigger
+                                aria-label="Foreign classification"
+                                className={cn(EDIT_SELECT, (foreignCls?.qual ?? 'undetermined') === 'undetermined' && EDIT_SELECT_TODO)}
+                              >
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {NL_CLASSIFICATION_OPTIONS.map((o) => <SelectItem key={o.qual} value={o.qual}>{o.label}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                            <button
+                              type="button"
+                              aria-label="Remove foreign classification"
+                              title="Remove the foreign classification"
+                              onClick={() => { closeForeign(e.id); onChange!(clearForeignClassification(facts, e.id)); }}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                          <ReasonField
+                            value={localReason}
+                            editable={editable}
+                            label={`Foreign classification reasoning for ${e.name}`}
+                            placeholder="How this other state classifies the entity, and why it matters here."
+                            onCommit={(text) => onChange!(withEntityEdit(facts, e.id, 'localReason', text))}
+                          />
+                        </>
+                      ) : (
+                        <>
+                          <p className={detailValue}>
+                            {nlQualificationLabel(localQual)}{foreignCls?.state ? ` (${foreignCls.state})` : ''}
+                          </p>
+                          <ReasonField
+                            value={localReason}
+                            editable={false}
+                            label={`Foreign classification reasoning for ${e.name}`}
+                          />
+                        </>
+                      )}
+                    </DetailBlock>
+                  ) : editable ? (
+                    <div className="self-start">
+                      <button
+                        type="button"
+                        onClick={() => openForeign(e.id)}
+                        className="inline-flex items-center gap-1.5 rounded-[4px] border border-dashed border-border px-2.5 py-1.5 text-[12.5px] text-muted-foreground transition-colors hover:border-ds-ink-tertiary hover:text-foreground"
+                      >
+                        <Plus className="h-3.5 w-3.5" /> Add foreign classification
+                      </button>
+                    </div>
+                  ) : null)}
                 </div>
 
                 {/* Client visibility (hide = kept in the analysis, left out of the

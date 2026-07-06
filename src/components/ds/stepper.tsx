@@ -21,7 +21,10 @@ export interface StepperProps {
   current: number;
   /** Steps beyond `current` that are also done (revisiting from a later view). */
   extraDone?: number[];
-  /** Done steps listed in `extraDone` become clickable when this is set. */
+  /** Steps that accept a click (jump straight to that step). When omitted,
+   *  falls back to `extraDone` for backward compatibility. */
+  clickableIndexes?: number[];
+  /** Steps in `clickableIndexes` become clickable when this is set. */
   onStepClick?: (index: number) => void;
   /** Tooltip shown on steps in `lockedIndexes` (finalized flow). */
   lockedTooltip?: string;
@@ -89,12 +92,17 @@ function Stepper({
   steps,
   current,
   extraDone,
+  clickableIndexes,
   onStepClick,
   lockedTooltip,
   lockedIndexes,
   className,
 }: StepperProps) {
   const extraDoneSet = React.useMemo(() => new Set(extraDone ?? []), [extraDone]);
+  const clickableSet = React.useMemo(
+    () => new Set(clickableIndexes ?? extraDone ?? []),
+    [clickableIndexes, extraDone],
+  );
   const lockedSet = React.useMemo(() => new Set(lockedIndexes ?? []), [lockedIndexes]);
   const [compactOpen, setCompactOpen] = React.useState(false);
 
@@ -122,7 +130,7 @@ function Stepper({
                 const isActive = i === current;
                 const isDone = i < current || extraDoneSet.has(i);
                 const isLocked = isDone && lockedSet.has(i);
-                const isClickable = !isLocked && !!onStepClick && extraDoneSet.has(i);
+                const isClickable = !isLocked && !!onStepClick && clickableSet.has(i);
                 const state: StepState = isActive ? "active" : isDone ? "done" : "upcoming";
                 const rowClasses =
                   "flex w-full items-center gap-2 rounded-ds-control px-2 py-1.5 text-left text-[13px]";
@@ -178,7 +186,7 @@ function Stepper({
           const isActive = i === current;
           const isDone = i < current || extraDoneSet.has(i);
           const isLocked = isDone && lockedSet.has(i);
-          const isClickable = !isLocked && !!onStepClick && extraDoneSet.has(i);
+          const isClickable = !isLocked && !!onStepClick && clickableSet.has(i);
           const state: StepState = isActive ? "active" : isDone ? "done" : "upcoming";
           const num = String(i + 1).padStart(2, "0");
           const isLast = i === steps.length - 1;

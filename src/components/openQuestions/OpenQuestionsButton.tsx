@@ -105,6 +105,7 @@ export function OpenQuestionsButton({
       />
       <OpenQuestionsSheet
         sessionId={sessionId}
+        worklist={worklist}
         open={sheetOpen}
         onOpenChange={(open) => {
           setSheetOpen(open);

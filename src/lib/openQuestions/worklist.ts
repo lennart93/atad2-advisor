@@ -430,18 +430,18 @@ export interface DraftWritePlan {
   skipped: DraftSkip[];
 }
 
-/** answer_rationale has a 200-char CHECK constraint; clamp defensively. */
+/** answer_rationale has a 300-char CHECK constraint; clamp defensively. */
 function clampRationale(text: string): string {
-  return text.length <= 200 ? text : `${text.slice(0, 197)}...`;
+  return text.length <= 300 ? text : `${text.slice(0, 297)}...`;
 }
 
 /**
- * suggested_toelichting and suggested_toelichting_unknown carry a 1000-char
+ * suggested_toelichting and suggested_toelichting_unknown carry a 4000-char
  * CHECK constraint. A pasted client reply can exceed that; clamp so the draft
  * always lands instead of silently failing the UPDATE and dropping the node.
  */
 function clampToelichting(text: string): string {
-  return text.length <= 1000 ? text : `${text.slice(0, 997)}...`;
+  return text.length <= 4000 ? text : `${text.slice(0, 3997)}...`;
 }
 
 function confidenceFor(

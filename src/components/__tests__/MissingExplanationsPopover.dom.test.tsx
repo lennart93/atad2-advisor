@@ -54,4 +54,10 @@ describe("MissingExplanationsPopover", () => {
     renderPopover({ isOpen: false });
     expect(document.querySelector(".pointer-events-none.fixed.inset-0")).not.toBeInTheDocument();
   });
+
+  it("stays closed when nothing is missing, even if isOpen is true", () => {
+    renderPopover({ isOpen: true, missingCount: 0 });
+    expect(screen.queryByRole("heading")).not.toBeInTheDocument();
+    expect(document.querySelector(".pointer-events-none.fixed.inset-0")).not.toBeInTheDocument();
+  });
 });

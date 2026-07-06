@@ -27,6 +27,9 @@ import { DocumentQualityMeter } from "@/components/prefill/DocumentQualityMeter"
 import { LowQualityGateDialog } from "@/components/prefill/LowQualityGateDialog";
 import { computeQuality } from "@/lib/prefill/qualityMeter";
 import { useAppendixPrewarm } from "@/hooks/useAppendixPrewarm";
+import { useDocFactsPrewarm } from "@/hooks/useDocFactsPrewarm";
+import { useFactsheetPrewarm } from "@/hooks/useFactsheetPrewarm";
+import { FactsheetPanel } from "@/components/prefill/FactsheetPanel";
 
 export default function AssessmentUpload() {
   const sessionId = useAssessmentSessionId();
@@ -41,6 +44,12 @@ export default function AssessmentUpload() {
   // so the facts pass is usually done by the time the user reaches the
   // appendix step. The hook early-returns when sessionId is undefined.
   useAppendixPrewarm(sessionId);
+
+  // Factsheet pipeline: extract per-document facts during upload, then merge
+  // them into the session fact sheet and re-run weak prefills with it. Both
+  // hooks are fire-and-forget; the prewarm state drives the panel + indicator.
+  useDocFactsPrewarm(sessionId);
+  const factsheetPrewarm = useFactsheetPrewarm(sessionId);
 
   const [waiting, setWaiting] = useState(false);
 
@@ -109,6 +118,12 @@ export default function AssessmentUpload() {
       <WizardCard>
         <DocumentUploadStep sessionId={sessionId} locked={locked} />
       </WizardCard>
+
+      {hasAtLeastOneUploaded && (
+        <div className="mt-3">
+          <FactsheetPanel sessionId={sessionId} prewarm={factsheetPrewarm} />
+        </div>
+      )}
 
       <AssessmentFooterSlot
         center={<DocumentQualityMeter docs={docs ?? []} />}

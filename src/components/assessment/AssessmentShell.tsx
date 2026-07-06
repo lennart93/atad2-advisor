@@ -5,8 +5,8 @@ import { motion } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
-import { ASSESSMENT_STEPS, stepIndexForPath } from '@/lib/assessment/steps';
-import { writeLastStep } from '@/lib/assessment/lastStep';
+import { ASSESSMENT_STEPS, stepIndexForPath, stepUrlForKey } from '@/lib/assessment/steps';
+import { writeLastStep, readMaxStep, writeMaxStep } from '@/lib/assessment/lastStep';
 import { useAssessmentSessionId } from '@/lib/assessment/useAssessmentSessionId';
 import { OpenQuestionsButton } from '@/components/openQuestions/OpenQuestionsButton';
 import { FooterBar, Stepper } from '@/components/ds';
@@ -25,46 +25,115 @@ export default function AssessmentShell() {
   const currentStep = stepIndexForPath(location.pathname, { hasSession });
   const stepDef = currentStep >= 0 ? ASSESSMENT_STEPS[currentStep] : null;
 
-  // Edit-from-overview: when a user opens an earlier step from the finalized
-  // Overview (e.g. Structure → Edit), keep Overview ticked in the stepper so
-  // the user knows it's a round-trip and not a regression. The Overview tile
-  // becomes clickable so the user has a second way back besides the footer CTA.
+  // Edit-from-overview: when a user opens an earlier step from the Overview
+  // (e.g. Structure → Edit), keep Overview ticked in the stepper so the user
+  // knows it's a round-trip and not a regression. The Overview tile becomes
+  // clickable so the user has a second way back besides the footer CTA.
   const fromOverview = searchParams.get('from') === 'overview';
   const overviewIndex = ASSESSMENT_STEPS.findIndex((s) => s.key === 'report');
   const structureIndex = ASSESSMENT_STEPS.findIndex((s) => s.key === 'structure');
   const questionsIndex = ASSESSMENT_STEPS.findIndex((s) => s.key === 'questions');
-  // Structure is reachable from Overview both directions: via the "Edit"
-  // button on the chart card (when a chart was saved) AND via the Structure
-  // tile in the top stepper. The stepper path matters when the user picked
-  // "Continue without structure chart" — no chart card to click, so the
-  // stepper is the only way back.
   const onOverview = currentStep === overviewIndex;
+
+  // A generated memorandum finalizes the assessment. Until one exists, the whole
+  // timeline stays open: any completed step can be reopened straight from the
+  // stepper, so the advisor can always walk back before generating. Once the
+  // memo is generated, changing inputs would silently desync it, so the
+  // finalized Overview locks every step except Structure (still editable via its
+  // round-trip). Defaulting to "open" while the count loads is the safe choice.
+  const { data: reportCount } = useQuery({
+    queryKey: ['assessment-shell-report-exists', sessionId],
+    enabled: !!sessionId,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { count } = await supabase
+        .from('atad2_reports')
+        .select('id', { count: 'exact', head: true })
+        .eq('session_id', sessionId!)
+        .is('archived_at', null);
+      return count ?? 0;
+    },
+  });
+  const finalized = (reportCount ?? 0) > 0;
+
+  // The furthest step this session ever reached (grows only). Lets the user jump
+  // forward again to a step they already visited after walking back, not just
+  // backward. Kept in state so the stepper re-renders as it grows.
+  const [maxReached, setMaxReached] = useState(-1);
+  useEffect(() => {
+    if (!sessionId) {
+      setMaxReached(-1);
+      return;
+    }
+    const stored = readMaxStep(sessionId) ?? -1;
+    const next = currentStep >= 0 ? Math.max(stored, currentStep) : stored;
+    if (next > stored) writeMaxStep(sessionId, next);
+    setMaxReached(next);
+  }, [sessionId, currentStep]);
+
+  // Overview stays ticked while editing a step opened from it (round-trip), and
+  // Structure is ticked while sitting on the finalized Overview. While the
+  // timeline is open, every already-visited step ahead of the current one reads
+  // as done too (a green check), so a step you walked back from still looks
+  // reachable.
   const extraDoneList: number[] = [];
   if (fromOverview && overviewIndex >= 0) extraDoneList.push(overviewIndex);
   if (onOverview && structureIndex >= 0) extraDoneList.push(structureIndex);
+  if (!finalized) {
+    for (let i = currentStep + 1; i <= maxReached; i++) extraDoneList.push(i);
+  }
   const extraDone = extraDoneList.length > 0 ? extraDoneList : undefined;
+
+  // Which stepper tiles accept a click.
+  const clickableIndexes = useMemo(() => {
+    if (!sessionId) return undefined;
+    const set = new Set<number>();
+    if (!finalized) {
+      // Open timeline: every already-visited step with a per-session route is a
+      // shortcut, in either direction (back to redo, or forward again to a step
+      // you walked back from). Intake has no such route (it is the pre-session
+      // form), so stepUrlForKey returns null and it stays inert.
+      const upper = Math.max(maxReached, currentStep);
+      for (let i = 0; i <= upper; i++) {
+        if (i === currentStep) continue;
+        if (stepUrlForKey(ASSESSMENT_STEPS[i].key, sessionId)) set.add(i);
+      }
+      if (fromOverview && overviewIndex >= 0) set.add(overviewIndex);
+    } else {
+      // Finalized: only the two established round-trips stay reachable.
+      if (fromOverview && overviewIndex >= 0) set.add(overviewIndex);
+      if (onOverview && structureIndex >= 0) set.add(structureIndex);
+    }
+    return set.size > 0 ? [...set] : undefined;
+  }, [finalized, currentStep, maxReached, fromOverview, onOverview, overviewIndex, structureIndex, sessionId]);
+
   const handleStepClick = useCallback(
     (index: number) => {
       if (!sessionId) return;
-      if (fromOverview && index === overviewIndex) {
+      if (index === overviewIndex) {
         navigate(`/assessment-report/${sessionId}`);
         return;
       }
-      if (onOverview && index === structureIndex) {
+      // Finalized Structure edits keep the round-trip marker so the step shows
+      // its "back to overview" affordance.
+      if (finalized && index === structureIndex) {
         navigate(`/assessment/structure/${sessionId}?from=overview`);
+        return;
       }
+      const url = stepUrlForKey(ASSESSMENT_STEPS[index].key, sessionId);
+      if (url) navigate(url);
     },
-    [fromOverview, onOverview, overviewIndex, structureIndex, sessionId, navigate],
+    [finalized, overviewIndex, structureIndex, sessionId, navigate],
   );
 
   // On the finalized Overview, every step except Structure and Overview itself
   // can't be revisited — surface that on hover so users don't try to click them.
   // Derived from the steps registry so newly inserted steps are locked
   // automatically without updating this list by hand.
-  const lockedTooltip = onOverview
+  const lockedTooltip = finalized && onOverview
     ? "Locked. This step can't be revisited once the assessment is finalized."
     : undefined;
-  const lockedIndexes = onOverview
+  const lockedIndexes = finalized && onOverview
     ? ASSESSMENT_STEPS.reduce<number[]>((acc, _, idx) => {
         if (idx !== structureIndex && idx !== overviewIndex) acc.push(idx);
         return acc;
@@ -165,7 +234,8 @@ export default function AssessmentShell() {
                   steps={STEP_LABELS}
                   current={currentStep}
                   extraDone={extraDone}
-                  onStepClick={fromOverview || onOverview ? handleStepClick : undefined}
+                  clickableIndexes={clickableIndexes}
+                  onStepClick={clickableIndexes ? handleStepClick : undefined}
                   lockedTooltip={lockedTooltip}
                   lockedIndexes={lockedIndexes}
                 />

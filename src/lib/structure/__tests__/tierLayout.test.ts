@@ -85,6 +85,31 @@ describe('tierLayout', () => {
     expect(result.orphans.map((e) => e.id)).toEqual(['orphan']);
   });
 
+  it('places every taxpayer tree, not just the first anchor (multi-entity intake)', () => {
+    // Two disconnected taxpayer trees: tx1 → c1 and tx2 → c2. A single-anchor
+    // walk would place only tx1's tree and drop tx2 + c2 into orphans. Seeding
+    // from all taxpayers must lay out all four entities with no orphans.
+    const tx1 = ent('tx1', { is_taxpayer: true });
+    const c1 = ent('c1');
+    const tx2 = ent('tx2', { is_taxpayer: true });
+    const c2 = ent('c2');
+    const result = tierLayout({
+      entities: [tx1, c1, tx2, c2],
+      ownershipEdges: [ownEdge('tx1', 'c1'), ownEdge('tx2', 'c2')],
+      clusters: [],
+    });
+    expect(result.positions.has('tx1')).toBe(true);
+    expect(result.positions.has('c1')).toBe(true);
+    expect(result.positions.has('tx2')).toBe(true);
+    expect(result.positions.has('c2')).toBe(true);
+    expect(result.orphans).toEqual([]);
+    // Both taxpayers sit at the top rank, both children one tier below.
+    expect(result.positions.get('tx1')!.y).toBe(0);
+    expect(result.positions.get('tx2')!.y).toBe(0);
+    expect(result.positions.get('c1')!.y).toBe(TIER_Y_STEP);
+    expect(result.positions.get('c2')!.y).toBe(TIER_Y_STEP);
+  });
+
   it('siblings within a tier are positioned symmetrically and centered around X=0', () => {
     // NODE_WIDTH=160, MIN_GAP=32 → step = 192.
     // 3 siblings, centers at -192, 0, +192 (uniform spacing).

@@ -41,3 +41,47 @@ export function withLocalQualification(
   };
   return { ...facts, classifications: [...facts.classifications, fresh] };
 }
+
+/**
+ * Advisor sets the country of a Dutch entity's foreign classification (the "how
+ * another state classifies this NL entity" block). Stores an advisor-authored
+ * (source 'edited') classification whose homeState is the picked country, leaving
+ * the home-class for a separate pick. See dutchForeignClassification.
+ */
+export function withForeignClassificationState(
+  facts: AppendixFacts,
+  entityId: string,
+  homeState: string | null,
+): AppendixFacts {
+  const state = homeState ?? '';
+  const existing = facts.classifications.find((c) => c.entityId === entityId);
+  if (existing) {
+    return {
+      ...facts,
+      classifications: facts.classifications.map((c) =>
+        c.entityId === entityId ? { ...c, homeState: state, status: 'confirmed', source: 'edited' } : c,
+      ),
+    };
+  }
+  const fresh: ClassificationItem = {
+    entityId,
+    homeState: state,
+    homeClass: '',
+    sourceState: null,
+    sourceClass: null,
+    hybrid: false,
+    status: 'confirmed',
+    excludedFromClient: false,
+    source: 'edited',
+  };
+  return { ...facts, classifications: [...facts.classifications, fresh] };
+}
+
+/**
+ * Drops an entity's foreign classification row entirely (the advisor removed the
+ * block). Only used for a Dutch entity, whose sole classification row is the
+ * hand-added foreign one, so removing it clears the block cleanly.
+ */
+export function clearForeignClassification(facts: AppendixFacts, entityId: string): AppendixFacts {
+  return { ...facts, classifications: facts.classifications.filter((c) => c.entityId !== entityId) };
+}

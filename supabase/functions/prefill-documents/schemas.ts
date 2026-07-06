@@ -21,7 +21,10 @@ const SwarmPrefillRaw = z.object({
   // The model legitimately writes rationales longer than a tight 200-char cap;
   // rejecting them 500'd nearly every question. Generous cap, still bounded.
   answer_rationale: z.string().max(500).nullable(),
-  suggested_toelichting: z.string().min(1).max(1000).nullable(),
+  // Cap widened to 4000 with the factsheet pipeline (DB CHECK is 4000, analyze.ts
+  // truncates to 4000). A generous cap keeps a longer, factsheet-grounded
+  // toelichting from failing the whole row's parse.
+  suggested_toelichting: z.string().min(1).max(4000).nullable(),
   // A grounded suggestion may have no pinpoint document location (e.g. an
   // "unknown" answer, or a general toelichting). An empty source_refs array is
   // a valid model response — requiring min(1) rejected those as a 500.
@@ -38,7 +41,7 @@ const SwarmPrefillRaw = z.object({
   // picking Unknown for this question. Populated ONLY when contextual_hint
   // is populated; otherwise null. Older swarm versions that don't emit this
   // field still parse cleanly because we default it before validation.
-  suggested_toelichting_unknown: z.string().min(1).max(1000).nullable().default(null),
+  suggested_toelichting_unknown: z.string().min(1).max(4000).nullable().default(null),
   // v12: Route B companion. The ready-to-send client question ("We understand
   // that ... Could you please confirm ..."), populated only alongside
   // contextual_hint. Zod cap deliberately generous at 700 (same precedent as
@@ -46,6 +49,16 @@ const SwarmPrefillRaw = z.object({
   // 450, so a slight model overshoot never 500s the row. nullish().default(null)
   // keeps v11-and-older payloads (which never emit the key) parseable.
   client_question: z.string().max(700).nullish().default(null),
+  // Factsheet pipeline (v18): the doc_label + loc (+ optional quote) citations
+  // the swarm carries over from the fact sheet for a positive/negative answer.
+  // Stored on the prefill row as-is (jsonb). Loose + nullish so a v17-and-older
+  // payload (which never emits it) still parses. Kept independent of the
+  // Route A/B transform below — evidence can accompany a definitive answer.
+  evidence: z.array(z.object({
+    doc_label: z.string().default(""),
+    loc: z.string().nullish().default(null),
+    quote: z.string().nullish().default(null),
+  })).nullish().default(null),
 });
 
 export const SwarmPrefill = SwarmPrefillRaw.transform((raw) => {

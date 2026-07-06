@@ -514,13 +514,13 @@ describe("planDraftWrites", () => {
     expect(plan.writes[0].patch.committed_text).toBeNull();
   });
 
-  it("clamps a long note to the 1000-char column limit", () => {
+  it("clamps a long note to the 4000-char column limit", () => {
     const plan = planDraftWrites(
-      [point({ status: "answered", answerValue: "yes", answerDetail: "x".repeat(1500) })],
+      [point({ status: "answered", answerValue: "yes", answerDetail: "x".repeat(4500) })],
       prefillIds,
       new Map(),
     );
-    expect(plan.writes[0].patch.suggested_toelichting!.length).toBeLessThanOrEqual(1000);
+    expect(plan.writes[0].patch.suggested_toelichting!.length).toBeLessThanOrEqual(4000);
   });
 
   it("leaves the prefill untouched for points in the client letter and for n/a", () => {
@@ -548,13 +548,13 @@ describe("planDraftWrites", () => {
     expect(plan.skipped).toEqual([{ questionId: "999", reason: "no_prefill_row" }]);
   });
 
-  it("keeps the rationale inside the 200-char column constraint", () => {
+  it("keeps the rationale inside the 300-char column constraint", () => {
     const plan = planDraftWrites(
       [point({ status: "answered", answerValue: "yes" })],
       prefillIds,
       new Map(),
     );
-    expect(plan.writes[0].patch.answer_rationale!.length).toBeLessThanOrEqual(200);
+    expect(plan.writes[0].patch.answer_rationale!.length).toBeLessThanOrEqual(300);
   });
 });
 

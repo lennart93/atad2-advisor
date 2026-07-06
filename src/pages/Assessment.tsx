@@ -2185,7 +2185,7 @@ const Assessment = () => {
                           {numbered && (
                             <span className="inline-flex items-center gap-1.5 text-[12.5px] text-ds-ink-secondary">
                               <Link2 className="h-3.5 w-3.5 shrink-0 text-ds-ink-tertiary" />
-                              Assessed together as one taxpayer
+                              Assessed together as one group of taxpayers
                             </span>
                           )}
                         </div>

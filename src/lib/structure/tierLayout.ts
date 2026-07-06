@@ -79,8 +79,21 @@ export function tierLayout(args: {
   const clusterPositions = new Map<string, PositionedEntity>();
   const orphans: StructureEntity[] = [];
 
-  const anchorId = selectAnchor(entities, ownershipEdges);
-  if (!anchorId) {
+  // Anchor SET, not a single anchor. Every declared taxpayer roots its own
+  // tree; a multi-entity intake (several separate taxpayers) yields
+  // disconnected ownership trees. Seeding reachability from ALL taxpayers keeps
+  // every tree laid out on the chart instead of ranking only the first anchor's
+  // tree and dumping the others into orphans. Falls back to the single best
+  // anchor (UPE / most-descendants) when no taxpayer is flagged.
+  const taxpayerIds = entities.filter((e) => e.is_taxpayer).map((e) => e.id);
+  let anchorIds: string[];
+  if (taxpayerIds.length > 0) {
+    anchorIds = taxpayerIds;
+  } else {
+    const single = selectAnchor(entities, ownershipEdges);
+    anchorIds = single ? [single] : [];
+  }
+  if (anchorIds.length === 0) {
     return { positions, clusterPositions, ranks: new Map(), ranksRendered: [], orphans: [...entities] };
   }
 
@@ -88,7 +101,7 @@ export function tierLayout(args: {
   const folded = new Set<string>();
   for (const c of clusters) for (const id of c.member_ids) folded.add(id);
 
-  const reachable = computeReachableFromAnchor(entities, ownershipEdges, anchorId);
+  const reachable = computeReachableFromAnchor(entities, ownershipEdges, anchorIds);
 
   // Phase 3: longest-path layering
   const ranks = longestPathRanks(entities, ownershipEdges, reachable);
@@ -454,17 +467,19 @@ export function tierLayout(args: {
 
 // --- helpers ---
 
-// Walks ownership edges in BOTH directions from the anchor. The anchor is
-// typically the taxpayer, which is rarely the UPE — parents above and children
-// below are both legitimate reachable nodes. Without the upward walk, UPEs
-// would never get a rank and would be silently treated as orphans.
+// Walks ownership edges in BOTH directions from the anchors. Anchors are
+// typically the taxpayers, which are rarely the UPE — parents above and
+// children below are both legitimate reachable nodes. Without the upward walk,
+// UPEs would never get a rank and would be silently treated as orphans. Seeding
+// from every anchor keeps disconnected taxpayer trees (a multi-entity intake)
+// all reachable at once.
 function computeReachableFromAnchor(
   entities: StructureEntity[],
   ownershipEdges: StructureEdge[],
-  anchorId: string,
+  anchorIds: string[],
 ): Set<string> {
-  const reachable = new Set<string>([anchorId]);
-  const queue = [anchorId];
+  const reachable = new Set<string>(anchorIds);
+  const queue = [...anchorIds];
   while (queue.length) {
     const cur = queue.shift()!;
     for (const e of ownershipEdges) {

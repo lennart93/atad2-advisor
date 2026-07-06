@@ -37,6 +37,11 @@ interface PrefillRequest {
   taxpayer_name?: string;
   fiscal_year?: string;
   questions?: { question_id: string; client_question: string; why_it_matters: string | null }[];
+  // Factsheet pipeline: the pre-analysed cross-document group fact sheet as a
+  // ready-to-inject text block + the version it came from. Optional; defaults to
+  // "" so the function runs fine before swarm prompt v18 / before any factsheet.
+  factsheet_block?: string;
+  factsheet_version?: number;
 }
 
 serve(async (req) => {
@@ -75,6 +80,8 @@ serve(async (req) => {
           body.pdf_refs ?? [],
           body.taxpayer_name ?? "",
           body.fiscal_year ?? "",
+          body.factsheet_block ?? "",
+          body.factsheet_version ?? null,
         );
         return json(result, result.ok ? 200 : 500);
       }

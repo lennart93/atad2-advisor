@@ -239,6 +239,110 @@ export type Database = {
           },
         ]
       }
+      atad2_document_facts: {
+        Row: {
+          id: string
+          session_id: string
+          document_id: string
+          facts: Json | null
+          status: string
+          error: string | null
+          model: string | null
+          prompt_version: number | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          session_id: string
+          document_id: string
+          facts?: Json | null
+          status?: string
+          error?: string | null
+          model?: string | null
+          prompt_version?: number | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          session_id?: string
+          document_id?: string
+          facts?: Json | null
+          status?: string
+          error?: string | null
+          model?: string | null
+          prompt_version?: number | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "atad2_document_facts_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: true
+            referencedRelation: "atad2_session_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "atad2_document_facts_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "atad2_sessions"
+            referencedColumns: ["session_id"]
+          },
+        ]
+      }
+      atad2_session_factsheet: {
+        Row: {
+          session_id: string
+          factsheet: Json | null
+          version: number
+          generation_status: string
+          error: string | null
+          source_document_ids: string[] | null
+          model: string | null
+          prompt_version: number | null
+          built_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          session_id: string
+          factsheet?: Json | null
+          version?: number
+          generation_status?: string
+          error?: string | null
+          source_document_ids?: string[] | null
+          model?: string | null
+          prompt_version?: number | null
+          built_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          session_id?: string
+          factsheet?: Json | null
+          version?: number
+          generation_status?: string
+          error?: string | null
+          source_document_ids?: string[] | null
+          model?: string | null
+          prompt_version?: number | null
+          built_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "atad2_session_factsheet_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "atad2_sessions"
+            referencedColumns: ["session_id"]
+          },
+        ]
+      }
       atad2_appendix_skeleton: {
         Row: {
           id: string
@@ -713,6 +817,8 @@ export type Database = {
           suggested_toelichting_unknown: string | null
           client_question: string | null
           committed_text: string | null
+          factsheet_version: number | null
+          evidence: Json | null
         }
         Insert: {
           actioned_at?: string | null
@@ -731,6 +837,8 @@ export type Database = {
           suggested_toelichting_unknown?: string | null
           client_question?: string | null
           committed_text?: string | null
+          factsheet_version?: number | null
+          evidence?: Json | null
         }
         Update: {
           actioned_at?: string | null
@@ -749,6 +857,8 @@ export type Database = {
           suggested_toelichting_unknown?: string | null
           client_question?: string | null
           committed_text?: string | null
+          factsheet_version?: number | null
+          evidence?: Json | null
         }
         Relationships: [
           {

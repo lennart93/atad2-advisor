@@ -1,4 +1,4 @@
-import type { AppendixFacts, FactEntity } from '@/lib/appendix/types';
+import type { AppendixFacts, ClassificationItem, FactEntity } from '@/lib/appendix/types';
 import { visibleFacts } from './visibleFacts';
 import { actingInClientReport } from './actingAnnex';
 import { effJurisdiction, effNlTaxStatus, effNlQualification } from './entityFields';
@@ -31,6 +31,28 @@ function isDutchEntity(e: FactEntity): boolean {
   return (effJurisdiction(e) ?? '').toUpperCase() === 'NL';
 }
 
+type ForeignClsFields = Pick<ClassificationItem, 'homeState' | 'homeClass' | 'source'>;
+
+/**
+ * A Dutch entity's own home state IS the Netherlands, so it normally carries no
+ * separate home-state view. The advisor can still record how ANOTHER state
+ * classifies the entity (a Dutch BV a foreign state treats as transparent, etc.)
+ * to bring a hybrid mismatch into scope. That foreign classification is an
+ * advisor-authored (source 'edited') classification whose homeState is a real,
+ * non-NL country. AI-proposed or stale rows are deliberately NOT read here: a
+ * home-state classification the model may have guessed for a Dutch entity is
+ * contradictory and must never surface on its own.
+ */
+export function dutchForeignClassification(
+  e: FactEntity,
+  c: ForeignClsFields | null | undefined,
+): { state: string; qual: NlQualification } | null {
+  if (!isDutchEntity(e) || !c || c.source !== 'edited') return null;
+  const state = (c.homeState ?? '').trim();
+  if (!state || state.toUpperCase() === 'NL') return null;
+  return { state, qual: localQualification(c.homeClass) };
+}
+
 /**
  * The effective local (home-state) qualification of an entity. A Dutch entity's
  * home state IS the Netherlands, so its local qualification equals the NL
@@ -40,22 +62,28 @@ function isDutchEntity(e: FactEntity): boolean {
  */
 export function effLocalQualification(
   e: FactEntity,
-  c: { homeClass: string } | null | undefined,
+  c: ForeignClsFields | null | undefined,
 ): NlQualification {
-  if (isDutchEntity(e)) return effNlQualification(e);
+  if (isDutchEntity(e)) return dutchForeignClassification(e, c)?.qual ?? effNlQualification(e);
   return localQualification(c?.homeClass);
 }
 
 /** True when this entity's derived NL qualification and the model's local (home-state) qualification are both determined and differ, or the model flagged the row hybrid. */
 export function entityHasQualificationDifference(
   e: FactEntity,
-  c: { homeClass: string; hybrid: boolean } | undefined,
+  c: (ForeignClsFields & { hybrid: boolean }) | undefined,
 ): boolean {
   if (!c) return false;
-  // A Dutch entity's home state is the Netherlands, so its local view equals its
-  // NL view by construction; a hybrid mismatch is impossible regardless of any
-  // stale home-state classification the model may have proposed.
-  if (isDutchEntity(e)) return false;
+  // A Dutch entity's home state is the Netherlands, so it carries no automatic
+  // hybrid mismatch: a home-state classification the model may have proposed is
+  // ignored. Only an advisor-authored foreign classification (a real non-NL
+  // country set by hand) brings a Dutch entity's mismatch into play.
+  if (isDutchEntity(e)) {
+    const foreign = dutchForeignClassification(e, c);
+    if (!foreign) return false;
+    const nl = effNlQualification(e);
+    return nl !== 'undetermined' && foreign.qual !== 'undetermined' && nl !== foreign.qual;
+  }
   if (c.hybrid) return true;
   const nl = nlQualification(effNlTaxStatus(e));
   const local = localQualification(c.homeClass);

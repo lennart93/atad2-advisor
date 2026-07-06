@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, Loader2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Loader2, RefreshCw } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { Button, ProcessChecklist, type ProcessStep } from '@/components/ds';
 import { useAuth } from '@/hooks/useAuth';
@@ -221,6 +221,25 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
     }
   };
 
+  // Advisor-driven "re-run the condition analysis" for Part B. The Part A facts
+  // are keyed on structure + documents (not the questionnaire answers), so the
+  // edge function reuses them and only re-runs the Part B swarm, folding in the
+  // latest questionnaire answers. In-session and server-side row edits are kept.
+  const handleRerunChecklist = async () => {
+    if (!sessionId || !appendix) return;
+    setPhase('generating');
+    try {
+      await startAppendixGeneration(sessionId);
+      await pollAppendixUntilReady(sessionId, (upd) => {
+        setAppendix((prev) => mergeServerUpdate(prev, upd, dirtyRowIds.current, factsDirty.current));
+        setPhase(upd.generation_status === 'generating' ? 'generating' : upd.generation_status);
+      });
+    } catch (e) {
+      setPhase('error');
+      toast.error('Could not re-run the analysis', { description: String(e) });
+    }
+  };
+
   const handleConfirm = async () => {
     if (!appendix || !user || !sessionId) return;
     setConfirming(true);
@@ -369,7 +388,24 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
         ) : (
           // relatedParties is null on purpose: the associated-enterprises panel
           // is gone, the Part A master table already carries that overview.
-          <AppendixTable rows={appendix.rows} skeleton={skeleton} showSources={showSources} relatedParties={null} onEdit={handleEdit} onToggleExclude={handleToggleExclude} />
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs text-ds-ink-secondary">
+                Changed a questionnaire answer? Re-run the analysis to fold it in. Your manual edits are kept.
+              </span>
+              <Button
+                variant="secondary"
+                size="sm"
+                className="shrink-0"
+                onClick={handleRerunChecklist}
+                disabled={refining}
+              >
+                {refining ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                {refining ? 'Re-running' : 'Re-run analysis'}
+              </Button>
+            </div>
+            <AppendixTable rows={appendix.rows} skeleton={skeleton} showSources={showSources} relatedParties={null} onEdit={handleEdit} onToggleExclude={handleToggleExclude} />
+          </div>
         )}
       </div>
 

@@ -154,7 +154,19 @@ Deno.test("SwarmPrefill drops suggested_toelichting_unknown when contextual_hint
   assertEquals(parsed.suggested_toelichting_unknown, null);
 });
 
-Deno.test("SwarmPrefill rejects suggested_toelichting_unknown over 1000 chars", () => {
+Deno.test("SwarmPrefill rejects suggested_toelichting_unknown over 4000 chars", () => {
+  // Cap widened to 4000 with the factsheet pipeline (DB CHECK + analyze.ts
+  // truncate both 4000). 4000 still parses; 4001 is rejected.
+  const ok = SwarmPrefill.parse({
+    suggested_answer: null,
+    confidence_pct: null,
+    answer_rationale: null,
+    suggested_toelichting: null,
+    source_refs: [],
+    contextual_hint: "Hint.",
+    suggested_toelichting_unknown: "x".repeat(4000),
+  });
+  assertEquals(ok.suggested_toelichting_unknown, "x".repeat(4000));
   assertThrows(() => SwarmPrefill.parse({
     suggested_answer: null,
     confidence_pct: null,
@@ -162,6 +174,6 @@ Deno.test("SwarmPrefill rejects suggested_toelichting_unknown over 1000 chars", 
     suggested_toelichting: null,
     source_refs: [],
     contextual_hint: "Hint.",
-    suggested_toelichting_unknown: "x".repeat(1001),
+    suggested_toelichting_unknown: "x".repeat(4001),
   }));
 });

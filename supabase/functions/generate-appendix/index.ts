@@ -206,8 +206,15 @@ async function runGeneration(c: SupabaseClient, appendixId: string, sessionId: s
     let factsToStore: AppendixFacts | null;
     let factsHashToStore: string | null;
     if (!factEntities.length) {
-      factsToStore = null;
-      factsHashToStore = null;
+      // The deterministic register came back empty: no structure chart yet, a
+      // transient chart-load failure, or a Part A the advisor built entirely from
+      // hand-added entities (which have no chart counterpart). NEVER destroy a
+      // previously-saved, non-empty Part A in that case, otherwise a re-run of the
+      // Part B analysis silently wipes all of Part A. Keep the stored facts as-is;
+      // only a genuinely absent Part A stays null.
+      const priorHasEntities = priorFacts !== null && Array.isArray(priorFacts.entities) && priorFacts.entities.length > 0;
+      factsToStore = priorHasEntities ? priorFacts : null;
+      factsHashToStore = priorHasEntities ? (priorRow?.facts_input_hash ?? null) : null;
     } else if (canReuseFacts) {
       factsToStore = priorFacts;
       factsHashToStore = factsHash;

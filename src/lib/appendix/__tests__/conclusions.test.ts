@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { deriveConclusions, inScopeEntityIds, localQualification, effLocalQualification, entityHasQualificationDifference } from '@/lib/appendix/facts/conclusions';
+import { deriveConclusions, inScopeEntityIds, localQualification, effLocalQualification, entityHasQualificationDifference, dutchForeignClassification } from '@/lib/appendix/facts/conclusions';
 import type { AppendixFacts, FactEntity, TransactionItem, ClassificationItem } from '@/lib/appendix/types';
 
 const ent = (id: string, patch: Partial<FactEntity> = {}): FactEntity => ({
@@ -122,6 +122,46 @@ describe('Dutch entities have no separate home-state view', () => {
     });
     expect(deriveConclusions(f).hybridDifferences).toBe(0);
     expect(inScopeEntityIds(f).has('E2')).toBe(false);
+  });
+});
+
+describe('a Dutch entity with an advisor-added foreign classification', () => {
+  // The NL BV is non-transparent for NL; the advisor records that the US treats
+  // it as transparent. That advisor-authored foreign classification IS a hybrid.
+  const nlBv = ent('E2', { jurisdiction: 'NL', nlTaxStatus: 'resident' });
+  const foreign = cls('E2', { homeState: 'US', homeClass: 'transparent', source: 'edited' });
+
+  it('surfaces the foreign classification (state + qualification)', () => {
+    expect(dutchForeignClassification(nlBv, foreign)).toEqual({ state: 'US', qual: 'transparent' });
+  });
+
+  it('drives effLocalQualification to the foreign view', () => {
+    expect(effLocalQualification(nlBv, foreign)).toBe('transparent');
+    // Without a foreign classification it still mirrors the NL view.
+    expect(effLocalQualification(nlBv, undefined)).toBe('non-transparent');
+  });
+
+  it('counts as a hybrid mismatch and brings the entity into scope', () => {
+    expect(entityHasQualificationDifference(nlBv, foreign)).toBe(true);
+    const f = facts({ entities: [ent('E1', { role: 'Taxpayer' }), nlBv], classifications: [foreign] });
+    expect(deriveConclusions(f).hybridDifferences).toBe(1);
+    expect(inScopeEntityIds(f).has('E2')).toBe(true);
+  });
+
+  it('ignores an AI-proposed (non-edited) foreign classification on an NL entity', () => {
+    const ai = cls('E2', { homeState: 'US', homeClass: 'transparent', source: 'ai' });
+    expect(dutchForeignClassification(nlBv, ai)).toBeNull();
+    expect(entityHasQualificationDifference(nlBv, ai)).toBe(false);
+  });
+
+  it('does not fire while the foreign country is unset or matches NL', () => {
+    expect(entityHasQualificationDifference(nlBv, cls('E2', { homeState: '', homeClass: 'transparent', source: 'edited' }))).toBe(false);
+    expect(entityHasQualificationDifference(nlBv, cls('E2', { homeState: 'NL', homeClass: 'transparent', source: 'edited' }))).toBe(false);
+  });
+
+  it('does not fire when the foreign view matches the NL view', () => {
+    const same = cls('E2', { homeState: 'US', homeClass: 'opaque', source: 'edited' });
+    expect(entityHasQualificationDifference(nlBv, same)).toBe(false);
   });
 });
 

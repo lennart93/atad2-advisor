@@ -10,7 +10,7 @@ import { effJurisdiction, effNlQualification, effRelationType, effRelatedPct } f
 import { nlQualificationLabel } from './facts/nlTaxStatus';
 import { actingBasisLabel } from './facts/actingBasis';
 import { cleanReasoning } from './reasoningText';
-import { deriveConclusions, inScopeEntityIds, effLocalQualification, entityHasQualificationDifference } from './facts/conclusions';
+import { deriveConclusions, inScopeEntityIds, effLocalQualification, entityHasQualificationDifference, dutchForeignClassification } from './facts/conclusions';
 import { relevantTransactions, accountedTransactionGroups } from './facts/relevance';
 import { txMemoReason } from './facts/transactionAssessment';
 import { countryName } from '@/lib/structure/countries';
@@ -256,10 +256,14 @@ export function buildAppendixPrintHtml(
     const clsRows = inScopeEnts.map((e) => {
       const c = clsByEntity.get(e.id);
       const localQ = effLocalQualification(e, c);
-      // A Dutch entity's local view equals its NL classification (no home state in
-      // brackets); a foreign entity shows the home-state qualification and country.
+      // A Dutch entity's local view equals its NL classification, unless the
+      // advisor added a foreign classification (then it shows that other state's
+      // view + country); a foreign entity shows its home-state qualification.
+      const foreign = dutchForeignClassification(e, c);
       const local = (effJurisdiction(e) ?? '').toUpperCase() === 'NL'
-        ? esc(nlQualificationLabel(localQ))
+        ? (foreign
+            ? `${esc(nlQualificationLabel(foreign.qual))} (${esc(foreign.state)})`
+            : esc(nlQualificationLabel(localQ)))
         : c
           ? `${esc(nlQualificationLabel(localQ))}${c.homeState ? ` (${esc(c.homeState)})` : ''}`
           : 'To be determined';

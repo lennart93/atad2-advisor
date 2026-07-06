@@ -8,6 +8,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import type { DocumentsWorklist } from "@/hooks/useDocumentsWorklist";
 import { useResizablePanelWidth } from "@/hooks/useResizablePanelWidth";
 import { OpenQuestionsPanel } from "./OpenQuestionsPanel";
 import { OpenQuestionsWorklistBody } from "./OpenQuestionsWorklistBody";
@@ -29,6 +30,9 @@ export interface OpenQuestionsSheetProps {
   sentOnly?: boolean;
   /** Clears the sent-only filter (the panel's "Show all"). */
   onShowAll?: () => void;
+  /** The shared worklist instance from the sub-header chip, so the chip count
+   *  and this drawer's list are always the same computation (see the body). */
+  worklist: DocumentsWorklist;
 }
 
 /**
@@ -48,6 +52,7 @@ export function OpenQuestionsSheet({
   onGoToQuestion,
   sentOnly = false,
   onShowAll,
+  worklist,
 }: OpenQuestionsSheetProps) {
   const { width, handleProps } = useResizablePanelWidth(
     SHEET_WIDTH.storageKey,
@@ -94,7 +99,7 @@ export function OpenQuestionsSheet({
               onShowAll={onShowAll}
             />
           ) : (
-            <OpenQuestionsWorklistBody sessionId={sessionId} />
+            <OpenQuestionsWorklistBody sessionId={sessionId} worklist={worklist} />
           )}
         </div>
 

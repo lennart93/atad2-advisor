@@ -46,3 +46,37 @@ export function readLastStep(sessionId: string): AssessmentStepKey | null {
     return null;
   }
 }
+
+const MAX_STEP_PREFIX = 'atad2:maxStep:';
+
+function maxStepKey(sessionId: string): string {
+  return `${MAX_STEP_PREFIX}${sessionId}`;
+}
+
+/**
+ * Remember the furthest step index a session has ever reached. Unlike the
+ * "last step" above (which moves both forward and back), this only grows, so
+ * the stepper can offer every already-visited step as a click target even after
+ * the user walks back. Stored per browser; a no-op when storage is unavailable.
+ */
+export function writeMaxStep(sessionId: string, index: number): void {
+  if (!sessionId || !Number.isInteger(index) || index < 0) return;
+  try {
+    window.localStorage.setItem(maxStepKey(sessionId), String(index));
+  } catch {
+    // Storage unavailable: the stepper simply falls back to backward-only nav.
+  }
+}
+
+/** The furthest reached step index for a session, or null if none is stored. */
+export function readMaxStep(sessionId: string): number | null {
+  if (!sessionId) return null;
+  try {
+    const raw = window.localStorage.getItem(maxStepKey(sessionId));
+    if (raw === null) return null;
+    const n = Number.parseInt(raw, 10);
+    return Number.isInteger(n) && n >= 0 ? n : null;
+  } catch {
+    return null;
+  }
+}

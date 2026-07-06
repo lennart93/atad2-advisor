@@ -1249,6 +1249,56 @@ const AssessmentReport = () => {
               </CardContent>
             </Card>
           )}
+
+          {/* Question responses · the draft questionnaire behind this assessment.
+              Editable until a memorandum exists; locked read-only afterwards. */}
+          {answers.length > 0 && (
+            <Card className="border-t-[3px] border-t-brand-terracotta">
+              <CardHeader className="space-y-1.5">
+                <CardTitle>Question responses</CardTitle>
+                <CardDescription>
+                  {responsesLocked
+                    ? "Responses are locked and can no longer be edited because a memorandum has been (or is being) generated."
+                    : "The draft questionnaire answers drawn from the documents. Use the edit button next to any answer to make changes."}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  {answers.map((answer) => {
+                    const isHighlighted = highlightedQuestionIds.includes(answer.question_id);
+                    const isMissingExplanation = missingExplanationQuestionIds.includes(answer.question_id);
+
+                    return (
+                      <div
+                        key={answer.id}
+                        ref={(el) => { questionRefs.current[answer.question_id] = el; }}
+                        className={`transition-all duration-500 rounded-ds-control ${
+                          isHighlighted
+                            ? 'border-l-2 border-ds-hairline bg-ds-fill-muted pl-4 -ml-4'
+                            : ''
+                        }`}
+                      >
+                        <EditableAnswer
+                          answerId={answer.id}
+                          questionId={answer.question_id}
+                          questionText={answer.question_text}
+                          currentAnswer={answer.answer}
+                          currentExplanation={answer.explanation}
+                          riskPoints={answer.risk_points}
+                          readOnly={responsesLocked}
+                          sessionId={sessionId!}
+                          onUpdate={(newAnswer, newExplanation, newRiskPoints) =>
+                            handleAnswerUpdate(answer.id, newAnswer, newExplanation, newRiskPoints)
+                          }
+                          showMissingExplanationHint={isMissingExplanation && isHighlighted}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         <AssessmentFooterSlot

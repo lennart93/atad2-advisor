@@ -168,6 +168,10 @@ export function DocumentUploader({ sessionId, locked }: Props) {
                   )}
                 </div>
                 <div className="mt-0.5 flex items-center gap-2 text-[13px] text-ds-ink-secondary">
+                  <span className="uppercase tracking-wide text-ds-ink-tertiary">
+                    {fileFormatLabel(d.filename, d.mime_type)}
+                  </span>
+                  <span aria-hidden="true" className="h-3 w-px bg-ds-hairline" />
                   <span className="ds-tabular-nums">{formatBytes(d.size_bytes)}</span>
                   {d.status === "summarized" ? (
                     <StatusPill status="complete">Ready</StatusPill>
@@ -218,6 +222,30 @@ function formatBytes(n: number): string {
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`;
   return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+// The human-facing file format (PDF, Excel, Word…). Office and RTF files are
+// text-extracted in the browser and travel onward as text/plain, so the stored
+// mime_type is unreliable for them; the filename extension is the source of
+// truth. Fall back to the mime type only when there is no extension (e.g. a
+// pasted-text document, which has no filename).
+const FORMAT_BY_EXT: Record<string, string> = {
+  pdf: "PDF",
+  xlsx: "Excel", xlsm: "Excel", xls: "Excel",
+  csv: "CSV",
+  docx: "Word", doc: "Word",
+  rtf: "RTF",
+  pptx: "PowerPoint", ppt: "PowerPoint",
+  png: "Image", jpg: "Image", jpeg: "Image", webp: "Image",
+  txt: "Text", md: "Text",
+};
+
+function fileFormatLabel(filename: string, mimeType: string): string {
+  const ext = filename.includes(".") ? filename.split(".").pop()!.toLowerCase() : "";
+  if (FORMAT_BY_EXT[ext]) return FORMAT_BY_EXT[ext];
+  if (mimeType === "text/plain") return "Text";
+  if (mimeType === "application/pdf") return "PDF";
+  return ext ? ext.toUpperCase() : "File";
 }
 
 function labelForStatus(p: PendingFile): string {

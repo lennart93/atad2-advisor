@@ -171,8 +171,19 @@ export function effHybridEntityMismatch(facts: AppendixFacts, t: TransactionItem
 }
 
 export function effHybridInstrument(facts: AppendixFacts, t: TransactionItem): TriState {
-  return t.assessment?.hybridInstrument
-    ?? hybridInstrumentSeed(effCrossBorder(facts, t), isTransactionRelevant(t), effHybridEntityMismatch(facts, t));
+  if (t.assessment?.hybridInstrument != null) return t.assessment.hybridInstrument;
+  // The AI nudge that names the instrument as the open item only makes sense while
+  // the entity question is still untouched. Once the advisor has answered the
+  // hybrid-entity characteristic themselves (e.g. resolved it to "No"), do NOT
+  // re-open the instrument in its place: that made clearing one category silently
+  // re-flag the same flow under another reason, so the advisor's outcome looked
+  // like it was ignored.
+  const advisorSetEntity = t.assessment?.hybridEntityMismatch != null;
+  return hybridInstrumentSeed(
+    effCrossBorder(facts, t),
+    isTransactionRelevant(t) && !advisorSetEntity,
+    effHybridEntityMismatch(facts, t),
+  );
 }
 
 export function effImportedMismatch(facts: AppendixFacts, t: TransactionItem): QuadState {
