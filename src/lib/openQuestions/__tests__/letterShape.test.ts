@@ -415,6 +415,25 @@ describe("letterLeadIn", () => {
     };
     expect(letterLeadIn(half, new Set(["1", "2"]))).toBe("Could you please confirm:");
   });
+
+  it("drops the stem for v11 two-sentence items that carry their own ask mid-text", () => {
+    const v11: ComposedLetter = {
+      intro: "",
+      groups: [
+        {
+          title: "US treatment",
+          questions: [
+            q(
+              ["1"],
+              "WMC Energy B.V. is treated as transparent for US tax. Could you confirm whether its income is taxed in the US?",
+            ),
+            q(["2"], "Could you clarify in which country WMC Energy Corp is resident?"),
+          ],
+        },
+      ],
+    };
+    expect(letterLeadIn(v11, new Set(["1", "2"]))).toBeNull();
+  });
 });
 
 describe("formatComposedLetterText", () => {

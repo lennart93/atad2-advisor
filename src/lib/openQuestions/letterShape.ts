@@ -264,27 +264,39 @@ export function letterGroupViews(
   });
 }
 
-/** Regex that matches a polite-opener at the start of a question item. */
+/** A polite opener at the very start ("Could you...", "Please..."). */
 const POLITE_OPENER_RE = /^(could you|can you|please)\b/i;
+/**
+ * A self-contained ask anywhere in the item ("... Could you confirm ...").
+ * v11 questions lead with a plain context sentence and then carry their own
+ * ask, so the opener is not at the start; this catches it mid-text.
+ */
+const OWN_ASK_RE =
+  /\bcould you (please )?(confirm|clarify|let us know|tell us|advise|indicate|share|provide)\b/i;
 
 /**
- * Whether a question opens with its own polite phrase ("Could you...",
- * "Please..."). v2-style direct clauses ("for each of ...", "whether ...") do
- * not; they are written to complete a shared "Could you please confirm:" stem.
+ * Whether a question carries its OWN ask, so the shared "Could you please
+ * confirm:" stem would double up and must be dropped. Two forms qualify:
+ * a polite opener at the start (legacy v1/v2, "Could you..."/"Please...") and
+ * an own ask mid-text (v11 two-sentence items, "context. Could you confirm..").
+ * v3-v10 bare direct clauses ("for each of ...", "whether ...") match neither;
+ * they are written to complete the shared stem, so it stays for them.
  * Shared by letterLeadIn and the on-screen points list (see pointsLeadIn).
  */
-export function startsWithPoliteOpener(text: string): boolean {
-  return POLITE_OPENER_RE.test(text.trimStart());
+export function carriesOwnAsk(text: string): boolean {
+  const trimmed = text.trimStart();
+  return POLITE_OPENER_RE.test(trimmed) || OWN_ASK_RE.test(trimmed);
 }
 
 /** The collective stem the direct-clause questions complete. */
 export const CONFIRM_LEAD_IN = "Could you please confirm:";
 
 /**
- * Returns the lead-in when the included questions (flattened across all
- * groups) are v2-style direct clauses. Returns null for legacy letters where
- * strictly more than half of the included questions open with their own polite
- * phrase, and for an empty included set.
+ * Returns the shared "Could you please confirm:" lead-in when the included
+ * questions (flattened across all groups) are bare direct clauses that need it
+ * ("whether ...", "for each of ..."). Returns null when strictly more than half
+ * of the included questions carry their own ask (legacy polite openers or v11
+ * two-sentence items), and for an empty included set.
  */
 export function letterLeadIn(
   letter: ComposedLetter,
@@ -294,11 +306,12 @@ export function letterLeadIn(
     .flatMap((group) => group.questions)
     .filter((question) => includedKeys.has(questionKey(question)));
   if (included.length === 0) return null;
-  const politeCount = included.filter((question) =>
-    startsWithPoliteOpener(question.text),
+  const ownAskCount = included.filter((question) =>
+    carriesOwnAsk(question.text),
   ).length;
-  // Majority = strictly more than half start with a polite opener => legacy.
-  return politeCount > included.length / 2 ? null : CONFIRM_LEAD_IN;
+  // Majority carry their own ask (legacy polite openers or v11 two-sentence
+  // items) => the shared stem would double up, so drop it.
+  return ownAskCount > included.length / 2 ? null : CONFIRM_LEAD_IN;
 }
 
 /**

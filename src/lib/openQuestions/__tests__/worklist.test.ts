@@ -627,6 +627,20 @@ describe("formatClientMessage", () => {
     expect(text).toContain("1. Only one");
     expect(text).not.toContain("2.");
   });
+
+  it("uses a neutral lead when the points carry their own ask (no double confirm)", () => {
+    const text = formatClientMessage([
+      {
+        questionText:
+          "WMC Energy B.V. is treated as transparent for US tax. Could you confirm whether its income is taxed in the US?",
+      },
+      { questionText: "Could you clarify in which country the lender is resident?" },
+    ]);
+    expect(
+      text.startsWith("To finalise our assessment, we still need the following points confirmed:"),
+    ).toBe(true);
+    expect(text).not.toContain("could you confirm the following:");
+  });
 });
 
 describe("pointsLeadIn", () => {
@@ -660,6 +674,18 @@ describe("pointsLeadIn", () => {
         { questionText: "whether Y applies." },
       ]),
     ).toBe("Could you please confirm:");
+  });
+
+  it("drops the stem for v11 two-sentence points that carry their own ask", () => {
+    expect(
+      pointsLeadIn([
+        {
+          questionText:
+            "WMC Energy B.V. is treated as transparent for US tax. Could you confirm whether its income is taxed in the US?",
+        },
+        { questionText: "Could you clarify in which country the lender is resident?" },
+      ]),
+    ).toBeNull();
   });
 });
 

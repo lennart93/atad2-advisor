@@ -1,7 +1,7 @@
 import {
   CONFIRM_LEAD_IN,
+  carriesOwnAsk,
   questionKey,
-  startsWithPoliteOpener,
   type ComposedLetter,
   type LetterTable,
 } from "./letterShape";
@@ -343,18 +343,18 @@ export function partitionPointsByPath(
 
 /**
  * The "Could you please confirm:" stem shown above a list of points on screen,
- * the same lead-in the client copy and the composed letter use. The points are
- * direct clauses ("for each of ...", "whether ...") written to complete this
- * stem, so without it they read as bare fragments. Returns null for a legacy
- * set where most points carry their own polite opener (the stem would double
- * up) and for an empty list, mirroring letterLeadIn exactly.
+ * the same lead-in the client copy and the composed letter use. Bare direct
+ * clauses ("for each of ...", "whether ...") are written to complete this stem,
+ * so without it they read as fragments. Returns null when most points carry
+ * their own ask (legacy polite openers or v11 two-sentence items, where the
+ * stem would double up) and for an empty list, mirroring letterLeadIn exactly.
  */
 export function pointsLeadIn(points: { questionText: string }[]): string | null {
   if (points.length === 0) return null;
-  const politeCount = points.filter((point) =>
-    startsWithPoliteOpener(point.questionText),
+  const ownAskCount = points.filter((point) =>
+    carriesOwnAsk(point.questionText),
   ).length;
-  return politeCount > points.length / 2 ? null : CONFIRM_LEAD_IN;
+  return ownAskCount > points.length / 2 ? null : CONFIRM_LEAD_IN;
 }
 
 export function openCount(points: OpenPoint[]): number {
@@ -583,7 +583,17 @@ export function formatPointsList(
  * phrases each point in client language.
  */
 export function formatClientMessage(points: { questionText: string }[]): string {
-  const lead = "To finalise our assessment, could you confirm the following:";
+  // When the points carry their own ask (v11 two-sentence items each ending in
+  // "Could you confirm ...?"), a "could you confirm the following:" lead reads
+  // as a double ask, so use a neutral framing. Bare direct clauses still need
+  // the asking lead to read as questions.
+  const selfContained =
+    points.length > 0 &&
+    points.filter((point) => carriesOwnAsk(point.questionText)).length >
+      points.length / 2;
+  const lead = selfContained
+    ? "To finalise our assessment, we still need the following points confirmed:"
+    : "To finalise our assessment, could you confirm the following:";
   const numbered = points.map((point, index) => `${index + 1}. ${point.questionText}`);
   return `${lead}\n\n${numbered.join("\n")}\n`;
 }
