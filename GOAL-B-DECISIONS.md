@@ -80,6 +80,37 @@ Branch `goal-b-appendix-v2-overview`. Verified against the real code on 9 Jul 20
    as a visible inline line above the footer on the checklist page. Kept in the
    page, not in the V2 components.
 
+## Phase outcomes (run results)
+
+- **Phase 1** (`5940ae8`): V2 is the unconditional default for Part A + Part B;
+  the `appendixV2` flag is gone. Confirm-guard reason now renders as a visible
+  line above the checklist footer. Regression gate: tsc clean; FactsPanelV2 (14),
+  ChecklistV2 (5), confirmGuard (5), relevance (4) all green. The refine-safe
+  reasoning editor is RowDetail, reused unchanged by V2. Status colours come from
+  the shared tone engine remapped in Goal A (risk=amber, insufficient=slate).
+- **Phase 2** (`095095a`): Overview decomposed. Memo only long-form; four
+  SectionRow disclosure cards (collapsed by default, per-session persisted,
+  children mount on expand); footer-centre section nav; jump-to-missing-
+  explanation opens the responses card first; memo capped at 68ch via cn();
+  outcome medallion removed (cover keeps it); Generate card shows a bare
+  "Generated" check (timestamp only in the memo rail); both heavy queries lost
+  `refetchOnMount:'always'` (staleTime 5 min) with invalidation moved to the
+  appendix Done button and the structure save/skip handlers. Full suite 1170
+  tests green after the change.
+- **Phase 3**: RETAIN decision confirmed by re-grep. Final import state:
+  `FactsPanel` <- AssessmentReport only (embedded, inside the collapsed card);
+  `AppendixTable` <- AssessmentReport (readOnly embedded) + ChecklistV2
+  (StatusControl/RowDetail). Nothing ships either as a standalone default.
+  Deleting them would break the Overview preview and the V2 checklist itself.
+
+## Not verified live
+The dev-server session was logged out during the run (Supabase auth), so the
+decomposed Overview and the V2-default appendix were gated on tsc + the full
+1170-test suite, not on a live click-through. Recommend one logged-in pass:
+open a finished assessment's overview (cards collapsed, nav jumps, memo 68ch),
+expand both appendix cards, and walk Edit -> change -> Done, return to overview
+to see the invalidation-driven refresh.
+
 ## Audit line refs that were wrong or moved
 - (running list, updated per phase)
 - `FactsPanel` "hideRegister/hideTransactions" props: do not exist. The embedded
