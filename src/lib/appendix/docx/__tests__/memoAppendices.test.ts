@@ -236,16 +236,16 @@ describe('buildMemoAppendicesXml', () => {
   });
 
   it('shades the whole Appendix 2 status cell with the tool palette', () => {
-    // s1r1 Triggered (risk_if_met default) -> red; s1r2 Not triggered -> green;
-    // s3r1 Insufficient information -> amber. Icon + label share the cell ink.
-    expect(xml).toContain('w:fill="F7EBE4"'); // red cell (Triggered)
-    expect(xml).toContain('w:color w:val="A5392B"');
+    // s1r1 Triggered (risk_if_met default) -> amber; s1r2 Not triggered -> green;
+    // s3r1 Insufficient information -> slate. Icon + label share the cell ink.
+    expect(xml).toContain('w:fill="F8F0DA"'); // amber cell (Triggered = ATAD2 risk)
+    expect(xml).toContain('w:color w:val="8A6A1C"');
     expect(xml).toContain('▲');
     expect(xml).toContain('w:fill="EEF0E4"'); // green cell (Not triggered)
     expect(xml).toContain('w:color w:val="55632F"');
     expect(xml).toContain('✓');
-    expect(xml).toContain('w:fill="F8F0DA"'); // amber cell (Insufficient info)
-    expect(xml).toContain('w:color w:val="8A6A1C"');
+    expect(xml).toContain('w:fill="E9EDF0"'); // slate cell (Insufficient info)
+    expect(xml).toContain('w:color w:val="4A5B6B"');
     expect(xml).toContain('◷');
     // The old ▪ marker and its terracotta/teal/taupe inks are gone.
     expect(xml).not.toContain('▪');

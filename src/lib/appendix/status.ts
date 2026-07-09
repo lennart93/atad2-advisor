@@ -29,15 +29,15 @@ export function statusDisplayLabel(status: Status | null): string {
  * there), keyed by the row's presentation tone (see conditionPolarity.rowTone). One
  * status colour system, identical to the on-screen checklist so the screen, the memo
  * and the export can never disagree:
- *   - 'risk' reads terracotta (a finding), 'caution' amber (facts still missing).
+ *   - 'risk' reads amber (a real ATAD2 finding), 'caution' slate-blue (facts still missing).
  *   - 'clear' and 'na' read neutral grey (routine, recedes), 'na' a touch lighter so
  *     the two stay distinguishable.
  */
 const TONE_COLORS: Record<RowTone, { bg: string; fg: string }> = {
   clear: { bg: '#f1efe9', fg: '#605b52' },
   na: { bg: '#f5f3ef', fg: '#6f6a60' },
-  risk: { bg: '#faf2ee', fg: '#a8492d' },
-  caution: { bg: '#f7f0e1', fg: '#8a6410' },
+  risk: { bg: '#f7f0e1', fg: '#8a6410' },
+  caution: { bg: '#e9edf0', fg: '#4a5b6b' },
 };
 
 /** Hex tints driven by the row's tone; the single source of colour for export + memo. */
@@ -47,7 +47,7 @@ export function tonePrintColor(tone: RowTone): { bg: string; fg: string } {
 
 /**
  * Status-only colour (no polarity), for callers that hold a bare status. Scope rows
- * that are merely "Triggered" still read terracotta here; use tonePrintColor(rowTone(...))
+ * that are merely "Triggered" still read amber here; use tonePrintColor(rowTone(...))
  * to keep a satisfied scope gate calm (grey).
  */
 export function statusPrintColor(status: Status | null): { bg: string; fg: string } {

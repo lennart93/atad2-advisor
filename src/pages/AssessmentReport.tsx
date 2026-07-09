@@ -123,7 +123,7 @@ function EntityChip({
     <div
       className={`flex items-center justify-between gap-2 rounded-ds-card border px-3 py-2 ${
         flagged
-          ? "border-brand-terracotta bg-brand-terracotta-soft"
+          ? "border-brand-warning bg-brand-warning-soft"
           : "border-ds-hairline bg-ds-card"
       }`}
     >
@@ -131,7 +131,7 @@ function EntityChip({
         {flagged && (
           <span
             aria-hidden="true"
-            className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-terracotta"
+            className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-warning"
           />
         )}
         <span className="truncate text-[14px] text-ds-ink">{name}</span>
@@ -466,10 +466,10 @@ const AssessmentReport = () => {
   const riskOutcome = getFinalOutcome();
 
   // Outcome callout tint, by the REAL risk level. Sage = no risk identified,
-  // terracotta = risk identified, slate = insufficient information. Same family as the cover.
+  // amber = risk identified, slate = insufficient information. Same family as the cover.
   const outcomeTone = {
     complete: { box: 'border-brand-sage bg-brand-sage-soft', token: 'border-brand-sage', icon: 'text-brand-sage-deep' },
-    triggered: { box: 'border-brand-terracotta bg-brand-terracotta-soft', token: 'border-brand-terracotta', icon: 'text-brand-terracotta-deep' },
+    triggered: { box: 'border-brand-warning bg-brand-warning-soft', token: 'border-brand-warning', icon: 'text-brand-warning-deep' },
     insufficient: { box: 'border-brand-info bg-brand-info-soft', token: 'border-brand-info', icon: 'text-brand-info-deep' },
   }[riskOutcome.status];
 
@@ -830,7 +830,7 @@ const AssessmentReport = () => {
                   <span
                     className={`h-1.5 w-1.5 shrink-0 rounded-full ${
                       riskOutcome.status === "triggered"
-                        ? "bg-brand-terracotta"
+                        ? "bg-brand-warning"
                         : riskOutcome.status === "insufficient"
                           ? "bg-brand-info"
                           : "bg-brand-sage"
@@ -839,7 +839,7 @@ const AssessmentReport = () => {
                   <span
                     className={`text-[15px] ${
                       riskOutcome.status === "triggered"
-                        ? "text-brand-terracotta"
+                        ? "text-brand-warning-deep"
                         : riskOutcome.status === "insufficient"
                           ? "text-brand-info-deep"
                           : "text-brand-sage-deep"

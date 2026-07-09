@@ -28,13 +28,13 @@ const DIGEST_INFO = (
   <div className="space-y-1.5">
     <p className="font-medium text-foreground">Status key</p>
     <p><span className="text-brand-sage-deep">Not triggered / N/A</span> — no risk or out of scope.</p>
-    <p><span className="text-[#8a6a2a]">Insufficient info</span> — a fact is missing.</p>
-    <p><span className="text-[#a8492d]">Triggered</span> — a condition fires; review it.</p>
+    <p><span className="text-[#4a5b6b]">Insufficient info</span> — a fact is missing.</p>
+    <p><span className="text-[#8a6a2a]">Triggered</span> — a condition fires; review it.</p>
   </div>
 );
 
 function dotColor(tone: ReturnType<typeof rowTone>): string {
-  return tone === 'risk' ? '#c25c3c' : tone === 'caution' ? '#bf8a3c' : tone === 'na' ? '#b3ad9f' : '#8f9866';
+  return tone === 'risk' ? '#bf8a3c' : tone === 'caution' ? '#5c6f80' : tone === 'na' ? '#b3ad9f' : '#8f9866';
 }
 
 /**

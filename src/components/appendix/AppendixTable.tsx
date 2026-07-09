@@ -84,8 +84,8 @@ interface PillStyle { dot: string; pill: string; Icon: StatusIcon }
 /** The colour-coded status pill: sage = clean/good, amber = facts missing, terra = risk. */
 function statusPill(tone: RowTone, status: Status | null): PillStyle {
   if (!status) return { dot: 'bg-[#cfc9bd]', pill: 'border-border bg-card text-muted-foreground', Icon: Info };
-  if (tone === 'risk') return { dot: 'bg-[#c25c3c]', pill: 'border-[#e8cfc4] bg-[#faf2ee] text-[#a8492d]', Icon: AlertTriangle };
-  if (tone === 'caution') return { dot: 'bg-[#bf8a3c]', pill: 'border-[#ecdcb6] bg-[#fbf4e7] text-[#8a6a2a]', Icon: Info };
+  if (tone === 'risk') return { dot: 'bg-[#bf8a3c]', pill: 'border-[#ecdcb6] bg-[#fbf4e7] text-[#8a6a2a]', Icon: AlertTriangle };
+  if (tone === 'caution') return { dot: 'bg-[#5c6f80]', pill: 'border-[#c7d1da] bg-[#e9edf0] text-[#4a5b6b]', Icon: Info };
   return { dot: 'bg-[#8f9866]', pill: 'border-[#d2d8b8] bg-[#eaedde] text-[#6f7850]', Icon: CheckGlyph };
 }
 
@@ -94,7 +94,7 @@ function rowDot(ctype: ControlType, status: Status | null, tone: RowTone): strin
   if (ctype === 'na') return 'bg-[#b3ad9f]';
   if (ctype === 'gate') {
     if (status === 'N/A' || status === 'Triggered') return 'bg-[#8f9866]';
-    if (status === 'Insufficient information') return 'bg-[#bf8a3c]';
+    if (status === 'Insufficient information') return 'bg-[#5c6f80]';
     return 'bg-[#b3ad9f]';
   }
   return statusPill(tone, status).dot;
@@ -189,10 +189,10 @@ export function StatusControl({
             </span>
           ) : insufficient ? (
             <span className="flex items-center gap-2">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full border-[1.5px] border-[#ecdcb6] bg-[#fbf4e7]">
-                <Info className="h-3.5 w-3.5 text-[#8a6a2a]" aria-hidden />
+              <span className="flex h-6 w-6 items-center justify-center rounded-full border-[1.5px] border-[#c7d1da] bg-[#e9edf0]">
+                <Info className="h-3.5 w-3.5 text-[#4a5b6b]" aria-hidden />
               </span>
-              <span className="text-[13px] text-[#8a6a2a]">Insufficient info</span>
+              <span className="text-[13px] text-[#4a5b6b]">Insufficient info</span>
             </span>
           ) : (
             <span className="flex items-center gap-2">
@@ -267,8 +267,8 @@ function StatusLegend() {
           </span>
         }
       />
-      <LegendItem term="Triggered" hint="risk identified" swatch={<span className="h-2 w-2 rounded-full bg-[#c25c3c]" aria-hidden />} />
-      <LegendItem term="Insufficient info" hint="facts missing" swatch={<span className="h-2 w-2 rounded-full bg-[#bf8a3c]" aria-hidden />} />
+      <LegendItem term="Triggered" hint="risk identified" swatch={<span className="h-2 w-2 rounded-full bg-[#bf8a3c]" aria-hidden />} />
+      <LegendItem term="Insufficient info" hint="facts missing" swatch={<span className="h-2 w-2 rounded-full bg-[#5c6f80]" aria-hidden />} />
       <LegendItem term="Not triggered" hint="no risk" swatch={<span className="h-2 w-2 rounded-full bg-[#8f9866]" aria-hidden />} />
       <LegendItem
         term="N/A"

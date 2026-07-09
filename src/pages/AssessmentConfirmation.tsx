@@ -77,36 +77,36 @@ const outcomeConfig: Record<
     label: "ATAD2 risk identified",
     subtitle: "A potential hybrid mismatch fires on the responses given.",
     icon: AlertTriangle,
-    tokenBg: "bg-ds-accent-bg",
-    tokenFg: "text-ds-accent",
+    tokenBg: "bg-ds-amber-bg",
+    tokenFg: "text-ds-amber",
     description:
       "A hybrid mismatch is present and should be reported in the memorandum.",
-    cardIcon: "text-ds-accent",
-    cardSelBorder: "border-ds-accent",
-    cardSelBg: "bg-ds-accent-bg",
-    // Title stays ink, not deep terracotta: accent-text on accent-bg is only
-    // 4.38:1 (below AA for this 13.5px label). The terracotta identity is
-    // carried by the border, fill, icon and radio; ink keeps AA in both themes.
+    cardIcon: "text-ds-amber",
+    cardSelBorder: "border-ds-amber",
+    cardSelBg: "bg-ds-amber-bg",
+    // Amber is the ATAD2 risk colour (terracotta is reserved for the active
+    // wizard step + chart focus node). Title stays ink to keep AA on the amber
+    // fill in both themes; border, fill, icon and radio carry the amber identity.
     cardSelTitle: "text-ds-ink",
-    cardRadio: "border-ds-accent text-ds-accent",
-    cardHover: "hover:border-ds-accent",
+    cardRadio: "border-ds-amber text-ds-amber",
+    cardHover: "hover:border-ds-amber",
   },
   insufficient_information: {
     label: "Insufficient information",
     subtitle: "The responses leave the ATAD2 position open.",
     icon: Info,
-    // Top block stays slate (unchanged); the card uses amber to stay
-    // consistent with the appendix's "Insufficient info" status.
+    // Slate everywhere: "Insufficient information" reads slate-blue on both the
+    // top block and the card, matching the appendix's "Insufficient info" status.
     tokenBg: "bg-ds-blue-bg",
     tokenFg: "text-ds-blue",
     description:
       "The file cannot yet settle the outcome; more is needed before it can be concluded.",
-    cardIcon: "text-ds-amber",
-    cardSelBorder: "border-ds-amber",
-    cardSelBg: "bg-ds-amber-bg",
-    cardSelTitle: "text-ds-amber-text",
-    cardRadio: "border-ds-amber text-ds-amber",
-    cardHover: "hover:border-ds-amber",
+    cardIcon: "text-ds-blue",
+    cardSelBorder: "border-ds-blue",
+    cardSelBg: "bg-ds-blue-bg",
+    cardSelTitle: "text-ds-blue-text",
+    cardRadio: "border-ds-blue text-ds-blue",
+    cardHover: "hover:border-ds-blue",
   },
 };
 

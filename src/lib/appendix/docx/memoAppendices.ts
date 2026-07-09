@@ -61,8 +61,8 @@ const INTRO_GREY = INK; //     intro paragraphs above the tables
 // label inside. Green = not triggered / gate passed, amber = a fact is still
 // missing, red = a risk indicator is present, grey = does not apply.
 const STATUS_GOOD = { fill: 'EEF0E4', fg: '55632F' } as const;
-const STATUS_WARN = { fill: 'F8F0DA', fg: '8A6A1C' } as const;
-const STATUS_BAD = { fill: 'F7EBE4', fg: 'A5392B' } as const;
+const STATUS_WARN = { fill: 'E9EDF0', fg: '4A5B6B' } as const;
+const STATUS_BAD = { fill: 'F8F0DA', fg: '8A6A1C' } as const;
 const STATUS_NA = { fill: 'F4F2EC', fg: '8A857B' } as const;
 
 const BODY_SZ = 19; //      9.5pt primary body content in every appendix table cell
@@ -142,8 +142,8 @@ function dataCell(
 // rowTone), so the memo can never disagree with the on-screen checklist:
 //   gate satisfied  -> green check "Applicable"
 //   not triggered   -> green check
-//   insufficient    -> amber clock
-//   triggered       -> red triangle
+//   insufficient    -> slate clock
+//   triggered       -> amber triangle
 //   N/A (incl moot) -> grey dash-circle
 interface StatusVisual { fill: string; fg: string; icon: string; label: string }
 

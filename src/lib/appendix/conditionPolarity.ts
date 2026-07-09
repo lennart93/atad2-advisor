@@ -72,8 +72,8 @@ export function conditionRiskLevel(status: Status | null, rowId: string): RiskLe
  * The presentation tone for a row: the single signal that drives the icon and the
  * colour on the screen, in the Word memo and in the print/export, so the three can
  * never disagree.
- *   'risk'    - a real risk signal fired (terracotta, a finding).
- *   'caution' - reachable but the facts needed are missing (amber, Insufficient information).
+ *   'risk'    - a real risk signal fired (amber, the ATAD2 finding colour).
+ *   'caution' - reachable but the facts needed are missing (slate-blue, Insufficient information).
  *   'clear'   - resolved with no risk: a clean mismatch test, or a satisfied
  *               scope/precondition. Neutral grey, routine, never an alarm.
  *   'na'      - does not apply (neutral grey, a touch lighter).
@@ -81,7 +81,7 @@ export function conditionRiskLevel(status: Status | null, rowId: string): RiskLe
  * Scope/precondition rows (1.1 in scope, 1.2 cross-border, 2.1 related party, ...)
  * are 'neutral' in the polarity map, so they read 'clear' even when met: being in
  * scope or having a related party is the normal baseline, not a problem. Substantive
- * conditions stay status-driven, so only the scope rows lose their terracotta alarm.
+ * conditions stay status-driven, so only the scope rows lose their amber alarm.
  */
 export type RowTone = 'risk' | 'caution' | 'clear' | 'na';
 
