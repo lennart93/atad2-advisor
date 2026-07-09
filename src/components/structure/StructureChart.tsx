@@ -416,7 +416,7 @@ function StructureChartInner(props: StructureChartProps) {
           color={props.gridVisible ? 'rgba(22,21,15,0.05)' : 'rgba(22,21,15,0.03)'}
           variant={BackgroundVariant.Dots}
         />
-        <Controls />
+        <Controls position="bottom-right" />
       </ReactFlow>
     </div>
   );
