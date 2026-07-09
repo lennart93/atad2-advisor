@@ -20,14 +20,14 @@ const TIER_PILL: Record<
   Exclude<QualityTier, 'empty'>,
   { label: string; text: string; ring: string }
 > = {
-  good:      { label: 'Good',      text: 'text-brand-warning',   ring: 'ring-brand-warning/30' },
-  strong:    { label: 'Strong',    text: 'text-brand-sage-deep', ring: 'ring-brand-sage/35' },
-  excellent: { label: 'Excellent', text: 'text-brand-sage-deep', ring: 'ring-brand-sage/45' },
+  good:      { label: 'Good',      text: 'text-ds-ink-secondary', ring: 'ring-ds-hairline' },
+  strong:    { label: 'Strong',    text: 'text-ds-ink-secondary', ring: 'ring-ds-hairline' },
+  excellent: { label: 'Excellent', text: 'text-brand-sage-deep',  ring: 'ring-brand-sage/45' },
 };
 
 const SEGMENT_COLOR: Record<Exclude<QualityTier, 'empty'>, string> = {
-  good:      'bg-brand-warning',
-  strong:    'bg-brand-sage',
+  good:      'bg-ds-ink-tertiary',
+  strong:    'bg-ds-ink-tertiary',
   excellent: 'bg-brand-sage-deep',
 };
 
@@ -45,6 +45,9 @@ function buildNudge(missingTypes: DocumentCategory[]): string | null {
 
 export function DocumentQualityMeter({ docs }: Props) {
   const q = computeQuality(docs);
+  // The meter only appears once a real document lands: an empty state would
+  // otherwise render four faint grey bars that read as a half-loaded skeleton.
+  if (q.tier === 'empty') return null;
   // "good" is the weakest non-empty tier; nudge the user toward Strong. The
   // guidance lives only in the tooltip now, so the footer stays one slim line.
   const nudge = q.tier === 'good' ? buildNudge(q.missingTypes) : null;
