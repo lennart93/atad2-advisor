@@ -92,7 +92,7 @@ export function effLocalReason(e: FactEntity, derived: string | null): string | 
 
 type EditableField =
   | 'jurisdiction' | 'entityType' | 'nlTaxStatus'
-  | 'relationType' | 'relatedPct' | 'relationReason' | 'nlReason' | 'localReason';
+  | 'relationType' | 'roleLabel' | 'relatedPct' | 'relationReason' | 'nlReason' | 'localReason';
 
 /** Immutably set one advisor override on the entity with the given register id. */
 export function withEntityEdit(

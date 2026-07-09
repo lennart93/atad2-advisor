@@ -15,9 +15,9 @@ const firedDocs = new Set<string>();
  * logged, never surfaced, never blocking. Skips documents that already have a
  * facts row (any status) so a page reload does not re-extract everything.
  */
-export function useDocFactsPrewarm(sessionId: string | null | undefined): void {
+export function useDocFactsPrewarm(sessionId: string | null | undefined, paused = false): void {
   useEffect(() => {
-    if (!sessionId) return;
+    if (!sessionId || paused) return;
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout>;
 
@@ -46,5 +46,5 @@ export function useDocFactsPrewarm(sessionId: string | null | undefined): void {
     };
     timer = setTimeout(tick, 0);
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [sessionId]);
+  }, [sessionId, paused]);
 }

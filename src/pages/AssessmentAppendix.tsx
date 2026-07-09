@@ -14,10 +14,14 @@ import { useAppendixSkeleton } from '@/lib/appendix/skeletonStore';
 import { loadChart } from '@/lib/structure/client';
 import { useUiBusySignal } from '@/stores/uiBusyStore';
 import { FactsPanel } from '@/components/appendix/FactsPanel';
+import { FactsPanelV2 } from '@/components/appendix/v2/FactsPanelV2';
+import { ChecklistV2 } from '@/components/appendix/v2/ChecklistV2';
 import { AppendixLoadingCard } from '@/components/appendix/AppendixLoadingCard';
 import { buildEntityRegister } from '@/lib/appendix/facts/entityRegister';
 import { emptyFacts } from '@/lib/appendix/facts/emptyFacts';
 import { actingTogetherCandidateCount } from '@/lib/appendix/facts/actingCandidates';
+import { openHomeStateCount } from '@/lib/appendix/facts/conclusions';
+import { appendixConfirmReadiness } from '@/lib/appendix/confirmGuard';
 import { supabase } from '@/integrations/supabase/client';
 
 type Phase = 'loading' | 'generating' | 'ready' | 'error';
@@ -52,6 +56,9 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
   // Reached via an Appendix "Edit" button on the finalized Overview. The footer
   // then returns straight to the overview instead of walking the flow forward.
   const fromOverview = searchParams.get('from') === 'overview';
+  // Appendix-V2 resting-state redesign, opt-in behind a route param until the old
+  // accordion UI is retired. `?appendixV2=1` on the facts page swaps in FactsPanelV2.
+  const appendixV2 = searchParams.get('appendixV2') === '1';
   const { user } = useAuth();
   const { data: skeleton } = useAppendixSkeleton();
   const [appendix, setAppendix] = useState<StoredAppendix | null>(null);
@@ -297,6 +304,18 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
   const hasContent = !!appendix && (appendix.rows.length > 0 || appendix.facts !== null);
   const refining = phase === 'generating';
 
+  // Every foreign entity owes a home-state classification. The facts step cannot be
+  // left until they are all resolved; the register carries the count and a jump chip.
+  const openHomeState = page === 'facts' && appendix?.facts && !appendix.facts_skipped
+    ? openHomeStateCount(factsToShow) : 0;
+  const homeStateBlockTitle = openHomeState > 0
+    ? `Set the home-state classification for ${openHomeState} ${openHomeState === 1 ? 'entity' : 'entities'} before continuing.`
+    : undefined;
+
+  // Gate confirm: a no-risk appendix (nothing Triggered) may not be confirmed
+  // while conditions are still "Insufficient info" (they must be resolved first).
+  const confirmGuard = appendixConfirmReadiness(appendix?.rows ?? []);
+
   // Part A landed with no acting-together group while related shareholders are
   // present. It is left as-is (no automatic rebuild); the advisor can re-ask the
   // model on demand with the button below.
@@ -379,12 +398,22 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
 
       <div className={skipped ? 'opacity-60' : undefined}>
         {page === 'facts' ? (
-          <FactsPanel
-            facts={factsToShow}
-            onChange={appendix?.facts ? handleFactsChange : undefined}
-            generated={!!appendix?.facts}
-            refining={refining}
-          />
+          appendixV2 ? (
+            <FactsPanelV2
+              facts={factsToShow}
+              onChange={appendix?.facts ? handleFactsChange : undefined}
+              generated={!!appendix?.facts}
+              refining={refining}
+              sessionId={sessionId}
+            />
+          ) : (
+            <FactsPanel
+              facts={factsToShow}
+              onChange={appendix?.facts ? handleFactsChange : undefined}
+              generated={!!appendix?.facts}
+              refining={refining}
+            />
+          )
         ) : (
           // relatedParties is null on purpose: the associated-enterprises panel
           // is gone, the Part A master table already carries that overview.
@@ -404,7 +433,11 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
                 {refining ? 'Re-running' : 'Re-run analysis'}
               </Button>
             </div>
-            <AppendixTable rows={appendix.rows} skeleton={skeleton} showSources={showSources} relatedParties={null} onEdit={handleEdit} onToggleExclude={handleToggleExclude} />
+            {appendixV2 ? (
+              <ChecklistV2 rows={appendix.rows} skeleton={skeleton ?? []} onEdit={handleEdit} onToggleExclude={handleToggleExclude} sessionId={sessionId} />
+            ) : (
+              <AppendixTable rows={appendix.rows} skeleton={skeleton} showSources={showSources} relatedParties={null} onEdit={handleEdit} onToggleExclude={handleToggleExclude} />
+            )}
           </div>
         )}
       </div>
@@ -441,19 +474,30 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
               <Button
                 variant="primary"
                 onClick={() => navigate(`/assessment-report/${sessionId}`)}
-                disabled={refining}
+                disabled={refining || openHomeState > 0}
+                title={homeStateBlockTitle}
               >
                 {refining ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                 {refining ? 'Finishing' : 'Done, return to overview'}
                 <ArrowRight className="h-4 w-4 text-[#e0a48f]" />
               </Button>
             ) : page === 'facts' ? (
-              <Button variant="primary" onClick={() => navigate(`/assessment-appendix/${sessionId}/checklist`)}>
+              <Button
+                variant="primary"
+                onClick={() => navigate(`/assessment-appendix/${sessionId}/checklist`)}
+                disabled={openHomeState > 0}
+                title={homeStateBlockTitle}
+              >
                 Next
                 <ArrowRight className="h-4 w-4 text-[#e0a48f]" />
               </Button>
             ) : (
-              <Button variant="primary" onClick={handleConfirm} disabled={confirming || refining}>
+              <Button
+                variant="primary"
+                onClick={handleConfirm}
+                disabled={confirming || refining || !confirmGuard.canConfirm}
+                title={confirmGuard.reason ?? undefined}
+              >
                 {confirming || refining ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : null}

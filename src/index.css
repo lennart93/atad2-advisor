@@ -264,6 +264,26 @@ All colors MUST be HSL.
   .max-h-\[calc\(100vh-2rem\)\]  { max-height: calc(100vh / var(--app-scale, 1) - 2rem); }
 }
 
+/* ---------------------------------------------------------------------------
+   Zoom ↔ floating-menu positioning correction.
+   The `zoom: var(--app-scale)` on <html> also scales every Radix popper
+   (Select / Dropdown / Popover / Tooltip / Menubar / …). Those float in a
+   `position: fixed` wrapper that Radix positions with `transform: translate(x,y)`.
+   Chrome measures the trigger in un-zoomed layout px but then multiplies that
+   translate by the html zoom, so the menu drifts right+down by the scale factor,
+   proportional to how far the trigger sits from the top-left. The further right
+   the trigger (e.g. the appendix status pills), the more the menu flies off.
+   Cancelling the inherited zoom on just the popper wrapper puts the translate
+   back in 1:1 space, so every floating menu lands directly under its trigger.
+   Trade-off: floating menus render at true 100% (a touch smaller than the 115%
+   chrome around them); that is the only way to keep them correctly anchored
+   while the global zoom stays on <html>. Kept as a plain rule (not @layer) so it
+   is never purged and outranks Radix's inline styles cleanly (which set
+   transform/position, never zoom). */
+[data-radix-popper-content-wrapper] {
+  zoom: calc(1 / var(--app-scale, 1));
+}
+
 /* Basis-typografie in het rapport */
 .markdown-body {
   line-height: 1.25;        /* overal gelijke regelafstand */

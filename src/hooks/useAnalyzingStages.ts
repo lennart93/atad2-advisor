@@ -14,9 +14,11 @@ import { useUiBusySignal } from "@/stores/uiBusyStore";
 // forward progress: once no new answer has landed for this long while the swarm
 // is not yet done, the run is treated as stuck and the way out is offered. The
 // clock resets the instant a new answer lands (see lastProgressAtRef). A single
-// edge call maxes out near the ~60s runtime budget, so 120s of silence means
-// the run is genuinely wedged, not merely slow.
-const STALL_TIMEOUT_MS = 120_000;
+// edge call maxes out near the ~60s runtime budget. A heavy dossier (20 raw
+// documents shipped per question) legitimately has long silent patches while a
+// single call grinds through ~180k tokens, so 120s was too twitchy and flagged
+// healthy-but-slow runs. 240s of silence is a genuinely wedged run.
+const STALL_TIMEOUT_MS = 240_000;
 
 // How long the reading bar (stages 1-3) takes to ease up to READING_END. Real
 // answering progress fills the bar within this clock but is never allowed to

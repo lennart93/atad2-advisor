@@ -6,7 +6,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { cleanReasoning } from '@/lib/appendix/reasoningText';
+import { displayReasoning } from '@/lib/appendix/rowReasoning';
 import { statusDisplayLabel } from '@/lib/appendix/status';
 import { rowTone, type RowTone } from '@/lib/appendix/conditionPolarity';
 import { appendixMootRowIds, controlTypeFor, type ControlType } from '@/lib/appendix/controlType';
@@ -106,7 +106,7 @@ function rowDot(ctype: ControlType, status: Status | null, tone: RowTone): strin
  * can override the AI), but only the pill carries a visible dropdown chevron; the
  * gate and N/A circles hide it ([&>svg]:hidden) so they read as plain bolletjes.
  */
-function StatusControl({
+export function StatusControl({
   rowId, ctype, status, tone, allowedStates, onChange, readOnly,
 }: {
   rowId: string;
@@ -449,8 +449,8 @@ function VisibleToggle({ rowId, excluded, onToggle }: { rowId: string; excluded:
  * Source chip prevents the blur the same way: the panel and the editor are
  * independent, so peeking at the sources never closes an edit in progress.
  */
-function RowDetail({
-  sk, row, reasoning, finding, excluded, showSources, ctype, mootSet, sourcesOpen, onToggleSources, onEdit, onToggleExclude, readOnly,
+export function RowDetail({
+  sk, row, reasoning, finding, excluded, showSources, ctype, mootSet, sourcesOpen, onToggleSources, onEdit, onToggleExclude, readOnly, bare,
 }: {
   sk: SkeletonRow;
   row: AppendixRow;
@@ -465,6 +465,8 @@ function RowDetail({
   onEdit?: (rowId: string, field: EditableField, value: string) => void;
   onToggleExclude?: (rowId: string, excluded: boolean) => void;
   readOnly?: boolean;
+  /** Flush layout for the V2 detail panel (drops the inline left indent). */
+  bare?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(reasoning);
@@ -500,7 +502,7 @@ function RowDetail({
   const panelRows = useMemo(() => buildSourcePanelRows(row, ctype, mootSet), [row, ctype, mootSet]);
 
   return (
-    <div className="pb-[18px] pl-16 pr-5">
+    <div className={cn(bare ? 'pb-1' : 'pb-[18px] pl-16 pr-5')}>
       {sk.legalBasis && sk.legalBasis !== 'N/A' && (
         <div className="mb-1.5">
           <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{sk.legalBasis}</span>
@@ -654,7 +656,7 @@ export function AppendixTable({ rows, skeleton, showSources, relatedParties, onE
             {sec.items.map((sk) => {
               const row = byId.get(sk.rowId)!;
               const excluded = row.excludedFromClient;
-              const reasoning = cleanReasoning(row.reasoning);
+              const reasoning = displayReasoning(row, mootSet);
               const ctype = controlTypeFor(row, mootSet);
               const tone = rowTone(row.status, sk.rowId);
               const expanded = open.has(sk.rowId);
@@ -693,6 +695,19 @@ export function AppendixTable({ rows, skeleton, showSources, relatedParties, onE
                         {row.stale && (
                           <Badge variant="outline" className="mt-0.5 border-ds-hairline text-[10px] font-normal text-ds-ink-secondary">
                             review again
+                          </Badge>
+                        )}
+                        {row.ungrounded && (
+                          // F2: the model never returned this row (even after the
+                          // coverage-retry). Show an explicit "not assessed" marker
+                          // instead of letting a fallback / derived N/A read as a
+                          // normal answer.
+                          <Badge
+                            variant="outline"
+                            className="mt-0.5 border-ds-amber-text/40 text-[10px] font-normal text-ds-amber-text"
+                            title="The model returned no grounded answer for this row. Regenerate or edit."
+                          >
+                            Not assessed
                           </Badge>
                         )}
                         <StatusControl

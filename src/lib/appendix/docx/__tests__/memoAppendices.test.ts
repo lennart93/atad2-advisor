@@ -137,7 +137,7 @@ describe('buildMemoAppendicesXml', () => {
   it('renders the Other entities in the same ink as every other row (not dimmed)', () => {
     // A muted row used to print its name in faint grey; every name run is now ink.
     const nameRun = (name: string) =>
-      new RegExp(`<w:rPr><w:b/><w:color w:val="([0-9A-F]{6})"/></w:rPr><w:t xml:space="preserve">${name}`);
+      new RegExp(`<w:rPr><w:b/><w:color w:val="([0-9A-F]{6})"/>(?:<w:sz[^>]*/><w:szCs[^>]*/>)?</w:rPr><w:t xml:space="preserve">${name}`);
     const other = xml.match(nameRun('Jersey Co Ltd'));
     const taxpayer = xml.match(nameRun('Dutch BidCo BV'));
     expect(other?.[1]).toBe('1A1A1A');
@@ -344,13 +344,20 @@ describe('buildMemoAppendicesXml', () => {
     expect(xml).toContain('B.1.1'); // row code, letter-prefixed
   });
 
-  it('drops the acting-together section entirely when the annex is empty, renumbering', () => {
+  it('states the null result in the acting-together section when the annex is empty', () => {
     const noActing: AppendixFacts = { ...facts, actingTogether: [] };
     const xml = buildMemoAppendicesXml(noActing, rows, skeleton);
+    expect(xml).toContain('A.2 Acting together'); // still renders, holds A.2
+    expect(xml).toContain(
+      'No cooperating group was identified that would make an entity an associated enterprise where it is not one on its own holding.',
+    );
+    expect(xml).toContain('A.3 Intra-group transactions'); // transactions stay at A.3
+  });
+
+  it('drops the acting-together section only when it is excluded from the download', () => {
+    const xml = buildMemoAppendicesXml({ ...facts, actingTogether: [], excludedSections: ['actingTogether'] }, rows, skeleton);
     expect(xml).not.toContain('Acting together');
-    expect(xml).not.toContain('No entities that could form an acting-together group');
     expect(xml).toContain('A.2 Intra-group transactions'); // transactions move up to A.2
-    expect(xml).not.toContain('A.3 ');
   });
 });
 
@@ -423,7 +430,7 @@ describe('buildMemoAppendicesXml — review fixes', () => {
       ],
     };
     const xml = buildMemoAppendicesXml(fundFacts, rows, skeleton);
-    expect(xml).toContain('Investment / participation fund');
+    expect(xml).toContain('Fund');
   });
 
   it('maps a set-but-unmapped local class into the 4-value vocabulary, like Appendix 1', () => {

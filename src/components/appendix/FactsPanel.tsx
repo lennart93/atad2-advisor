@@ -13,12 +13,13 @@ import {
 import { nlQualificationLabel, nlTaxStatusLabel, NL_CLASSIFICATION_OPTIONS, type NlQualification } from '@/lib/appendix/facts/nlTaxStatus';
 import { withLocalQualification, withForeignClassificationState, clearForeignClassification } from '@/lib/appendix/facts/classificationEdit';
 import {
-  addManualEntity, promoteToRelevant, removeFromRelevant, setHomeStateInline,
-  effRelevanceOverride, effLocalNotRelevant, type HomeStateChoice,
+  addManualEntity, promoteToRelevant, removeFromRelevant,
+  effRelevanceOverride,
 } from '@/lib/appendix/facts/entitySet';
 import { actingInClientReport } from '@/lib/appendix/facts/actingAnnex';
 import { ActingTogetherSection } from '@/components/appendix/ActingTogetherSection';
-import { effLocalQualification, entityHasQualificationDifference, dutchForeignClassification } from '@/lib/appendix/facts/conclusions';
+import { effLocalQualification, displayLocalQualification, entityHasQualificationDifference, dutchForeignClassification, foreignDefaultClassification, isForeignHomeStateOpen } from '@/lib/appendix/facts/conclusions';
+import { roleLabel } from '@/lib/appendix/facts/roleLabel';
 import { relevantTransactions } from '@/lib/appendix/facts/relevance';
 import {
   noRiskTransactions, effTxStatus, txStatusReason, txMemoReason, isTxStatusOverridden,
@@ -27,7 +28,6 @@ import {
   type TxCharacteristicKey,
 } from '@/lib/appendix/facts/transactionAssessment';
 import { shortTransactionType } from '@/lib/appendix/facts/transactionCategory';
-import { countryName } from '@/lib/structure/countries';
 import { JurisdictionPicker } from '@/components/structure/JurisdictionPicker';
 import { CountryFlag } from '@/components/CountryFlag';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -43,6 +43,13 @@ interface Props {
    *  eyebrow + title + lede, flatten the framed section boxes so it reads as
    *  card content instead of a card-in-a-card, and let it fill the card width. */
   embedded?: boolean;
+  /** V2 migration scaffold: the appendix-V2 shell renders section 3 (transactions)
+   *  with the new master-detail components, so it suppresses this panel's own
+   *  transactions Exhibit to avoid rendering it twice. Removed once §1-§2 convert. */
+  hideTransactions?: boolean;
+  /** V2 migration scaffold: the shell renders section 1 (the entity register) with
+   *  the new components, so this panel drops its own register Exhibit. */
+  hideRegister?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -82,22 +89,6 @@ const GROUP_META = 'text-[12px] text-muted-foreground/60';
 // The relation-to-the-taxpayer vocabulary offered in the register detail. The
 // value is stored as an advisor edit; the derived role keeps driving grouping.
 const RELATION_TYPES = ['Subsidiary', 'Parent', 'Sister company', 'Associate', 'Branch / PE', 'Other'] as const;
-
-// The inline "home-state classification required" control. Transparent /
-// non-transparent record the foreign view; "to be determined" keeps it open; "not
-// relevant" dismisses the flag when a hybrid analysis is not in play for the entity.
-const HOME_STATE_INLINE_OPTIONS: ReadonlyArray<{ value: HomeStateChoice; label: string }> = [
-  { value: 'transparent', label: 'Transparent' },
-  { value: 'non-transparent', label: 'Non-transparent' },
-  { value: 'undetermined', label: 'To be determined' },
-  { value: 'not-relevant', label: 'Not relevant' },
-];
-
-/** "T4" / "T4 and T7" / "T4, T7 and T9": a readable id list for the alert copy. */
-function joinIds(ids: string[]): string {
-  if (ids.length <= 1) return ids[0] ?? '';
-  return `${ids.slice(0, -1).join(', ')} and ${ids[ids.length - 1]}`;
-}
 
 function pct(n: number | null): string {
   return n == null ? NA : `${Number.isInteger(n) ? n : n.toFixed(2)}%`;
@@ -149,6 +140,10 @@ const EDIT_SELECT =
   'h-9 w-auto min-w-[176px] gap-3 rounded-md border-border bg-card px-3 text-[14px] font-normal text-foreground shadow-none transition-colors hover:border-ds-ink-tertiary focus:ring-0 focus:ring-offset-0 [&>span]:!flex';
 const EDIT_SELECT_TODO =
   'border-brand-terracotta bg-brand-terracotta-soft text-brand-terracotta-deep hover:border-brand-terracotta';
+// A required-but-unset control: a terracotta border on the plain white field, no
+// fill. Reads as "still owed" without the shouty red/pink of a validation error.
+const EDIT_SELECT_REQUIRED =
+  'border-brand-terracotta bg-card text-brand-terracotta-deep hover:border-brand-terracotta';
 const EDIT_FOCUS_RING = 'focus:border-brand-terracotta focus:shadow-[0_0_0_3px_rgba(194,92,60,0.12)]';
 
 /**
@@ -295,14 +290,22 @@ function ClientEyeBtn({ hidden, editable, onToggle }: { hidden: boolean; editabl
 }
 
 /** One labelled block in the expanded row detail (uppercase eyebrow + content). */
-function DetailBlock({ label, tag, children }: { label: string; tag?: string; children: ReactNode }) {
+function DetailBlock({ label, tag, required, children }: { label: string; tag?: string; required?: boolean; children: ReactNode }) {
   return (
     <div>
-      <p className="text-[10.5px] font-medium uppercase tracking-[0.11em] text-muted-foreground">
-        {label}
-        {tag && (
-          <span className="ml-1.5 align-baseline text-[11px] font-normal normal-case tracking-normal text-muted-foreground/60">
-            {tag}
+      <p className="flex items-center text-[10.5px] font-medium uppercase tracking-[0.11em] text-muted-foreground">
+        <span>
+          {label}
+          {tag && (
+            <span className="ml-1.5 align-baseline text-[11px] font-normal normal-case tracking-normal text-muted-foreground/60">
+              {tag}
+            </span>
+          )}
+        </span>
+        {required && (
+          <span className="ml-auto inline-flex items-center gap-1.5 normal-case tracking-normal text-[11px] font-normal text-brand-terracotta">
+            <span className="h-[5px] w-[5px] rounded-full bg-brand-terracotta" aria-hidden />
+            required
           </span>
         )}
       </p>
@@ -330,18 +333,11 @@ function QuietCell({ display, editing, onStartEdit, children }: {
 }
 
 /**
- * The derived NL qualification. "Transparent" gets a positive sage tint;
- * "non-transparent" is plain ink text (the common, unremarkable case); a
- * to-be-determined value is left to the caller as a quiet dash.
+ * The derived NL qualification, rendered as plain ink text. Every value reads
+ * the same way (no coloured chips) so the column stays uniform; an
+ * undetermined value is handled by the caller.
  */
 function QualBadge({ q }: { q: NlQualification }) {
-  if (q === 'transparent') {
-    return (
-      <span className="rounded-sm bg-brand-sage-soft px-1.5 py-0.5 text-[10.5px] font-normal text-brand-sage-deep">
-        {nlQualificationLabel(q)}
-      </span>
-    );
-  }
   return <span className="text-foreground">{nlQualificationLabel(q)}</span>;
 }
 
@@ -349,8 +345,8 @@ function QualBadge({ q }: { q: NlQualification }) {
 // Section card (wizard-step card chrome: white panel + 3px terracotta letterhead)
 // ---------------------------------------------------------------------------
 
-function Exhibit({ number, title, count, defaultOpen = true, excluded = false, onToggleExcluded, embedded = false, children }: {
-  number: number; title: string; count?: ReactNode; defaultOpen?: boolean;
+function Exhibit({ number, title, count, headerRight, defaultOpen = true, excluded = false, onToggleExcluded, embedded = false, children }: {
+  number: number; title: string; count?: ReactNode; headerRight?: ReactNode; defaultOpen?: boolean;
   excluded?: boolean; onToggleExcluded?: () => void; embedded?: boolean; children: ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
@@ -380,6 +376,7 @@ function Exhibit({ number, title, count, defaultOpen = true, excluded = false, o
             </span>
           )}
         </button>
+        {headerRight}
         {onToggleExcluded && (
           <span className={cn('transition-opacity focus-within:opacity-100', excluded ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')}>
             <ExcludeBtn excluded={excluded} onClick={onToggleExcluded} />
@@ -403,7 +400,7 @@ function Exhibit({ number, title, count, defaultOpen = true, excluded = false, o
 // FactsPanel
 // ---------------------------------------------------------------------------
 
-export function FactsPanel({ facts, onChange, generated, refining, embedded }: Props) {
+export function FactsPanel({ facts, onChange, generated, refining, embedded, hideTransactions, hideRegister }: Props) {
   const shown = visibleFacts(facts);
   const editable = !!onChange;
 
@@ -430,6 +427,16 @@ export function FactsPanel({ facts, onChange, generated, refining, embedded }: P
   // The register row whose reasoning detail is expanded (one open at a time).
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const toggleRow = (id: string) => setExpandedRow((cur) => (cur === id ? null : id));
+  // Open a row straight onto its home-state select (from the "Set X classification"
+  // prompt or the section-header counter chip): expand it, scroll it into view, and
+  // move focus to the select once the detail has rendered.
+  const openHomeState = (id: string) => {
+    setExpandedRow(id);
+    requestAnimationFrame(() => {
+      document.getElementById(`entity-row-${id}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      document.getElementById(`home-state-select-${id}`)?.focus();
+    });
+  };
   // Dutch entity rows whose optional "foreign classification" block has been
   // opened by hand (a stored foreign classification also opens it, so this only
   // holds rows that are mid-add with nothing persisted yet).
@@ -484,22 +491,19 @@ export function FactsPanel({ facts, onChange, generated, refining, embedded }: P
   // the register above, and its flows and open actions must not silently disappear.
   const relevantTx = relevantTransactions(facts);
   const assessedTx = noRiskTransactions(facts);
-  const relevantPartyIds = new Set(relevantTx.flatMap((t) => [t.fromEntityId, t.toEntityId]));
 
-  // A foreign party to a needs-assessment flow whose home-state (foreign)
-  // classification is still unset: the hybrid analysis of that flow cannot be
-  // finished. Such an entity is promoted into the relevant list and carries an
-  // inline "home-state classification required" flag until it is resolved (a real
-  // classification, or the advisor dismissing it as not relevant).
-  const needsHomeState = (e: FactEntity): boolean => {
-    if (isTaxpayerSide(e) || effLocalNotRelevant(e) || hasMismatch(e)) return false;
-    if ((effJurisdiction(e) ?? '').toUpperCase() === 'NL') return false;
-    if (!relevantPartyIds.has(e.id)) return false;
-    return effLocalQualification(e, clsByEntity.get(e.id)) === 'undetermined';
-  };
-  // Whether the inline flag should nag on this row: needed, and not explicitly
-  // removed from the relevant set (an 'out' override silences it).
-  const showHomeStateFlag = (e: FactEntity): boolean => needsHomeState(e) && effRelevanceOverride(e) !== 'out';
+  // Every foreign (non-NL) entity must record how its home state views it. The
+  // requirement is met by a stored view or a confident jurisdiction/legal-form
+  // default; until then the entity is "open" and carries the inline prompt. The
+  // register promotes open entities into Related, so an open item is never buried
+  // in a collapsed group where the step gate could not be cleared.
+  const showHomeStateFlag = (e: FactEntity): boolean =>
+    isForeignHomeStateOpen(e, clsByEntity.get(e.id));
+  const needsHomeState = showHomeStateFlag;
+  // Foreign entities that still owe a home-state classification: the counter chip
+  // reports the count and jumps to the first, and the step's Next stays disabled
+  // (in the host page) until this is empty.
+  const openHomeStateEntities = facts.entities.filter(showHomeStateFlag);
 
   const isRelevantRow = (e: FactEntity): boolean => {
     const ov = effRelevanceOverride(e);
@@ -538,20 +542,6 @@ export function FactsPanel({ facts, onChange, generated, refining, embedded }: P
   );
 
   /**
-   * Subsidiaries say whether the holding is direct; older facts (no flag) stay
-   * plain. "Group entity" reads as "Other" (the data value stays Group entity).
-   */
-  const roleLabel = (e: FactEntity): string => {
-    const edited = effRelationType(e);
-    if (edited) return edited;
-    if (e.role === 'Subsidiary' && e.directLink != null) {
-      return e.directLink ? 'Subsidiary (direct)' : 'Subsidiary (indirect)';
-    }
-    if (e.role === 'Group entity') return e.shareholderOfTaxpayer ? 'Shareholder' : 'Other';
-    return e.role;
-  };
-
-  /**
    * One short line on how a Group entity sits relative to the taxpayer: the hard
    * common-parent link when the graph has one, otherwise the AI's grounded
    * relationship clause. Nothing at all beats a boilerplate non-answer.
@@ -581,7 +571,7 @@ export function FactsPanel({ facts, onChange, generated, refining, embedded }: P
     const isNl = (jur ?? '').toUpperCase() === 'NL';
     const foreignCls = isNl ? dutchForeignClassification(e, c) : null;
     const showForeign = isNl && (foreignCls != null || foreignOpen.has(e.id));
-    const localQual = effLocalQualification(e, c);
+    const localQual = displayLocalQualification(e, c);
     const mismatch = hasMismatch(e);
     const flagged = showHomeStateFlag(e);
     const inRelevant = isRelevantRow(e);
@@ -619,11 +609,12 @@ export function FactsPanel({ facts, onChange, generated, refining, embedded }: P
     const nlReason = effNlReason(e);
 
     // The home-state reasoning draft (foreign entities only): the hybrid
-    // difference when it bites, nothing otherwise (the inline flag now carries the
-    // "set the home-state classification" prompt, so no standing help text here).
+    // difference when it bites, else the deterministic default's basis when the
+    // classification was filled from the jurisdiction + legal form (so the advisor
+    // sees why, and that it still wants a check), else nothing.
     const localDerivedReason = mismatch
       ? `Hybrid difference: ${nlQualificationLabel(nlQual).toLowerCase()} for Dutch purposes, ${nlQualificationLabel(localQual).toLowerCase()}${c?.homeState ? ` in ${c.homeState}` : ' locally'}.`
-      : null;
+      : foreignDefaultClassification(e, c)?.basis ?? null;
     const localReason = effLocalReason(e, localDerivedReason);
 
     const detailValue = 'text-[14.5px] text-foreground';
@@ -642,8 +633,6 @@ export function FactsPanel({ facts, onChange, generated, refining, embedded }: P
           <td className="py-2.5 pr-2 font-mono text-ds-ink-secondary">{e.id}</td>
           <td className="pr-2 font-normal text-foreground">
             {isMember && <span className="mr-1 text-muted-foreground">↳</span>}
-            {mismatch && <AlertTriangle className="mr-1 inline h-3 w-3 text-brand-warning" aria-label="Qualification difference" />}
-            {flagged && !mismatch && <AlertTriangle className="mr-1 inline h-3 w-3 text-brand-warning" aria-label="Home-state classification required" />}
             <span className={cn(isMember && 'text-muted-foreground')}>{e.name}</span>
             {e.manual && (
               <span
@@ -695,13 +684,33 @@ export function FactsPanel({ facts, onChange, generated, refining, embedded }: P
             </QuietCell>
           </td>
 
-          {/* Classification (NL): display only; the reason + editor live in the row detail. */}
+          {/* Classification: the NL view (display only; the editor lives in the row
+              detail), plus a required second line for a foreign entity. Open => a
+              terracotta prompt that opens the editor on the home-state select; set =>
+              a quiet "US · Transparent" recap. NL entities never get a second line. */}
           <td className="pr-2">
             <span title={nlTaxStatusLabel(status)}>
               {nlQual === 'undetermined'
-                ? <span className="text-[10.5px] text-muted-foreground/40">{NA}</span>
+                ? <span className="text-muted-foreground">Unknown</span>
                 : <QualBadge q={nlQual} />}
             </span>
+            {!isNl && (
+              flagged ? (
+                <button
+                  type="button"
+                  onClick={(ev) => { ev.stopPropagation(); openHomeState(e.id); }}
+                  title={`Set how ${jur ?? 'the home state'} classifies ${e.name}`}
+                  className="mt-[3px] flex items-center gap-[7px] text-[12.5px] font-medium text-brand-terracotta transition-colors hover:text-brand-terracotta-deep"
+                >
+                  <span className="h-[5px] w-[5px] rounded-full bg-brand-terracotta" aria-hidden />
+                  Set {jur ?? 'home-state'} classification
+                </button>
+              ) : localQual !== 'undetermined' ? (
+                <span className="mt-[3px] block text-[12.5px] text-muted-foreground">
+                  {jur ? `${jur} · ` : ''}{nlQualificationLabel(localQual)}
+                </span>
+              ) : null
+            )}
           </td>
 
           {/* Effective related-party percentage; the taxpayer is the reference point. */}
@@ -730,53 +739,6 @@ export function FactsPanel({ facts, onChange, generated, refining, embedded }: P
             </button>
           </td>
         </tr>
-
-        {/* Inline home-state flag: a foreign party to a needs-assessment flow whose
-            home-state view is still unset. Replaces the old "Action needed" popup;
-            the classification is set right here, on the row. Hidden while the row is
-            expanded, where the full home-state block already carries the same select. */}
-        {flagged && !expanded && (() => {
-          const parties = relevantTx
-            .filter((t) => t.fromEntityId === e.id || t.toEntityId === e.id)
-            .map((t) => t.id);
-          const txList = parties.length
-            ? `transaction${parties.length > 1 ? 's' : ''} ${joinIds(parties)}`
-            : 'a needs-assessment transaction';
-          const where = c?.homeState || (jur ? countryName(jur) : '');
-          return (
-            <tr className={cn('border-b border-border', e.hidden && 'opacity-40')}>
-              <td colSpan={COLS} className="px-2 pb-3 pt-0">
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-md border border-brand-warning/40 border-l-[3px] border-l-brand-warning bg-brand-warning-soft px-3 py-2.5">
-                  <span className="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-brand-warning-deep">
-                    <AlertTriangle className="h-3.5 w-3.5 text-brand-warning" aria-hidden />
-                    Home-state classification required
-                  </span>
-                  <span className="min-w-0 flex-1 text-[12px] leading-snug text-brand-warning-deep/80">
-                    {e.name} is a party to {txList}; set how {where || 'its home state'} classifies it.
-                  </span>
-                  {editable ? (
-                    <Select
-                      value="undetermined"
-                      onValueChange={(v) => onChange!(setHomeStateInline(facts, e.id, v as HomeStateChoice, jur))}
-                    >
-                      <SelectTrigger
-                        aria-label={`Set the home-state classification of ${e.name}`}
-                        className={cn(EDIT_SELECT, 'h-8 border-brand-warning/50 bg-white text-brand-warning-deep hover:border-brand-warning focus:border-brand-warning focus:shadow-[0_0_0_3px_rgba(196,148,42,0.14)]')}
-                      >
-                        <SelectValue placeholder="Set classification" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {HOME_STATE_INLINE_OPTIONS.map((o) => (
-                          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : null}
-                </div>
-              </td>
-            </tr>
-          );
-        })()}
 
         {expanded && (
           <tr id={detailId} className={cn('border-b border-border', e.hidden && 'opacity-40')}>
@@ -821,6 +783,10 @@ export function FactsPanel({ facts, onChange, generated, refining, embedded }: P
                     />
                   </DetailBlock>
 
+                  {/* RIGHT column: the classification stack. The NL view first; a
+                      foreign entity adds its required home-state view below a divider,
+                      an NL entity can add an optional foreign classification the same way. */}
+                  <div>
                   {/* Classification (NL): how the Netherlands sees the entity, plus why. */}
                   <DetailBlock label="Classification (NL)">
                     {editable ? (
@@ -854,24 +820,28 @@ export function FactsPanel({ facts, onChange, generated, refining, embedded }: P
                     />
                   </DetailBlock>
 
-                  {/* Home-state classification: foreign entities only. A Dutch entity
-                      has no separate home-state view, so it gets no second block. */}
+                  {/* Home-state classification: foreign entities only, stacked under
+                      the NL view below a hairline. A Dutch entity has no separate
+                      home-state view, so it gets no second block. */}
                   {!isNl && (
-                    <DetailBlock label={`Classification${jur ? ` (${jur})` : ''}`} tag="home state">
+                    <>
+                    <hr className="my-4 border-t border-ds-hairline" />
+                    <DetailBlock label={`Classification${jur ? ` (${jur})` : ''}`} tag="home state" required={editable && localQual === 'undetermined'}>
                       {editable ? (
                         <Select
                           value={localQual}
                           onValueChange={(v) => {
                             const mapped = v === 'transparent' ? 'transparent'
-                              : v === 'non-transparent' ? 'opaque'
-                                : v === 'reverse-hybrid' ? 'reverse_hybrid'
+                              : v === 'non-transparent' ? 'non-transparent'
+                                : v === 'irrelevant' ? 'irrelevant'
                                   : 'unknown';
                             onChange!(withLocalQualification(facts, e.id, mapped, jur));
                           }}
                         >
                           <SelectTrigger
+                            id={`home-state-select-${e.id}`}
                             aria-label="Home-state classification"
-                            className={cn(EDIT_SELECT, localQual === 'undetermined' && EDIT_SELECT_TODO)}
+                            className={cn(EDIT_SELECT, localQual === 'undetermined' && EDIT_SELECT_REQUIRED)}
                           >
                             <SelectValue />
                           </SelectTrigger>
@@ -892,12 +862,16 @@ export function FactsPanel({ facts, onChange, generated, refining, embedded }: P
                         onCommit={(text) => onChange!(withEntityEdit(facts, e.id, 'localReason', text))}
                       />
                     </DetailBlock>
+                    </>
                   )}
 
                   {/* Foreign classification (Dutch entities): optional and off by
                       default. The advisor opts in to record how another state
                       classifies this NL entity, bringing a hybrid mismatch into scope. */}
-                  {isNl && (showForeign ? (
+                  {isNl && (showForeign || editable) && (
+                    <>
+                    <hr className="my-4 border-t border-ds-hairline" />
+                    {showForeign ? (
                     <DetailBlock label="Foreign classification" tag={foreignCls?.state || 'another state'}>
                       {editable ? (
                         <>
@@ -912,8 +886,8 @@ export function FactsPanel({ facts, onChange, generated, refining, embedded }: P
                               value={foreignCls?.qual ?? 'undetermined'}
                               onValueChange={(v) => {
                                 const mapped = v === 'transparent' ? 'transparent'
-                                  : v === 'non-transparent' ? 'opaque'
-                                    : v === 'reverse-hybrid' ? 'reverse_hybrid'
+                                  : v === 'non-transparent' ? 'non-transparent'
+                                    : v === 'irrelevant' ? 'irrelevant'
                                       : 'unknown';
                                 onChange!(withLocalQualification(facts, e.id, mapped, foreignCls?.state ?? ''));
                               }}
@@ -959,17 +933,18 @@ export function FactsPanel({ facts, onChange, generated, refining, embedded }: P
                         </>
                       )}
                     </DetailBlock>
-                  ) : editable ? (
-                    <div className="self-start">
-                      <button
-                        type="button"
-                        onClick={() => openForeign(e.id)}
-                        className="inline-flex items-center gap-1.5 rounded-[4px] border border-dashed border-border px-2.5 py-1.5 text-[12.5px] text-muted-foreground transition-colors hover:border-ds-ink-tertiary hover:text-foreground"
-                      >
-                        <Plus className="h-3.5 w-3.5" /> Add foreign classification
-                      </button>
-                    </div>
-                  ) : null)}
+                    ) : (
+                    <button
+                      type="button"
+                      onClick={() => openForeign(e.id)}
+                      className="inline-flex items-center gap-1.5 rounded-[4px] border border-dashed border-border px-2.5 py-1.5 text-[12.5px] text-muted-foreground transition-colors hover:border-ds-ink-tertiary hover:text-foreground"
+                    >
+                      <Plus className="h-3.5 w-3.5" /> Add foreign classification
+                    </button>
+                    )}
+                    </>
+                  )}
+                  </div>
                 </div>
 
                 {/* Client visibility (hide = kept in the analysis, left out of the
@@ -1029,16 +1004,20 @@ export function FactsPanel({ facts, onChange, generated, refining, embedded }: P
 
   const thLabel = 'pr-2 text-[10px] font-medium uppercase tracking-wide';
 
-  // # · Transaction · Type (short) · Client (eye). Jurisdictions, the verbose type
-  // and instrument move into the expand detail; the whole row is the expand toggle
-  // (no chevron).
-  const TX_COLS = 4;
+  // # · Transaction · Type (short) · Client (eye) · chevron. The same anatomy as
+  // the entity register: jurisdictions, the verbose type and instrument move into
+  // the expand detail. Jurisdiction flags read from the entity table above.
+  const TX_COLS = 5;
 
-  const txGroupLabel = (label: string, meta?: ReactNode) => (
+  const txGroupLabel = (label: string, meta?: ReactNode, marker?: 'needs' | 'noRisk') => (
     <tr>
       <td colSpan={TX_COLS} className="pt-4 pb-1.5">
-        <span className={GROUP_LABEL}>{label}</span>
-        {meta != null && <span className={cn(GROUP_META, 'ml-2.5')}>{meta}</span>}
+        <span className="inline-flex items-center gap-2.5">
+          {marker === 'needs' && <span className="h-1.5 w-1.5 rounded-full bg-brand-terracotta" aria-hidden />}
+          {marker === 'noRisk' && <Check className="h-3 w-3 text-brand-sage-deep" aria-hidden />}
+          <span className={GROUP_LABEL}>{label}</span>
+          {meta != null && <span className={GROUP_META}>{meta}</span>}
+        </span>
       </td>
     </tr>
   );
@@ -1143,9 +1122,6 @@ export function FactsPanel({ facts, onChange, generated, refining, embedded }: P
           }}
           aria-expanded={expanded}
           aria-controls={detailId}
-          // A soft terra wash fading to the right marks a needs-assessment flow.
-          // background-image, so the hover/expand background-color still reads.
-          style={needs ? { backgroundImage: 'linear-gradient(90deg, hsl(var(--brand-terracotta) / 0.10), transparent 70%)' } : undefined}
           className={cn(
             'group cursor-pointer border-b border-border align-top transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none',
             expanded && 'bg-accent/50',
@@ -1155,21 +1131,17 @@ export function FactsPanel({ facts, onChange, generated, refining, embedded }: P
           <td className="py-3 pr-2 align-top font-mono text-ds-ink-secondary">{t.id}</td>
           <td className="py-3 pr-3 text-foreground">
             <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-              <span className="inline-flex items-center">
+              <span className="inline-flex items-center text-[14.5px]">
                 {nameOf(facts, t.fromEntityId)}
                 <FlowArrow className="mx-1" />
                 {nameOf(facts, t.toEntityId)}
               </span>
-              {/* The status names the reason it carries, instead of an opaque tag. */}
-              {needs ? (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-brand-terracotta/30 bg-white px-2 py-0.5 text-[11px] font-medium text-brand-terracotta-deep">
-                  <span className="h-1.5 w-1.5 rounded-full bg-brand-terracotta" aria-hidden />
-                  Needs assessment
-                  <span className="font-normal text-brand-terracotta-deep/75">· {reason}</span>
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 rounded-full bg-brand-sage-soft px-2 py-0.5 text-[11px] font-medium text-brand-sage-deep">
-                  <Check className="h-3 w-3" /> No risk identified
+              {/* One quiet chip names the open risk category. The group header above
+                  already carries the status, so no per-row status pill. No-risk rows
+                  carry no chip at all. */}
+              {needs && reason && (
+                <span className="inline-flex items-center rounded-full bg-brand-terracotta-soft px-[9px] py-0.5 text-[11px] font-medium text-brand-terracotta-deep">
+                  {reason}
                 </span>
               )}
               {overridden && (
@@ -1181,12 +1153,12 @@ export function FactsPanel({ facts, onChange, generated, refining, embedded }: P
                 </span>
               )}
             </div>
-            <p className="mt-1 max-w-[520px] text-[12px] leading-[1.5] text-muted-foreground">{why}</p>
+            <p className="mt-1 max-w-[72ch] text-[13px] leading-[1.5] text-muted-foreground">{why}</p>
           </td>
-          {/* Type: a short category as plain one-line text (no pill); the full
+          {/* Type: a short category in title case as plain one-line text; the full
               verbose type lives in the expand panel. */}
           <td className="py-3 pr-2 align-top">
-            <span className="block max-w-[150px] truncate text-[13.5px] text-muted-foreground" title={t.kind}>
+            <span className="block max-w-[150px] truncate text-[13.5px] text-foreground" title={t.kind}>
               {shortTransactionType(t.kind)}
             </span>
           </td>
@@ -1198,6 +1170,19 @@ export function FactsPanel({ facts, onChange, generated, refining, embedded }: P
               editable={editable}
               onToggle={() => onChange!(withTransaction(facts, t.id, { excludedFromClient: !t.excludedFromClient }))}
             />
+          </td>
+          {/* Expand / collapse: the same chevron column as the entity table. */}
+          <td className="py-3 pl-1 pr-2 text-right align-top">
+            <button
+              type="button"
+              aria-expanded={expanded}
+              aria-controls={detailId}
+              aria-label={expanded ? `Hide detail for ${t.id}` : `Show detail for ${t.id}`}
+              onClick={(ev) => { ev.stopPropagation(); toggleTx(t.id); }}
+              className="inline-flex h-6 w-6 items-center justify-center rounded-[3px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <ChevronDown className={cn('h-4 w-4 transition-transform', expanded && 'rotate-180')} />
+            </button>
           </td>
         </tr>
 
@@ -1397,13 +1382,36 @@ export function FactsPanel({ facts, onChange, generated, refining, embedded }: P
         </header>
       )}
 
+      {/* Deterministic validation warnings (F6/F8/F9a): quiet, internal-only, and
+          never exported. Advisory: the advisor decides. */}
+      {(facts.warnings?.length ?? 0) > 0 && (
+        <div className="rounded-ds-card border border-ds-amber-text/25 bg-ds-amber-bg/40 px-4 py-3">
+          <p className="text-xs font-medium text-ds-amber-text">Points to verify</p>
+          <ul className="mt-1 space-y-0.5 text-xs text-ds-ink-secondary">
+            {facts.warnings!.map((w, i) => <li key={i}>{w}</li>)}
+          </ul>
+        </div>
+      )}
+
       {/* ------------------------------------------------------------------ */}
       {/* 1. The group and the taxpayer                                        */}
       {/* ------------------------------------------------------------------ */}
+      {!hideRegister && (
       <Exhibit
         number={1}
         title="The group and the taxpayer"
         embedded={embedded}
+        headerRight={editable && openHomeStateEntities.length > 0 ? (
+          <button
+            type="button"
+            onClick={() => { const first = openHomeStateEntities[0]; if (first) openHomeState(first.id); }}
+            title="Jump to the first entity that still needs a home-state classification"
+            className="inline-flex items-center gap-2 rounded-full bg-brand-terracotta-soft px-[13px] py-1.5 text-[12.5px] font-medium text-brand-terracotta-deep transition-colors hover:brightness-95"
+          >
+            <span className="h-1.5 w-1.5 rounded-full bg-brand-terracotta" aria-hidden />
+            {openHomeStateEntities.length} home-state {openHomeStateEntities.length === 1 ? 'classification' : 'classifications'} open
+          </button>
+        ) : undefined}
         {...sectionProps('entityRegister')}
       >
         <table className="w-full text-xs">
@@ -1612,6 +1620,7 @@ export function FactsPanel({ facts, onChange, generated, refining, embedded }: P
           );
         })()}
       </Exhibit>
+      )}
 
       {/* ------------------------------------------------------------------ */}
       {/* 2. Acting together                                                   */}
@@ -1628,6 +1637,7 @@ export function FactsPanel({ facts, onChange, generated, refining, embedded }: P
       {/* ------------------------------------------------------------------ */}
       {/* 3. Relevant transactions                                             */}
       {/* ------------------------------------------------------------------ */}
+      {!hideTransactions && (
       <Exhibit
         number={3}
         title="Intra-group transactions"
@@ -1650,6 +1660,7 @@ export function FactsPanel({ facts, onChange, generated, refining, embedded }: P
                   <th className={cn(thLabel, 'min-w-[260px]')}>Transaction</th>
                   <th className={cn(thLabel, 'w-[150px]')}>Type</th>
                   <th className="w-[64px] text-center text-[10px] font-medium uppercase tracking-wide">Client</th>
+                  <th className="w-10" aria-label="Detail" />
                 </tr>
               </thead>
               {relevantTx.length > 0 && (
@@ -1657,6 +1668,7 @@ export function FactsPanel({ facts, onChange, generated, refining, embedded }: P
                   {txGroupLabel(
                     'Needs assessment',
                     `${relevantTx.length} ${relevantTx.length === 1 ? 'transaction' : 'transactions'} · one or more risk categories open`,
+                    'needs',
                   )}
                   {relevantTx.map((t) => renderTxRow(t))}
                 </tbody>
@@ -1674,6 +1686,7 @@ export function FactsPanel({ facts, onChange, generated, refining, embedded }: P
                           aria-expanded={showAssessed}
                           className="flex items-center gap-2.5 text-left"
                         >
+                          <Check className="h-3 w-3 shrink-0 text-brand-sage-deep" aria-hidden />
                           <span className={GROUP_LABEL}>No risk identified</span>
                           <span className={GROUP_META}>
                             {assessedTx.length} {assessedTx.length === 1 ? 'transaction' : 'transactions'}, listed for completeness
@@ -1699,6 +1712,7 @@ export function FactsPanel({ facts, onChange, generated, refining, embedded }: P
           );
         })()}
       </Exhibit>
+      )}
 
     </div>
   );

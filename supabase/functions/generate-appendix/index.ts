@@ -9,6 +9,10 @@ import { retrieveKb } from "./kbRetrieval.ts";
 import { SKELETON_ROWS, type ServerSkeletonRow } from "./skeletonRows.ts";
 import { mootNaRowIds } from "./mootness.ts";
 import { loadAppendixPrompt, loadPrompt } from "./promptsLoader.ts";
+import { buildFactsheetBlock } from "./factsheetBlock.ts";
+import { loadSessionFactsheet, linkFactsheetToRegister, borrowerAttributionWarnings } from "./factsheetLink.ts";
+import { defaultClassification } from "./classificationDefaults.ts";
+import { missingRowIds, checkStatusReasoningConsistency, type AppendixStatus } from "./appendixValidators.ts";
 import {
   buildEntityRegister,
   countActingTogetherCandidates,
@@ -16,6 +20,13 @@ import {
   type RawEntity, type RawEdge, type RawGroup, type AppendixFacts, type FactEntity, type ActingLikelihood,
   type Narrative, type NarrativeKey,
 } from "./factsBuild.ts";
+import { reviewAppendix, type ReviewRowInput } from "./reviewAppendix.ts";
+import { callFable, appendixReviewEnabled, hasFableKey } from "./fable.ts";
+
+// The gate rows (mirror of GATE_ROWS in src/lib/appendix/controlType.ts): a
+// satisfied gate shows its stored reasoning, so it stays reviewable, unlike a
+// non-gate moot row whose displayed text is derived from the mootness set.
+const APPENDIX_GATE_ROWS = new Set(["1.1", "1.2", "2.1", "6.1"]);
 
 const VALID_LIKELIHOODS = ["highly_unlikely", "unlikely", "unclear", "likely", "highly_likely"] as const;
 
@@ -146,9 +157,60 @@ async function setGenStatus(c: SupabaseClient, id: string, status: string, extra
   if (error) throw error;
 }
 
+function dedupeStrings(arr: string[]): string[] {
+  return Array.from(new Set(arr.filter((s) => s && s.trim())));
+}
+
+/**
+ * F9b: fill a missing / "to be determined" home-state classification from the
+ * deterministic defaults (US per-se corp, SMLLC, HK Ltd, Irish DAC, CH AG). Only
+ * ever a PROPOSAL (status 'proposed'); the advisor confirms. Returns the warnings.
+ */
+function applyClassificationDefaults(facts: AppendixFacts): string[] {
+  const warnings: string[] = [];
+  const nameById = (id: string) => facts.entities.find((e) => e.id === id)?.name ?? id;
+  const byEntity = new Map(facts.classifications.map((c) => [c.entityId, c]));
+  const meaningful = (homeClass: string | null | undefined) =>
+    !!homeClass && !/to be determined|unknown|tbd|^$/i.test(homeClass.trim());
+  for (const e of facts.entities) {
+    if (e.role === "Taxpayer" || e.hidden) continue;
+    const existing = byEntity.get(e.id);
+    if (existing && meaningful(existing.homeClass)) continue;
+    const jur = e.edits?.jurisdiction ?? e.jurisdiction;
+    const form = e.edits?.entityType ?? e.entityType;
+    const d = defaultClassification(jur, form);
+    if (!d) continue;
+    if (existing) {
+      existing.homeState = existing.homeState || (jur ?? "");
+      existing.homeClass = d.homeClass;
+    } else {
+      facts.classifications.push({
+        entityId: e.id,
+        homeState: jur ?? "",
+        homeClass: d.homeClass,
+        sourceState: null,
+        sourceClass: null,
+        hybrid: false,
+        status: "proposed",
+        excludedFromClient: false,
+        source: "ai",
+      });
+    }
+    warnings.push(`Classification for ${nameById(e.id)} defaulted to ${d.homeClass} (${d.basis}). Proposed, to verify.`);
+  }
+  return warnings;
+}
+
 async function runGeneration(c: SupabaseClient, appendixId: string, sessionId: string) {
   try {
     const prompt = await loadAppendixPrompt(c);
+
+    // WP1: the cross-document, pre-analysed group fact sheet. null unless the
+    // build-factsheet run is complete; then it is the primary fact source for
+    // Part A and the grounding block for Part B. Absent => "" everywhere, so the
+    // appendix behaves exactly as before (safe deploy, placeholder rule).
+    const factsheet = await loadSessionFactsheet(c, sessionId);
+    const factsheetBlock = buildFactsheetBlock(factsheet);
 
     const { data: session } = await c
       .from("atad2_sessions").select("taxpayer_name, fiscal_year").eq("session_id", sessionId).maybeSingle();
@@ -220,7 +282,7 @@ async function runGeneration(c: SupabaseClient, appendixId: string, sessionId: s
       factsHashToStore = factsHash;
       console.log(JSON.stringify({ level: "info", event: "appendix_facts_reused", appendixId }));
     } else {
-      const built = await buildFacts(c, sessionId, factEntities, session ?? null, structureBlock, evidenceNotes);
+      const built = await buildFacts(c, sessionId, factEntities, session ?? null, structureBlock, evidenceNotes, factsheetBlock);
       factsToStore = mergeFacts(priorFacts, built.facts);
       // Carry the "acting-together settled" marker through the merge so a trusted
       // empty stays reusable on the next run (see canReuseFacts above).
@@ -229,6 +291,27 @@ async function runGeneration(c: SupabaseClient, appendixId: string, sessionId: s
       // call failed and left classifications/acting-together empty) must not be
       // cached, otherwise the refine would reuse it and never retry the model.
       factsHashToStore = built.complete ? factsHash : null;
+    }
+
+    // WP1/WP2: fold the verified factsheet into Part A (TIN + aliases, F7
+    // relatedness upgrade incl. 2:24b consolidation) and run the deterministic
+    // validators (F6 sum-check, F8 borrower attribution, F9a dedup, F9b
+    // classification defaults). Advisory only: warnings land on facts.warnings
+    // (Facts page, never in the client export) and nothing substantive is
+    // flipped. Applied every run (also on a reused Part A) so a factsheet that
+    // arrived after the facts were cached still lands; the operations are
+    // idempotent (relatedness only upgrades, TIN only fills a blank).
+    const partBWarnings: string[] = [];
+    if (factsToStore && factsToStore.entities.length) {
+      const linked = linkFactsheetToRegister(factsToStore.entities, factsheet);
+      factsToStore.entities = linked.entities;
+      const nameById = (id: string) => factsToStore!.entities.find((e) => e.id === id)?.name ?? id;
+      const defaultWarnings = applyClassificationDefaults(factsToStore);
+      factsToStore.warnings = dedupeStrings([
+        ...linked.warnings,
+        ...borrowerAttributionWarnings(factsToStore.transactions, factsheet, nameById),
+        ...defaultWarnings,
+      ]);
     }
     const factsBlock = buildFactsBlock(factsToStore);
 
@@ -247,7 +330,11 @@ async function runGeneration(c: SupabaseClient, appendixId: string, sessionId: s
       .replace("{{ANSWERS_BLOCK}}", answersBlock || "(no answers recorded)")
       .replace("{{STRUCTURE_BLOCK}}", structureBlock || "(no structure chart available)")
       .replace("{{EVIDENCE_NOTES}}", evidenceNotes || "(none)")
-      .replace("{{DOCUMENTS_LIST}}", documentsList || "(no documents on file)");
+      .replace("{{DOCUMENTS_LIST}}", documentsList || "(no documents on file)")
+      // WP1: the verified group fact sheet for Part B grounding (F5 stops the
+      // improvisation). A v6/older prompt without the placeholder makes this a
+      // no-op; "" when no factsheet is available yet.
+      .replace("{{FACTSHEET_BLOCK}}", factsheetBlock || "(no fact sheet available)");
 
     const sectionOf = (rowId: string) => rowId.slice(0, rowId.lastIndexOf("."));
     const sectionGroups = new Map<string, ServerSkeletonRow[]>();
@@ -258,14 +345,40 @@ async function runGeneration(c: SupabaseClient, appendixId: string, sessionId: s
       sectionGroups.set(key, arr);
     }
 
+    const mkSkeletonUser = (secRows: ServerSkeletonRow[]) =>
+      baseFilled.replace("{{SKELETON_ROWS}}", JSON.stringify(
+        secRows.map((r) => ({ rowId: r.rowId, legalBasis: r.legalBasis, conditionTested: r.conditionTested, allowedStates: r.allowedStates })),
+      ));
+
     const perSection = await Promise.all([...sectionGroups.values()].map(async (secRows) => {
-      const skeletonJson = JSON.stringify(secRows.map((r) => ({ rowId: r.rowId, legalBasis: r.legalBasis, conditionTested: r.conditionTested, allowedStates: r.allowedStates })));
-      const user = baseFilled.replace("{{SKELETON_ROWS}}", skeletonJson);
+      const section = sectionOf(secRows[0].rowId);
+      const secIds = secRows.map((r) => r.rowId);
       try {
-        const parsed = await callWithRetry(() => callClaude({ user }));
-        return parsed.rows;
+        const parsed = await callWithRetry(() => callClaude({ user: mkSkeletonUser(secRows) }));
+        let out = parsed.rows;
+        // F1 coverage-retry: a successful section call may still omit rows (on the
+        // WMC dossier B.8 returned only 8.1). Retry ONCE with just the missing
+        // rows before the fallback text is applied downstream.
+        const missing = missingRowIds(secIds, out.map((r) => r.rowId));
+        if (missing.length) {
+          console.warn(JSON.stringify({ level: "warn", event: "appendix_section_missing_rows", section, missingRowIds: missing }));
+          const missRows = secRows.filter((r) => missing.includes(r.rowId));
+          try {
+            const retry = await callClaude({ user: mkSkeletonUser(missRows) });
+            const retryRows = AppendixModelOutput.parse(JSON.parse(extractJson(retry.text))).rows
+              .filter((r) => missing.includes(r.rowId));
+            out = [...out, ...retryRows];
+            const stillMissing = missingRowIds(secIds, out.map((r) => r.rowId));
+            if (stillMissing.length) {
+              console.warn(JSON.stringify({ level: "warn", event: "appendix_coverage_incomplete", section, stillMissing }));
+            }
+          } catch (e) {
+            console.warn(JSON.stringify({ level: "warn", event: "appendix_coverage_retry_failed", section, missingRowIds: missing, message: String(e).slice(0, 200) }));
+          }
+        }
+        return out;
       } catch (err) {
-        console.warn(JSON.stringify({ level: "warn", event: "appendix_section_failed", message: String(err).slice(0, 300) }));
+        console.warn(JSON.stringify({ level: "warn", event: "appendix_section_failed", section, rowIds: secIds, message: String(err).slice(0, 300) }));
         return [] as AppendixModelOutputT["rows"];
       }
     }));
@@ -273,19 +386,41 @@ async function runGeneration(c: SupabaseClient, appendixId: string, sessionId: s
     const byId = new Map(perSection.flat().map((r) => [r.rowId, r]));
     const stored = rows.map((sk) => {
       const m = byId.get(sk.rowId);
+      // F2: a row the model never returned (even after the coverage-retry) is
+      // ungrounded — an explicit "not assessed" signal, not a normal status.
+      const ungrounded = !m;
       const statusRaw = m?.status ?? "Insufficient information";
-      const status = sk.allowedStates.includes(statusRaw) ? statusRaw : "Insufficient information";
-      const reasoning = stripBoilerplate(noDashes(m?.reasoning)) ?? "The model did not return a grounded answer for this row; confirm manually.";
+      let status = sk.allowedStates.includes(statusRaw) ? statusRaw : "Insufficient information";
+      // An ungrounded row (no model output for it) carries a bare "-", never a
+      // sentence: the amber "not assessed" badge (ungrounded flag) already says
+      // the row needs a manual look, and a full apology sentence reads as if it
+      // were a finding. Keep it a dash on every surface.
+      const reasoning = stripBoilerplate(noDashes(m?.reasoning)) ?? "-";
+      // F4: degrade a row whose status contradicts its own reasoning (e.g. B.6.1
+      // "Not triggered" with text concluding the condition is met) to
+      // "Insufficient information". Never a substantive flip; the advisor decides.
+      if (m) {
+        const cons = checkStatusReasoningConsistency(status as AppendixStatus, reasoning);
+        if (!cons.consistent && cons.degradeTo && sk.allowedStates.includes(cons.degradeTo)) {
+          partBWarnings.push(`Row ${sk.rowId}: ${cons.warning} Degraded to "Insufficient information".`);
+          status = cons.degradeTo;
+        }
+      }
       const provenance = m?.provenance ?? "";
       const sources = sanitizeSources(m?.sources);
       return {
         rowId: sk.rowId,
         aiStatus: status, aiReasoning: reasoning, aiProvenance: provenance,
-        status, reasoning, provenance, sources,
+        status, reasoning, provenance, sources, ungrounded,
         excludedFromClient: false,
         source: "ai", stale: false, staleReason: null, editedBy: null, editedAt: null,
       };
     });
+    // Fold the Part B consistency warnings into facts.warnings (the single quiet
+    // Facts-page surface). Kept out of the client export like all warnings.
+    if (partBWarnings.length && factsToStore) {
+      factsToStore.warnings = dedupeStrings([...(factsToStore.warnings ?? []), ...partBWarnings]);
+    }
 
     // Deterministic N/A backstop: force scope-gate-satisfied and moot rows to
     // "N/A" regardless of what the model returned, so a moot condition never
@@ -315,8 +450,58 @@ async function runGeneration(c: SupabaseClient, appendixId: string, sessionId: s
       return { ...prev, aiStatus: fresh.aiStatus, aiReasoning: fresh.aiReasoning, aiProvenance: fresh.aiProvenance, provenance: fresh.provenance, sources: fresh.sources };
     });
 
+    // Holistic review (Fable 5): after the per-section swarm + deterministic
+    // layers, one pass over the WHOLE Part B tightens wording, de-duplicates
+    // repeated explanations into article cross-references, and straightens
+    // cross-row narrative. It never changes a status and only touches AI rows
+    // whose text a reader actually sees; a guard drops the pass whole if any
+    // number, entity or citation would be lost. Silent + best-effort: any failure
+    // keeps the un-reviewed rows. Off-switch: APPENDIX_REVIEW_ENABLED=false.
+    let reviewed = merged;
+    if (appendixReviewEnabled() && hasFableKey()) {
+      try {
+        const skById = new Map(rows.map((sk) => [sk.rowId, sk]));
+        const isEditable = (r: typeof merged[number]) =>
+          r.source === "ai" && !r.ungrounded &&
+          !(naRowIds.has(r.rowId) && !APPENDIX_GATE_ROWS.has(r.rowId));
+        const reviewRows: ReviewRowInput[] = merged
+          .filter((r) => !r.excludedFromClient)
+          .map((r) => {
+            const sk = skById.get(r.rowId);
+            return {
+              rowId: r.rowId,
+              displayCode: `B.${r.rowId}`,
+              legalBasis: sk?.legalBasis ?? "",
+              conditionTested: sk?.conditionTested ?? "",
+              status: r.status,
+              reasoning: r.reasoning ?? "",
+              editable: isEditable(r),
+            };
+          });
+        const entityNames = (factsToStore?.entities ?? []).map((e) => e.name).filter(Boolean);
+        const result = await reviewAppendix(
+          reviewRows,
+          { taxpayerName: taxpayerDisplayName(session?.taxpayer_name), entityNames, factsBlock },
+          callFable,
+        );
+        if (result.status === "reviewed" && result.rows.length) {
+          const newReasonById = new Map(result.rows.map((x) => [x.rowId, x.reasoning]));
+          reviewed = merged.map((r) => {
+            const nr = newReasonById.get(r.rowId);
+            return nr ? { ...r, reasoning: nr, aiReasoning: nr } : r;
+          });
+        }
+        if (result.warnings.length && factsToStore) {
+          factsToStore.warnings = dedupeStrings([...(factsToStore.warnings ?? []), ...result.warnings.map((w) => `Holistic review: ${w}`)]);
+        }
+        console.log(JSON.stringify({ level: "info", event: "appendix_review", appendixId, status: result.status, changed: result.rows.length, contradictions: result.warnings.length }));
+      } catch (err) {
+        console.warn(JSON.stringify({ level: "warn", event: "appendix_review_failed", appendixId, message: String(err) }));
+      }
+    }
+
     await c.from("atad2_appendix").update({
-      rows: merged, facts: factsToStore, facts_input_hash: factsHashToStore,
+      rows: reviewed, facts: factsToStore, facts_input_hash: factsHashToStore,
       generation_status: "ready",
       model: prompt.model, prompt_version: prompt.version,
       generated_at: new Date().toISOString(), updated_at: new Date().toISOString(),
@@ -453,6 +638,7 @@ async function buildFacts(
   session: { taxpayer_name?: string | null; fiscal_year?: string | null } | null,
   structureBlock: string,
   evidenceNotes: string,
+  factsheetBlock: string = "",
 ): Promise<{ facts: AppendixFacts; complete: boolean }> {
   const base: AppendixFacts = { entities, actingTogether: [], classifications: [], transactions: [] };
   if (!entities.length) return { facts: base, complete: false };
@@ -491,7 +677,11 @@ async function buildFacts(
       .replace("{{ENTITY_REGISTER}}", registerJson)
       .replace("{{KB_BLOCK}}", kbBlock || "(no knowledge base hits)")
       .replace("{{STRUCTURE_BLOCK}}", structureBlock || "(no structure chart available)")
-      .replace("{{EVIDENCE_NOTES}}", evidenceNotes || "(none)");
+      .replace("{{EVIDENCE_NOTES}}", evidenceNotes || "(none)")
+      // WP1: the verified group fact sheet wins over the model's own reading of
+      // the raw docs (F6-F9). A v19/older facts prompt without the placeholder
+      // makes this a no-op; "" when no factsheet is available yet.
+      .replace("{{FACTSHEET_BLOCK}}", factsheetBlock || "(no fact sheet available)");
     // One retry, like the Part B sections: a single malformed model response must
     // not collapse the whole facts proposal to the empty base.
     const proposed = await (async () => {
@@ -731,7 +921,13 @@ function buildFactsBlock(facts: AppendixFacts | null): string {
   if (!entities.length) return "(no established facts)";
   const classifications = facts.classifications.filter((c) => !hidden.has(c.entityId));
   const transactions = facts.transactions.filter((t) => !hidden.has(t.fromEntityId) && !hidden.has(t.toEntityId));
-  const acting = facts.actingTogether.filter((a) => !a.memberEntityIds.some((id) => hidden.has(id)));
+  // Only a MANUAL, non-excluded acting-together group is an established fact. An
+  // AI hint (origin 'ai'/undefined) is a non-binding suggestion the advisor has
+  // not adopted; feeding it here made row 2.1 write up an unadopted "samenwerkende
+  // groep" as fact (and invent a basis for it). Mirror of actingInClientReport.
+  const acting = facts.actingTogether.filter(
+    (a) => a.origin === "manual" && !a.excludedFromClient && !a.memberEntityIds.some((id) => hidden.has(id)),
+  );
   const nameOf = (id: string) => entities.find((e) => e.id === id)?.name ?? id;
   // Advisor edits win over the chart/AI base for grounding too.
   const effJur = (e: FactEntity) => e.edits?.jurisdiction ?? e.jurisdiction;
@@ -747,18 +943,31 @@ function buildFactsBlock(facts: AppendixFacts | null): string {
       : s === "reverse_hybrid" ? "reverse hybrid for NL"
       : "NL qualification undetermined";
   const taxpayerName = entities.find((e) => e.id === "E1")?.name ?? "the taxpayer";
-  const relNote = (e: FactEntity) =>
-    e.inTaxpayerFiscalUnity ? `, fiscal unity with ${taxpayerName}`
-      : (e.related && e.relatedVia) ? `, related via ${nameOf(e.relatedVia)} (${e.relatedViaPct ?? "?"}%)`
-      : e.related ? ", related (>25%)" : "";
+  // F7: state the relatedness BASIS, not just a percentage. A 0%-but-consolidated
+  // entity reads "related via consolidation", never "unrelated".
+  const relNote = (e: FactEntity) => {
+    if (e.inTaxpayerFiscalUnity) return `, fiscal unity with ${taxpayerName}`;
+    if (!e.related) return "";
+    if (e.relatednessBasis === "consolidation_2_24b") return ", related via consolidation (2:24b Dutch Civil Code group, de facto control)";
+    if (e.relatednessBasis === "acting_together") return ", related via acting-together group (samenwerkende groep)";
+    if (e.relatedVia) return `, related via ${nameOf(e.relatedVia)} (${e.relatedViaPct ?? "?"}%)`;
+    return ", related (>25%)";
+  };
   const ents = entities
     .map((e) => `${e.id} ${e.name} [${effJur(e) ?? "?"}, ${effRole(e)}${effPct(e) != null ? `, ${effPct(e)}%` : ""}${relNote(e)}, ${nlQual(effStatus(e))}]`)
     .join("\n");
   const cls = classifications
     .map((c) => `${c.entityId} ${nameOf(c.entityId)}: home ${c.homeState} ${c.homeClass} vs source ${c.sourceState ?? "?"} ${c.sourceClass ?? "?"}${c.hybrid ? " (HYBRID mismatch)" : ""}`)
     .join("\n");
+  // Include the transaction ASSESSMENT (relevant / no-risk + reason), so the
+  // Part B article checklist knows each transaction was already tested and does
+  // not hedge to "Insufficient information" claiming the payments are unidentified.
   const tx = transactions
-    .map((t) => `${t.id} ${nameOf(t.fromEntityId)} -> ${nameOf(t.toEntityId)}: ${t.kind}${t.instrument ? ` (${t.instrument})` : ""} [${t.articlesTested.join(", ")}]`)
+    .map((t) => {
+      const verdict = t.relevant === false ? "no risk" : "relevant";
+      const reason = t.relevanceReason ? `: ${t.relevanceReason}` : "";
+      return `${t.id} ${nameOf(t.fromEntityId)} -> ${nameOf(t.toEntityId)}: ${t.kind}${t.instrument ? ` (${t.instrument})` : ""} [${t.articlesTested.join(", ")}] (${verdict}${reason})`;
+    })
     .join("\n");
   const at = acting
     .map((a) => `${a.memberEntityIds.map(nameOf).join(" + ")} ~ ${a.combinedPct ?? "?"}%: ${a.likelihood} - ${a.reasoning}`)
@@ -767,7 +976,7 @@ function buildFactsBlock(facts: AppendixFacts | null): string {
     `Entities (with NL classification):\n${ents}`,
     cls ? `Cross-border classification (home vs source):\n${cls}` : "",
     tx ? `Intra-group transactions:\n${tx}` : "",
-    at ? `Possible acting-together groups:\n${at}` : "",
+    at ? `Established acting-together groups (advisor-determined):\n${at}` : "",
   ].filter(Boolean).join("\n\n");
 }
 

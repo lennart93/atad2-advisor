@@ -147,4 +147,21 @@ Cross-document dossier-synthese vóór de prefill-swarm. Per-doc feiten-extracti
   3. **Fase 3 — frontend** via Azure App Service (nooit op de VM).
   4. **Fase 4 — prompt v18 flip** PAS NA fase 2 (placeholder-regel: anders keurt de oude container v18's 4000-char toelichting af). Script: `supabase/deploy/deploy_factsheet_phase4.sh`.
   Fase 5 (WMC-eval) is een handmatige checklist: [docs/factsheet-wmc-eval-checklist.md](docs/factsheet-wmc-eval-checklist.md).
-- **Follow-ups (buiten v1, aparte beslissing)**: factsheet ook injecteren in `compose_client_letter`, `appendix_system` en de n8n-memo-payload. Nu NIET gedaan; n8n onaangeroerd.
+- **Follow-ups (buiten v1, aparte beslissing)**: factsheet ook injecteren in `compose_client_letter` en de n8n-memo-payload. `appendix_system` = hieronder (appendix-hardening). n8n onaangeroerd.
+
+## Appendix-hardening (feature)
+
+Dezelfde ziekte als de swarm (geen gedeelde feitenbasis + geen validatielaag) zat ook in `generate-appendix`. Deze feature laat de bijlage de **factsheet** gebruiken en voegt een deterministische validatielaag toe. Root-cause-analyse (9 fouten F1-F9): [docs/superpowers/specs/2026-07-06-appendix-error-rootcauses.md](docs/superpowers/specs/2026-07-06-appendix-error-rootcauses.md). Eval: appendix-sectie in [docs/factsheet-wmc-eval-checklist.md](docs/factsheet-wmc-eval-checklist.md).
+
+- **PROD-INCIDENT hersteld 7 jul**: de container-map `generate-appendix` had maar 2/15 bestanden (boot-error 500, bijlage DOWN). Hersteld via `vm_restore_ga.sh`. **Verifieer na elke edge-deploy dat de HELE map er staat (`ls | wc -l`), niet alleen 1 md5.**
+- **Deterministische validatielaag (dual, `src/lib/appendix/` + Deno-mirror, bodies identiek, 21 tests)**: `appendixValidators.ts` (F1 `missingRowIds`, F4 `checkStatusReasoningConsistency` (degradeert tegenspraak naar "Insufficient information", nooit een inhoudelijke flip), F6 `checkOwnershipSum`, F9a `findDuplicateEntities`) + `classificationDefaults.ts` (F9b: US per-se corp / SM-vs-MM LLC / HK Ltd / IE DAC / CH AG, altijd `verify:true`).
+- **Factsheet-koppeling (Deno-only)**: `factsheetLink.ts` (`loadSessionFactsheet` — alleen als `generation_status='complete'`; `linkFactsheetToRegister` vult TIN/aliases + upgrade't relatedness incl. **F7 2:24b consolidatie op 0%**; `borrowerAttributionWarnings` F8) + `factsheetBlock.ts` (Deno-mirror van `src/lib/factsheet/buildFactsheetBlock.ts`). `index.ts` laadt de factsheet server-side, vult `{{FACTSHEET_BLOCK}}` in Part A én Part B ("" als afwezig), draait coverage-retry per rij (F1), consistency-degrade (F4), en verzamelt warnings in `facts.warnings` (Facts-page, nooit in client-export). Ungrounded-rijen krijgen `ungrounded:true` (F2) → amber "Not assessed"-badge in `AppendixTable`.
+- **FactEntity/AppendixFacts/AppendixRow uitgebreid (dual)**: `relatednessBasis`/`tin`/`aliases` op FactEntity, `warnings` op AppendixFacts, `ungrounded` op AppendixRow. BEIDE bijwerken (`src/lib/appendix/types.ts` + `generate-appendix/factsBuild.ts`).
+- **Prompts (DRAFT, pending tax review)**: `appendix_facts_system` **v20** (REPLACE-op-live-v19, `{{DOCUMENTS_BLOCK}}`-anker: fact-sheet primacy + borrower-attributie + relatedness-basis + classificatie-defaults) en `appendix_system` **v7** (REPLACE-op-live-v6, `{{FACTS_BLOCK}}`-anker: fact-sheet primacy + factual-claims + status-consistency). Beide met RAISE-guard.
+- **WP0 deploy-state (7 jul)**: live = facts **v19**, appendix **v6**, swarm v18; skelet **zonder N/A** in allowed_states (F3 → `appendix_skeleton_v4_na_state.sql` NOG deployen, Lennart akkoord).
+- **NOG-TE-DEPLOYEN (na review; edge eerst, dan prompts — placeholder-regel)**:
+  1. Skelet-N/A: `20260617140000_appendix_skeleton_v4_na_state.sql` (allowed_states += N/A, F3).
+  2. Edge `generate-appendix` opnieuw (volledige map, incl. nieuwe `appendixValidators`/`classificationDefaults`/`factsheetLink`/`factsheetBlock` + `_shared`), md5 + `ls|wc -l` verificatie + boot-smoke.
+  3. Prompt-migraties: `20260707100000_..._facts_prompt_v20` en `20260707101000_..._prompt_v7`.
+  4. Frontend via Azure (ungrounded-badge + warnings-strip).
+  Werkt met lege/afwezige factsheet identiek aan vandaag (veilige tussenstanden).

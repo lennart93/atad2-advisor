@@ -10,7 +10,11 @@ export type NlTaxStatusKey =
   | 'outside_cit'     // outside the scope of Dutch CIT (buiten NL Vpb)
   | 'transparent'     // transparent for NL (fiscaal transparant)
   | 'non_transparent' // non-transparent for NL, no finer detail recorded (advisor pick)
-  | 'reverse_hybrid'  // reverse hybrid (art. 2(12) Wet Vpb)
+  | 'reverse_hybrid'  // reverse hybrid (art. 2(12) Wet Vpb) - LEGACY: kept for stored
+                      // values, no longer offered as a choice (it is an outcome of
+                      // two states' classifications combined, not a single-country
+                      // classification).
+  | 'irrelevant'      // the entity's classification is not relevant for the analysis
   | 'unknown';
 
 export const NL_TAX_STATUSES: ReadonlyArray<{ key: NlTaxStatusKey; label: string }> = [
@@ -20,10 +24,11 @@ export const NL_TAX_STATUSES: ReadonlyArray<{ key: NlTaxStatusKey; label: string
   { key: 'transparent',     label: 'Transparent for NL' },
   { key: 'non_transparent', label: 'Non-transparent' },
   { key: 'reverse_hybrid',  label: 'Reverse hybrid' },
+  { key: 'irrelevant',      label: 'Irrelevant for the analysis' },
   { key: 'unknown',         label: 'Unknown' },
 ];
 
-export type NlQualification = 'transparent' | 'non-transparent' | 'reverse-hybrid' | 'undetermined';
+export type NlQualification = 'transparent' | 'non-transparent' | 'reverse-hybrid' | 'irrelevant' | 'undetermined';
 
 /**
  * The advisor-facing classification select (register detail): one option per
@@ -36,8 +41,8 @@ export const NL_CLASSIFICATION_OPTIONS: ReadonlyArray<{
 }> = [
   { qual: 'non-transparent', statusKey: 'non_transparent', label: 'Non-transparent' },
   { qual: 'transparent',     statusKey: 'transparent',     label: 'Transparent' },
-  { qual: 'reverse-hybrid',  statusKey: 'reverse_hybrid',  label: 'Reverse hybrid' },
-  { qual: 'undetermined',    statusKey: 'unknown',         label: 'To be determined' },
+  { qual: 'undetermined',    statusKey: 'unknown',         label: 'Unknown' },
+  { qual: 'irrelevant',      statusKey: 'irrelevant',      label: 'Irrelevant for the analysis' },
 ];
 
 const KNOWN_KEYS = new Set<string>(NL_TAX_STATUSES.map((s) => s.key));
@@ -63,6 +68,8 @@ export function nlQualification(status: string | null | undefined): NlQualificat
       return 'non-transparent';
     case 'reverse_hybrid':
       return 'reverse-hybrid';
+    case 'irrelevant':
+      return 'irrelevant';
     default:
       return 'undetermined';
   }
@@ -83,7 +90,11 @@ export function nlQualificationLabel(q: NlQualification): string {
       return 'Non-transparent';
     case 'reverse-hybrid':
       return 'Reverse hybrid';
+    case 'irrelevant':
+      return 'Irrelevant for the analysis';
     default:
+      // The shared display label stays "To be determined" (memo + register);
+      // only the picker option (NL_CLASSIFICATION_OPTIONS) reads "Unknown".
       return 'To be determined';
   }
 }

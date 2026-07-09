@@ -25,14 +25,18 @@ const POLL_MS = 5000;
  *      prefills with the factsheet attached (progressive quality pass).
  * Everything is fire-and-forget and never throws to the UI.
  */
-export function useFactsheetPrewarm(sessionId: string | null | undefined): FactsheetPrewarmState {
+export function useFactsheetPrewarm(sessionId: string | null | undefined, paused = false): FactsheetPrewarmState {
   const [state, setState] = useState<FactsheetPrewarmState>({
     status: "idle", version: 0, rerun: { active: false, done: 0, total: 0 },
   });
   const rerunningRef = useRef(false);
 
   useEffect(() => {
-    if (!sessionId) return;
+    // Paused while the main questionnaire swarm is running, so building the fact
+    // sheet + the progressive re-run never compete with it for backend capacity
+    // (that competition was tripping the AnalyzingScreen stall watchdog). Resumes
+    // the moment the swarm finishes.
+    if (!sessionId || paused) return;
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout>;
 
@@ -101,7 +105,7 @@ export function useFactsheetPrewarm(sessionId: string | null | undefined): Facts
     };
     timer = setTimeout(tick, 0);
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [sessionId]);
+  }, [sessionId, paused]);
 
   return state;
 }

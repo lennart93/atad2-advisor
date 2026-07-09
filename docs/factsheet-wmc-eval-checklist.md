@@ -41,6 +41,39 @@ model-quality assertions that need a live `extract-docfacts` → `build-factshee
         Corp-fee questions disappear (answerable from the docs); what remains is
         foreign-treatment confirmations and negative confirmations.
 
+## Technical appendix (generate-appendix hardening, WP1-WP4)
+
+After a regenerate of the WMC appendix with the factsheet built and the appendix
+prompts v20 (facts) + v7 (Part B) live:
+
+A1. [ ] **Joshua Energy One DAC is related via consolidation**, not "Other ·
+        below 25%": the register shows "related via consolidation (2:24b …)" and
+        Joshua sits in the relevant group (F7). Its financing flow is not labelled
+        "third-party commercial financing".
+A2. [ ] **No phantom flow Helios I → Joshua**; the senior Sun Life loans sit with
+        Joshua, not WMC Energy B.V. or Helios (F8). A financing flow with no
+        matching lender/borrower in the factsheet raises a "verify the debtor
+        attribution" warning on the Facts page.
+A3. [ ] **A.1 shows Jolivia Group LLC at 42.34%** (not 37.24%); if the source
+        shares do not sum to ~100% the Facts page shows a sum-check warning (F6).
+A4. [ ] A **B.6.1-type gate is never "Not triggered" with confirming text** — a
+        row whose reasoning concludes the condition is met is degraded to
+        "Insufficient information" (F4), and the Facts page lists the degrade.
+A5. [ ] **No "US taxpayer" claim over a Dutch entity** (WMC Group B.V.) in Part B
+        (F5): factual claims are taken only from the fact sheet / answers / evidence.
+A6. [ ] **The B.8 section comes back complete** (8.1, 8.2, 8.3) or the missing
+        rows were individually retried; a row still missing shows the amber "Not
+        assessed" badge, never a silent fallback dressed as an answer (F1/F2).
+A7. [ ] **Duplicate entities warn**: WMC Energy Corp = WMC USA Services Corp, and
+        WMC Project Holding B.V. = Liminal Holding B.V. (shared RSIN 8652 85 135)
+        each raise a merge/hide warning on the Facts page (F9a).
+A8. [ ] **Home-state classifications are filled, not "To be determined"**, for the
+        known forms (US per-se corp, HK Ltd, Irish DAC), each marked "proposed, to
+        verify" (F9b).
+
+Deterministic-plumbing regression for the above is in
+`src/lib/appendix/__tests__/appendixValidators.test.ts`; A1-A8 need a live run.
+
 ## Notes for the reviewer
 
 - Run order matters: upload the WMC docs, let `useDocFactsPrewarm` extract each,

@@ -13,10 +13,10 @@ import type { AppendixFacts, ClassificationItem } from '@/lib/appendix/types';
 export function withLocalQualification(
   facts: AppendixFacts,
   entityId: string,
-  homeClass: 'transparent' | 'opaque' | 'reverse_hybrid' | 'unknown',
+  homeClass: 'transparent' | 'non-transparent' | 'irrelevant' | 'unknown',
   homeState: string | null,
 ): AppendixFacts {
-  const stored = homeClass === 'unknown' ? '' : homeClass === 'reverse_hybrid' ? 'reverse hybrid' : homeClass;
+  const stored = homeClass === 'unknown' ? '' : homeClass === 'irrelevant' ? 'irrelevant for the analysis' : homeClass;
   const existing = facts.classifications.find((c) => c.entityId === entityId);
   if (existing) {
     return {

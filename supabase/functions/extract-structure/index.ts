@@ -46,7 +46,7 @@ async function insertEntityDedup(
       chart_id: chartId,
       name: e.name,
       legal_form: e.legal_form ?? null,
-      jurisdiction_iso: e.jurisdiction_iso.toUpperCase(),
+      jurisdiction_iso: e.jurisdiction_iso ? e.jurisdiction_iso.toUpperCase() : null,
       entity_type: e.entity_type,
       is_taxpayer: e.is_taxpayer,
       source: "ai_extracted",
@@ -730,7 +730,7 @@ async function loadExistingAiRows(client: SupabaseClient, chartId: string): Prom
       temp_id,
       name: r.name as string,
       legal_form: (r.legal_form ?? null) as string | null,
-      jurisdiction_iso: r.jurisdiction_iso as string,
+      jurisdiction_iso: (r.jurisdiction_iso ?? null) as string | null,
       entity_type: r.entity_type as Stage1OutputT["entities"][number]["entity_type"],
       is_taxpayer: !!r.is_taxpayer,
     });
@@ -804,7 +804,7 @@ async function applyEntityDiff(
         .update({
           name: e.name,
           legal_form: e.legal_form ?? null,
-          jurisdiction_iso: e.jurisdiction_iso.toUpperCase(),
+          jurisdiction_iso: e.jurisdiction_iso ? e.jurisdiction_iso.toUpperCase() : null,
           entity_type: e.entity_type,
           is_taxpayer: e.is_taxpayer,
         })

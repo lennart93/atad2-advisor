@@ -7,8 +7,8 @@ import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } fro
 import { toast } from "@/components/ui/sonner";
 import { formatDate, formatDateTime } from "@/utils/formatDate";
 import { formatFiscalYears } from "@/utils/formatFiscalYears";
-import { taxpayerDisplayName } from "@/lib/taxpayer";
-import { ArrowLeft, ArrowRight, Loader2, AlertTriangle, Info, CheckCircle, Pencil, X, Check } from "lucide-react";
+import { taxpayerDisplayName, parseTaxpayerNames } from "@/lib/taxpayer";
+import { ArrowLeft, ArrowRight, Loader2, AlertTriangle, Info, CheckCircle, Pencil, X, Check, Layers } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { EditableAnswer } from "@/components/EditableAnswer";
@@ -80,6 +80,71 @@ interface N8nReportResponse {
 // Shared uppercase eyebrow label (RULE 2 header rhythm).
 const EYEBROW = "text-[11px] font-normal uppercase tracking-[0.16em] text-ds-ink-secondary";
 
+// How many entity chips the roster shows before collapsing behind a
+// "Show all {count}" toggle. Large structures (20+ entities) would otherwise
+// flood the header.
+const ROSTER_CAP = 8;
+
+/**
+ * Deduplicate the taxpayer-subject names before counting or listing them. The
+ * stored list can repeat the same entity (e.g. a name entered twice at intake);
+ * matching is case-insensitive on the trimmed name, and the first spelling wins.
+ */
+function dedupeEntityNames(names: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of names) {
+    const name = raw.trim();
+    const key = name.toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(name);
+  }
+  return out;
+}
+
+/**
+ * One entity in the "Entities in scope" roster: a hairline-bordered, subtly
+ * filled chip carrying the entity name plus two OPTIONAL adornments the design
+ * calls for — a short role tag (when role data exists) and a risk marker (a
+ * danger dot + tinted border when the entity carries a flagged mismatch). With
+ * neither, it renders the name alone.
+ */
+function EntityChip({
+  name,
+  role,
+  flagged,
+}: {
+  name: string;
+  role?: string | null;
+  flagged?: boolean;
+}) {
+  return (
+    <div
+      className={`flex items-center justify-between gap-2 rounded-ds-card border px-3 py-2 ${
+        flagged
+          ? "border-brand-terracotta bg-brand-terracotta-soft"
+          : "border-ds-hairline bg-ds-card"
+      }`}
+    >
+      <span className="flex min-w-0 items-center gap-2">
+        {flagged && (
+          <span
+            aria-hidden="true"
+            className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-terracotta"
+          />
+        )}
+        <span className="truncate text-[14px] text-ds-ink">{name}</span>
+      </span>
+      {role && (
+        <span className="shrink-0 text-[10px] font-medium uppercase tracking-[0.12em] text-ds-ink-tertiary">
+          {role}
+        </span>
+      )}
+    </div>
+  );
+}
+
 // A clean full-width inclusion row for the "Generate memorandum" card: a filled
 // sage checkbox + label, rows separated by hairlines. The sage fill maps the
 // spec's --sage to the brand's canonical ds-green so the screen stays consistent.
@@ -140,6 +205,8 @@ const AssessmentReport = () => {
   // default (appendices default on); local to the download, not persisted.
   const [includeFactsOverride, setIncludeFactsOverride] = useState<boolean | null>(null);
   const [includeChecklistOverride, setIncludeChecklistOverride] = useState<boolean | null>(null);
+  // Roster "Show all" toggle: large structures collapse to ROSTER_CAP chips.
+  const [showAllEntities, setShowAllEntities] = useState(false);
 
   // While the memorandum is generating, spin the top-left brand logo the same
   // way the document analysis, structure and appendix flows do.
@@ -670,6 +737,20 @@ const AssessmentReport = () => {
     );
   }
 
+  // The assessment as a named container with its entities as scannable contents.
+  // The stored taxpayer_name is a newline-joined list of the entities assessed
+  // together; dedupe it before counting or listing (the list can repeat a name).
+  const entityNames = dedupeEntityNames(parseTaxpayerNames(sessionData.taxpayer_name));
+  const entityCount = entityNames.length;
+  const isMultiEntity = entityCount > 1;
+  // Title + STRUCTURE field, in order of preference: a group/structure name (no
+  // such field exists in the schema yet), then a designated lead entity (none is
+  // flagged; the list has no lead marker), then the first entity. So both fall
+  // back to the first entity, which is also the correct single-entity behaviour.
+  const leadEntity =
+    entityNames[0] || taxpayerDisplayName(sessionData.taxpayer_name) || "Assessment";
+  const visibleEntities = showAllEntities ? entityNames : entityNames.slice(0, ROSTER_CAP);
+
   // Shared "Improve memo" action. On desktop it lives in the metadata rail
   // (under Generated); on mobile the rail is hidden, so a copy sits in the
   // memo header instead. Only rendered while a memo exists and we are not
@@ -704,9 +785,20 @@ const AssessmentReport = () => {
           <section className="space-y-6">
             <div className="space-y-3">
               <span className={EYEBROW}>Assessment report</span>
-              <h1 className="text-4xl font-normal leading-[1.02] tracking-[-0.02em] text-ds-ink sm:text-5xl">
-                {taxpayerDisplayName(sessionData.taxpayer_name)}
-              </h1>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                {/* The container title. No serif face exists in the system; the
+                    title keeps the Neue Haas Grotesk Display treatment already
+                    used for this H1. Falls back to the lead/first entity. */}
+                <h1 className="text-4xl font-normal leading-[1.02] tracking-[-0.02em] text-ds-ink sm:text-5xl">
+                  {leadEntity}
+                </h1>
+                {isMultiEntity && (
+                  <span className="inline-flex items-center gap-1.5 rounded-ds-control border border-ds-hairline bg-ds-fill-muted px-2.5 py-1 text-[12px] font-medium text-ds-ink-secondary">
+                    <Layers className="h-3.5 w-3.5 text-ds-ink-tertiary" aria-hidden="true" />
+                    Multi-entity · {entityCount}
+                  </span>
+                )}
+              </div>
               <p className="max-w-2xl text-[15px] text-ds-ink-secondary">
                 The ATAD2 position for this structure, ready to compile into a memorandum.
               </p>
@@ -714,8 +806,15 @@ const AssessmentReport = () => {
 
             <dl className="grid grid-cols-2 gap-x-6 gap-y-4 border-t border-ds-ink pt-4 sm:grid-cols-4">
               <div>
-                <dt className={EYEBROW}>Taxpayer</dt>
-                <dd className="mt-1.5 text-[15px] text-ds-ink">{taxpayerDisplayName(sessionData.taxpayer_name)}</dd>
+                <dt className={EYEBROW}>Structure</dt>
+                <dd className="mt-1.5 text-[15px] text-ds-ink">
+                  {leadEntity}
+                  {isMultiEntity && (
+                    <span className="mt-0.5 block text-[13px] text-ds-ink-tertiary">
+                      + {entityCount - 1} {entityCount - 1 === 1 ? "entity" : "entities"}
+                    </span>
+                  )}
+                </dd>
               </div>
               <div>
                 <dt className={EYEBROW}>Tax year</dt>
@@ -754,6 +853,45 @@ const AssessmentReport = () => {
                 </dd>
               </div>
             </dl>
+
+            {/* Entities in scope. Only shown for a multi-entity assessment; a
+                single-entity one is fully described by the title + STRUCTURE
+                field. A responsive chip grid, capped at ROSTER_CAP with a
+                Show-all toggle for large structures. */}
+            {isMultiEntity && (
+              <div className="border-t border-ds-hairline pt-4">
+                <p className={`${EYEBROW} mb-3`}>Entities in scope ({entityCount})</p>
+                <div className="grid gap-2 grid-cols-[repeat(auto-fit,minmax(185px,1fr))]">
+                  {visibleEntities.map((name, i) => (
+                    <EntityChip
+                      key={`${name}-${i}`}
+                      name={name}
+                      // TODO(roster-role): entity roles are modeled on the
+                      // FactEntity register (appendix facts) for the whole
+                      // structure, not on the taxpayer-subject list that drives
+                      // this roster. Wire a name-matched lookup here once the
+                      // facts appendix is a reliable header dependency.
+                      role={undefined}
+                      // TODO(roster-risk): per-entity risk is not modeled. The
+                      // assessment result carries a single aggregate outcome and
+                      // per-condition appendix rows, not a per-entity mismatch
+                      // flag. Wire the marker here once a per-entity flag exists;
+                      // omitted rather than fabricated for now.
+                      flagged={undefined}
+                    />
+                  ))}
+                </div>
+                {entityCount > ROSTER_CAP && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllEntities((v) => !v)}
+                    className="mt-3 text-[13px] text-ds-ink-secondary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent focus-visible:ring-offset-2"
+                  >
+                    {showAllEntities ? "Show fewer" : `Show all ${entityCount}`}
+                  </button>
+                )}
+              </div>
+            )}
 
             {sessionData.is_custom_period && sessionData.period_start_date && sessionData.period_end_date && (
               <p className="text-[13px] text-ds-ink-secondary">

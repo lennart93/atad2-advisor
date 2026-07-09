@@ -1,0 +1,15 @@
+-- Allow atad2_structure_entities.jurisdiction_iso to be NULL.
+--
+-- The stage-1 extraction schema was made nullable (extract-structure/schemas.ts)
+-- because the model legitimately cannot pin a jurisdiction for some entities
+-- (natural persons, an unclear SPV). But the DB column stayed NOT NULL, so the
+-- insert of such an entity failed with a generic error and the WHOLE structure
+-- extraction fell over (observed as pipeline_unhandled "[object Object]").
+--
+-- The frontend already treats a null jurisdiction as "missing" and flags it for
+-- the advisor to fill (src/lib/structure/validator.ts); palette.ts and
+-- labelMeasure.ts are null-safe; factsBuild reads it as string | null. So a null
+-- is a valid "unknown, please confirm" state, not a data error.
+--
+-- Apply on the VM as supabase_admin. Re-runnable.
+ALTER TABLE public.atad2_structure_entities ALTER COLUMN jurisdiction_iso DROP NOT NULL;

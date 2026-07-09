@@ -13,21 +13,24 @@
 // appendix <w:sectPr>), injected through the {{@appendicesXml}} raw placeholder,
 // because the template carries no static <w:sectPr> of its own.
 //
-// Spacing is left to the Word heading styles (no manual blank paragraphs between
-// sections); only a single trailing paragraph sits before the section properties.
+// Spacing is mostly left to the Word heading styles; within Appendix 1 a single
+// blank paragraph sits above each sub-heading from A.2 on, so the separate
+// sub-tables read as distinct blocks. One trailing paragraph sits before the
+// section properties.
 
 import type { AppendixFacts, AppendixRow, AppendixSectionKey, FactEntity, SkeletonRow, Status, TransactionItem } from '../types';
 import { APPENDIX_SKELETON } from '../skeleton';
 import { factsForClient } from '../factsExport';
 import { isSectionExcluded } from '../facts/sections';
-import { effJurisdiction, effEntityType, effNlQualification, effRelationType, effRelatedPct } from '../facts/entityFields';
+import { effJurisdiction, effNlQualification, effRelatedPct } from '../facts/entityFields';
+import { roleLabel } from '../facts/roleLabel';
 import { nlQualificationLabel } from '../facts/nlTaxStatus';
-import { effLocalQualification, entityHasQualificationDifference, dutchForeignClassification } from '../facts/conclusions';
+import { displayLocalQualification, entityHasQualificationDifference, dutchForeignClassification } from '../facts/conclusions';
 import { relevantTransactions } from '../facts/relevance';
 import { noRiskTransactions, txMemoReason } from '../facts/transactionAssessment';
 import { shortTransactionType } from '../facts/transactionCategory';
 import { actingBasisLabel } from '../facts/actingBasis';
-import { cleanReasoning } from '../reasoningText';
+import { displayReasoning } from '../rowReasoning';
 import { buildClientSections } from '../clientExport';
 import { statusDisplayLabel } from '../status';
 import { rowTone } from '../conditionPolarity';
@@ -62,6 +65,7 @@ const STATUS_WARN = { fill: 'F8F0DA', fg: '8A6A1C' } as const;
 const STATUS_BAD = { fill: 'F7EBE4', fg: 'A5392B' } as const;
 const STATUS_NA = { fill: 'F4F2EC', fg: '8A857B' } as const;
 
+const BODY_SZ = 19; //      9.5pt primary body content in every appendix table cell
 const HEAD_SZ = 19; //      column headers + group headings (~12.5px)
 const ROLE_SZ = 18; //      9pt second line under an entity name
 const COUNT_SZ = 16; //     the quiet right-hand count on a group heading
@@ -130,7 +134,7 @@ function dataCell(
   opts: { color?: string; bold?: boolean; align?: Cell['align']; leftPad?: number } = {},
 ): string {
   const margins = opts.leftPad != null ? { ...DATA_MAR, left: opts.leftPad } : DATA_MAR;
-  return cell({ text, width, color: opts.color, bold: opts.bold, align: opts.align, margins, line: BODY_LINE });
+  return cell({ text, width, color: opts.color, bold: opts.bold, align: opts.align, margins, line: BODY_LINE, sz: BODY_SZ });
 }
 
 // --- Appendix 2 status cell -------------------------------------------------
@@ -187,37 +191,6 @@ function pct(n: number | null): string {
 
 function nameOf(facts: AppendixFacts, id: string): string {
   return normalizeEntityName(facts.entities.find((e) => e.id === id)?.name ?? id);
-}
-
-/**
- * The role descriptor shown in the entity table's italic slot. Below-25% group
- * entities used to all read "Other"; instead characterise them from the data
- * with a small controlled vocabulary. DRAFT heuristics, pending tax review.
- */
-function characteriseGroupEntity(e: FactEntity): string {
-  const n = (e.name ?? '').toLowerCase();
-  const t = (effEntityType(e) ?? '').toLowerCase();
-  if (/stichting|foundation/.test(n) || t === 'foundation') return 'Foundation';
-  if (/management|beheer/.test(n)) return 'Management company';
-  if (/\bbank\b|financ|krediet|credit|lending|\blender\b|\bloan\b/.test(n)) return 'Lender';
-  if (/gemeente|provincie|ministerie|ministry|municipal|\bpublic\b|overheid|\bstate\b/.test(n) || t === 'public') {
-    return 'Public entity';
-  }
-  if (/fonds|participat|investment|\binvest\b|capital|venture|equity|\bpartners\b/.test(n) || t === 'fund') {
-    return 'Investment / participation fund';
-  }
-  if ((e.ownershipPct ?? e.relatedViaPct ?? 0) > 0) return 'Minority co-investor';
-  return 'Other group company';
-}
-
-function roleLabel(e: FactEntity): string {
-  const edited = effRelationType(e);
-  if (edited) return edited;
-  if (e.role === 'Subsidiary' && e.directLink != null) {
-    return e.directLink ? 'Subsidiary (direct)' : 'Subsidiary (indirect)';
-  }
-  if (e.role === 'Group entity') return e.shareholderOfTaxpayer ? 'Shareholder' : characteriseGroupEntity(e);
-  return e.role;
 }
 
 // --- section properties (decimal body + lower-roman appendix) -------------
@@ -344,24 +317,30 @@ function factsAppendix(rawFacts: AppendixFacts, pageBreakBefore: boolean): strin
   const restEnts = others.filter((e) => !isRelevantRow(e));
 
   const showRegister = !drop('entityRegister');
-  const showActingTogether = !drop('actingTogether') && f.actingTogether.length > 0;
+  const showActingTogether = !drop('actingTogether');
   const showTransactions = !drop('transactions');
   if (!showRegister && !showActingTogether && !showTransactions) return '';
 
   const out: string[] = [];
   out.push(textPara('Appendix 1: Classification and transaction overview', { style: 'Heading1', pageBreakBefore }));
 
-  // Subsections are numbered by what actually renders, so the transactions
-  // table reads A.2 when there is no acting-together annex (the common case).
+  // Subsections are numbered by what actually renders. Acting together always
+  // renders when the section is not excluded, stating its null result explicitly
+  // when no group is defined, so it holds A.2 and transactions read A.3.
+  // Each subsection is its own table; from the second one on, a blank paragraph
+  // sits above the heading so the tables read as separate blocks, not one run.
   let subNum = 0;
-  const subHead = (title: string) => textPara(`A.${++subNum} ${title}`, { style: 'Heading2' });
+  const subHead = (title: string) => {
+    const n = ++subNum;
+    return (n > 1 ? emptyPara() : '') + textPara(`A.${n} ${title}`, { style: 'Heading2' });
+  };
 
   // A.1 The group and the taxpayer (starts directly here; no summary block).
   if (showRegister) {
     out.push(subHead('The group and the taxpayer'));
     out.push(
       textPara(
-        'The taxpayer and the group entities relevant to this assessment, with their jurisdiction, tax classification and effective related-party interest. For Dutch entities the local qualification equals the Dutch classification, so it is not repeated. A local qualification is shown only where an entity is foreign.',
+        'The overview below shows the taxpayer(s) and the group entities relevant to this assessment, with their jurisdiction, tax classification and effective related-party interest. A local qualification is shown only where an entity is foreign.',
         { color: INTRO_GREY, line: BODY_LINE },
       ),
     );
@@ -373,14 +352,18 @@ function factsAppendix(rawFacts: AppendixFacts, pageBreakBefore: boolean): strin
       { header: true, height: 360 },
     );
     // Every entity row renders in the same colour and weight; the below-threshold
-    // group is a grouping, not a dimmer (handoff 68).
-    const entityRow = (e: FactEntity): string => {
+    // group is a grouping, not a dimmer (handoff 68). The `#` column shows a
+    // running position (E1, E2, ...) in render order, not the raw internal id:
+    // the register is grouped (taxpayer / related / other) and the related group
+    // is sorted by interest, so the internal ids come out shuffled. A standalone
+    // client document reads better numbered straight through.
+    const entityRow = (e: FactEntity, num: number): string => {
       const jur = effJurisdiction(e);
       const c = clsByEntity.get(e.id);
       const isNl = (jur ?? '').toUpperCase() === 'NL';
       const isMember = !!e.memberOfUnityId;
       // Entity name on line one; fiscal-unity note and role drop to a quiet second line.
-      const nameRuns = run(normalizeEntityName(e.name), { bold: true, color: INK });
+      const nameRuns = run(normalizeEntityName(e.name), { bold: true, color: INK, sz: BODY_SZ });
       const role = roleLabel(e);
       const fuNote = e.inTaxpayerFiscalUnity || isMember
         ? 'Fiscal unity with the taxpayer. '
@@ -406,7 +389,7 @@ function factsAppendix(rawFacts: AppendixFacts, pageBreakBefore: boolean): strin
       const nlQ = effNlQualification(e);
       let clsSecond = '';
       if (!isNl) {
-        const localQ = effLocalQualification(e, c);
+        const localQ = displayLocalQualification(e, c);
         const state = (c?.homeState ?? '').trim() || (jur ? jur.toUpperCase() : '');
         clsSecond = state
           ? `${state}: ${nlQualificationLabel(localQ)}`
@@ -418,7 +401,7 @@ function factsAppendix(rawFacts: AppendixFacts, pageBreakBefore: boolean): strin
         if (foreign) clsSecond = `${foreign.state}: ${nlQualificationLabel(foreign.qual)}`;
       }
       const clsParas =
-        para(run(nlQualificationLabel(nlQ), { color: CLS_INK }), {
+        para(run(nlQualificationLabel(nlQ), { color: CLS_INK, sz: BODY_SZ }), {
           line: BODY_LINE,
           spacingAfter: clsSecond ? 20 : 0,
         }) +
@@ -428,7 +411,7 @@ function factsAppendix(rawFacts: AppendixFacts, pageBreakBefore: boolean): strin
       const relatedText =
         e.role === 'Taxpayer' || isMember ? '' : relatedPctOf(e) != null ? pct(relatedPctOf(e)) : '-';
       return row([
-        dataCell(e.id, ENTITY_COLS[0], { color: FAINT }),
+        dataCell(`E${num}`, ENTITY_COLS[0], { color: FAINT }),
         cell({ paras: namePara + rolePara, width: ENTITY_COLS[1], margins: DATA_MAR }),
         dataCell(jur ? jur.toUpperCase() : '-', ENTITY_COLS[2], { color: SOFT }),
         cell({ paras: clsParas, width: ENTITY_COLS[3], margins: DATA_MAR }),
@@ -437,37 +420,52 @@ function factsAppendix(rawFacts: AppendixFacts, pageBreakBefore: boolean): strin
     };
 
     const tableRows: string[] = [headerRow];
+    // A single running counter across all three groups so the `#` column reads
+    // E1, E2, E3 ... straight down the table regardless of internal ids.
+    let entityNum = 0;
     if (taxpayerEnts.length) {
       tableRows.push(bandRow('The taxpayer', null, 5, CONTENT_W));
-      taxpayerEnts.forEach((e) => tableRows.push(entityRow(e)));
+      taxpayerEnts.forEach((e) => tableRows.push(entityRow(e, ++entityNum)));
     }
     if (relevantEnts.length) {
       tableRows.push(bandRow('Related', null, 5, CONTENT_W));
-      relevantEnts.forEach((e) => tableRows.push(entityRow(e)));
+      relevantEnts.forEach((e) => tableRows.push(entityRow(e, ++entityNum)));
     }
     if (restEnts.length) {
       // Just the word "Other": no right-hand caption, no threshold claim (handoff 68).
       tableRows.push(bandRow('Other', null, 5, CONTENT_W));
-      restEnts.forEach((e) => tableRows.push(entityRow(e)));
+      restEnts.forEach((e) => tableRows.push(entityRow(e, ++entityNum)));
     }
     out.push(table(tableRows, ENTITY_COLS, TABLE_OPTS));
   }
 
-  // Acting together (only when the annex has content; the "candidate grouping
-  // considered and left out" accounting line never prints, handoff 68 fix 2).
+  // Acting together: renders whenever the section is not excluded. When groups
+  // exist it lists each; when none do it states the null result outright, so the
+  // memo never silently omits the test.
   if (showActingTogether) {
     out.push(subHead('Acting together'));
-    f.actingTogether.forEach((a) => {
-      const members = a.memberEntityIds.map((id) => nameOf(rawFacts, id)).join(' + ');
-      const heading = a.name?.trim() ? `${a.name.trim()} (${members})` : members;
-      const basis = a.basis ? `${actingBasisLabel(a.basis)}. ` : '';
+    if (f.actingTogether.length === 0) {
+      // Null result stated explicitly: no group was found that would make an
+      // entity an associated enterprise where it is not one on its own holding.
       out.push(
-        para(
-          run(`${heading}: `, { bold: true }) +
-            run(noEmDash(`${basis}${a.reasoning}`)),
+        textPara(
+          'No cooperating group was identified that would make an entity an associated enterprise where it is not one on its own holding.',
+          { color: INTRO_GREY, line: BODY_LINE },
         ),
       );
-    });
+    } else {
+      f.actingTogether.forEach((a) => {
+        const members = a.memberEntityIds.map((id) => nameOf(rawFacts, id)).join(' + ');
+        const heading = a.name?.trim() ? `${a.name.trim()} (${members})` : members;
+        const basis = a.basis ? `${actingBasisLabel(a.basis)}. ` : '';
+        out.push(
+          para(
+            run(`${heading}: `, { bold: true }) +
+              run(noEmDash(`${basis}${a.reasoning}`)),
+          ),
+        );
+      });
+    }
   }
 
   // Intra-group transactions: one table with EVERY identified flow, none
@@ -484,7 +482,7 @@ function factsAppendix(rawFacts: AppendixFacts, pageBreakBefore: boolean): strin
     } else {
       out.push(
         textPara(
-          'Each intra-group flow: the two parties and their jurisdictions, the type of flow, and its assessed status, with the reason.',
+          'The intra-group transactions identified in this assessment are listed below. Each entry shows the two parties and their jurisdictions, the type of transaction, and the assessed outcome with a short reason.',
           { color: INTRO_GREY, line: BODY_LINE },
         ),
       );
@@ -500,11 +498,11 @@ function factsAppendix(rawFacts: AppendixFacts, pageBreakBefore: boolean): strin
         const fj = from ? effJurisdiction(from) : null;
         const tj = to ? effJurisdiction(to) : null;
         return (
-          run(nameOf(rawFacts, t.fromEntityId), { color: INK }) +
-          (fj ? run(` (${fj.toUpperCase()})`, { color: WARM_GREY }) : '') +
-          run('  →  ', { color: FAINT }) +
-          run(nameOf(rawFacts, t.toEntityId), { color: INK }) +
-          (tj ? run(` (${tj.toUpperCase()})`, { color: WARM_GREY }) : '')
+          run(nameOf(rawFacts, t.fromEntityId), { color: INK, sz: BODY_SZ }) +
+          (fj ? run(` (${fj.toUpperCase()})`, { color: WARM_GREY, sz: BODY_SZ }) : '') +
+          run('  →  ', { color: FAINT, sz: BODY_SZ }) +
+          run(nameOf(rawFacts, t.toEntityId), { color: INK, sz: BODY_SZ }) +
+          (tj ? run(` (${tj.toUpperCase()})`, { color: WARM_GREY, sz: BODY_SZ }) : '')
         );
       };
       // The verdict is carried by the label text alone (no marker, no colour);
@@ -512,7 +510,7 @@ function factsAppendix(rawFacts: AppendixFacts, pageBreakBefore: boolean): strin
       const txRow = (t: TransactionItem, needs: boolean): string => {
         const why = txMemoReason(f, t);
         const assessParas =
-          para(run(needs ? 'Needs assessment' : 'No risk identified', { bold: true, color: INK }), {
+          para(run(needs ? 'Needs assessment' : 'No risk identified', { bold: true, color: INK, sz: BODY_SZ }), {
             line: BODY_LINE,
             spacingAfter: 20,
           }) + para(run(noEmDash(why), { color: WARM_GREY, sz: ROLE_SZ }), { line: 250, spacingAfter: 0 });
@@ -575,12 +573,15 @@ function conditionsAppendix(rows: AppendixRow[], skeleton: SkeletonRow[], pageBr
 
   out.push(
     textPara(
-      'Every ATAD2 condition tested in this assessment, with the underlying article, the outcome and a short assessment. The Status colour follows the tool: green where the condition is not triggered, amber where a fact is still missing, red where a risk indicator is present. N/A means the condition does not apply to this structure.',
+      'Below are the conditions tested in this assessment.',
       { color: INTRO_GREY, line: BODY_LINE },
     ),
   );
 
-  for (const sec of sections) {
+  // A blank paragraph sits above each B-section heading from the second one on,
+  // so the section tables read as separate blocks, not one continuous run.
+  sections.forEach((sec, i) => {
+    if (i > 0) out.push(emptyPara());
     out.push(textPara(`B.${sec.displayNum} ${sec.sectionTitle}`, { style: 'Heading2' }));
 
     const header = row(
@@ -592,7 +593,7 @@ function conditionsAppendix(rows: AppendixRow[], skeleton: SkeletonRow[], pageBr
         [
           // The condition code sits as a small grey prefix before the name.
           cell({
-            runs: run(`B.${cr.displayCode}  `, { color: FAINT, sz: ROLE_SZ }) + run(cr.sk.conditionTested, { bold: true, color: INK }),
+            runs: run(`B.${cr.displayCode}  `, { color: FAINT, sz: ROLE_SZ }) + run(cr.sk.conditionTested, { bold: true, color: INK, sz: BODY_SZ }),
             width: COND_COLS[0],
             margins: DATA_MAR,
             line: BODY_LINE,
@@ -600,13 +601,13 @@ function conditionsAppendix(rows: AppendixRow[], skeleton: SkeletonRow[], pageBr
           dataCell(cr.sk.legalBasis, COND_COLS[1], { color: SOFT }),
           statusCell(cr.row, mootSet, COND_COLS[2]),
           // leftPad keeps the assessment text off the shaded Status cell to its left.
-          dataCell(noEmDash(cleanReasoning(cr.row.reasoning)), COND_COLS[3], { color: SOFT, leftPad: 180 }),
+          dataCell(noEmDash(displayReasoning(cr.row, mootSet)), COND_COLS[3], { color: SOFT, leftPad: 180 }),
         ],
         { cantSplit: true },
       ),
     );
     out.push(table([header, ...condRows], COND_COLS, TABLE_OPTS));
-  }
+  });
 
   return out.join('');
 }

@@ -48,8 +48,12 @@ export default function AssessmentUpload() {
   // Factsheet pipeline: extract per-document facts during upload, then merge
   // them into the session fact sheet and re-run weak prefills with it. Both
   // hooks are fire-and-forget; the prewarm state drives the panel + indicator.
-  useDocFactsPrewarm(sessionId);
-  const factsheetPrewarm = useFactsheetPrewarm(sessionId);
+  // Paused while the questionnaire swarm is running (job stage2_running) so the
+  // extraction/build never competes with the analysis and trips its stall
+  // watchdog; it resumes the moment the swarm finishes.
+  const swarmRunning = job?.status === "stage2_running";
+  useDocFactsPrewarm(sessionId, swarmRunning);
+  const factsheetPrewarm = useFactsheetPrewarm(sessionId, swarmRunning);
 
   const [waiting, setWaiting] = useState(false);
 
