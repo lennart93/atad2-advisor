@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
 import { AssessmentFooterSlot } from "@/components/assessment/AssessmentFooterSlot";
 import { cn } from "@/lib/utils";
-import { taxpayerDisplayName } from "@/lib/taxpayer";
+import { TaxpayerSubject } from "@/components/TaxpayerSubject";
 import { ArrowLeft, ArrowRight, AlertTriangle, Check, Info, CheckCircle, Pencil, ChevronDown } from "lucide-react";
 
 type OutcomeType = 'risk_identified' | 'insufficient_information' | 'low_risk';
@@ -342,7 +342,7 @@ const AssessmentConfirmation = () => {
         </h1>
         <p className="mt-2 text-[13px] leading-relaxed text-ds-ink-secondary">
           Based on the responses, here is the preliminary ATAD2 outcome for{" "}
-          <span className="text-ds-ink">{taxpayerDisplayName(sessionData.taxpayer_name)}</span>, ahead
+          <TaxpayerSubject stored={sessionData.taxpayer_name} form="others" className="text-ds-ink" />, ahead
           of the full assessment report. Confirm it, or adjust it if it does not
           match your expectations.
         </p>

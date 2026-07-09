@@ -23,6 +23,7 @@ import { formatDate } from "@/utils/formatDate";
 import { formatFiscalYears } from "@/utils/formatFiscalYears";
 import { resumeUrlForSession } from "@/lib/assessment/resumeUrl";
 import { taxpayerDisplayName } from "@/lib/taxpayer";
+import { TaxpayerSubject } from "@/components/TaxpayerSubject";
 import { readLastStep } from "@/lib/assessment/lastStep";
 import { stepUrlForKey } from "@/lib/assessment/steps";
 import { groupSessionFacts } from "@/lib/dashboard/sessionFacts";
@@ -325,8 +326,8 @@ const Index = () => {
                       </span>
 
                       {/* Client */}
-                      <h3 className="pointer-events-none relative truncate text-[19px] font-normal tracking-tight text-ds-ink sm:text-[22px]">
-                        {taxpayerLabel}
+                      <h3 className="pointer-events-none relative min-w-0 text-[19px] font-normal tracking-tight text-ds-ink sm:text-[22px]">
+                        <TaxpayerSubject stored={session.taxpayer_name} moreClassName="text-[14px] sm:text-[15px]" />
                       </h3>
 
                       {/* Period */}
