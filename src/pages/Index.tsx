@@ -255,7 +255,7 @@ const Index = () => {
           </div>
           <Button onClick={() => navigate("/assessment")} className="self-start gap-2 sm:self-end">
             New assessment
-            <ArrowRight className="h-4 w-4 text-brand-terracotta" />
+            <ArrowRight className="h-4 w-4" />
           </Button>
         </header>
 
@@ -305,7 +305,7 @@ const Index = () => {
                 const dotClass = ready
                   ? "bg-brand-sage"
                   : inProgress
-                    ? "bg-brand-terracotta"
+                    ? "bg-ds-blue"
                     : "bg-ds-ink-tertiary";
 
                 return (
@@ -350,7 +350,7 @@ const Index = () => {
                             e.stopPropagation();
                             navigate(session.destination_url);
                           }}
-                          className="inline-flex items-center gap-2 text-[13px] text-ds-ink transition-colors hover:text-brand-terracotta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent"
+                          className="inline-flex items-center gap-2 text-[13px] text-ds-ink transition-colors hover:text-ds-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent"
                         >
                           {actionLabel}
                           <ArrowRight className="h-3.5 w-3.5" />

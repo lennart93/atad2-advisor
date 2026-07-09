@@ -178,7 +178,7 @@ export default function AssessmentUpload() {
               disabled={!hasAtLeastOneUploaded || !allPendingUploaded}
             >
               Analyze documents
-              <ArrowRight className="text-[#e0a48f]" />
+              <ArrowRight />
             </Button>
           </>
         }

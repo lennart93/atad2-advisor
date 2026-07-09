@@ -50,7 +50,7 @@ export function LowQualityGateDialog({
           </Button>
           <Button variant="primary" onClick={() => onOpenChange(false)}>
             {isEmpty ? 'Add documents' : 'Add a document'}
-            <Plus className="text-brand-terracotta" />
+            <Plus />
           </Button>
         </DialogFooter>
       </DialogContent>

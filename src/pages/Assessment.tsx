@@ -2158,7 +2158,7 @@ const Assessment = () => {
                                   type="button"
                                   onClick={() => removeTaxpayerEntity(i)}
                                   aria-label={`Remove entity ${i + 1}`}
-                                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-ds-control text-ds-ink-tertiary opacity-0 transition-[opacity,color,background-color] hover:bg-ds-accent-bg hover:text-ds-accent focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100"
+                                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-ds-control text-ds-ink-tertiary opacity-0 transition-[opacity,color,background-color] hover:bg-ds-fill-muted hover:text-ds-ink focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100"
                                 >
                                   <X className="h-4 w-4" />
                                 </button>
@@ -2177,7 +2177,7 @@ const Assessment = () => {
                           <button
                             type="button"
                             onClick={addTaxpayerEntity}
-                            className="inline-flex items-center gap-1.5 text-[13px] font-normal text-ds-accent transition-colors hover:text-ds-accent-text"
+                            className="inline-flex items-center gap-1.5 text-[13px] font-normal text-ds-ink-secondary transition-colors hover:text-ds-ink"
                           >
                             <Plus className="h-3.5 w-3.5" />
                             Add entity
@@ -2322,7 +2322,7 @@ const Assessment = () => {
                     onClick={validateAndShowWarning}
                   >
                     {loading ? "Starting assessment..." : "Start assessment"}
-                    {!loading && <ArrowRight className="h-4 w-4 text-brand-terracotta" />}
+                    {!loading && <ArrowRight className="h-4 w-4" />}
                   </Button>
                 </div>
               </div>

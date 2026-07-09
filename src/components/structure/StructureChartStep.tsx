@@ -894,7 +894,7 @@ const [busy, setBusy] = useState(false);
               ) : (
                 <>
                   Save structure chart and continue
-                  <ArrowRight className="text-brand-terracotta" />
+                  <ArrowRight />
                 </>
               )}
             </Button>

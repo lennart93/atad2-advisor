@@ -426,7 +426,7 @@ const AssessmentConfirmation = () => {
                           "mt-[1px] shrink-0 rounded-full px-2.5 py-[3px] text-[11px] font-medium tabular-nums",
                           isUnknown
                             ? "bg-ds-amber-bg text-ds-amber-text"
-                            : "bg-ds-accent-bg text-ds-accent",
+                            : "bg-ds-fill-muted text-ds-ink-secondary",
                         )}
                       >
                         {isUnknown ? "Unknown" : d.answer}
@@ -582,7 +582,7 @@ const AssessmentConfirmation = () => {
                 className="disabled:pointer-events-auto disabled:cursor-not-allowed disabled:bg-[#d8d3c8] disabled:opacity-100"
               >
                 Continue
-                <ArrowRight className={contextSatisfied ? "text-[#e0a48f]" : undefined} />
+                <ArrowRight />
               </Button>
             </div>
           </div>
@@ -748,7 +748,7 @@ const AssessmentConfirmation = () => {
                 className="disabled:pointer-events-auto disabled:cursor-not-allowed disabled:bg-[#d8d3c8] disabled:opacity-100"
               >
                 Confirm and continue
-                <ArrowRight className={isOverrideValid ? "text-[#e0a48f]" : undefined} />
+                <ArrowRight />
               </Button>
             </div>
           </div>

@@ -501,7 +501,7 @@ const Auth = () => {
                 <div className="text-right">
                   <Link
                     to="/forgot-password"
-                    className="text-sm text-muted-foreground transition-colors hover:text-brand-terracotta"
+                    className="text-sm text-muted-foreground transition-colors hover:text-foreground"
                   >
                     Forgot password?
                   </Link>

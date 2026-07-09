@@ -479,7 +479,7 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
               >
                 {refining ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                 {refining ? 'Finishing' : 'Done, return to overview'}
-                <ArrowRight className="h-4 w-4 text-[#e0a48f]" />
+                <ArrowRight className="h-4 w-4" />
               </Button>
             ) : page === 'facts' ? (
               <Button
@@ -489,7 +489,7 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
                 title={homeStateBlockTitle}
               >
                 Next
-                <ArrowRight className="h-4 w-4 text-[#e0a48f]" />
+                <ArrowRight className="h-4 w-4" />
               </Button>
             ) : (
               <Button
@@ -502,7 +502,7 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : null}
                 {refining ? 'Finishing' : 'Confirm appendix'}
-                <ArrowRight className="h-4 w-4 text-[#e0a48f]" />
+                <ArrowRight className="h-4 w-4" />
               </Button>
             )}
           </>

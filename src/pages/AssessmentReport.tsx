@@ -1055,7 +1055,7 @@ const AssessmentReport = () => {
           </section>
 
           {/* Generate Report Button — brought into the terracotta-top card family */}
-          <Card className="border-t-[3px] border-t-brand-terracotta">
+          <Card>
             <CardHeader className="space-y-1.5">
               <CardTitle>Generate memorandum</CardTitle>
               <CardDescription>
@@ -1168,7 +1168,7 @@ const AssessmentReport = () => {
               and break its pin. The card corners still clip visually because
               nothing inside reaches them (content is inset by the padding). */}
           {latestReport && (
-            <section className="rounded-ds-card border border-ds-hairline border-t-[3px] border-t-brand-terracotta bg-ds-card">
+            <section className="rounded-ds-card border border-ds-hairline bg-ds-card">
               <div className="flex flex-col gap-8 p-8 md:px-14 md:py-12">
                 {/* Editorial reader header. On desktop the title moves into the
                     sticky rail (below) so it pins with the metadata while the
@@ -1284,7 +1284,7 @@ const AssessmentReport = () => {
 
           {/* Structure chart snapshot */}
           {chartSnapshot?.snapshot_png ? (
-            <Card className="border-t-[3px] border-t-brand-terracotta">
+            <Card>
               <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
                 <div className="space-y-1.5">
                   <CardTitle>Structure chart</CardTitle>
@@ -1332,7 +1332,7 @@ const AssessmentReport = () => {
           {/* Appendix 1 · Facts & relationships. Read-only here; the Edit button
               reopens the appendix step (facts page), matching the structure chart. */}
           {factsAppendixAvailable && appendixForDownload?.facts && (
-            <Card className="border-t-[3px] border-t-brand-terracotta">
+            <Card>
               <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
                 <div className="space-y-1.5">
                   <CardTitle>Appendix 1 · Facts &amp; relationships</CardTitle>
@@ -1358,7 +1358,7 @@ const AssessmentReport = () => {
           {/* Appendix 2 · Condition assessment. Read-only here; the Edit button
               reopens the appendix step (checklist page). */}
           {checklistAppendixAvailable && appendixForDownload && appendixSkeleton && (
-            <Card className="border-t-[3px] border-t-brand-terracotta">
+            <Card>
               <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
                 <div className="space-y-1.5">
                   <CardTitle>Appendix 2 · Condition assessment</CardTitle>
@@ -1391,7 +1391,7 @@ const AssessmentReport = () => {
           {/* Question responses · the draft questionnaire behind this assessment.
               Editable until a memorandum exists; locked read-only afterwards. */}
           {answers.length > 0 && (
-            <Card className="border-t-[3px] border-t-brand-terracotta">
+            <Card>
               <CardHeader className="space-y-1.5">
                 <CardTitle>Question responses</CardTitle>
                 <CardDescription>

@@ -41,8 +41,8 @@ export function SectionRow({
         </button>
         {info && <InfoPopover label={`About ${title}`}>{info}</InfoPopover>}
         {needReview > 0 ? (
-          <span className="inline-flex shrink-0 items-center gap-1.5 text-[12.5px] font-medium text-brand-terracotta">
-            <span className="h-1.5 w-1.5 rounded-full bg-brand-terracotta" aria-hidden />
+          <span className="inline-flex shrink-0 items-center gap-1.5 text-[12.5px] font-medium text-ds-ink-secondary">
+            <span className="h-1.5 w-1.5 rounded-full bg-ds-ink-tertiary" aria-hidden />
             {needReview} need review
           </span>
         ) : (

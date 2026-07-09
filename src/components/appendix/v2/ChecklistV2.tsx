@@ -108,7 +108,7 @@ export function ChecklistV2({ rows, skeleton, onEdit, onToggleExclude, sessionId
         onKeyDown={(ev) => { if (ev.currentTarget === ev.target && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); select(sk.rowId); } }}
         className={cn(
           'group flex cursor-pointer items-start gap-3 border-b border-border py-2.5 pr-2 transition-colors hover:bg-accent focus:bg-accent focus:outline-none',
-          selected ? 'border-l-2 border-l-brand-terracotta bg-brand-terracotta-soft/25 pl-[10px]' : 'border-l-2 border-l-transparent pl-3',
+          selected ? 'border-l-2 border-l-ds-ink bg-ds-fill-muted pl-[10px]' : 'border-l-2 border-l-transparent pl-3',
           row.excludedFromClient && 'opacity-55',
         )}
       >
