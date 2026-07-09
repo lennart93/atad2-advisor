@@ -108,13 +108,13 @@ const ForgotPassword = () => {
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="forgotEmail">Email address</Label>
-                    <div className={cn("flex items-center rounded-md border", localPartError && "border-destructive")}>
+                    <div className={cn("flex items-center rounded-md border focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2", localPartError && "border-destructive")}>
                       <Input
                         id="forgotEmail"
                         type="text"
                         value={localPart}
                         onChange={(e) => handleEmailInput(e.target.value)}
-                        className="border-0 rounded-l-md bg-transparent shadow-none"
+                        className="border-0 rounded-l-md bg-transparent shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
                         placeholder="your.name"
                         autoComplete="username"
                         autoCorrect="off"
