@@ -1,6 +1,7 @@
 // src/components/structure/StructureChartStep.tsx
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ds';
 import { AssessmentFooterSlot } from '@/components/assessment/AssessmentFooterSlot';
@@ -101,6 +102,7 @@ function buildClusterLayout(
 
 export function StructureChartStep({ sessionId }: { sessionId: string }) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   // When the user opens this step via "Edit" on the Overview, hide Previous
   // and re-label the forward CTA — they're not progressing, they're returning.
@@ -829,6 +831,9 @@ const [busy, setBusy] = useState(false);
       await finalizeChart(chart.id);
     }
     maybeResyncAppendix();
+    // The overview caches the chart snapshot (no more always-refetch); a fresh
+    // save must show, so drop that cache before returning.
+    queryClient.invalidateQueries({ queryKey: ['report-chart-snapshot', sessionId] });
     navigate(`/assessment-report/${sessionId}`);
   };
 
@@ -841,6 +846,7 @@ const [busy, setBusy] = useState(false);
       }
     }
     maybeResyncAppendix();
+    queryClient.invalidateQueries({ queryKey: ['report-chart-snapshot', sessionId] });
     navigate(`/assessment-report/${sessionId}`);
   };
 

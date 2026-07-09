@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, ArrowRight, Loader2, RefreshCw } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { Button, ProcessChecklist, type ProcessStep } from '@/components/ds';
@@ -50,6 +51,7 @@ function mergeServerUpdate(
 export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' | 'checklist' }) {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   // Reached via an Appendix "Edit" button on the finalized Overview. The footer
   // then returns straight to the overview instead of walking the flow forward.
@@ -459,7 +461,12 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
               // re-confirm. Mirrors the structure chart's return button.
               <Button
                 variant="primary"
-                onClick={() => navigate(`/assessment-report/${sessionId}`)}
+                onClick={() => {
+                  // Edits made here must show on the overview: drop its cached
+                  // appendix so the (no longer always-refetching) query refetches.
+                  queryClient.invalidateQueries({ queryKey: ['appendix-download', sessionId] });
+                  navigate(`/assessment-report/${sessionId}`);
+                }}
                 disabled={refining || openHomeState > 0}
                 title={homeStateBlockTitle}
               >

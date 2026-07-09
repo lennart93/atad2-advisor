@@ -29,7 +29,10 @@ import { loadAppendixSkeleton, useAppendixSkeleton } from "@/lib/appendix/skelet
 import { checkAppendixSync } from "@/lib/appendix/memoSyncGuard";
 import { FactsPanel } from "@/components/appendix/FactsPanel";
 import { AppendixTable } from "@/components/appendix/AppendixTable";
+import { SectionRow } from "@/components/appendix/v2/SectionRow";
+import { useSectionOpenState } from "@/components/appendix/v2/hooks";
 import { useUiBusySignal } from "@/stores/uiBusyStore";
+import { cn } from "@/lib/utils";
 interface SessionData {
   session_id: string;
   taxpayer_name: string;
@@ -223,6 +226,24 @@ const AssessmentReport = () => {
   // Missing explanations validation state
   const [showMissingExplanationsPopover, setShowMissingExplanationsPopover] = useState(false);
   const [highlightedQuestionIds, setHighlightedQuestionIds] = useState<string[]>([]);
+  // The downstream artifacts (structure chart, both appendices, responses) sit in
+  // collapse-by-default disclosure cards so the memorandum is the only long-form
+  // content. Advisor toggles persist per session (same primitive as appendix V2).
+  const { isOpen: ovOpen, setOpen: setOvOpen } = useSectionOpenState(
+    sessionId ? `overview:${sessionId}` : undefined,
+    { structure: false, appendix1: false, appendix2: false, responses: false },
+  );
+  // Footer section nav: open the target card first so its content exists, then
+  // scroll on the next frame (mirrors ChecklistV2's jump-to-first-flagged).
+  const jumpToSection = useCallback(
+    (id: string, section?: "structure" | "appendix1" | "appendix2" | "responses") => {
+      if (section) setOvOpen(section, true);
+      requestAnimationFrame(() => {
+        document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    },
+    [setOvOpen],
+  );
   const questionRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   // Query for related reports
@@ -245,28 +266,26 @@ const AssessmentReport = () => {
     enabled: !!sessionId && !!user,
   });
 
-  // Query for the finalized structure-chart snapshot. `refetchOnMount: 'always'`
-  // is load-bearing: when the user edits the chart (e.g. expands clusters) and
-  // returns to the overview, the StructureChartStep saves a fresh PNG before
-  // navigating — but without an always-refetch, React Query would keep showing
-  // the previous PNG until staleTime elapses. The DB has the truth; trust it.
+  // Query for the finalized structure-chart snapshot. Freshness after an edit is
+  // handled at the source: the structure step invalidates this key before it
+  // navigates back to the overview, so a plain revisit reuses the cache instead
+  // of re-pulling the PNG on every mount.
   const { data: chartSnapshot } = useQuery({
     queryKey: ['report-chart-snapshot', sessionId],
     enabled: !!sessionId,
-    staleTime: 60_000,
-    refetchOnMount: 'always',
+    staleTime: 5 * 60_000,
     queryFn: () => loadChartSnapshot(sessionId!),
   });
 
   // Confirmed appendix, loaded so the download options can show per-appendix
   // checkboxes seeded from the saved skip flags, and so Appendix 1/2 render
-  // read-only on this page. `refetchOnMount: 'always'` keeps the read-only view
-  // fresh after the advisor edits it via the appendix step and returns here.
+  // read-only on this page. Freshness after an edit is handled at the source:
+  // the appendix step invalidates this key on its return-to-overview button, so
+  // a plain revisit reuses the cache instead of re-pulling the full appendix.
   const { data: appendixForDownload } = useQuery({
     queryKey: ['appendix-download', sessionId],
     enabled: !!sessionId,
-    staleTime: 30_000,
-    refetchOnMount: 'always',
+    staleTime: 5 * 60_000,
     queryFn: () => loadAppendix(sessionId!),
   });
 
@@ -285,11 +304,6 @@ const AssessmentReport = () => {
   const includeFactsAppendix = includeFactsOverride ?? !(appendixForDownload?.facts_skipped ?? false);
   const includeChecklistAppendix = includeChecklistOverride ?? !(appendixForDownload?.checklist_skipped ?? false);
   const anyIncludeOption = !!chartSnapshot?.snapshot_png || factsAppendixAvailable || checklistAppendixAvailable;
-  const generatedAtLabel = latestReport?.generated_at
-    ? new Date(latestReport.generated_at).toLocaleString('en-GB', {
-        day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
-      })
-    : '';
   // Date-only label for the memorandum meta line (e.g. "26 June 2026").
   const generatedDateLabel = latestReport?.generated_at
     ? new Date(latestReport.generated_at).toLocaleDateString('en-GB', {
@@ -465,14 +479,6 @@ const AssessmentReport = () => {
 
   const riskOutcome = getFinalOutcome();
 
-  // Outcome callout tint, by the REAL risk level. Sage = no risk identified,
-  // amber = risk identified, slate = insufficient information. Same family as the cover.
-  const outcomeTone = {
-    complete: { box: 'border-brand-sage bg-brand-sage-soft', token: 'border-brand-sage', icon: 'text-brand-sage-deep' },
-    triggered: { box: 'border-brand-warning bg-brand-warning-soft', token: 'border-brand-warning', icon: 'text-brand-warning-deep' },
-    insufficient: { box: 'border-brand-info bg-brand-info-soft', token: 'border-brand-info', icon: 'text-brand-info-deep' },
-  }[riskOutcome.status];
-
   // The memo lock also freezes the responses (no edits after generation).
   const responsesLocked = isGeneratingReport || !!latestReport;
 
@@ -558,21 +564,22 @@ const AssessmentReport = () => {
   // Scroll to first question without explanation and highlight them
   const handleReviewQuestions = useCallback(() => {
     setHighlightedQuestionIds(missingExplanationQuestionIds);
-    
-    // Scroll to first missing explanation
+
+    // The responses live in a collapsed disclosure card: open it first so the
+    // question refs exist, then scroll on the next frame.
+    setOvOpen('responses', true);
     if (missingExplanationQuestionIds.length > 0) {
       const firstQuestionId = missingExplanationQuestionIds[0];
-      const element = questionRefs.current[firstQuestionId];
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
+      requestAnimationFrame(() => {
+        questionRefs.current[firstQuestionId]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
     }
-    
+
     // Remove highlights after 8 seconds
     setTimeout(() => {
       setHighlightedQuestionIds([]);
     }, 8000);
-  }, [missingExplanationQuestionIds]);
+  }, [missingExplanationQuestionIds, setOvOpen]);
 
   // Clear highlights when generating anyway
   const handleGenerateAnyway = () => {
@@ -1148,9 +1155,11 @@ const AssessmentReport = () => {
                     />
 
                     {latestReport && (
+                      // Status only; the generated timestamp is stated once, in
+                      // the memorandum's metadata rail.
                       <p className="flex items-center gap-1.5 text-[13px] text-ds-green-text">
                         <CheckCircle className="h-3.5 w-3.5" aria-hidden="true" />
-                        Generated · {generatedAtLabel}
+                        Generated
                       </p>
                     )}
                   </div>
@@ -1168,7 +1177,7 @@ const AssessmentReport = () => {
               and break its pin. The card corners still clip visually because
               nothing inside reaches them (content is inset by the padding). */}
           {latestReport && (
-            <section className="rounded-ds-card border border-ds-hairline bg-ds-card">
+            <section id="ov-memo" className="rounded-ds-card border border-ds-hairline bg-ds-card">
               <div className="flex flex-col gap-8 p-8 md:px-14 md:py-12">
                 {/* Editorial reader header. On desktop the title moves into the
                     sticky rail (below) so it pins with the metadata while the
@@ -1253,27 +1262,14 @@ const AssessmentReport = () => {
                           onSubmittingChange={setIsApplyingFeedback}
                         />
                       ) : (
-                        <>
-                          {/* Outcome callout, tinted by the real risk level */}
-                          <div className={`flex items-center gap-4 rounded-ds-control border p-5 ${outcomeTone.box}`}>
-                            <span
-                              className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full border bg-ds-card ${outcomeTone.token} ${outcomeTone.icon} [&_svg]:h-5 [&_svg]:w-5`}
-                            >
-                              {riskOutcome.icon}
-                            </span>
-                            <div>
-                              <p className={EYEBROW}>Risk assessment outcome</p>
-                              <p className="mt-1 text-2xl font-normal tracking-tight text-ds-ink">{riskOutcome.text}</p>
-                            </div>
-                          </div>
-
-                          {/* Memo prose, shared renderer so it matches edit mode. */}
-                          <div className={MEMO_PROSE_CLASS}>
-                            <ReactMarkdown rehypePlugins={MEMO_REHYPE_PLUGINS} components={memoMarkdownComponents}>
-                              {displayMemo}
-                            </ReactMarkdown>
-                          </div>
-                        </>
+                        // Memo prose, shared renderer so it matches edit mode. The
+                        // outcome is stated once, on the cover summary; the reading
+                        // measure is capped (~68ch) for long-form legal prose.
+                        <div className={cn(MEMO_PROSE_CLASS, "max-w-[68ch]")}>
+                          <ReactMarkdown rehypePlugins={MEMO_REHYPE_PLUGINS} components={memoMarkdownComponents}>
+                            {displayMemo}
+                          </ReactMarkdown>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -1282,13 +1278,15 @@ const AssessmentReport = () => {
             </section>
           )}
 
-          {/* Structure chart snapshot */}
-          {chartSnapshot?.snapshot_png ? (
-            <Card>
-              <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
-                <div className="space-y-1.5">
-                  <CardTitle>Structure chart</CardTitle>
-                </div>
+          {/* Structure chart snapshot. Collapsed by default; the PNG mounts only
+              on expand so a plain visit stays a one-line row. */}
+          {(chartSnapshot?.snapshot_png || chartSnapshot?.finalized_at) && (
+            <SectionRow
+              id="ov-structure"
+              index=""
+              title="Structure chart"
+              summary={chartSnapshot?.snapshot_png ? "Ownership chart snapshot" : "Snapshot unavailable"}
+              action={
                 <Button
                   variant="ghost"
                   size="sm"
@@ -1297,8 +1295,11 @@ const AssessmentReport = () => {
                   <Pencil className="h-3.5 w-3.5 mr-1.5" />
                   Edit
                 </Button>
-              </CardHeader>
-              <CardContent>
+              }
+              open={ovOpen("structure")}
+              onToggle={() => setOvOpen("structure", !ovOpen("structure"))}
+            >
+              {chartSnapshot?.snapshot_png ? (
                 <div className="bg-ds-page border border-ds-hairline rounded-ds-control p-4">
                   <img
                     src={chartSnapshot.snapshot_png}
@@ -1306,40 +1307,24 @@ const AssessmentReport = () => {
                     className="mx-auto max-h-[480px] w-auto"
                   />
                 </div>
-              </CardContent>
-            </Card>
-          ) : chartSnapshot?.finalized_at ? (
-            <Card>
-              <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
-                <CardTitle>Structure chart</CardTitle>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => navigate(`/assessment/structure/${sessionId}?from=overview`)}
-                >
-                  <Pencil className="h-3.5 w-3.5 mr-1.5" />
-                  Edit
-                </Button>
-              </CardHeader>
-              <CardContent>
+              ) : (
                 <p className="text-[13px] text-ds-ink-secondary">
                   Structure chart snapshot unavailable for this assessment.
                 </p>
-              </CardContent>
-            </Card>
-          ) : null}
+              )}
+            </SectionRow>
+          )}
 
-          {/* Appendix 1 · Facts & relationships. Read-only here; the Edit button
+          {/* Appendix 1 · Facts & relationships. Read-only, collapsed by default;
+              the heavy embedded panel mounts only on expand. The Edit button
               reopens the appendix step (facts page), matching the structure chart. */}
           {factsAppendixAvailable && appendixForDownload?.facts && (
-            <Card>
-              <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
-                <div className="space-y-1.5">
-                  <CardTitle>Appendix 1 · Facts &amp; relationships</CardTitle>
-                  <CardDescription>
-                    The entities, classifications and relationships behind this assessment.
-                  </CardDescription>
-                </div>
+            <SectionRow
+              id="ov-appendix1"
+              index=""
+              title="Appendix 1 · Facts & relationships"
+              summary={`${appendixForDownload.facts.entities.length} entities`}
+              action={
                 <Button
                   variant="ghost"
                   size="sm"
@@ -1348,24 +1333,24 @@ const AssessmentReport = () => {
                   <Pencil className="h-3.5 w-3.5 mr-1.5" />
                   Edit
                 </Button>
-              </CardHeader>
-              <CardContent>
-                <FactsPanel facts={appendixForDownload.facts} generated embedded />
-              </CardContent>
-            </Card>
+              }
+              open={ovOpen("appendix1")}
+              onToggle={() => setOvOpen("appendix1", !ovOpen("appendix1"))}
+            >
+              <FactsPanel facts={appendixForDownload.facts} generated embedded />
+            </SectionRow>
           )}
 
-          {/* Appendix 2 · Condition assessment. Read-only here; the Edit button
-              reopens the appendix step (checklist page). */}
+          {/* Appendix 2 · Condition assessment. Read-only, collapsed by default;
+              the table mounts only on expand. The Edit button reopens the
+              appendix step (checklist page). */}
           {checklistAppendixAvailable && appendixForDownload && appendixSkeleton && (
-            <Card>
-              <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
-                <div className="space-y-1.5">
-                  <CardTitle>Appendix 2 · Condition assessment</CardTitle>
-                  <CardDescription>
-                    Each ATAD2 condition tested against the facts.
-                  </CardDescription>
-                </div>
+            <SectionRow
+              id="ov-appendix2"
+              index=""
+              title="Appendix 2 · Condition assessment"
+              summary={`${appendixForDownload.rows.filter((r) => !r.excludedFromClient).length} conditions`}
+              action={
                 <Button
                   variant="ghost"
                   size="sm"
@@ -1374,34 +1359,39 @@ const AssessmentReport = () => {
                   <Pencil className="h-3.5 w-3.5 mr-1.5" />
                   Edit
                 </Button>
-              </CardHeader>
-              <CardContent>
-                <AppendixTable
-                  rows={appendixForDownload.rows}
-                  skeleton={appendixSkeleton}
-                  showSources
-                  relatedParties={null}
-                  readOnly
-                  embedded
-                />
-              </CardContent>
-            </Card>
+              }
+              open={ovOpen("appendix2")}
+              onToggle={() => setOvOpen("appendix2", !ovOpen("appendix2"))}
+            >
+              <AppendixTable
+                rows={appendixForDownload.rows}
+                skeleton={appendixSkeleton}
+                showSources
+                relatedParties={null}
+                readOnly
+                embedded
+              />
+            </SectionRow>
           )}
 
           {/* Question responses · the draft questionnaire behind this assessment.
-              Editable until a memorandum exists; locked read-only afterwards. */}
+              Editable until a memorandum exists; locked read-only afterwards.
+              Collapsed by default; handleReviewQuestions opens it before jumping. */}
           {answers.length > 0 && (
-            <Card>
-              <CardHeader className="space-y-1.5">
-                <CardTitle>Question responses</CardTitle>
-                <CardDescription>
-                  {responsesLocked
-                    ? "Responses are locked and can no longer be edited because a memorandum has been (or is being) generated."
-                    : "The draft questionnaire answers drawn from the documents. Use the edit button next to any answer to make changes."}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
+            <SectionRow
+              id="ov-responses"
+              index=""
+              title="Question responses"
+              summary={responsesLocked ? `${answers.length} answered · locked` : `${answers.length} answered`}
+              open={ovOpen("responses")}
+              onToggle={() => setOvOpen("responses", !ovOpen("responses"))}
+            >
+              <p className="mb-5 text-[13px] text-ds-ink-secondary">
+                {responsesLocked
+                  ? "Responses are locked and can no longer be edited because a memorandum has been (or is being) generated."
+                  : "The draft questionnaire answers drawn from the documents. Use the edit button next to any answer to make changes."}
+              </p>
+              <div className="space-y-6">
                   {answers.map((answer) => {
                     const isHighlighted = highlightedQuestionIds.includes(answer.question_id);
                     const isMissingExplanation = missingExplanationQuestionIds.includes(answer.question_id);
@@ -1434,8 +1424,7 @@ const AssessmentReport = () => {
                     );
                   })}
                 </div>
-              </CardContent>
-            </Card>
+            </SectionRow>
           )}
         </div>
 
@@ -1445,6 +1434,37 @@ const AssessmentReport = () => {
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to dashboard
             </Button>
+          }
+          center={
+            /* Slim in-page section nav; the footer bar is sticky, so this stays
+               visible while the memo scrolls. Items open their card, then jump. */
+            <nav aria-label="On this page" className="hidden items-center gap-4 text-[12.5px] text-ds-ink-secondary lg:flex">
+              {latestReport && (
+                <button type="button" onClick={() => jumpToSection("ov-memo")} className="transition-colors hover:text-ds-ink">
+                  Memorandum
+                </button>
+              )}
+              {(chartSnapshot?.snapshot_png || chartSnapshot?.finalized_at) && (
+                <button type="button" onClick={() => jumpToSection("ov-structure", "structure")} className="transition-colors hover:text-ds-ink">
+                  Structure
+                </button>
+              )}
+              {factsAppendixAvailable && (
+                <button type="button" onClick={() => jumpToSection("ov-appendix1", "appendix1")} className="transition-colors hover:text-ds-ink">
+                  Appendix 1
+                </button>
+              )}
+              {checklistAppendixAvailable && (
+                <button type="button" onClick={() => jumpToSection("ov-appendix2", "appendix2")} className="transition-colors hover:text-ds-ink">
+                  Appendix 2
+                </button>
+              )}
+              {answers.length > 0 && (
+                <button type="button" onClick={() => jumpToSection("ov-responses", "responses")} className="transition-colors hover:text-ds-ink">
+                  Responses
+                </button>
+              )}
+            </nav>
           }
         />
     </div>

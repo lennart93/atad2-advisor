@@ -11,14 +11,17 @@ import { InfoPopover } from './InfoPopover';
  * The body renders only when open.
  */
 export function SectionRow({
-  index, title, summary, needReview, verifiedLabel = 'Verified', info, open, onToggle, children, id,
+  index, title, summary, needReview, verifiedLabel = 'Verified', info, action, open, onToggle, children, id,
 }: {
   index: number | string;
   title: string;
   summary?: ReactNode;
-  needReview: number;
+  /** Omit to hide the verified / need-review chip (e.g. plain disclosure rows). */
+  needReview?: number;
   verifiedLabel?: string;
   info?: ReactNode;
+  /** Optional row action (e.g. an Edit button), rendered before the chevron. */
+  action?: ReactNode;
   open: boolean;
   onToggle: () => void;
   children?: ReactNode;
@@ -40,7 +43,7 @@ export function SectionRow({
           )}
         </button>
         {info && <InfoPopover label={`About ${title}`}>{info}</InfoPopover>}
-        {needReview > 0 ? (
+        {needReview != null && (needReview > 0 ? (
           <span className="inline-flex shrink-0 items-center gap-1.5 text-[12.5px] font-medium text-ds-ink-secondary">
             <span className="h-1.5 w-1.5 rounded-full bg-ds-ink-tertiary" aria-hidden />
             {needReview} need review
@@ -50,7 +53,8 @@ export function SectionRow({
             <Check className="h-3.5 w-3.5" aria-hidden />
             {verifiedLabel}
           </span>
-        )}
+        ))}
+        {action}
         <button
           type="button"
           onClick={onToggle}
