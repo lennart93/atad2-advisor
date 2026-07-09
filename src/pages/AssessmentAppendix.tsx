@@ -5,7 +5,6 @@ import { toast } from '@/components/ui/sonner';
 import { Button, ProcessChecklist, type ProcessStep } from '@/components/ds';
 import { useAuth } from '@/hooks/useAuth';
 import { AssessmentFooterSlot } from '@/components/assessment/AssessmentFooterSlot';
-import { AppendixTable } from '@/components/appendix/AppendixTable';
 import {
   loadAppendix, startAppendixGeneration, pollAppendixUntilReady, saveRowEdit, confirmAppendix, saveFacts, setAppendixSkip, clearAppendixFactsCache,
 } from '@/lib/appendix/client';
@@ -13,7 +12,6 @@ import type { StoredAppendix, AppendixRow, EditableField, AppendixFacts } from '
 import { useAppendixSkeleton } from '@/lib/appendix/skeletonStore';
 import { loadChart } from '@/lib/structure/client';
 import { useUiBusySignal } from '@/stores/uiBusyStore';
-import { FactsPanel } from '@/components/appendix/FactsPanel';
 import { FactsPanelV2 } from '@/components/appendix/v2/FactsPanelV2';
 import { ChecklistV2 } from '@/components/appendix/v2/ChecklistV2';
 import { AppendixLoadingCard } from '@/components/appendix/AppendixLoadingCard';
@@ -56,14 +54,10 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
   // Reached via an Appendix "Edit" button on the finalized Overview. The footer
   // then returns straight to the overview instead of walking the flow forward.
   const fromOverview = searchParams.get('from') === 'overview';
-  // Appendix-V2 resting-state redesign, opt-in behind a route param until the old
-  // accordion UI is retired. `?appendixV2=1` on the facts page swaps in FactsPanelV2.
-  const appendixV2 = searchParams.get('appendixV2') === '1';
   const { user } = useAuth();
   const { data: skeleton } = useAppendixSkeleton();
   const [appendix, setAppendix] = useState<StoredAppendix | null>(null);
   const [phase, setPhase] = useState<Phase>('loading');
-  const showSources = true;
   const [confirming, setConfirming] = useState(false);
   const [chart, setChart] = useState<{ entities: Parameters<typeof buildEntityRegister>[0]; edges: Parameters<typeof buildEntityRegister>[1]; groupings: Parameters<typeof buildEntityRegister>[2] } | null>(null);
   // The session's declared taxpayer. Used to anchor the register when extraction
@@ -398,22 +392,13 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
 
       <div className={skipped ? 'opacity-60' : undefined}>
         {page === 'facts' ? (
-          appendixV2 ? (
-            <FactsPanelV2
-              facts={factsToShow}
-              onChange={appendix?.facts ? handleFactsChange : undefined}
-              generated={!!appendix?.facts}
-              refining={refining}
-              sessionId={sessionId}
-            />
-          ) : (
-            <FactsPanel
-              facts={factsToShow}
-              onChange={appendix?.facts ? handleFactsChange : undefined}
-              generated={!!appendix?.facts}
-              refining={refining}
-            />
-          )
+          <FactsPanelV2
+            facts={factsToShow}
+            onChange={appendix?.facts ? handleFactsChange : undefined}
+            generated={!!appendix?.facts}
+            refining={refining}
+            sessionId={sessionId}
+          />
         ) : (
           // relatedParties is null on purpose: the associated-enterprises panel
           // is gone, the Part A master table already carries that overview.
@@ -433,10 +418,11 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
                 {refining ? 'Re-running' : 'Re-run analysis'}
               </Button>
             </div>
-            {appendixV2 ? (
-              <ChecklistV2 rows={appendix.rows} skeleton={skeleton ?? []} onEdit={handleEdit} onToggleExclude={handleToggleExclude} sessionId={sessionId} />
-            ) : (
-              <AppendixTable rows={appendix.rows} skeleton={skeleton} showSources={showSources} relatedParties={null} onEdit={handleEdit} onToggleExclude={handleToggleExclude} />
+            <ChecklistV2 rows={appendix.rows} skeleton={skeleton ?? []} onEdit={handleEdit} onToggleExclude={handleToggleExclude} sessionId={sessionId} />
+            {!confirmGuard.canConfirm && confirmGuard.reason && (
+              // The confirm block, stated where it can be seen: a disabled
+              // button's title tooltip never fires in most browsers.
+              <p className="text-[12.5px] text-ds-ink-secondary">{confirmGuard.reason}</p>
             )}
           </div>
         )}
