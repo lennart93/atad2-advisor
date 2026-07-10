@@ -35,9 +35,12 @@ const AppLayout = () => {
     location.pathname.startsWith("/assessment-");
   const isBareRoute = isAdminRoute || isAssessmentRoute;
 
-  useAssessmentLeaveGuard(isAssessmentRoute);
-
   const isBusy = useIsUiBusy();
+
+  // Only warn while work is actually running (analysis, generation). Progress
+  // is auto-saved, so a blanket warning on every assessment page nagged about
+  // nothing and taught users to ignore the one dialog that matters.
+  useAssessmentLeaveGuard(isAssessmentRoute && isBusy);
   const { hasAccess, isAdmin, isModerator } = useAdminAccess();
 
   const { data: userProfile } = useQuery({

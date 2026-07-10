@@ -1,11 +1,13 @@
 import { useEffect } from "react";
 
 const MESSAGE =
-  "Are you sure you want to leave this assessment? Your progress is saved, so you can resume it from the dashboard.";
+  "Work is still running for this assessment. Leaving now may interrupt it.";
 
 /**
  * Warns the user before they close the tab, reload, or navigate to an external
- * URL while an assessment is active.
+ * URL while assessment work is actually running (analysis or generation).
+ * Progress is auto-saved, so an idle assessment page never warns; a blanket
+ * warning trained users to click through the dialog.
  *
  * In-app navigation between routes is NOT intercepted: react-router's
  * `unstable_usePrompt` / `useBlocker` require a data router
