@@ -503,7 +503,7 @@ export function OwnershipEdge({
                 autoFocus
                 style={{
                   width: 50, fontSize: 11, padding: '2px 4px',
-                  border: '1px solid #8a8980', borderRadius: 2,
+                  border: '1px solid #8a8479', borderRadius: 2,
                   fontFamily: "'Neue Haas Grotesk Display Pro', 'Helvetica Neue', Helvetica, Arial, sans-serif",
                 }}
                 onClick={(e) => e.stopPropagation()}
