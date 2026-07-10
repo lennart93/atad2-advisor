@@ -85,7 +85,9 @@ const AppLayout = () => {
             {/* On phone widths the logo is the brand; the wordmark + welcome
                 line otherwise push the header past the viewport (h-scroll). */}
             <div className="hidden sm:block">
-              <h1 className="text-base sm:text-lg font-normal tracking-tight">ATAD2 risk assessment</h1>
+              {/* Not a heading: every page supplies its own h1; a second h1 in
+                  the chrome makes the document outline lie. */}
+              <p className="text-base sm:text-lg font-normal tracking-tight">ATAD2 risk assessment</p>
               {user && (
                 <p className="text-xs sm:text-sm text-muted-foreground">
                   Welcome back, {userProfile?.first_name || user.email?.split('@')[0]}
