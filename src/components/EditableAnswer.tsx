@@ -4,7 +4,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from "@/components/ui/sonner";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Check, ChevronDown, Edit, HelpCircle, Plus, X } from 'lucide-react';
+import { Check, ChevronDown, Edit, HelpCircle, Lock, Plus, X } from 'lucide-react';
 import { AnswerChangeWarningDialog } from './AnswerChangeWarningDialog';
 import { useQuestionPrefill, useUpdatePrefillAction } from '@/hooks/usePrefill';
 
@@ -502,8 +502,10 @@ export const EditableAnswer: React.FC<EditableAnswerProps> = ({
             <Tooltip>
               <TooltipTrigger asChild>
                 <span>
+                  {/* A lock, not a greyed pencil: a pencil still promises
+                      editability at a glance, which the row can't deliver. */}
                   <Button variant="ghost" size="sm" disabled aria-label="Editing locked" className="h-8 w-8 p-0">
-                    <Edit className="h-3.5 w-3.5" />
+                    <Lock className="h-3.5 w-3.5" />
                   </Button>
                 </span>
               </TooltipTrigger>
