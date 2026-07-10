@@ -2255,11 +2255,14 @@ const Assessment = () => {
                           })}
                         </SelectContent>
                       </Select>
+                      {/* Same affordance as "Add entity": the plus marks it as
+                          an action, not a caption under the select. */}
                       <button
                         type="button"
                         onClick={() => setMultiYear(true)}
-                        className="text-[13px] text-ds-ink-secondary transition-colors hover:text-ds-ink"
+                        className="inline-flex items-center gap-1.5 text-[13px] text-ds-ink-secondary transition-colors hover:text-ds-ink"
                       >
+                        <Plus className="h-3.5 w-3.5" />
                         Assess multiple years
                       </button>
                     </div>
