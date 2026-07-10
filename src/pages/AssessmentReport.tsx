@@ -1067,9 +1067,6 @@ const AssessmentReport = () => {
           <Card>
             <CardHeader className="space-y-1.5">
               <CardTitle>Generate memorandum</CardTitle>
-              <CardDescription>
-                Compile this assessment into a review-ready ATAD2 memorandum.
-              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-5">
