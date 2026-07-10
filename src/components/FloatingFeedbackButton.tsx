@@ -84,15 +84,18 @@ export function FloatingFeedbackButton() {
 
   return (
     <>
+      {/* Icon-only: the labelled pill overlapped the first table column and
+          section titles on data-dense screens. A 44px circle clears the
+          content gutter; the label lives in the tooltip and aria-label. */}
       <button
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Send feedback"
+        title="Send feedback"
         style={{ bottom: "calc(var(--app-bottom-inset, 0px) + 20px)" }}
-        className="fixed left-5 z-30 inline-flex items-center gap-2 rounded-ds-control bg-foreground text-background px-4 py-2.5 text-sm font-normal shadow-lg shadow-black/15 transition-[bottom,box-shadow,transform] duration-fast hover:shadow-xl hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        className="fixed left-5 z-30 inline-flex size-11 items-center justify-center rounded-full bg-foreground text-background shadow-lg shadow-black/15 transition-[bottom,box-shadow,transform] duration-fast hover:shadow-xl hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
       >
-        <MessageSquare size={16} />
-        <span>Feedback</span>
+        <MessageSquare size={17} />
       </button>
 
       <Dialog
