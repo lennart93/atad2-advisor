@@ -1,20 +1,40 @@
-import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
-import { Eye, EyeOff, ArrowLeft, AlertTriangle, Loader2 } from "lucide-react";
+import { Eye, EyeOff, ArrowLeft, AlertTriangle, Loader2, Mail } from "lucide-react";
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+} from "@/components/ui/input-otp";
 import { MotionPage } from "@/components/motion/MotionPage";
 import { AnimatedLogo } from "@/components/AnimatedLogo";
 
-type SessionState = "checking" | "valid" | "invalid";
+type Phase = "checking" | "code" | "form" | "invalid";
+
+const RESEND_COOLDOWN = 60; // seconds
 
 const ResetPassword = () => {
   const navigate = useNavigate();
-  const [sessionState, setSessionState] = useState<SessionState>("checking");
+  const location = useLocation();
+  const email = location.state?.email as string | undefined;
+
+  const [phase, setPhase] = useState<Phase>("checking");
+
+  // Code entry state
+  const [otpCode, setOtpCode] = useState("");
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [codeError, setCodeError] = useState("");
+  const [isResending, setIsResending] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const cooldownIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // New password state
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -25,22 +45,115 @@ const ResetPassword = () => {
   useEffect(() => {
     let resolved = false;
 
+    // Legacy path: reset emails that carried a verify link land here with a
+    // recovery session in the URL hash.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "PASSWORD_RECOVERY" && session) {
         resolved = true;
-        setSessionState("valid");
+        setPhase("form");
       }
     });
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (resolved) return;
-      setSessionState(session ? "valid" : "invalid");
+      if (session) {
+        setPhase("form");
+      } else if (email) {
+        setPhase("code");
+      } else {
+        setPhase("invalid");
+      }
     });
 
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [email]);
+
+  useEffect(() => {
+    if (resendCooldown > 0) {
+      cooldownIntervalRef.current = setInterval(() => {
+        setResendCooldown((prev) => {
+          if (prev <= 1) {
+            if (cooldownIntervalRef.current) {
+              clearInterval(cooldownIntervalRef.current);
+            }
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+
+    return () => {
+      if (cooldownIntervalRef.current) {
+        clearInterval(cooldownIntervalRef.current);
+      }
+    };
+  }, [resendCooldown]);
+
+  const handleVerifyCode = async () => {
+    if (otpCode.length !== 6 || !email) return;
+
+    setIsVerifying(true);
+    setCodeError("");
+
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        email,
+        token: otpCode,
+        type: "recovery",
+      });
+
+      if (error || !data.session) {
+        setCodeError("Invalid or expired code. Please try again.");
+        setOtpCode("");
+      } else {
+        setPhase("form");
+      }
+    } catch (err) {
+      setCodeError("Something went wrong. Please try again.");
+      setOtpCode("");
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  // Auto-submit when 6 digits are entered
+  useEffect(() => {
+    if (otpCode.length === 6 && !isVerifying) {
+      handleVerifyCode();
+    }
+  }, [otpCode]);
+
+  const handleResend = async () => {
+    if (resendCooldown > 0 || !email) return;
+
+    setIsResending(true);
+    setCodeError("");
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email);
+
+      if (error) {
+        toast.error("Failed to resend code", {
+          description: error.message,
+        });
+      } else {
+        toast.success("Reset code sent", {
+          description: "Check your inbox for the new code.",
+        });
+        setResendCooldown(RESEND_COOLDOWN);
+        setOtpCode("");
+      }
+    } catch (err) {
+      toast.error("Something went wrong", {
+        description: "Please try again.",
+      });
+    } finally {
+      setIsResending(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,7 +193,7 @@ const ResetPassword = () => {
     }
   };
 
-  if (sessionState === "checking") {
+  if (phase === "checking") {
     return (
       <div className="relative min-h-[calc(100vh-4rem)] flex items-center justify-center px-4 py-10 overflow-hidden">
         <div
@@ -89,18 +202,26 @@ const ResetPassword = () => {
         />
         <div className="relative flex items-center gap-2 text-ds-ink-secondary">
           <Loader2 className="h-4 w-4 animate-spin" />
-          <span>Checking your reset link...</span>
+          <span>Preparing password reset...</span>
         </div>
       </div>
     );
   }
 
-  const eyebrow = sessionState === "invalid" ? "Reset link" : "Account access";
-  const headline = sessionState === "invalid" ? "This link has expired" : "Set a new password";
+  const eyebrow =
+    phase === "invalid" ? "Password reset" : phase === "code" ? "Account recovery" : "Account access";
+  const headline =
+    phase === "invalid"
+      ? "Reset could not continue"
+      : phase === "code"
+        ? "Check your inbox"
+        : "Set a new password";
   const subcopy =
-    sessionState === "invalid"
-      ? "This reset link is no longer valid. Request a fresh one to continue."
-      : "Choose a new password to finish signing in to your account.";
+    phase === "invalid"
+      ? "This reset is no longer valid. Request a fresh code to continue."
+      : phase === "code"
+        ? "Enter the 6-digit code that was sent to your email to continue."
+        : "Choose a new password to finish signing in to your account.";
 
   return (
     <div className="relative min-h-[calc(100vh-4rem)] flex items-center justify-center px-4 py-10 overflow-hidden">
@@ -118,11 +239,20 @@ const ResetPassword = () => {
             {headline}
           </h1>
           <div className="mx-auto h-px w-16 bg-primary/40" />
-          <p className="text-base text-ds-ink-secondary leading-relaxed">{subcopy}</p>
+          <p className="text-base text-ds-ink-secondary leading-relaxed">
+            {phase === "code" && email ? (
+              <>
+                Enter the 6-digit code sent to{" "}
+                <span className="font-normal text-foreground font-mono tabular-nums">{email}</span> to continue.
+              </>
+            ) : (
+              subcopy
+            )}
+          </p>
         </div>
 
         <Card className="w-full">
-          {sessionState === "invalid" ? (
+          {phase === "invalid" ? (
             <CardContent className="pt-6">
               <div className="text-center space-y-6">
                 <div className="flex justify-center">
@@ -134,7 +264,7 @@ const ResetPassword = () => {
                   to="/forgot-password"
                   className="inline-flex items-center text-sm text-primary hover:underline"
                 >
-                  Request a new reset link
+                  Request a new reset code
                 </Link>
                 <div>
                   <Link
@@ -144,6 +274,90 @@ const ResetPassword = () => {
                     <ArrowLeft className="mr-1 h-3 w-3" />
                     Back to sign in
                   </Link>
+                </div>
+              </div>
+            </CardContent>
+          ) : phase === "code" ? (
+            <CardContent className="pt-6">
+              <div className="text-center space-y-6">
+                <div className="flex justify-center">
+                  <div className="p-4 bg-primary/10 rounded-full">
+                    <Mail className="h-10 w-10 text-primary" />
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex justify-center">
+                    <InputOTP
+                      maxLength={6}
+                      value={otpCode}
+                      onChange={(value) => {
+                        setOtpCode(value);
+                        setCodeError("");
+                      }}
+                      disabled={isVerifying}
+                      containerClassName="gap-3"
+                    >
+                      <InputOTPGroup className="gap-2">
+                        <InputOTPSlot index={0} className="rounded-md border" />
+                        <InputOTPSlot index={1} className="rounded-md border" />
+                        <InputOTPSlot index={2} className="rounded-md border" />
+                        <InputOTPSlot index={3} className="rounded-md border" />
+                        <InputOTPSlot index={4} className="rounded-md border" />
+                        <InputOTPSlot index={5} className="rounded-md border" />
+                      </InputOTPGroup>
+                    </InputOTP>
+                  </div>
+
+                  {codeError && (
+                    <p className="text-sm text-destructive" role="alert">
+                      {codeError}
+                    </p>
+                  )}
+
+                  <Button
+                    onClick={handleVerifyCode}
+                    disabled={otpCode.length !== 6 || isVerifying}
+                    className="w-full"
+                  >
+                    {isVerifying ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Verifying...
+                      </>
+                    ) : (
+                      "Verify"
+                    )}
+                  </Button>
+                </div>
+
+                <div className="space-y-3 pt-2">
+                  <div className="text-sm text-muted-foreground">
+                    Didn't receive the code?{" "}
+                    <button
+                      onClick={handleResend}
+                      disabled={resendCooldown > 0 || isResending}
+                      className="text-primary hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isResending ? (
+                        "Sending..."
+                      ) : resendCooldown > 0 ? (
+                        `Resend in ${resendCooldown}s`
+                      ) : (
+                        "Resend code"
+                      )}
+                    </button>
+                  </div>
+
+                  <div>
+                    <Link
+                      to="/auth"
+                      className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <ArrowLeft className="mr-1 h-3 w-3" />
+                      Back to sign in
+                    </Link>
+                  </div>
                 </div>
               </div>
             </CardContent>

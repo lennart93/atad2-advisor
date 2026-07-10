@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
-import { Lock, ArrowLeft, Mail } from "lucide-react";
+import { Lock, ArrowLeft } from "lucide-react";
 import { validateLocalPart } from "@/utils/emailNormalization";
 import { cn } from "@/lib/utils";
 import { MotionPage } from "@/components/motion/MotionPage";
@@ -15,10 +15,10 @@ import { AnimatedLogo } from "@/components/AnimatedLogo";
 const DOMAIN = "svalneratlas.com";
 
 const ForgotPassword = () => {
+  const navigate = useNavigate();
   const [localPart, setLocalPart] = useState("");
   const [localPartError, setLocalPartError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
 
   const handleEmailInput = (value: string) => {
     const cleanValue = value.replace(/@.*$/, '').toLowerCase();
@@ -39,16 +39,14 @@ const ForgotPassword = () => {
     const email = `${localPart}@${DOMAIN}`;
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
-      });
+      const { error } = await supabase.auth.resetPasswordForEmail(email);
 
       if (error && error.message.toLowerCase().includes("rate")) {
         toast.error("Too many attempts", {
           description: "Please try again in a minute.",
         });
       } else {
-        setSubmitted(true);
+        navigate("/reset-password", { state: { email } });
       }
     } catch (err) {
       toast.error("Something went wrong", {
@@ -71,50 +69,29 @@ const ForgotPassword = () => {
             <AnimatedLogo size={56} />
           </div>
           <p className="text-[11px] font-normal uppercase tracking-[0.16em] text-ds-ink-secondary">
-            {submitted ? "Reset email sent" : "Account recovery"}
+            Account recovery
           </p>
           <h1 className="text-3xl sm:text-4xl font-normal tracking-tight text-foreground">
-            {submitted ? "Check your inbox" : "Forgot password"}
+            Forgot password
           </h1>
           <div className="mx-auto h-px w-16 bg-primary/40" />
           <p className="text-base text-ds-ink-secondary leading-relaxed">
-            {submitted
-              ? "If an account exists for this email, a reset link is on its way."
-              : "Enter your Svalner Atlas email and a link to reset your password will be sent."}
+            Enter your Svalner Atlas email and a code to reset your password will be sent.
           </p>
         </div>
 
         <Card className="w-full">
-          {submitted ? (
-            <CardContent className="pt-6">
-              <div className="text-center space-y-6">
-                <div className="flex justify-center">
-                  <div className="p-4 bg-primary/10 rounded-full">
-                    <Mail className="h-10 w-10 text-primary" />
-                  </div>
-                </div>
-                <Link
-                  to="/auth"
-                  className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <ArrowLeft className="mr-1 h-3 w-3" />
-                  Back to sign in
-                </Link>
-              </div>
-            </CardContent>
-          ) : (
-            <>
-              <CardContent className="space-y-4 pt-6">
+          <CardContent className="space-y-4 pt-6">
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="forgotEmail">Email address</Label>
-                    <div className={cn("flex items-center rounded-md border", localPartError && "border-destructive")}>
+                    <div className={cn("flex items-center rounded-md border focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2", localPartError && "border-destructive")}>
                       <Input
                         id="forgotEmail"
                         type="text"
                         value={localPart}
                         onChange={(e) => handleEmailInput(e.target.value)}
-                        className="border-0 rounded-l-md bg-transparent shadow-none"
+                        className="border-0 rounded-l-md bg-transparent shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
                         placeholder="your.name"
                         autoComplete="username"
                         autoCorrect="off"
@@ -138,7 +115,7 @@ const ForgotPassword = () => {
                   </div>
 
                   <Button type="submit" className="w-full" disabled={loading || !localPart.trim()}>
-                    {loading ? "Sending..." : "Send reset link"}
+                    {loading ? "Sending..." : "Send reset code"}
                   </Button>
                 </form>
 
@@ -151,9 +128,7 @@ const ForgotPassword = () => {
                     Back to sign in
                   </Link>
                 </div>
-              </CardContent>
-            </>
-          )}
+          </CardContent>
         </Card>
       </MotionPage>
     </div>

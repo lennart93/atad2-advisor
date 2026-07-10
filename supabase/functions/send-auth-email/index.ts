@@ -4,7 +4,6 @@ import { Resend } from "npm:resend@4.0.0";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY") as string);
 const hookSecret = (Deno.env.get("SEND_EMAIL_HOOK_SECRET") as string).replace(/^v1,/, "");
-const AUTH_API_URL = Deno.env.get("PUBLIC_SUPABASE_URL") || "https://api.atad2.tax";
 
 const shellHeader = `<!DOCTYPE html>
 <html>
@@ -55,39 +54,6 @@ const codeEmail = (heading: string, intro: string, code: string) => `${shellHead
               </td>
             </tr>${shellFooter}`;
 
-const linkEmail = (heading: string, intro: string, buttonLabel: string, url: string) => `${shellHeader}
-            <tr>
-              <td style="padding:16px 48px 0 48px;">
-                <h1 style="margin:0;font-size:22px;font-weight:600;color:#0f172a;line-height:1.3;">${heading}</h1>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:16px 48px 0 48px;">
-                <p style="margin:0;font-size:15px;line-height:1.6;color:#475569;">${intro}</p>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:32px 48px 0 48px;" align="center">
-                <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:0 auto;">
-                  <tr>
-                    <td align="center" bgcolor="#0f172a" style="background-color:#0f172a;border-radius:8px;mso-padding-alt:16px 36px;">
-                      <a href="${url}" style="display:inline-block;padding:16px 36px;color:#ffffff;text-decoration:none;font-size:16px;font-weight:600;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;letter-spacing:0.2px;mso-padding-alt:0;border-radius:8px;">${buttonLabel}</a>
-                    </td>
-                  </tr>
-                </table>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:24px 48px 0 48px;">
-                <p style="margin:0;font-size:13px;line-height:1.5;color:#94a3b8;">Or copy this link into your browser:<br/><a href="${url}" style="color:#64748b;word-break:break-all;">${url}</a></p>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:16px 48px 0 48px;">
-                <p style="margin:0;font-size:13px;line-height:1.5;color:#94a3b8;">This link expires in 1 hour. If you did not request this, you can safely ignore this email.</p>
-              </td>
-            </tr>${shellFooter}`;
-
 serve(async (req) => {
   if (req.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });
@@ -104,7 +70,7 @@ serve(async (req) => {
     console.log("Webhook verified:", data);
 
     const { user, email_data } = data;
-    const { token, token_hash, redirect_to, email_action_type } = email_data;
+    const { token, email_action_type } = email_data;
 
     let subject = "";
     let html = "";
@@ -117,13 +83,13 @@ serve(async (req) => {
         token
       );
     } else if (email_action_type === "recovery") {
-      const resetUrl = `${AUTH_API_URL}/auth/v1/verify?token=${token_hash}&type=recovery&redirect_to=${encodeURIComponent(redirect_to)}`;
-      subject = "Reset your ATAD2 password";
-      html = linkEmail(
+      // A one-time verify link gets consumed by corporate email link scanners
+      // (Outlook Safe Links) before the user can click it, so send a code instead.
+      subject = "Your ATAD2 password reset code";
+      html = codeEmail(
         "Reset your password",
-        "We received a request to reset the password for your ATAD2 Advisor account. Click the button below to choose a new password.",
-        "Reset password",
-        resetUrl
+        "A password reset was requested for your ATAD2 Advisor account. Enter the code below on the reset page to choose a new password.",
+        token
       );
     }
 
