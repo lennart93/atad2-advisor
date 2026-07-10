@@ -177,7 +177,10 @@ describe("decideAutoAdvance — full decision matrix", () => {
       expect(decision).toBe("wait-for-context");
     });
 
-    it("back-navigation (navigationIndex !== -1) never auto-advances", () => {
+    it("back-navigation with a no-dwell answer still advances (Assessment.tsx parity)", () => {
+      // Assessment.tsx dropped the navigationIndex gate on the early-return:
+      // switching to a no-explanation answer while navigating used to strand
+      // the user on an answered question with no Continue button.
       const decision = decideAutoAdvance({
         navigationIndex: 2,
         autoAdvance: true,
@@ -185,7 +188,17 @@ describe("decideAutoAdvance — full decision matrix", () => {
         aiHasExplanation: false,
         hasContextPrompt: false,
       });
-      // Early-return falls through to "wait-other" when navigating.
+      expect(decision).toBe("advance-immediately");
+    });
+
+    it("back-navigation with a dwell never auto-advances", () => {
+      const decision = decideAutoAdvance({
+        navigationIndex: 2,
+        autoAdvance: true,
+        requiresExplanation: false,
+        aiHasExplanation: true,
+        hasContextPrompt: false,
+      });
       expect(decision).toBe("wait-other");
       expect(decision).not.toMatch(/^advance/);
     });

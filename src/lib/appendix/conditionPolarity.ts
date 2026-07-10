@@ -88,6 +88,8 @@ export type RowTone = 'risk' | 'caution' | 'clear' | 'na';
 export function rowTone(status: Status | null, rowId: string): RowTone {
   if (status === 'N/A') return 'na';
   if (status === 'Insufficient information') return 'caution';
-  if (conditionRiskLevel(status, rowId) === 'neutral') return 'clear';
-  return status === 'Triggered' ? 'risk' : 'clear';
+  // Tone follows the polarity-aware risk level, never the raw met/not-met
+  // label: for a risk_if_not_met row (2.3, 5.3, 6.5, 8.3) the RISK state is
+  // 'Not triggered', so keying on the label would paint the danger green.
+  return conditionRiskLevel(status, rowId) === 'unfavourable' ? 'risk' : 'clear';
 }

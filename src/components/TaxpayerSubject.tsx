@@ -1,4 +1,4 @@
-import { parseTaxpayerNames } from "@/lib/taxpayer";
+import { dedupeEntityNames, parseTaxpayerNames, taxpayerSubjectLabel } from "@/lib/taxpayer";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -25,17 +25,13 @@ interface Props {
  * rest. A single-entity subject renders just the name.
  */
 export function TaxpayerSubject({ stored, form = "count", className, moreClassName }: Props) {
-  const names = parseTaxpayerNames(stored);
+  // Deduped so the count agrees with every roster surface (report, dossier card).
+  const names = dedupeEntityNames(parseTaxpayerNames(stored));
   const lead = names[0] ?? "";
   const extra = names.length - 1;
 
   if (form === "others") {
-    return (
-      <span className={className}>
-        {lead}
-        {extra > 0 ? ` and ${extra} ${extra === 1 ? "other" : "others"}` : ""}
-      </span>
-    );
+    return <span className={className}>{taxpayerSubjectLabel(stored)}</span>;
   }
 
   return (

@@ -7,6 +7,38 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// A memo is tens of KB of markdown; anything past this is not a memo.
+const MAX_MEMO_CHARS = 400_000
+
+/**
+ * Verifies that the Authorization JWT belongs to the user who owns session_id.
+ * Returns the userId on success, null on any failure. Mirrors
+ * `verifyJwtAndSessionOwnership` in `supabase/functions/prefill-documents/index.ts`.
+ */
+async function verifyJwtAndSessionOwnership(
+  authHeader: string | null,
+  sessionId: string,
+): Promise<string | null> {
+  if (!authHeader) return null
+  const url = Deno.env.get('SUPABASE_URL')
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+  if (!url || !serviceKey) return null
+  const service = createClient(url, serviceKey, { auth: { persistSession: false } })
+
+  const jwt = authHeader.replace('Bearer ', '')
+  const { data: userData, error: userErr } = await service.auth.getUser(jwt)
+  if (userErr || !userData.user) return null
+  const userId = userData.user.id
+
+  const { data: session } = await service
+    .from('atad2_sessions')
+    .select('user_id')
+    .eq('session_id', sessionId)
+    .maybeSingle()
+  if (!session || session.user_id !== userId) return null
+  return userId
+}
+
 Deno.serve(async (req) => {
   console.log(`${req.method} ${req.url}`)
 
@@ -29,6 +61,22 @@ Deno.serve(async (req) => {
     if (!session_id || typeof session_id !== 'string' || !memo_markdown || typeof memo_markdown !== 'string') {
       return new Response('Missing or invalid session_id or memo_markdown', {
         status: 400,
+        headers: corsHeaders
+      })
+    }
+
+    if (memo_markdown.length > MAX_MEMO_CHARS) {
+      return new Response('memo_markdown too large', {
+        status: 413,
+        headers: corsHeaders
+      })
+    }
+
+    // Only the owner of the session may parse a memo into it.
+    const userId = await verifyJwtAndSessionOwnership(req.headers.get('Authorization'), session_id)
+    if (!userId) {
+      return new Response('Unauthorized', {
+        status: 401,
         headers: corsHeaders
       })
     }

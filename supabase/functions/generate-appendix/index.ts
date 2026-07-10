@@ -157,6 +157,26 @@ async function setGenStatus(c: SupabaseClient, id: string, status: string, extra
   if (error) throw error;
 }
 
+/**
+ * Keep updated_at fresh while a generation runs. The isFresh() guard treats a
+ * 'generating' row as stale after 90s, which is SHORTER than a real run (facts
+ * build + section swarm + holistic review); without a heartbeat a Retry click
+ * or prewarm re-fire mid-run passed the guard and started a second concurrent
+ * run whose writes raced the first (last writer wins, doubled model spend).
+ * A run whose isolate dies stops beating, so takeover after 90s still works.
+ */
+function startHeartbeat(c: SupabaseClient, id: string): () => void {
+  const beat = setInterval(() => {
+    c.from("atad2_appendix")
+      .update({ updated_at: new Date().toISOString() })
+      .eq("id", id).eq("generation_status", "generating")
+      .then(({ error }) => {
+        if (error) console.warn(JSON.stringify({ level: "warn", event: "appendix_heartbeat_failed", id, message: String(error.message) }));
+      });
+  }, 30_000);
+  return () => clearInterval(beat);
+}
+
 function dedupeStrings(arr: string[]): string[] {
   return Array.from(new Set(arr.filter((s) => s && s.trim())));
 }
@@ -202,6 +222,7 @@ function applyClassificationDefaults(facts: AppendixFacts): string[] {
 }
 
 async function runGeneration(c: SupabaseClient, appendixId: string, sessionId: string) {
+  const stopHeartbeat = startHeartbeat(c, appendixId);
   try {
     const prompt = await loadAppendixPrompt(c);
 
@@ -443,6 +464,12 @@ async function runGeneration(c: SupabaseClient, appendixId: string, sessionId: s
       // Exclusion is a scope flag, preserved across regeneration regardless of source.
       const excludedFromClient = (prev?.excludedFromClient as boolean | undefined) ?? false;
       if (!prev || prev.source === "ai") return { ...fresh, excludedFromClient };
+      // A fresh row the model never actually assessed (coverage gap, or the
+      // whole section call failed) is the ungrounded fallback: 'Insufficient
+      // information', reasoning '-', no sources. Splicing that into an edited
+      // row would destroy the real AI suggestion and evidence captured on an
+      // earlier run, so keep prev's AI trail instead.
+      if (fresh.ungrounded) return { ...prev, excludedFromClient };
       // Sources and the provenance trail are AI evidence, like aiProvenance:
       // refresh them on an edited row too (provenance is never advisor-editable,
       // so nothing is overwritten), so the source panel shows one generation's
@@ -509,6 +536,8 @@ async function runGeneration(c: SupabaseClient, appendixId: string, sessionId: s
   } catch (err) {
     console.error(JSON.stringify({ level: "error", event: "appendix_generation_failed", message: String(err), appendixId }));
     await setGenStatus(c, appendixId, "error", { error_message: String(err).slice(0, 500) });
+  } finally {
+    stopHeartbeat();
   }
 }
 

@@ -1,12 +1,12 @@
 // src/components/assessment/DossierTag.tsx
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { FileText, Folder, FolderOpen } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useSessionDocuments } from '@/hooks/usePrefill';
 import { DOCUMENT_CATEGORIES } from '@/lib/prefill/types';
 import { formatDate } from '@/utils/formatDate';
 import { formatFiscalYears, parseFiscalYears } from '@/utils/formatFiscalYears';
-import { taxpayerDisplayName } from '@/lib/taxpayer';
+import { dedupeEntityNames, parseTaxpayerNames, taxpayerSubjectLabel } from '@/lib/taxpayer';
 import { TaxpayerSubject } from '@/components/TaxpayerSubject';
 import { cn } from '@/lib/utils';
 
@@ -37,6 +37,44 @@ const OUTCOME_DOT: Record<string, { dot: string; label: string }> = {
 const CATEGORY_LABELS = new Map(DOCUMENT_CATEGORIES.map((c) => [c.value as string, c.label]));
 
 const MAX_DOC_ROWS = 5;
+const MAX_ENTITY_ROWS = 5;
+
+/**
+ * Shared chrome for the popover's capped lists (Entities, Documents): hairline
+ * divider, uppercase header with an optional count, the rows, and an
+ * "and N more" tail once the cap cuts the list off.
+ */
+function CappedSection({
+  title,
+  count,
+  overflowCount = 0,
+  children,
+}: {
+  title: string;
+  count?: number;
+  overflowCount?: number;
+  children: ReactNode;
+}) {
+  return (
+    <div className="border-t border-ds-hairline px-1.5 py-1.5">
+      <p className="px-2 pb-1 pt-1 text-[11px] font-medium uppercase tracking-[0.16em] text-ds-ink-tertiary">
+        {title}
+        {count !== undefined && (
+          <>
+            {' · '}
+            <span className="ds-tabular-nums">{count}</span>
+          </>
+        )}
+      </p>
+      {children}
+      {overflowCount > 0 && (
+        <p className="px-2 py-1.5 text-[13px] text-ds-ink-tertiary">
+          and <span className="ds-tabular-nums">{overflowCount}</span> more
+        </p>
+      )}
+    </div>
+  );
+}
 
 /**
  * The "which file am I working on" anchor, visible on every assessment step.
@@ -62,11 +100,15 @@ export function DossierTag({
   // Cockpit data loads only once the card opens; the shell stays quiet.
   const { data: docs } = useSessionDocuments(open ? sessionId : null);
 
-  if (!taxpayerName) return null;
+  // An assessment can name several entities (stored newline-joined). Everywhere
+  // in this card the subject reads as lead entity plus a count; the full list
+  // gets its own capped section below, like Documents. Single-entity is unchanged.
+  // Parsing first (rather than a bare falsy check) also hides the card for a
+  // legacy whitespace-only value, which would otherwise render a nameless anchor.
+  const entityNames = dedupeEntityNames(parseTaxpayerNames(taxpayerName));
+  if (entityNames.length === 0) return null;
 
-  // An assessment can name several entities (stored newline-joined); show them as
-  // one readable line. Single-entity is unchanged.
-  const taxpayerLabel = taxpayerDisplayName(taxpayerName);
+  const taxpayerLabel = taxpayerSubjectLabel(taxpayerName);
   const FolderIcon = open || hovered ? FolderOpen : Folder;
   const fyLabel = fiscalYear ? `FY${formatFiscalYears(fiscalYear)}` : null;
 
@@ -124,7 +166,9 @@ export function DossierTag({
         align="start"
         className="w-[330px] border-t-2 border-t-ds-accent p-0 shadow-[0_18px_50px_rgba(20,18,12,0.16)]"
       >
-        {/* Identity + status: who, which year, and where the assessment stands. */}
+        {/* Identity + status: who, which year, and where the assessment stands.
+            Plain flowing text so a long legal name wraps and stays fully
+            readable; the trigger may truncate, the popover never does. */}
         <div className="px-3.5 py-3">
           <p className="text-[15px] font-normal text-ds-ink">
             {taxpayerLabel}
@@ -161,42 +205,48 @@ export function DossierTag({
           </div>
         </div>
 
+        {/* Entities assessed together: a capped list instead of a comma-run,
+            mirroring the Documents section. Rows wrap rather than truncate,
+            this list exists to show the full names. Single-entity dossiers
+            skip it. */}
+        {entityNames.length > 1 && (
+          <CappedSection
+            title="Entities"
+            count={entityNames.length}
+            overflowCount={entityNames.length - MAX_ENTITY_ROWS}
+          >
+            {entityNames.slice(0, MAX_ENTITY_ROWS).map((name) => (
+              <p key={name} className="break-words px-2 py-1 text-[13px] text-ds-ink">
+                {name}
+              </p>
+            ))}
+          </CappedSection>
+        )}
+
         {/* Documents: what feeds the analysis. Rows still open the documents step. */}
-        <div className="border-t border-ds-hairline px-1.5 py-1.5">
-          <p className="px-2 pb-1 pt-1 text-[11px] font-medium uppercase tracking-[0.16em] text-ds-ink-tertiary">
-            Documents
-            {docCount > 0 && (
-              <>
-                {' · '}
-                <span className="ds-tabular-nums">{docCount}</span>
-              </>
-            )}
-          </p>
+        <CappedSection
+          title="Documents"
+          count={docCount > 0 ? docCount : undefined}
+          overflowCount={docCount - MAX_DOC_ROWS}
+        >
           {docCount === 0 ? (
             <p className="px-2 py-1.5 text-[13px] text-ds-ink-tertiary">No documents yet.</p>
           ) : (
-            <>
-              {(docs ?? []).slice(0, MAX_DOC_ROWS).map((doc) => (
-                <div key={doc.id} className={docRowClasses}>
-                  <FileText className="size-3.5 shrink-0 text-ds-ink-tertiary" aria-hidden="true" />
-                  <span className="min-w-0 flex-1 truncate text-ds-ink">
-                    {doc.doc_label || doc.filename}
-                  </span>
-                  <span className="shrink-0 rounded-ds-chip border border-ds-hairline px-1.5 py-0.5 text-[11px] text-ds-ink-secondary">
-                    {doc.status === 'summarizing'
-                      ? 'analyzing...'
-                      : CATEGORY_LABELS.get(doc.category) ?? doc.category}
-                  </span>
-                </div>
-              ))}
-              {docCount > MAX_DOC_ROWS && (
-                <p className="px-2 py-1.5 text-[13px] text-ds-ink-tertiary">
-                  and <span className="ds-tabular-nums">{docCount - MAX_DOC_ROWS}</span> more
-                </p>
-              )}
-            </>
+            (docs ?? []).slice(0, MAX_DOC_ROWS).map((doc) => (
+              <div key={doc.id} className={docRowClasses}>
+                <FileText className="size-3.5 shrink-0 text-ds-ink-tertiary" aria-hidden="true" />
+                <span className="min-w-0 flex-1 truncate text-ds-ink">
+                  {doc.doc_label || doc.filename}
+                </span>
+                <span className="shrink-0 rounded-ds-chip border border-ds-hairline px-1.5 py-0.5 text-[11px] text-ds-ink-secondary">
+                  {doc.status === 'summarizing'
+                    ? 'analyzing...'
+                    : CATEGORY_LABELS.get(doc.category) ?? doc.category}
+                </span>
+              </div>
+            ))
           )}
-        </div>
+        </CappedSection>
       </PopoverContent>
     </Popover>
   );

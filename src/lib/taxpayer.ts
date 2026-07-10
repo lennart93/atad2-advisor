@@ -44,3 +44,36 @@ export function formatTaxpayerNames(names: string[]): string {
 export function taxpayerDisplayName(stored: string | null | undefined): string {
   return parseTaxpayerNames(stored).join(", ");
 }
+
+/**
+ * Deduplicate the taxpayer-subject names before counting or listing them. The
+ * stored list can repeat the same entity (e.g. a name entered twice at intake);
+ * matching is case-insensitive on the trimmed name, and the first spelling wins.
+ */
+export function dedupeEntityNames(names: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of names) {
+    const name = raw.trim();
+    const key = name.toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(name);
+  }
+  return out;
+}
+
+/**
+ * The subject as one short plain-text sentence: the lead entity plus a count of
+ * the rest ("Acme B.V. and 2 others", "Acme B.V. and 1 other"). The string twin
+ * of the TaxpayerSubject component, for places JSX cannot reach: aria-labels
+ * and other flat strings. Names are deduplicated first so the count always
+ * matches the roster surfaces.
+ */
+export function taxpayerSubjectLabel(stored: string | null | undefined): string {
+  const names = dedupeEntityNames(parseTaxpayerNames(stored));
+  const lead = names[0] ?? "";
+  const extra = names.length - 1;
+  if (extra <= 0) return lead;
+  return `${lead} and ${extra} ${extra === 1 ? "other" : "others"}`;
+}

@@ -88,7 +88,13 @@ serve(async (req) => {
 
   try {
     const data = wh.verify(payload, headers) as any;
-    console.log("Webhook verified:", data);
+    // Never log the payload itself: email_data.token is the live OTP code, and
+    // a plaintext OTP in the function logs is an account-takeover vector for
+    // anyone with log access.
+    console.log("Webhook verified:", {
+      action: data?.email_data?.email_action_type,
+      user_id: data?.user?.id,
+    });
 
     const { user, email_data } = data;
     const { token, email_action_type } = email_data;

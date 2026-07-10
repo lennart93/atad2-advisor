@@ -432,6 +432,13 @@ const Assessment = () => {
   const [sessionId, setSessionId] = useState<string>("");
   useAppendixPrewarm(sessionId || undefined);
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
+  // Live view of currentQuestion for delayed callbacks: the auto-advance
+  // setTimeout below fires 100-300ms after an answer click, and the user can
+  // navigate (Previous, sidebar, deep-link) inside that window. The callback
+  // checks this ref and no-ops when the question changed, so a stale
+  // auto-advance never submits against, or navigates from, the wrong question.
+  const currentQuestionRef = useRef<Question | null>(null);
+  currentQuestionRef.current = currentQuestion;
   const [questions, setQuestions] = useState<Question[]>([]);
   const [selectedAnswer, setSelectedAnswer] = useState<string>("");
   const [loading, setLoading] = useState(false);
@@ -1635,6 +1642,7 @@ const Assessment = () => {
       // picking Unknown on Q1 where no AI suggestion was staged).
       console.log(`⏩ Auto-advancing immediately after ${answer} selection (no context required)`);
       setTimeout(async () => {
+        if (currentQuestionRef.current?.question_id !== questionId) return; // user navigated away
         await submitAnswerDirectly(answer);
       }, 100);
       return;
@@ -1693,6 +1701,7 @@ const Assessment = () => {
       if (autoAdvance && !requiresExplanation && !blockAutoAdvance && commentMode !== "always") {
         console.log(`⏩ Auto-advancing to next question after ${answer} selection`);
         setTimeout(async () => {
+          if (currentQuestionRef.current?.question_id !== questionId) return; // user navigated away
           await submitAnswerDirectly(answer);
         }, 300);
       } else if (requiresExplanation) {

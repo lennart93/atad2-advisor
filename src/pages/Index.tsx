@@ -22,7 +22,7 @@ import { FadeIn, MotionPage, StaggerChildren, staggerItem } from "@/components/m
 import { formatDate } from "@/utils/formatDate";
 import { formatFiscalYears } from "@/utils/formatFiscalYears";
 import { resumeUrlForSession } from "@/lib/assessment/resumeUrl";
-import { taxpayerDisplayName } from "@/lib/taxpayer";
+import { taxpayerSubjectLabel } from "@/lib/taxpayer";
 import { TaxpayerSubject } from "@/components/TaxpayerSubject";
 import { readLastStep } from "@/lib/assessment/lastStep";
 import { stepUrlForKey } from "@/lib/assessment/steps";
@@ -284,8 +284,9 @@ const Index = () => {
                 const inProgress = !session.completed;
                 const no = String(i + 1).padStart(2, "0");
                 // An assessment can name several entities (stored newline-joined);
-                // show them as one readable line. Single-entity is unchanged.
-                const taxpayerLabel = taxpayerDisplayName(session.taxpayer_name);
+                // the label reads as lead entity plus a count, matching the
+                // visible TaxpayerSubject text. Single-entity is unchanged.
+                const taxpayerLabel = taxpayerSubjectLabel(session.taxpayer_name);
                 const dateLabel = inProgress ? "Started" : "Completed";
                 const actionLabel = inProgress ? "Resume" : "View report";
                 const ariaLabel = inProgress

@@ -42,6 +42,11 @@ export function useFactsheetPrewarm(sessionId: string | null | undefined, paused
 
     const tick = async () => {
       if (cancelled) return;
+      // Back off to a slow beat once the pipeline is settled (factsheet complete
+      // for the current doc set, progressive re-run done). Never a full stop:
+      // this poller is also the recovery path that rebuilds a stale/idle
+      // factsheet and picks up newly uploaded documents.
+      let delay = POLL_MS;
       try {
         const [{ data: docs }, statuses, fs] = await Promise.all([
           supabase.from("atad2_session_documents").select("id").eq("session_id", sessionId),
@@ -95,13 +100,17 @@ export function useFactsheetPrewarm(sessionId: string | null | undefined, paused
               if (!rerunDoneVersions.has(verKey) && !rerunningRef.current) {
                 await maybeRerun(sessionId, fs.version, fs.factsheet, verKey, setState, rerunningRef, () => cancelled);
               }
+              // Settled: complete factsheet for this exact doc set, re-run done.
+              if (!stale && rerunDoneVersions.has(verKey) && !rerunningRef.current) {
+                delay = 60_000;
+              }
             }
           }
         }
       } catch {
         /* keep polling */
       }
-      if (!cancelled) timer = setTimeout(tick, POLL_MS);
+      if (!cancelled) timer = setTimeout(tick, delay);
     };
     timer = setTimeout(tick, 0);
     return () => { cancelled = true; clearTimeout(timer); };

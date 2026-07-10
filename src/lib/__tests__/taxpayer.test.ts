@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { parseTaxpayerNames, formatTaxpayerNames, taxpayerDisplayName } from '@/lib/taxpayer';
+import {
+  parseTaxpayerNames,
+  formatTaxpayerNames,
+  taxpayerDisplayName,
+  dedupeEntityNames,
+  taxpayerSubjectLabel,
+} from '@/lib/taxpayer';
 
 describe('parseTaxpayerNames', () => {
   it('returns one name for a single-entity (legacy) value', () => {
@@ -33,6 +39,42 @@ describe('formatTaxpayerNames', () => {
 
   it('stores a single entity without a newline', () => {
     expect(formatTaxpayerNames(['Solo B.V.'])).toBe('Solo B.V.');
+  });
+});
+
+describe('dedupeEntityNames', () => {
+  it('collapses case-insensitive duplicates, first spelling wins', () => {
+    expect(dedupeEntityNames(['Foo B.V.', 'foo b.v.', 'Bar GmbH'])).toEqual([
+      'Foo B.V.',
+      'Bar GmbH',
+    ]);
+  });
+
+  it('drops blank entries and trims', () => {
+    expect(dedupeEntityNames([' Foo B.V. ', '  ', 'Foo B.V.'])).toEqual(['Foo B.V.']);
+  });
+});
+
+describe('taxpayerSubjectLabel', () => {
+  it('shows a single entity verbatim', () => {
+    expect(taxpayerSubjectLabel('Solo B.V.')).toBe('Solo B.V.');
+  });
+
+  it('uses singular "other" for exactly two entities', () => {
+    expect(taxpayerSubjectLabel('Foo B.V.\nBar GmbH')).toBe('Foo B.V. and 1 other');
+  });
+
+  it('uses plural "others" for three or more', () => {
+    expect(taxpayerSubjectLabel('Foo B.V.\nBar GmbH\nBaz Ltd')).toBe('Foo B.V. and 2 others');
+  });
+
+  it('counts deduplicated names, not raw rows', () => {
+    expect(taxpayerSubjectLabel('Foo B.V.\nFoo B.V.\nBar GmbH')).toBe('Foo B.V. and 1 other');
+  });
+
+  it('is empty for blank or missing values', () => {
+    expect(taxpayerSubjectLabel(null)).toBe('');
+    expect(taxpayerSubjectLabel('  \n ')).toBe('');
   });
 });
 

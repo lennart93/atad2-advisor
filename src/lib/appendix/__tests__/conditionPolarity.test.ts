@@ -56,4 +56,14 @@ describe('rowTone', () => {
   it('null status falls through to clear', () => {
     expect(rowTone(null, '3.1')).toBe('clear');
   });
+
+  it('risk_if_not_met rows alarm when NOT met, and read clear when met', () => {
+    // For these rows the absence is the risk: no dual-inclusion income (2.3),
+    // an exception that does not apply (5.3, 8.3), a mismatch not already
+    // neutralised (6.5). Keying on the raw label painted the danger green.
+    for (const rowId of ['2.3', '5.3', '6.5', '8.3']) {
+      expect(rowTone('Not triggered', rowId)).toBe('risk');
+      expect(rowTone('Triggered', rowId)).toBe('clear');
+    }
+  });
 });
