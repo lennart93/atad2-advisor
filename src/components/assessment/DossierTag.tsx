@@ -7,6 +7,7 @@ import { DOCUMENT_CATEGORIES } from '@/lib/prefill/types';
 import { formatDate } from '@/utils/formatDate';
 import { formatFiscalYears, parseFiscalYears } from '@/utils/formatFiscalYears';
 import { taxpayerDisplayName } from '@/lib/taxpayer';
+import { TaxpayerSubject } from '@/components/TaxpayerSubject';
 import { cn } from '@/lib/utils';
 
 export interface DossierTagProps {
@@ -102,7 +103,13 @@ export function DossierTag({
           className="inline-flex max-w-[260px] min-w-0 items-center gap-2 rounded-ds-control border border-ds-hairline bg-ds-card px-2.5 py-1.5 text-left transition-colors duration-150 hover:bg-ds-fill-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent"
         >
           <FolderIcon className="size-3.5 shrink-0 text-ds-ink-secondary" aria-hidden="true" />
-          <span className="truncate text-[13px] font-normal text-ds-ink">{taxpayerLabel}</span>
+          {/* Lead entity + "+N", matching the dashboard ledger; the full list
+              lives in the popover below. A comma-joined run clips to noise. */}
+          <TaxpayerSubject
+            stored={taxpayerName}
+            className="text-[13px] font-normal text-ds-ink"
+            moreClassName="text-[12px]"
+          />
           {fyLabel && (
             <>
               <span aria-hidden="true" className="h-3 w-px shrink-0 bg-ds-hairline" />
