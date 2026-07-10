@@ -758,7 +758,11 @@ const AssessmentReport = () => {
   // back to the first entity, which is also the correct single-entity behaviour.
   const leadEntity =
     entityNames[0] || taxpayerDisplayName(sessionData.taxpayer_name) || "Assessment";
-  const visibleEntities = showAllEntities ? entityNames : entityNames.slice(0, ROSTER_CAP);
+  // Collapse only when it hides at least two chips; a "Show all" that reveals
+  // a single extra chip is sillier than just showing the chip.
+  const rosterCollapses = entityNames.length > ROSTER_CAP + 1;
+  const visibleEntities =
+    showAllEntities || !rosterCollapses ? entityNames : entityNames.slice(0, ROSTER_CAP);
 
   // Shared "Improve memo" action. On desktop it lives in the metadata rail
   // (under Generated); on mobile the rail is hidden, so a copy sits in the
@@ -890,7 +894,7 @@ const AssessmentReport = () => {
                     />
                   ))}
                 </div>
-                {entityCount > ROSTER_CAP && (
+                {rosterCollapses && (
                   <button
                     type="button"
                     onClick={() => setShowAllEntities((v) => !v)}
