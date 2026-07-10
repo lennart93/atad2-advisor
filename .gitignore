@@ -51,3 +51,7 @@ stepper-preview.html
 /knoppen.jpg
 /new.jpg
 /oud.jpg
+
+# stale build artifacts (do not track)
+dist.zip
+dist.tar.gz
