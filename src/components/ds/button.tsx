@@ -14,7 +14,10 @@ const dsButtonVariants = cva(
   {
     variants: {
       variant: {
-        primary: "bg-ds-ink text-ds-card hover:bg-ds-ink-hover",
+        // Disabled: flat dimmed-ink token fill instead of 50% opacity, so the
+        // dead state stays warm and reads as one consistent treatment.
+        primary:
+          "bg-ds-ink text-ds-card hover:bg-ds-ink-hover disabled:opacity-100 disabled:bg-ds-ink-disabled",
         secondary:
           "border border-ds-hairline bg-ds-card text-ds-ink hover:bg-ds-fill-muted",
         ghost: "text-ds-ink hover:bg-ds-fill-muted",

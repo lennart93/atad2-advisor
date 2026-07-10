@@ -18,6 +18,7 @@
   /* Neutrals (warm) */
   --ds-ink: #16150f;            /* primary text (warm near-black ink) */
   --ds-ink-hover: #2a2820;      /* solid (ink) button hover */
+  --ds-ink-disabled: rgba(22, 21, 15, 0.38); /* disabled primary-button fill: dimmed ink, stays warm */
   --ds-ink-secondary: #57534a;  /* secondary text; lightest tone that may carry readable text (AA) */
   --ds-ink-tertiary: #8a8479;   /* icons + decoration only: below 4.5:1 on card/page, not for text */
   --ds-hairline: rgba(22, 21, 15, 0.12);
@@ -79,6 +80,7 @@
 .dark {
   --ds-ink: #f4f2ec;
   --ds-ink-hover: #ffffff;
+  --ds-ink-disabled: rgba(244, 242, 236, 0.32);
   --ds-ink-secondary: #b0a89c;
   --ds-ink-tertiary: #847d6f;
   --ds-hairline: rgba(255, 255, 255, 0.14);

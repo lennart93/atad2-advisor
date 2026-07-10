@@ -579,7 +579,7 @@ const AssessmentConfirmation = () => {
                 variant="primary"
                 onClick={() => handleFinalConfirm(false)}
                 disabled={submitting || contextCharCount < 100}
-                className="disabled:pointer-events-auto disabled:cursor-not-allowed disabled:bg-[#d8d3c8] disabled:opacity-100"
+                className="disabled:pointer-events-auto disabled:cursor-not-allowed disabled:bg-ds-ink-disabled disabled:opacity-100"
               >
                 Continue
                 <ArrowRight />
@@ -745,7 +745,7 @@ const AssessmentConfirmation = () => {
                 variant="primary"
                 onClick={handleConfirmOverride}
                 disabled={!isOverrideValid || submitting}
-                className="disabled:pointer-events-auto disabled:cursor-not-allowed disabled:bg-[#d8d3c8] disabled:opacity-100"
+                className="disabled:pointer-events-auto disabled:cursor-not-allowed disabled:bg-ds-ink-disabled disabled:opacity-100"
               >
                 Confirm and continue
                 <ArrowRight />
