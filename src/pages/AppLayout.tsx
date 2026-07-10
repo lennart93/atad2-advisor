@@ -1,9 +1,19 @@
+import { useState } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { KeyRound, LogOut, UserRound } from "lucide-react";
 import { AnimatedLogo } from "@/components/AnimatedLogo";
+import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -17,6 +27,7 @@ import { cn } from "@/lib/utils";
 const AppLayout = () => {
   const { user, signOut } = useAuth();
   const location = useLocation();
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
 
   const isAdminRoute = location.pathname.startsWith("/admin");
   const isAssessmentRoute =
@@ -101,14 +112,36 @@ const AppLayout = () => {
               </Button>
             ) : null}
             {user && (
-              <Button variant="ghost" size="sm" className="h-9 text-muted-foreground hover:text-foreground" onClick={handleSignOut}>
-                Sign out
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-9 text-muted-foreground hover:text-foreground"
+                    aria-label="Account menu"
+                  >
+                    <UserRound className="h-4 w-4 mr-1.5" />
+                    Account
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-52">
+                  <DropdownMenuItem onSelect={() => setChangePasswordOpen(true)}>
+                    <KeyRound className="h-4 w-4 mr-2 text-muted-foreground" />
+                    Change password
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={handleSignOut}>
+                    <LogOut className="h-4 w-4 mr-2 text-muted-foreground" />
+                    Sign out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
           </div>
         </div>
       </header>
       <CommandPalette />
+      <ChangePasswordDialog open={changePasswordOpen} onOpenChange={setChangePasswordOpen} />
 
       {/* Content */}
       {isBareRoute ? (
