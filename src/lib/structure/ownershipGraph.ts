@@ -84,23 +84,44 @@ export function effectiveFraction(src: string, dst: string, g: OwnershipGraph): 
 }
 
 /**
- * The effective ownership percentage `src` holds in `dst`, summed against a whole
- * target set (used so a fiscal-unity parent/subsidiary is measured against the unity
- * as a whole). Returns null when the entities are connected only through
+ * The apex members of a set: those NOT owned (directly or indirectly) by another
+ * member of the same set. When a target/source set is a nested chain (each member
+ * owns the next, as an 8-entity taxpayer group is), a stake into the top of the
+ * chain also reaches every member below it. Summing the effective fraction over ALL
+ * members would then tally that one stake once per downstream member, inflating a
+ * 40% top-level holding to a clamped 100%. Measuring against the apex only, whose
+ * effective fraction already accounts through the chain for the interest in every
+ * member below, gives the true group-level percentage. Falls back to the whole set
+ * if a mutual-ownership cycle leaves no apex.
+ */
+function apexMembers(members: string[], g: OwnershipGraph): string[] {
+  const set = new Set(members);
+  const apex = members.filter(
+    (m) => ![...set].some((o) => o !== m && reaches(o, new Set([m]), g)),
+  );
+  return apex.length ? apex : members;
+}
+
+/**
+ * The effective ownership percentage `src` holds in `dst`, measured against a whole
+ * target set (used so a fiscal-unity or multi-entity taxpayer parent/subsidiary is
+ * measured against the group as a whole). Only the apex members of the set are
+ * counted so a nested taxpayer chain does not multiply the same stake (see
+ * `apexMembers`). Returns null when the entities are connected only through
  * unknown-percentage edges (so the caller can render "?" rather than a false 0),
  * and never exceeds 100.
  */
 export function effectivePctToSet(src: string, targets: Iterable<string>, g: OwnershipGraph): number | null {
   let sum = 0;
-  for (const t of targets) sum += effectiveFraction(src, t, g);
+  for (const t of apexMembers([...targets], g)) sum += effectiveFraction(src, t, g);
   if (sum <= 0) return null;
   return roundPct(Math.min(sum, 1) * 100);
 }
 
-/** Same as effectivePctToSet but measuring how much the target set holds in `dst`. */
+/** Same as effectivePctToSet but measuring how much the source set holds in `dst`. */
 export function effectivePctFromSet(sources: Iterable<string>, dst: string, g: OwnershipGraph): number | null {
   let sum = 0;
-  for (const s of sources) sum += effectiveFraction(s, dst, g);
+  for (const s of apexMembers([...sources], g)) sum += effectiveFraction(s, dst, g);
   if (sum <= 0) return null;
   return roundPct(Math.min(sum, 1) * 100);
 }

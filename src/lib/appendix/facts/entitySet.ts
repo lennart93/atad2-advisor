@@ -80,6 +80,36 @@ export function removeFromRelevant(facts: AppendixFacts, id: string): AppendixFa
   return patchEdits(facts, id, { relevanceOverride: 'out' });
 }
 
+/** Explicitly set whether an entity is a related party (true) or unrelated (false).
+ *  Unrelated demotes it to the "Other" group; it stays in the register and analysis. */
+export function setEntityRelated(facts: AppendixFacts, id: string, related: boolean): AppendixFacts {
+  return patchEdits(facts, id, { relevanceOverride: related ? 'in' : 'out' });
+}
+
+/**
+ * Delete an entity outright (both hand-added and chart-derived), cascading to its
+ * classification, any transaction it is a party to, and its acting-together
+ * memberships. A chart-derived entity's chartEntityId is remembered in
+ * `removedChartEntityIds` so a later regeneration does not resurrect it.
+ */
+export function deleteEntity(facts: AppendixFacts, id: string): AppendixFacts {
+  const target = facts.entities.find((e) => e.id === id);
+  if (!target) return facts;
+  const removedChartEntityIds = target.manual || !target.chartEntityId
+    ? facts.removedChartEntityIds
+    : [...(facts.removedChartEntityIds ?? []), target.chartEntityId];
+  return {
+    ...facts,
+    entities: facts.entities.filter((e) => e.id !== id),
+    classifications: facts.classifications.filter((c) => c.entityId !== id),
+    transactions: facts.transactions.filter((t) => t.fromEntityId !== id && t.toEntityId !== id),
+    actingTogether: facts.actingTogether
+      .map((a) => ({ ...a, memberEntityIds: a.memberEntityIds.filter((m) => m !== id) }))
+      .filter((a) => a.memberEntityIds.length > 0),
+    ...(removedChartEntityIds ? { removedChartEntityIds } : {}),
+  };
+}
+
 export interface NewEntityInput {
   name: string;
   jurisdiction: string | null;
@@ -134,6 +164,6 @@ export function setHomeStateInline(
     const existing = cleared.classifications.find((c) => c.entityId === id);
     return existing ? withLocalQualification(cleared, id, 'unknown', homeState) : cleared;
   }
-  const mapped = choice === 'transparent' ? 'transparent' : 'opaque';
+  const mapped = choice === 'transparent' ? 'transparent' : 'non-transparent';
   return withLocalQualification(cleared, id, mapped, homeState);
 }

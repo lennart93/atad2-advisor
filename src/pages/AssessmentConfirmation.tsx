@@ -9,8 +9,8 @@ import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
 import { AssessmentFooterSlot } from "@/components/assessment/AssessmentFooterSlot";
 import { cn } from "@/lib/utils";
-import { taxpayerDisplayName } from "@/lib/taxpayer";
-import { ArrowLeft, ArrowRight, AlertTriangle, Check, Info, CheckCircle, Pencil } from "lucide-react";
+import { TaxpayerSubject } from "@/components/TaxpayerSubject";
+import { ArrowLeft, ArrowRight, AlertTriangle, Check, Info, CheckCircle, Pencil, ChevronDown } from "lucide-react";
 
 type OutcomeType = 'risk_identified' | 'insufficient_information' | 'low_risk';
 
@@ -19,6 +19,16 @@ interface SessionData {
   taxpayer_name: string;
   preliminary_outcome: OutcomeType | null;
   outcome_confirmed: boolean;
+}
+
+/** A questionnaire response that carries risk, i.e. one of the reasons the
+ *  preliminary outcome landed where it did. */
+interface DriverAnswer {
+  question_id: string;
+  question_text: string;
+  answer: string;
+  explanation: string | null;
+  risk_points: number;
 }
 
 /** Small uppercase section label, matching the restyled wizard-card screens. */
@@ -67,36 +77,36 @@ const outcomeConfig: Record<
     label: "ATAD2 risk identified",
     subtitle: "A potential hybrid mismatch fires on the responses given.",
     icon: AlertTriangle,
-    tokenBg: "bg-ds-accent-bg",
-    tokenFg: "text-ds-accent",
+    tokenBg: "bg-ds-amber-bg",
+    tokenFg: "text-ds-amber",
     description:
       "A hybrid mismatch is present and should be reported in the memorandum.",
-    cardIcon: "text-ds-accent",
-    cardSelBorder: "border-ds-accent",
-    cardSelBg: "bg-ds-accent-bg",
-    // Title stays ink, not deep terracotta: accent-text on accent-bg is only
-    // 4.38:1 (below AA for this 13.5px label). The terracotta identity is
-    // carried by the border, fill, icon and radio; ink keeps AA in both themes.
+    cardIcon: "text-ds-amber",
+    cardSelBorder: "border-ds-amber",
+    cardSelBg: "bg-ds-amber-bg",
+    // Amber is the ATAD2 risk colour (terracotta is reserved for the active
+    // wizard step + chart focus node). Title stays ink to keep AA on the amber
+    // fill in both themes; border, fill, icon and radio carry the amber identity.
     cardSelTitle: "text-ds-ink",
-    cardRadio: "border-ds-accent text-ds-accent",
-    cardHover: "hover:border-ds-accent",
+    cardRadio: "border-ds-amber text-ds-amber",
+    cardHover: "hover:border-ds-amber",
   },
   insufficient_information: {
     label: "Insufficient information",
     subtitle: "The responses leave the ATAD2 position open.",
     icon: Info,
-    // Top block stays slate (unchanged); the card uses amber to stay
-    // consistent with the appendix's "Insufficient info" status.
+    // Slate everywhere: "Insufficient information" reads slate-blue on both the
+    // top block and the card, matching the appendix's "Insufficient info" status.
     tokenBg: "bg-ds-blue-bg",
     tokenFg: "text-ds-blue",
     description:
       "The file cannot yet settle the outcome; more is needed before it can be concluded.",
-    cardIcon: "text-ds-amber",
-    cardSelBorder: "border-ds-amber",
-    cardSelBg: "bg-ds-amber-bg",
-    cardSelTitle: "text-ds-amber-text",
-    cardRadio: "border-ds-amber text-ds-amber",
-    cardHover: "hover:border-ds-amber",
+    cardIcon: "text-ds-blue",
+    cardSelBorder: "border-ds-blue",
+    cardSelBg: "bg-ds-blue-bg",
+    cardSelTitle: "text-ds-blue-text",
+    cardRadio: "border-ds-blue text-ds-blue",
+    cardHover: "hover:border-ds-blue",
   },
 };
 
@@ -106,8 +116,19 @@ const AssessmentConfirmation = () => {
   const navigate = useNavigate();
 
   const [sessionData, setSessionData] = useState<SessionData | null>(null);
+  const [drivers, setDrivers] = useState<DriverAnswer[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+
+  // Which driver rows are expanded to show their full draft answer. Collapsed
+  // rows clamp the explanation to two lines; a click reveals the rest.
+  const [openDrivers, setOpenDrivers] = useState<Set<string>>(new Set());
+  const toggleDriver = (id: string) =>
+    setOpenDrivers((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
 
   // Override flow state
   const [showOverrideForm, setShowOverrideForm] = useState(false);
@@ -137,8 +158,23 @@ const AssessmentConfirmation = () => {
     if (sessionId) {
       loadSessionData();
       loadSuggestedAdditionalContext();
+      loadDrivingAnswers();
     }
   }, [user, sessionId]);
+
+  /** The responses that carry risk, biggest driver first. These are the
+   *  reasons a "risk identified" or "insufficient information" outcome fired,
+   *  surfaced so the advisor can sanity-check the outcome against them. */
+  const loadDrivingAnswers = async () => {
+    if (!sessionId) return;
+    const { data } = await supabase
+      .from("atad2_answers")
+      .select("question_id, question_text, answer, explanation, risk_points")
+      .eq("session_id", sessionId)
+      .gt("risk_points", 0)
+      .order("risk_points", { ascending: false });
+    if (data) setDrivers(data as DriverAnswer[]);
+  };
 
   const loadSuggestedAdditionalContext = async () => {
     if (!sessionId) return;
@@ -166,13 +202,11 @@ const AssessmentConfirmation = () => {
 
       if (error) throw error;
 
-      // If already confirmed, skip ahead to the appendix step (the next step
-      // in the flow). The report itself enforces "must be confirmed first" so
-      // a deep-link to /assessment-report still ends up here if needed.
-      if (data.outcome_confirmed) {
-        navigate(`/assessment-appendix/${sessionId}`);
-        return;
-      }
+      // Note: we deliberately do NOT bounce an already-confirmed session ahead
+      // to the appendix. The stepper lets the advisor click back to Confirmation
+      // to review or re-adjust the outcome; auto-redirecting made that tile look
+      // broken (it landed on Appendix instead). Re-confirming here moves forward
+      // again. Resume routing is handled by resumeUrlForSession, not this guard.
 
       // If no preliminary outcome, something went wrong - redirect back
       if (!data.preliminary_outcome) {
@@ -276,6 +310,11 @@ const AssessmentConfirmation = () => {
 
   const outcome = sessionData.preliminary_outcome as OutcomeType;
 
+  // Only "risk identified" and "insufficient information" have responses to
+  // point at; a clean outcome has nothing to explain.
+  const isRiskOutcome = outcome === "risk_identified";
+  const showDrivers = isRiskOutcome || outcome === "insufficient_information";
+
   // The outcome block reflects the adjusted outcome once an override has been
   // chosen and confirmed (the context step), otherwise the preliminary one.
   const isAdjusted = pendingConfirmType === 'override' && !!selectedOverrideOutcome;
@@ -303,7 +342,7 @@ const AssessmentConfirmation = () => {
         </h1>
         <p className="mt-2 text-[13px] leading-relaxed text-ds-ink-secondary">
           Based on the responses, here is the preliminary ATAD2 outcome for{" "}
-          <span className="text-ds-ink">{taxpayerDisplayName(sessionData.taxpayer_name)}</span>, ahead
+          <TaxpayerSubject stored={sessionData.taxpayer_name} form="others" className="text-ds-ink" />, ahead
           of the full assessment report. Confirm it, or adjust it if it does not
           match your expectations.
         </p>
@@ -333,6 +372,96 @@ const AssessmentConfirmation = () => {
             </div>
           </div>
         </div>
+
+        {/* Reasons behind the outcome · the responses that carry risk. Only
+            shown for "risk identified" and "insufficient information" (a clean
+            outcome has nothing to explain), and hidden during the final context
+            step to keep that step focused. Reflects the preliminary (system)
+            outcome, which is what these responses actually produced. */}
+        {showDrivers && drivers.length > 0 && !showContextForm && (
+          <div className="mt-8 border-t border-ds-hairline pt-6">
+            <p className={EYEBROW}>
+              {isRiskOutcome ? "What triggers this" : "What is still open"}
+            </p>
+            <p className="mt-2 text-[13px] leading-relaxed text-ds-ink-secondary">
+              {isRiskOutcome
+                ? "These responses fire the preliminary risk. Review them before confirming the outcome."
+                : "These responses leave the position open. Resolving them would settle the outcome."}
+            </p>
+            <ul className="mt-4 space-y-2.5">
+              {drivers.map((d) => {
+                const isUnknown = d.answer === "Unknown";
+                const hasExplanation = !!d.explanation;
+                const isExpanded = openDrivers.has(d.question_id);
+                return (
+                  <li
+                    key={d.question_id}
+                    className="rounded-[3px] border border-ds-hairline bg-[#fffdfa]"
+                  >
+                    {/* The whole row is the toggle when there is a draft answer
+                        to reveal; otherwise it is a plain, static row. */}
+                    <div
+                      role={hasExplanation ? "button" : undefined}
+                      tabIndex={hasExplanation ? 0 : undefined}
+                      aria-expanded={hasExplanation ? isExpanded : undefined}
+                      onClick={hasExplanation ? () => toggleDriver(d.question_id) : undefined}
+                      onKeyDown={
+                        hasExplanation
+                          ? (e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                toggleDriver(d.question_id);
+                              }
+                            }
+                          : undefined
+                      }
+                      className={cn(
+                        "flex items-start gap-3 px-4 py-[13px] outline-none",
+                        hasExplanation &&
+                          "cursor-pointer rounded-[3px] transition-colors hover:bg-[#faf6ef] focus-visible:shadow-[0_0_0_2px_rgba(194,92,60,0.35)]",
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "mt-[1px] shrink-0 rounded-full px-2.5 py-[3px] text-[11px] font-medium tabular-nums",
+                          isUnknown
+                            ? "bg-ds-amber-bg text-ds-amber-text"
+                            : "bg-ds-fill-muted text-ds-ink-secondary",
+                        )}
+                      >
+                        {isUnknown ? "Unknown" : d.answer}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[13px] leading-relaxed text-ds-ink">
+                          {d.question_text}
+                        </p>
+                        {hasExplanation && (
+                          <p
+                            className={cn(
+                              "mt-1 text-[12.5px] leading-relaxed text-ds-ink-secondary",
+                              isExpanded ? "whitespace-pre-wrap" : "line-clamp-2",
+                            )}
+                          >
+                            {d.explanation}
+                          </p>
+                        )}
+                      </div>
+                      {hasExplanation && (
+                        <ChevronDown
+                          className={cn(
+                            "mt-[2px] h-4 w-4 shrink-0 text-ds-ink-tertiary transition-transform",
+                            isExpanded && "rotate-180",
+                          )}
+                          strokeWidth={1.8}
+                        />
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
 
         {/* Body: context form / default / override form */}
         {showContextForm ? (
@@ -450,10 +579,10 @@ const AssessmentConfirmation = () => {
                 variant="primary"
                 onClick={() => handleFinalConfirm(false)}
                 disabled={submitting || contextCharCount < 100}
-                className="disabled:pointer-events-auto disabled:cursor-not-allowed disabled:bg-[#d8d3c8] disabled:opacity-100"
+                className="disabled:pointer-events-auto disabled:cursor-not-allowed disabled:bg-ds-ink-disabled disabled:opacity-100"
               >
                 Continue
-                <ArrowRight className={contextSatisfied ? "text-[#e0a48f]" : undefined} />
+                <ArrowRight />
               </Button>
             </div>
           </div>
@@ -616,10 +745,10 @@ const AssessmentConfirmation = () => {
                 variant="primary"
                 onClick={handleConfirmOverride}
                 disabled={!isOverrideValid || submitting}
-                className="disabled:pointer-events-auto disabled:cursor-not-allowed disabled:bg-[#d8d3c8] disabled:opacity-100"
+                className="disabled:pointer-events-auto disabled:cursor-not-allowed disabled:bg-ds-ink-disabled disabled:opacity-100"
               >
                 Confirm and continue
-                <ArrowRight className={isOverrideValid ? "text-[#e0a48f]" : undefined} />
+                <ArrowRight />
               </Button>
             </div>
           </div>

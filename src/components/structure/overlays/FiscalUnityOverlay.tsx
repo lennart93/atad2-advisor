@@ -12,6 +12,7 @@
 // gefinalizede PNG terechtkomen.
 import { useState, useEffect, useRef } from 'react';
 import { useStore, type ReactFlowState } from '@xyflow/react';
+import { getAppScale } from '@/lib/appScale';
 import {
   EMPTY_DELTAS,
   isEmptyDeltas,
@@ -55,8 +56,12 @@ export function FiscalUnityOverlay({
     function onMove(e: MouseEvent) {
       const d = dragRef.current;
       if (!d) return;
-      const dx = (e.clientX - d.startMouseX) / transform[2];
-      const dy = (e.clientY - d.startMouseY) / transform[2];
+      // clientX/Y bevatten de globale html-zoom (--app-scale); deel er dus
+      // behalve door de viewport-zoom ook door de app-schaal, anders loopt
+      // het kader 15% voor op de muis.
+      const z = transform[2] * getAppScale();
+      const dx = (e.clientX - d.startMouseX) / z;
+      const dy = (e.clientY - d.startMouseY) / z;
       const next: EdgeDeltas = { ...d.startDeltas };
       if (d.side === 'left') next.dLeft = d.startDeltas.dLeft + dx;
       else if (d.side === 'right') next.dRight = d.startDeltas.dRight + dx;

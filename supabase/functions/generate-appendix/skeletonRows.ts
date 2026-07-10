@@ -41,7 +41,7 @@ export const SKELETON_ROWS: ServerSkeletonRow[] = [
   { rowId: "5.4", legalBasis: "Article 12ae(2) CIT Act", conditionTested: "Where the other state is an EU Member State, the deduction is denied only if a tax treaty makes the taxpayer a resident of that other Member State", allowedStates: S, drivenByQuestionIds: [] },
 
   { rowId: "6.1", legalBasis: "Article 12ad CIT Act", conditionTested: "The Dutch payment is made to a related party or under a structured arrangement", allowedStates: S, drivenByQuestionIds: ["Q5", "Q28"] },
-  { rowId: "6.2", legalBasis: "Article 12ad CIT Act", conditionTested: "There is a hybrid mismatch (double deduction or deduction without inclusion) elsewhere in the financing chain", allowedStates: S, drivenByQuestionIds: ["Q9", "Q10"] },
+  { rowId: "6.2", legalBasis: "Article 12ad CIT Act", conditionTested: "There is a hybrid mismatch (double deduction or deduction without inclusion) elsewhere in the structure", allowedStates: S, drivenByQuestionIds: ["Q9", "Q10"] },
   { rowId: "6.3", legalBasis: "Article 12ad CIT Act", conditionTested: "The Dutch payment funds that foreign cost, directly or indirectly (including back-to-back arrangements)", allowedStates: S, drivenByQuestionIds: ["Q9", "Q10"] },
   { rowId: "6.4", legalBasis: "Article 12ad(2) CIT Act", conditionTested: "The mismatch is not neutralised in any other state (the carve-out does not apply)", allowedStates: S, drivenByQuestionIds: ["Q11"] },
   { rowId: "6.5", legalBasis: "Article 12aa / 12ab CIT Act", conditionTested: "The mismatch is already neutralised in the Netherlands on the same payment, so the imported-mismatch backstop is not reached", allowedStates: S, drivenByQuestionIds: [] },

@@ -6,7 +6,8 @@ import type { AppendixRow, Status } from './types';
  *
  *   'gate'   - a precondition. Met -> a single sage check in a round circle, no
  *              label, no status pill (being in scope is the baseline, not a finding).
- *              The scope rows 1.1, 1.2 and the associated-enterprise definition 2.1.
+ *              The scope rows 1.1, 1.2, the associated-enterprise definition 2.1
+ *              and the art. 12ad relatedness precondition 6.1.
  *   'na'     - does not apply. A grey slashed circle + "Not applicable" + the reason
  *              in the expandable body. Any row whose status is N/A, or one the
  *              deterministic backstop (mootNaRowIds) makes moot, unless the advisor
@@ -22,8 +23,14 @@ import type { AppendixRow, Status } from './types';
  */
 export type ControlType = 'gate' | 'na' | 'status';
 
-/** Preconditions shown as a calm sage check rather than a status pill. */
-export const GATE_ROWS: ReadonlySet<string> = new Set(['1.1', '1.2', '2.1']);
+/**
+ * Preconditions shown as a calm sage check ("Applicable") rather than a status
+ * pill. The scope rows 1.1 / 1.2, the associated-enterprise definition 2.1, and
+ * the art. 12ad relatedness precondition 6.1 (the Dutch payment is made to a
+ * related party / structured arrangement) - a met precondition reads "Applicable",
+ * never a risk-coloured "Triggered".
+ */
+export const GATE_ROWS: ReadonlySet<string> = new Set(['1.1', '1.2', '2.1', '6.1']);
 
 export function controlTypeFor(
   row: Pick<AppendixRow, 'rowId' | 'status' | 'source'>,

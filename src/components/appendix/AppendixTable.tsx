@@ -6,7 +6,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { cleanReasoning } from '@/lib/appendix/reasoningText';
+import { displayReasoning } from '@/lib/appendix/rowReasoning';
 import { statusDisplayLabel } from '@/lib/appendix/status';
 import { rowTone, type RowTone } from '@/lib/appendix/conditionPolarity';
 import { appendixMootRowIds, controlTypeFor, type ControlType } from '@/lib/appendix/controlType';
@@ -84,8 +84,8 @@ interface PillStyle { dot: string; pill: string; Icon: StatusIcon }
 /** The colour-coded status pill: sage = clean/good, amber = facts missing, terra = risk. */
 function statusPill(tone: RowTone, status: Status | null): PillStyle {
   if (!status) return { dot: 'bg-[#cfc9bd]', pill: 'border-border bg-card text-muted-foreground', Icon: Info };
-  if (tone === 'risk') return { dot: 'bg-[#c25c3c]', pill: 'border-[#e8cfc4] bg-[#faf2ee] text-[#a8492d]', Icon: AlertTriangle };
-  if (tone === 'caution') return { dot: 'bg-[#bf8a3c]', pill: 'border-[#ecdcb6] bg-[#fbf4e7] text-[#8a6a2a]', Icon: Info };
+  if (tone === 'risk') return { dot: 'bg-[#bf8a3c]', pill: 'border-[#ecdcb6] bg-[#fbf4e7] text-[#8a6a2a]', Icon: AlertTriangle };
+  if (tone === 'caution') return { dot: 'bg-[#5c6f80]', pill: 'border-[#c7d1da] bg-[#e9edf0] text-[#4a5b6b]', Icon: Info };
   return { dot: 'bg-[#8f9866]', pill: 'border-[#d2d8b8] bg-[#eaedde] text-[#6f7850]', Icon: CheckGlyph };
 }
 
@@ -94,7 +94,7 @@ function rowDot(ctype: ControlType, status: Status | null, tone: RowTone): strin
   if (ctype === 'na') return 'bg-[#b3ad9f]';
   if (ctype === 'gate') {
     if (status === 'N/A' || status === 'Triggered') return 'bg-[#8f9866]';
-    if (status === 'Insufficient information') return 'bg-[#bf8a3c]';
+    if (status === 'Insufficient information') return 'bg-[#5c6f80]';
     return 'bg-[#b3ad9f]';
   }
   return statusPill(tone, status).dot;
@@ -106,7 +106,7 @@ function rowDot(ctype: ControlType, status: Status | null, tone: RowTone): strin
  * can override the AI), but only the pill carries a visible dropdown chevron; the
  * gate and N/A circles hide it ([&>svg]:hidden) so they read as plain bolletjes.
  */
-function StatusControl({
+export function StatusControl({
   rowId, ctype, status, tone, allowedStates, onChange, readOnly,
 }: {
   rowId: string;
@@ -189,10 +189,10 @@ function StatusControl({
             </span>
           ) : insufficient ? (
             <span className="flex items-center gap-2">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full border-[1.5px] border-[#ecdcb6] bg-[#fbf4e7]">
-                <Info className="h-3.5 w-3.5 text-[#8a6a2a]" aria-hidden />
+              <span className="flex h-6 w-6 items-center justify-center rounded-full border-[1.5px] border-[#c7d1da] bg-[#e9edf0]">
+                <Info className="h-3.5 w-3.5 text-[#4a5b6b]" aria-hidden />
               </span>
-              <span className="text-[13px] text-[#8a6a2a]">Insufficient info</span>
+              <span className="text-[13px] text-[#4a5b6b]">Insufficient info</span>
             </span>
           ) : (
             <span className="flex items-center gap-2">
@@ -267,12 +267,14 @@ function StatusLegend() {
           </span>
         }
       />
-      <LegendItem term="Triggered" hint="risk identified" swatch={<span className="h-2 w-2 rounded-full bg-[#c25c3c]" aria-hidden />} />
-      <LegendItem term="Insufficient info" hint="facts missing" swatch={<span className="h-2 w-2 rounded-full bg-[#bf8a3c]" aria-hidden />} />
+      <LegendItem term="Triggered" hint="risk identified" swatch={<span className="h-2 w-2 rounded-full bg-[#bf8a3c]" aria-hidden />} />
+      <LegendItem term="Insufficient info" hint="facts missing" swatch={<span className="h-2 w-2 rounded-full bg-[#5c6f80]" aria-hidden />} />
       <LegendItem term="Not triggered" hint="no risk" swatch={<span className="h-2 w-2 rounded-full bg-[#8f9866]" aria-hidden />} />
+      {/* Same wording as the row pill; "N/A" in the hint bridges to the Word
+          export, which abbreviates. */}
       <LegendItem
-        term="N/A"
-        hint="does not apply"
+        term="Not applicable"
+        hint="N/A, does not apply"
         swatch={<CircleSlash className="h-4 w-4 text-[#b3ad9f]" aria-hidden />}
       />
     </div>
@@ -449,8 +451,8 @@ function VisibleToggle({ rowId, excluded, onToggle }: { rowId: string; excluded:
  * Source chip prevents the blur the same way: the panel and the editor are
  * independent, so peeking at the sources never closes an edit in progress.
  */
-function RowDetail({
-  sk, row, reasoning, finding, excluded, showSources, ctype, mootSet, sourcesOpen, onToggleSources, onEdit, onToggleExclude, readOnly,
+export function RowDetail({
+  sk, row, reasoning, finding, excluded, showSources, ctype, mootSet, sourcesOpen, onToggleSources, onEdit, onToggleExclude, readOnly, bare,
 }: {
   sk: SkeletonRow;
   row: AppendixRow;
@@ -465,6 +467,8 @@ function RowDetail({
   onEdit?: (rowId: string, field: EditableField, value: string) => void;
   onToggleExclude?: (rowId: string, excluded: boolean) => void;
   readOnly?: boolean;
+  /** Flush layout for the V2 detail panel (drops the inline left indent). */
+  bare?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(reasoning);
@@ -500,7 +504,7 @@ function RowDetail({
   const panelRows = useMemo(() => buildSourcePanelRows(row, ctype, mootSet), [row, ctype, mootSet]);
 
   return (
-    <div className="pb-[18px] pl-16 pr-5">
+    <div className={cn(bare ? 'pb-1' : 'pb-[18px] pl-16 pr-5')}>
       {sk.legalBasis && sk.legalBasis !== 'N/A' && (
         <div className="mb-1.5">
           <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{sk.legalBasis}</span>
@@ -654,7 +658,7 @@ export function AppendixTable({ rows, skeleton, showSources, relatedParties, onE
             {sec.items.map((sk) => {
               const row = byId.get(sk.rowId)!;
               const excluded = row.excludedFromClient;
-              const reasoning = cleanReasoning(row.reasoning);
+              const reasoning = displayReasoning(row, mootSet);
               const ctype = controlTypeFor(row, mootSet);
               const tone = rowTone(row.status, sk.rowId);
               const expanded = open.has(sk.rowId);
@@ -693,6 +697,19 @@ export function AppendixTable({ rows, skeleton, showSources, relatedParties, onE
                         {row.stale && (
                           <Badge variant="outline" className="mt-0.5 border-ds-hairline text-[10px] font-normal text-ds-ink-secondary">
                             review again
+                          </Badge>
+                        )}
+                        {row.ungrounded && (
+                          // F2: the model never returned this row (even after the
+                          // coverage-retry). Show an explicit "not assessed" marker
+                          // instead of letting a fallback / derived N/A read as a
+                          // normal answer.
+                          <Badge
+                            variant="outline"
+                            className="mt-0.5 border-ds-amber-text/40 text-[10px] font-normal text-ds-amber-text"
+                            title="The model returned no grounded answer for this row. Regenerate or edit."
+                          >
+                            Not assessed
                           </Badge>
                         )}
                         <StatusControl

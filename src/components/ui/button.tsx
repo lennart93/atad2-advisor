@@ -10,7 +10,9 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-gradient-to-b from-zinc-800 to-zinc-900 text-primary-foreground border border-zinc-950 shadow-btn-primary hover:from-zinc-700 hover:to-zinc-800 dark:from-zinc-100 dark:to-zinc-200 dark:border-zinc-300 dark:hover:from-white dark:hover:to-zinc-100 motion-safe:hover:-translate-y-px",
+          // Disabled: a flat dimmed-ink fill (token), not the 50%-opacity zinc
+          // gradient, which read as a cool-gray slab outside the warm palette.
+          "bg-gradient-to-b from-zinc-800 to-zinc-900 text-primary-foreground border border-zinc-950 shadow-btn-primary hover:from-zinc-700 hover:to-zinc-800 dark:from-zinc-100 dark:to-zinc-200 dark:border-zinc-300 dark:hover:from-white dark:hover:to-zinc-100 motion-safe:hover:-translate-y-px disabled:opacity-100 disabled:bg-none disabled:bg-ds-ink-disabled disabled:border-transparent disabled:shadow-none",
         destructive:
           "bg-destructive text-destructive-foreground hover:bg-destructive/90",
         outline:

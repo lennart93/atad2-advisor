@@ -415,7 +415,7 @@ const Auth = () => {
                   <Label htmlFor="signInEmail">Email address</Label>
                   {/* Hidden dummy field to trick autofill */}
                   <input type="email" name="fakeusernameremembered" style={{ display: 'none' }} tabIndex={-1} autoComplete="email" />
-                  <div className={cn("flex items-center rounded-sm border", signInLocalPartError && "border-destructive")}>
+                  <div className={cn("flex items-center rounded-sm border focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2", signInLocalPartError && "border-destructive")}>
                     <Input
                       id="signInEmail"
                       type="text"
@@ -423,7 +423,7 @@ const Auth = () => {
                       value={signInLocalPart}
                       onChange={(e) => handleEmailInput(e.target.value)}
                       onPaste={handleEmailPaste}
-                      className="rounded-l-sm border-0 bg-transparent shadow-none"
+                      className="rounded-l-sm border-0 bg-transparent shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
                       placeholder="your.name"
                       aria-describedby="email-helper email-hint"
                       autoComplete="new-password"
@@ -501,7 +501,7 @@ const Auth = () => {
                 <div className="text-right">
                   <Link
                     to="/forgot-password"
-                    className="text-sm text-muted-foreground transition-colors hover:text-brand-terracotta"
+                    className="text-sm text-muted-foreground transition-colors hover:text-foreground"
                   >
                     Forgot password?
                   </Link>
@@ -613,7 +613,7 @@ const Auth = () => {
                       <div className="space-y-2">
                         {/* Hidden dummy field to trick autofill */}
                         <input type="email" name="fakeusernamesignup" style={{ display: 'none' }} tabIndex={-1} autoComplete="email" />
-                        <div className="flex items-center">
+                        <div className="flex items-center rounded-sm focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
                           <Input
                             type="text"
                             name="signup-username-custom"
@@ -622,7 +622,7 @@ const Auth = () => {
                               setLocalPart(e.target.value.toLowerCase());
                               setLocalPartError("");
                             }}
-                            className={cn("rounded-r-none", localPartError && "border-destructive")}
+                            className={cn("rounded-r-none focus-visible:ring-0 focus-visible:ring-offset-0", localPartError && "border-destructive")}
                             placeholder="username"
                             autoComplete="new-password"
                             autoCorrect="off"

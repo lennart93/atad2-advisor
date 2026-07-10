@@ -137,7 +137,7 @@ describe('buildMemoAppendicesXml', () => {
   it('renders the Other entities in the same ink as every other row (not dimmed)', () => {
     // A muted row used to print its name in faint grey; every name run is now ink.
     const nameRun = (name: string) =>
-      new RegExp(`<w:rPr><w:b/><w:color w:val="([0-9A-F]{6})"/></w:rPr><w:t xml:space="preserve">${name}`);
+      new RegExp(`<w:rPr><w:b/><w:color w:val="([0-9A-F]{6})"/>(?:<w:sz[^>]*/><w:szCs[^>]*/>)?</w:rPr><w:t xml:space="preserve">${name}`);
     const other = xml.match(nameRun('Jersey Co Ltd'));
     const taxpayer = xml.match(nameRun('Dutch BidCo BV'));
     expect(other?.[1]).toBe('1A1A1A');
@@ -236,16 +236,16 @@ describe('buildMemoAppendicesXml', () => {
   });
 
   it('shades the whole Appendix 2 status cell with the tool palette', () => {
-    // s1r1 Triggered (risk_if_met default) -> red; s1r2 Not triggered -> green;
-    // s3r1 Insufficient information -> amber. Icon + label share the cell ink.
-    expect(xml).toContain('w:fill="F7EBE4"'); // red cell (Triggered)
-    expect(xml).toContain('w:color w:val="A5392B"');
+    // s1r1 Triggered (risk_if_met default) -> amber; s1r2 Not triggered -> green;
+    // s3r1 Insufficient information -> slate. Icon + label share the cell ink.
+    expect(xml).toContain('w:fill="F8F0DA"'); // amber cell (Triggered = ATAD2 risk)
+    expect(xml).toContain('w:color w:val="8A6A1C"');
     expect(xml).toContain('▲');
     expect(xml).toContain('w:fill="EEF0E4"'); // green cell (Not triggered)
     expect(xml).toContain('w:color w:val="55632F"');
     expect(xml).toContain('✓');
-    expect(xml).toContain('w:fill="F8F0DA"'); // amber cell (Insufficient info)
-    expect(xml).toContain('w:color w:val="8A6A1C"');
+    expect(xml).toContain('w:fill="E9EDF0"'); // slate cell (Insufficient info)
+    expect(xml).toContain('w:color w:val="4A5B6B"');
     expect(xml).toContain('◷');
     // The old ▪ marker and its terracotta/teal/taupe inks are gone.
     expect(xml).not.toContain('▪');
@@ -344,13 +344,20 @@ describe('buildMemoAppendicesXml', () => {
     expect(xml).toContain('B.1.1'); // row code, letter-prefixed
   });
 
-  it('drops the acting-together section entirely when the annex is empty, renumbering', () => {
+  it('states the null result in the acting-together section when the annex is empty', () => {
     const noActing: AppendixFacts = { ...facts, actingTogether: [] };
     const xml = buildMemoAppendicesXml(noActing, rows, skeleton);
+    expect(xml).toContain('A.2 Acting together'); // still renders, holds A.2
+    expect(xml).toContain(
+      'No cooperating group was identified that would make an entity an associated enterprise where it is not one on its own holding.',
+    );
+    expect(xml).toContain('A.3 Intra-group transactions'); // transactions stay at A.3
+  });
+
+  it('drops the acting-together section only when it is excluded from the download', () => {
+    const xml = buildMemoAppendicesXml({ ...facts, actingTogether: [], excludedSections: ['actingTogether'] }, rows, skeleton);
     expect(xml).not.toContain('Acting together');
-    expect(xml).not.toContain('No entities that could form an acting-together group');
     expect(xml).toContain('A.2 Intra-group transactions'); // transactions move up to A.2
-    expect(xml).not.toContain('A.3 ');
   });
 });
 
@@ -423,7 +430,7 @@ describe('buildMemoAppendicesXml — review fixes', () => {
       ],
     };
     const xml = buildMemoAppendicesXml(fundFacts, rows, skeleton);
-    expect(xml).toContain('Investment / participation fund');
+    expect(xml).toContain('Fund');
   });
 
   it('maps a set-but-unmapped local class into the 4-value vocabulary, like Appendix 1', () => {

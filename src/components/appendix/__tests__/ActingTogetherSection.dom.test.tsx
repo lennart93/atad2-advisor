@@ -48,6 +48,25 @@ describe('ActingTogetherSection — manual group builder', () => {
     expect(group.reasoning).toContain('voting rights and capital of HoldCo B.V.');
   });
 
+  it('only offers parents and direct shareholders as members, never subsidiaries', () => {
+    const facts = baseFacts({
+      entities: [
+        ent('E1', 'HoldCo B.V.', { role: 'Taxpayer' }),
+        ent('E2', 'Anna Jansen'),
+        ent('E3', 'OpCo B.V.', { role: 'Subsidiary', ownershipPct: 100 }),
+        ent('E4', 'Lender Ltd', { role: 'Group entity' }),
+        ent('E5', 'Fund L.P.', { role: 'Group entity', shareholderOfTaxpayer: true }),
+      ],
+    });
+    render(<ActingTogetherSection facts={facts} onChange={vi.fn()} generated />);
+    fireEvent.click(screen.getByRole('button', { name: /Add acting-together group/i }));
+
+    expect(screen.getByRole('button', { name: /Anna Jansen/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Fund L\.P\./i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /OpCo B\.V\./i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Lender Ltd/i })).not.toBeInTheDocument();
+  });
+
   it('will not create a group with fewer than two members', () => {
     const onChange = vi.fn();
     render(<ActingTogetherSection facts={baseFacts()} onChange={onChange} generated />);

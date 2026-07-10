@@ -7,8 +7,8 @@ import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } fro
 import { toast } from "@/components/ui/sonner";
 import { formatDate, formatDateTime } from "@/utils/formatDate";
 import { formatFiscalYears } from "@/utils/formatFiscalYears";
-import { taxpayerDisplayName } from "@/lib/taxpayer";
-import { ArrowLeft, ArrowRight, Loader2, AlertTriangle, Info, CheckCircle, Pencil, X, Check } from "lucide-react";
+import { taxpayerDisplayName, parseTaxpayerNames } from "@/lib/taxpayer";
+import { ArrowLeft, ArrowRight, Loader2, AlertTriangle, Info, CheckCircle, Pencil, X, Check, Layers } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { EditableAnswer } from "@/components/EditableAnswer";
@@ -29,7 +29,10 @@ import { loadAppendixSkeleton, useAppendixSkeleton } from "@/lib/appendix/skelet
 import { checkAppendixSync } from "@/lib/appendix/memoSyncGuard";
 import { FactsPanel } from "@/components/appendix/FactsPanel";
 import { AppendixTable } from "@/components/appendix/AppendixTable";
+import { SectionRow } from "@/components/appendix/v2/SectionRow";
+import { useSectionOpenState } from "@/components/appendix/v2/hooks";
 import { useUiBusySignal } from "@/stores/uiBusyStore";
+import { cn } from "@/lib/utils";
 interface SessionData {
   session_id: string;
   taxpayer_name: string;
@@ -79,6 +82,71 @@ interface N8nReportResponse {
 
 // Shared uppercase eyebrow label (RULE 2 header rhythm).
 const EYEBROW = "text-[11px] font-normal uppercase tracking-[0.16em] text-ds-ink-secondary";
+
+// How many entity chips the roster shows before collapsing behind a
+// "Show all {count}" toggle. Large structures (20+ entities) would otherwise
+// flood the header.
+const ROSTER_CAP = 8;
+
+/**
+ * Deduplicate the taxpayer-subject names before counting or listing them. The
+ * stored list can repeat the same entity (e.g. a name entered twice at intake);
+ * matching is case-insensitive on the trimmed name, and the first spelling wins.
+ */
+function dedupeEntityNames(names: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of names) {
+    const name = raw.trim();
+    const key = name.toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(name);
+  }
+  return out;
+}
+
+/**
+ * One entity in the "Entities in scope" roster: a hairline-bordered, subtly
+ * filled chip carrying the entity name plus two OPTIONAL adornments the design
+ * calls for — a short role tag (when role data exists) and a risk marker (a
+ * danger dot + tinted border when the entity carries a flagged mismatch). With
+ * neither, it renders the name alone.
+ */
+function EntityChip({
+  name,
+  role,
+  flagged,
+}: {
+  name: string;
+  role?: string | null;
+  flagged?: boolean;
+}) {
+  return (
+    <div
+      className={`flex items-center justify-between gap-2 rounded-ds-card border px-3 py-2 ${
+        flagged
+          ? "border-brand-warning bg-brand-warning-soft"
+          : "border-ds-hairline bg-ds-card"
+      }`}
+    >
+      <span className="flex min-w-0 items-center gap-2">
+        {flagged && (
+          <span
+            aria-hidden="true"
+            className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-warning"
+          />
+        )}
+        <span className="truncate text-[14px] text-ds-ink">{name}</span>
+      </span>
+      {role && (
+        <span className="shrink-0 text-[10px] font-medium uppercase tracking-[0.12em] text-ds-ink-tertiary">
+          {role}
+        </span>
+      )}
+    </div>
+  );
+}
 
 // A clean full-width inclusion row for the "Generate memorandum" card: a filled
 // sage checkbox + label, rows separated by hairlines. The sage fill maps the
@@ -140,6 +208,11 @@ const AssessmentReport = () => {
   // default (appendices default on); local to the download, not persisted.
   const [includeFactsOverride, setIncludeFactsOverride] = useState<boolean | null>(null);
   const [includeChecklistOverride, setIncludeChecklistOverride] = useState<boolean | null>(null);
+  // Per-download choice: stamp a diagonal DRAFT watermark on every page of the
+  // Word export. Off by default; local to the download, not persisted.
+  const [includeDraftWatermark, setIncludeDraftWatermark] = useState(false);
+  // Roster "Show all" toggle: large structures collapse to ROSTER_CAP chips.
+  const [showAllEntities, setShowAllEntities] = useState(false);
 
   // While the memorandum is generating, spin the top-left brand logo the same
   // way the document analysis, structure and appendix flows do.
@@ -156,6 +229,24 @@ const AssessmentReport = () => {
   // Missing explanations validation state
   const [showMissingExplanationsPopover, setShowMissingExplanationsPopover] = useState(false);
   const [highlightedQuestionIds, setHighlightedQuestionIds] = useState<string[]>([]);
+  // The downstream artifacts (structure chart, both appendices, responses) sit in
+  // collapse-by-default disclosure cards so the memorandum is the only long-form
+  // content. Advisor toggles persist per session (same primitive as appendix V2).
+  const { isOpen: ovOpen, setOpen: setOvOpen } = useSectionOpenState(
+    sessionId ? `overview:${sessionId}` : undefined,
+    { structure: false, appendix1: false, appendix2: false, responses: false },
+  );
+  // Footer section nav: open the target card first so its content exists, then
+  // scroll on the next frame (mirrors ChecklistV2's jump-to-first-flagged).
+  const jumpToSection = useCallback(
+    (id: string, section?: "structure" | "appendix1" | "appendix2" | "responses") => {
+      if (section) setOvOpen(section, true);
+      requestAnimationFrame(() => {
+        document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    },
+    [setOvOpen],
+  );
   const questionRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   // Query for related reports
@@ -178,28 +269,26 @@ const AssessmentReport = () => {
     enabled: !!sessionId && !!user,
   });
 
-  // Query for the finalized structure-chart snapshot. `refetchOnMount: 'always'`
-  // is load-bearing: when the user edits the chart (e.g. expands clusters) and
-  // returns to the overview, the StructureChartStep saves a fresh PNG before
-  // navigating — but without an always-refetch, React Query would keep showing
-  // the previous PNG until staleTime elapses. The DB has the truth; trust it.
+  // Query for the finalized structure-chart snapshot. Freshness after an edit is
+  // handled at the source: the structure step invalidates this key before it
+  // navigates back to the overview, so a plain revisit reuses the cache instead
+  // of re-pulling the PNG on every mount.
   const { data: chartSnapshot } = useQuery({
     queryKey: ['report-chart-snapshot', sessionId],
     enabled: !!sessionId,
-    staleTime: 60_000,
-    refetchOnMount: 'always',
+    staleTime: 5 * 60_000,
     queryFn: () => loadChartSnapshot(sessionId!),
   });
 
   // Confirmed appendix, loaded so the download options can show per-appendix
   // checkboxes seeded from the saved skip flags, and so Appendix 1/2 render
-  // read-only on this page. `refetchOnMount: 'always'` keeps the read-only view
-  // fresh after the advisor edits it via the appendix step and returns here.
+  // read-only on this page. Freshness after an edit is handled at the source:
+  // the appendix step invalidates this key on its return-to-overview button, so
+  // a plain revisit reuses the cache instead of re-pulling the full appendix.
   const { data: appendixForDownload } = useQuery({
     queryKey: ['appendix-download', sessionId],
     enabled: !!sessionId,
-    staleTime: 30_000,
-    refetchOnMount: 'always',
+    staleTime: 5 * 60_000,
     queryFn: () => loadAppendix(sessionId!),
   });
 
@@ -217,12 +306,6 @@ const AssessmentReport = () => {
   const checklistAppendixAvailable = !!appendixConfirmed && (appendixForDownload?.rows?.some((r) => !r.excludedFromClient) ?? false);
   const includeFactsAppendix = includeFactsOverride ?? !(appendixForDownload?.facts_skipped ?? false);
   const includeChecklistAppendix = includeChecklistOverride ?? !(appendixForDownload?.checklist_skipped ?? false);
-  const anyIncludeOption = !!chartSnapshot?.snapshot_png || factsAppendixAvailable || checklistAppendixAvailable;
-  const generatedAtLabel = latestReport?.generated_at
-    ? new Date(latestReport.generated_at).toLocaleString('en-GB', {
-        day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
-      })
-    : '';
   // Date-only label for the memorandum meta line (e.g. "26 June 2026").
   const generatedDateLabel = latestReport?.generated_at
     ? new Date(latestReport.generated_at).toLocaleDateString('en-GB', {
@@ -398,14 +481,6 @@ const AssessmentReport = () => {
 
   const riskOutcome = getFinalOutcome();
 
-  // Outcome callout tint, by the REAL risk level. Sage = no risk identified,
-  // terracotta = risk identified, slate = insufficient information. Same family as the cover.
-  const outcomeTone = {
-    complete: { box: 'border-brand-sage bg-brand-sage-soft', token: 'border-brand-sage', icon: 'text-brand-sage-deep' },
-    triggered: { box: 'border-brand-terracotta bg-brand-terracotta-soft', token: 'border-brand-terracotta', icon: 'text-brand-terracotta-deep' },
-    insufficient: { box: 'border-brand-info bg-brand-info-soft', token: 'border-brand-info', icon: 'text-brand-info-deep' },
-  }[riskOutcome.status];
-
   // The memo lock also freezes the responses (no edits after generation).
   const responsesLocked = isGeneratingReport || !!latestReport;
 
@@ -491,21 +566,22 @@ const AssessmentReport = () => {
   // Scroll to first question without explanation and highlight them
   const handleReviewQuestions = useCallback(() => {
     setHighlightedQuestionIds(missingExplanationQuestionIds);
-    
-    // Scroll to first missing explanation
+
+    // The responses live in a collapsed disclosure card: open it first so the
+    // question refs exist, then scroll on the next frame.
+    setOvOpen('responses', true);
     if (missingExplanationQuestionIds.length > 0) {
       const firstQuestionId = missingExplanationQuestionIds[0];
-      const element = questionRefs.current[firstQuestionId];
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
+      requestAnimationFrame(() => {
+        questionRefs.current[firstQuestionId]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
     }
-    
+
     // Remove highlights after 8 seconds
     setTimeout(() => {
       setHighlightedQuestionIds([]);
     }, 8000);
-  }, [missingExplanationQuestionIds]);
+  }, [missingExplanationQuestionIds, setOvOpen]);
 
   // Clear highlights when generating anyway
   const handleGenerateAnyway = () => {
@@ -670,6 +746,24 @@ const AssessmentReport = () => {
     );
   }
 
+  // The assessment as a named container with its entities as scannable contents.
+  // The stored taxpayer_name is a newline-joined list of the entities assessed
+  // together; dedupe it before counting or listing (the list can repeat a name).
+  const entityNames = dedupeEntityNames(parseTaxpayerNames(sessionData.taxpayer_name));
+  const entityCount = entityNames.length;
+  const isMultiEntity = entityCount > 1;
+  // Title + STRUCTURE field, in order of preference: a group/structure name (no
+  // such field exists in the schema yet), then a designated lead entity (none is
+  // flagged; the list has no lead marker), then the first entity. So both fall
+  // back to the first entity, which is also the correct single-entity behaviour.
+  const leadEntity =
+    entityNames[0] || taxpayerDisplayName(sessionData.taxpayer_name) || "Assessment";
+  // Collapse only when it hides at least two chips; a "Show all" that reveals
+  // a single extra chip is sillier than just showing the chip.
+  const rosterCollapses = entityNames.length > ROSTER_CAP + 1;
+  const visibleEntities =
+    showAllEntities || !rosterCollapses ? entityNames : entityNames.slice(0, ROSTER_CAP);
+
   // Shared "Improve memo" action. On desktop it lives in the metadata rail
   // (under Generated); on mobile the rail is hidden, so a copy sits in the
   // memo header instead. Only rendered while a memo exists and we are not
@@ -704,9 +798,20 @@ const AssessmentReport = () => {
           <section className="space-y-6">
             <div className="space-y-3">
               <span className={EYEBROW}>Assessment report</span>
-              <h1 className="text-4xl font-normal leading-[1.02] tracking-[-0.02em] text-ds-ink sm:text-5xl">
-                {taxpayerDisplayName(sessionData.taxpayer_name)}
-              </h1>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                {/* The container title. No serif face exists in the system; the
+                    title keeps the Neue Haas Grotesk Display treatment already
+                    used for this H1. Falls back to the lead/first entity. */}
+                <h1 className="text-4xl font-normal leading-[1.02] tracking-[-0.02em] text-ds-ink sm:text-5xl">
+                  {leadEntity}
+                </h1>
+                {isMultiEntity && (
+                  <span className="inline-flex items-center gap-1.5 rounded-ds-control border border-ds-hairline bg-ds-fill-muted px-2.5 py-1 text-[12px] font-medium text-ds-ink-secondary">
+                    <Layers className="h-3.5 w-3.5 text-ds-ink-tertiary" aria-hidden="true" />
+                    Multi-entity · {entityCount}
+                  </span>
+                )}
+              </div>
               <p className="max-w-2xl text-[15px] text-ds-ink-secondary">
                 The ATAD2 position for this structure, ready to compile into a memorandum.
               </p>
@@ -714,8 +819,15 @@ const AssessmentReport = () => {
 
             <dl className="grid grid-cols-2 gap-x-6 gap-y-4 border-t border-ds-ink pt-4 sm:grid-cols-4">
               <div>
-                <dt className={EYEBROW}>Taxpayer</dt>
-                <dd className="mt-1.5 text-[15px] text-ds-ink">{taxpayerDisplayName(sessionData.taxpayer_name)}</dd>
+                <dt className={EYEBROW}>Structure</dt>
+                <dd className="mt-1.5 text-[15px] text-ds-ink">
+                  {leadEntity}
+                  {isMultiEntity && (
+                    <span className="mt-0.5 block text-[13px] text-ds-ink-tertiary">
+                      + {entityCount - 1} {entityCount - 1 === 1 ? "entity" : "entities"}
+                    </span>
+                  )}
+                </dd>
               </div>
               <div>
                 <dt className={EYEBROW}>Tax year</dt>
@@ -731,7 +843,7 @@ const AssessmentReport = () => {
                   <span
                     className={`h-1.5 w-1.5 shrink-0 rounded-full ${
                       riskOutcome.status === "triggered"
-                        ? "bg-brand-terracotta"
+                        ? "bg-brand-warning"
                         : riskOutcome.status === "insufficient"
                           ? "bg-brand-info"
                           : "bg-brand-sage"
@@ -740,7 +852,7 @@ const AssessmentReport = () => {
                   <span
                     className={`text-[15px] ${
                       riskOutcome.status === "triggered"
-                        ? "text-brand-terracotta"
+                        ? "text-brand-warning-deep"
                         : riskOutcome.status === "insufficient"
                           ? "text-brand-info-deep"
                           : "text-brand-sage-deep"
@@ -754,6 +866,45 @@ const AssessmentReport = () => {
                 </dd>
               </div>
             </dl>
+
+            {/* Entities in scope. Only shown for a multi-entity assessment; a
+                single-entity one is fully described by the title + STRUCTURE
+                field. A responsive chip grid, capped at ROSTER_CAP with a
+                Show-all toggle for large structures. */}
+            {isMultiEntity && (
+              <div className="border-t border-ds-hairline pt-4">
+                <p className={`${EYEBROW} mb-3`}>Entities in scope ({entityCount})</p>
+                <div className="grid gap-2 grid-cols-[repeat(auto-fit,minmax(185px,1fr))]">
+                  {visibleEntities.map((name, i) => (
+                    <EntityChip
+                      key={`${name}-${i}`}
+                      name={name}
+                      // TODO(roster-role): entity roles are modeled on the
+                      // FactEntity register (appendix facts) for the whole
+                      // structure, not on the taxpayer-subject list that drives
+                      // this roster. Wire a name-matched lookup here once the
+                      // facts appendix is a reliable header dependency.
+                      role={undefined}
+                      // TODO(roster-risk): per-entity risk is not modeled. The
+                      // assessment result carries a single aggregate outcome and
+                      // per-condition appendix rows, not a per-entity mismatch
+                      // flag. Wire the marker here once a per-entity flag exists;
+                      // omitted rather than fabricated for now.
+                      flagged={undefined}
+                    />
+                  ))}
+                </div>
+                {rosterCollapses && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllEntities((v) => !v)}
+                    className="mt-3 text-[13px] text-ds-ink-secondary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent focus-visible:ring-offset-2"
+                  >
+                    {showAllEntities ? "Show fewer" : `Show all ${entityCount}`}
+                  </button>
+                )}
+              </div>
+            )}
 
             {sessionData.is_custom_period && sessionData.period_start_date && sessionData.period_end_date && (
               <p className="text-[13px] text-ds-ink-secondary">
@@ -917,16 +1068,13 @@ const AssessmentReport = () => {
           </section>
 
           {/* Generate Report Button — brought into the terracotta-top card family */}
-          <Card className="border-t-[3px] border-t-brand-terracotta">
+          <Card>
             <CardHeader className="space-y-1.5">
               <CardTitle>Generate memorandum</CardTitle>
-              <CardDescription>
-                Compile this assessment into a review-ready ATAD2 memorandum.
-              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-5">
-                {latestReport && anyIncludeOption && (
+                {latestReport && (
                   <div>
                     <p className="mb-1 text-[11px] font-normal uppercase tracking-[0.07em] text-ds-ink-tertiary">
                       Include in the memorandum
@@ -959,6 +1107,13 @@ const AssessmentReport = () => {
                           Appendix 2 · Condition assessment
                         </MemoInclusionRow>
                       )}
+                      <MemoInclusionRow
+                        checked={includeDraftWatermark}
+                        disabled={isGeneratingReport}
+                        onToggle={() => setIncludeDraftWatermark(!includeDraftWatermark)}
+                      >
+                        DRAFT watermark on every page
+                      </MemoInclusionRow>
                     </div>
                   </div>
                 )}
@@ -1007,12 +1162,15 @@ const AssessmentReport = () => {
                       includeChart={includeChartInMemo && !!chartSnapshot?.snapshot_png}
                       includeFactsAppendix={includeFactsAppendix}
                       includeChecklistAppendix={includeChecklistAppendix}
+                      draftWatermark={includeDraftWatermark}
                     />
 
                     {latestReport && (
+                      // Status only; the generated timestamp is stated once, in
+                      // the memorandum's metadata rail.
                       <p className="flex items-center gap-1.5 text-[13px] text-ds-green-text">
                         <CheckCircle className="h-3.5 w-3.5" aria-hidden="true" />
-                        Generated · {generatedAtLabel}
+                        Generated
                       </p>
                     )}
                   </div>
@@ -1030,7 +1188,7 @@ const AssessmentReport = () => {
               and break its pin. The card corners still clip visually because
               nothing inside reaches them (content is inset by the padding). */}
           {latestReport && (
-            <section className="rounded-ds-card border border-ds-hairline border-t-[3px] border-t-brand-terracotta bg-ds-card">
+            <section id="ov-memo" className="rounded-ds-card border border-ds-hairline bg-ds-card">
               <div className="flex flex-col gap-8 p-8 md:px-14 md:py-12">
                 {/* Editorial reader header. On desktop the title moves into the
                     sticky rail (below) so it pins with the metadata while the
@@ -1115,27 +1273,14 @@ const AssessmentReport = () => {
                           onSubmittingChange={setIsApplyingFeedback}
                         />
                       ) : (
-                        <>
-                          {/* Outcome callout, tinted by the real risk level */}
-                          <div className={`flex items-center gap-4 rounded-ds-control border p-5 ${outcomeTone.box}`}>
-                            <span
-                              className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full border bg-ds-card ${outcomeTone.token} ${outcomeTone.icon} [&_svg]:h-5 [&_svg]:w-5`}
-                            >
-                              {riskOutcome.icon}
-                            </span>
-                            <div>
-                              <p className={EYEBROW}>Risk assessment outcome</p>
-                              <p className="mt-1 text-2xl font-normal tracking-tight text-ds-ink">{riskOutcome.text}</p>
-                            </div>
-                          </div>
-
-                          {/* Memo prose, shared renderer so it matches edit mode. */}
-                          <div className={MEMO_PROSE_CLASS}>
-                            <ReactMarkdown rehypePlugins={MEMO_REHYPE_PLUGINS} components={memoMarkdownComponents}>
-                              {displayMemo}
-                            </ReactMarkdown>
-                          </div>
-                        </>
+                        // Memo prose, shared renderer so it matches edit mode. The
+                        // outcome is stated once, on the cover summary; the reading
+                        // measure is capped (~68ch) for long-form legal prose.
+                        <div className={cn(MEMO_PROSE_CLASS, "max-w-[68ch]")}>
+                          <ReactMarkdown rehypePlugins={MEMO_REHYPE_PLUGINS} components={memoMarkdownComponents}>
+                            {displayMemo}
+                          </ReactMarkdown>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -1144,13 +1289,15 @@ const AssessmentReport = () => {
             </section>
           )}
 
-          {/* Structure chart snapshot */}
-          {chartSnapshot?.snapshot_png ? (
-            <Card className="border-t-[3px] border-t-brand-terracotta">
-              <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
-                <div className="space-y-1.5">
-                  <CardTitle>Structure chart</CardTitle>
-                </div>
+          {/* Structure chart snapshot. Collapsed by default; the PNG mounts only
+              on expand so a plain visit stays a one-line row. */}
+          {(chartSnapshot?.snapshot_png || chartSnapshot?.finalized_at) && (
+            <SectionRow
+              id="ov-structure"
+              index=""
+              title="Structure chart"
+              summary={chartSnapshot?.snapshot_png ? "Ownership chart snapshot" : "Snapshot unavailable"}
+              action={
                 <Button
                   variant="ghost"
                   size="sm"
@@ -1159,8 +1306,11 @@ const AssessmentReport = () => {
                   <Pencil className="h-3.5 w-3.5 mr-1.5" />
                   Edit
                 </Button>
-              </CardHeader>
-              <CardContent>
+              }
+              open={ovOpen("structure")}
+              onToggle={() => setOvOpen("structure", !ovOpen("structure"))}
+            >
+              {chartSnapshot?.snapshot_png ? (
                 <div className="bg-ds-page border border-ds-hairline rounded-ds-control p-4">
                   <img
                     src={chartSnapshot.snapshot_png}
@@ -1168,40 +1318,24 @@ const AssessmentReport = () => {
                     className="mx-auto max-h-[480px] w-auto"
                   />
                 </div>
-              </CardContent>
-            </Card>
-          ) : chartSnapshot?.finalized_at ? (
-            <Card>
-              <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
-                <CardTitle>Structure chart</CardTitle>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => navigate(`/assessment/structure/${sessionId}?from=overview`)}
-                >
-                  <Pencil className="h-3.5 w-3.5 mr-1.5" />
-                  Edit
-                </Button>
-              </CardHeader>
-              <CardContent>
+              ) : (
                 <p className="text-[13px] text-ds-ink-secondary">
                   Structure chart snapshot unavailable for this assessment.
                 </p>
-              </CardContent>
-            </Card>
-          ) : null}
+              )}
+            </SectionRow>
+          )}
 
-          {/* Appendix 1 · Facts & relationships. Read-only here; the Edit button
+          {/* Appendix 1 · Facts & relationships. Read-only, collapsed by default;
+              the heavy embedded panel mounts only on expand. The Edit button
               reopens the appendix step (facts page), matching the structure chart. */}
           {factsAppendixAvailable && appendixForDownload?.facts && (
-            <Card className="border-t-[3px] border-t-brand-terracotta">
-              <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
-                <div className="space-y-1.5">
-                  <CardTitle>Appendix 1 · Facts &amp; relationships</CardTitle>
-                  <CardDescription>
-                    The entities, classifications and relationships behind this assessment.
-                  </CardDescription>
-                </div>
+            <SectionRow
+              id="ov-appendix1"
+              index=""
+              title="Appendix 1 · Facts & relationships"
+              summary={`${appendixForDownload.facts.entities.length} entities`}
+              action={
                 <Button
                   variant="ghost"
                   size="sm"
@@ -1210,24 +1344,24 @@ const AssessmentReport = () => {
                   <Pencil className="h-3.5 w-3.5 mr-1.5" />
                   Edit
                 </Button>
-              </CardHeader>
-              <CardContent>
-                <FactsPanel facts={appendixForDownload.facts} generated embedded />
-              </CardContent>
-            </Card>
+              }
+              open={ovOpen("appendix1")}
+              onToggle={() => setOvOpen("appendix1", !ovOpen("appendix1"))}
+            >
+              <FactsPanel facts={appendixForDownload.facts} generated embedded />
+            </SectionRow>
           )}
 
-          {/* Appendix 2 · Condition assessment. Read-only here; the Edit button
-              reopens the appendix step (checklist page). */}
+          {/* Appendix 2 · Condition assessment. Read-only, collapsed by default;
+              the table mounts only on expand. The Edit button reopens the
+              appendix step (checklist page). */}
           {checklistAppendixAvailable && appendixForDownload && appendixSkeleton && (
-            <Card className="border-t-[3px] border-t-brand-terracotta">
-              <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
-                <div className="space-y-1.5">
-                  <CardTitle>Appendix 2 · Condition assessment</CardTitle>
-                  <CardDescription>
-                    Each ATAD2 condition tested against the facts.
-                  </CardDescription>
-                </div>
+            <SectionRow
+              id="ov-appendix2"
+              index=""
+              title="Appendix 2 · Condition assessment"
+              summary={`${appendixForDownload.rows.filter((r) => !r.excludedFromClient).length} conditions`}
+              action={
                 <Button
                   variant="ghost"
                   size="sm"
@@ -1236,34 +1370,50 @@ const AssessmentReport = () => {
                   <Pencil className="h-3.5 w-3.5 mr-1.5" />
                   Edit
                 </Button>
-              </CardHeader>
-              <CardContent>
-                <AppendixTable
-                  rows={appendixForDownload.rows}
-                  skeleton={appendixSkeleton}
-                  showSources
-                  relatedParties={null}
-                  readOnly
-                  embedded
-                />
-              </CardContent>
-            </Card>
+              }
+              open={ovOpen("appendix2")}
+              onToggle={() => setOvOpen("appendix2", !ovOpen("appendix2"))}
+            >
+              <AppendixTable
+                rows={appendixForDownload.rows}
+                skeleton={appendixSkeleton}
+                showSources
+                relatedParties={null}
+                readOnly
+                embedded
+              />
+            </SectionRow>
           )}
 
           {/* Question responses · the draft questionnaire behind this assessment.
-              Editable until a memorandum exists; locked read-only afterwards. */}
+              Editable until a memorandum exists; locked read-only afterwards.
+              Collapsed by default; handleReviewQuestions opens it before jumping. */}
           {answers.length > 0 && (
-            <Card className="border-t-[3px] border-t-brand-terracotta">
-              <CardHeader className="space-y-1.5">
-                <CardTitle>Question responses</CardTitle>
-                <CardDescription>
-                  {responsesLocked
-                    ? "Responses are locked and can no longer be edited because a memorandum has been (or is being) generated."
-                    : "The draft questionnaire answers drawn from the documents. Use the edit button next to any answer to make changes."}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
+            <SectionRow
+              id="ov-responses"
+              index=""
+              title="Question responses"
+              summary={responsesLocked ? `${answers.length} answered · locked` : `${answers.length} answered`}
+              action={
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={responsesLocked}
+                  onClick={() => setOvOpen("responses", true)}
+                >
+                  <Pencil className="h-3.5 w-3.5 mr-1.5" />
+                  Edit
+                </Button>
+              }
+              open={ovOpen("responses")}
+              onToggle={() => setOvOpen("responses", !ovOpen("responses"))}
+            >
+              <p className="mb-5 text-[13px] text-ds-ink-secondary">
+                {responsesLocked
+                  ? "Responses are locked and can no longer be edited because a memorandum has been (or is being) generated."
+                  : "The draft questionnaire answers drawn from the documents. Use the edit button next to any answer to make changes."}
+              </p>
+              <div className="space-y-6">
                   {answers.map((answer) => {
                     const isHighlighted = highlightedQuestionIds.includes(answer.question_id);
                     const isMissingExplanation = missingExplanationQuestionIds.includes(answer.question_id);
@@ -1296,8 +1446,7 @@ const AssessmentReport = () => {
                     );
                   })}
                 </div>
-              </CardContent>
-            </Card>
+            </SectionRow>
           )}
         </div>
 
@@ -1307,6 +1456,37 @@ const AssessmentReport = () => {
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to dashboard
             </Button>
+          }
+          center={
+            /* Slim in-page section nav; the footer bar is sticky, so this stays
+               visible while the memo scrolls. Items open their card, then jump. */
+            <nav aria-label="On this page" className="hidden items-center gap-4 text-[12.5px] text-ds-ink-secondary lg:flex">
+              {latestReport && (
+                <button type="button" onClick={() => jumpToSection("ov-memo")} className="transition-colors hover:text-ds-ink">
+                  Memorandum
+                </button>
+              )}
+              {(chartSnapshot?.snapshot_png || chartSnapshot?.finalized_at) && (
+                <button type="button" onClick={() => jumpToSection("ov-structure", "structure")} className="transition-colors hover:text-ds-ink">
+                  Structure
+                </button>
+              )}
+              {factsAppendixAvailable && (
+                <button type="button" onClick={() => jumpToSection("ov-appendix1", "appendix1")} className="transition-colors hover:text-ds-ink">
+                  Appendix 1
+                </button>
+              )}
+              {checklistAppendixAvailable && (
+                <button type="button" onClick={() => jumpToSection("ov-appendix2", "appendix2")} className="transition-colors hover:text-ds-ink">
+                  Appendix 2
+                </button>
+              )}
+              {answers.length > 0 && (
+                <button type="button" onClick={() => jumpToSection("ov-responses", "responses")} className="transition-colors hover:text-ds-ink">
+                  Responses
+                </button>
+              )}
+            </nav>
           }
         />
     </div>

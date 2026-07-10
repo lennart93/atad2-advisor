@@ -16,6 +16,7 @@ import { createServiceClient, verifyJwtAndSessionOwnership } from "./verifyAuth.
 import { callModel, parseJsonObject } from "./llm.ts";
 import { loadActivePrompt, renderTemplate } from "./promptsLoader.ts";
 import { FactsheetSchema, type Factsheet } from "../_shared/factsheetSchema.ts";
+import { mergeFactsheets } from "../_shared/factsheetMerge.ts";
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -27,6 +28,11 @@ function json(body: unknown, status = 200) {
 
 const FRESH_MS = 90_000;
 const PENDING_GRACE_MS = 120_000; // 2 min: a pending row younger than this blocks the merge.
+// Above this many documents, merge in chunks instead of one call: a single
+// large merge overran the edge wall-clock and left the factsheet stuck
+// 'generating'. Each chunk is a fast model merge; the partials are combined
+// deterministically in code (mergeFactsheets), so the build always completes.
+const CHUNK_SIZE = 5;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -107,26 +113,58 @@ async function runMerge(c: SupabaseClient, sessionId: string) {
       .from("atad2_sessions").select("taxpayer_name, fiscal_year").eq("session_id", sessionId).maybeSingle();
 
     const prompt = await loadActivePrompt(c, "factsheet_merge_system");
-    const user = renderTemplate(prompt.user_prompt_template, {
-      TAXPAYER_NAME: (session?.taxpayer_name as string | null) ?? "",
-      FISCAL_YEAR: (session?.fiscal_year as string | null) ?? "",
-      DOC_FACTS_JSON: JSON.stringify(mergeInput),
-    });
-
     const started = Date.now();
-    const { text, input_tokens, output_tokens } = await callModel({
-      model: prompt.model, systemPrompt: prompt.system_prompt, user, temperature: prompt.temperature, maxTokens: prompt.max_tokens,
-    });
+    let input_tokens = 0;
+    let output_tokens = 0;
 
-    // Parse + validate leniently. One retry on a malformed response (like the
-    // appendix facts pass) before giving up.
+    // Merge one group of documents into a partial fact sheet. Lenient parse with
+    // one retry on a malformed response.
+    const mergeChunk = async (chunkInput: typeof mergeInput): Promise<Factsheet> => {
+      const user = renderTemplate(prompt.user_prompt_template, {
+        TAXPAYER_NAME: (session?.taxpayer_name as string | null) ?? "",
+        FISCAL_YEAR: (session?.fiscal_year as string | null) ?? "",
+        DOC_FACTS_JSON: JSON.stringify(chunkInput),
+      });
+      const call = async () => {
+        const r = await callModel({ model: prompt.model, systemPrompt: prompt.system_prompt, user, temperature: prompt.temperature, maxTokens: prompt.max_tokens });
+        input_tokens += r.input_tokens;
+        output_tokens += r.output_tokens;
+        return FactsheetSchema.parse(parseJsonObject(r.text));
+      };
+      try {
+        return await call();
+      } catch (first) {
+        console.warn(JSON.stringify({ level: "warn", event: "factsheet_merge_retry", message: String(first).slice(0, 200) }));
+        return await call();
+      }
+    };
+
     let factsheet: Factsheet;
-    try {
-      factsheet = FactsheetSchema.parse(parseJsonObject(text));
-    } catch (first) {
-      console.warn(JSON.stringify({ level: "warn", event: "factsheet_merge_retry", message: String(first).slice(0, 200) }));
-      const retry = await callModel({ model: prompt.model, systemPrompt: prompt.system_prompt, user, temperature: prompt.temperature, maxTokens: prompt.max_tokens });
-      factsheet = FactsheetSchema.parse(parseJsonObject(retry.text));
+    if (mergeInput.length <= CHUNK_SIZE) {
+      factsheet = await mergeChunk(mergeInput);
+    } else {
+      // Big dossier: split into chunks, merge each in parallel (each fits the
+      // edge wall-clock), then combine the partials deterministically in code so
+      // the whole build never times out.
+      const chunks: (typeof mergeInput)[] = [];
+      for (let i = 0; i < mergeInput.length; i += CHUNK_SIZE) chunks.push(mergeInput.slice(i, i + CHUNK_SIZE));
+      console.log(JSON.stringify({ level: "info", event: "factsheet_chunked_merge", session_id: sessionId, docs: mergeInput.length, chunks: chunks.length }));
+      const partials = await Promise.all(chunks.map((ch, i) =>
+        mergeChunk(ch).catch((e) => {
+          console.warn(JSON.stringify({ level: "warn", event: "factsheet_chunk_failed", session_id: sessionId, chunk: i, message: String(e).slice(0, 200) }));
+          return null;
+        })
+      ));
+      const good = partials.filter((p): p is Factsheet => p !== null);
+      if (good.length === 0) throw new Error("all chunk merges failed");
+      factsheet = mergeFactsheets(good);
+      if (good.length < chunks.length) {
+        factsheet.inconsistencies.push({
+          description: `${chunks.length - good.length} of ${chunks.length} document groups failed to merge and were excluded from this fact sheet. Rebuild to retry them.`,
+          docs: [],
+          severity: "verify_before_final",
+        });
+      }
     }
 
     // Fold the extraction-coverage warnings into inconsistencies so the panel

@@ -79,6 +79,14 @@ export interface AppendixRow {
   reasoning: string | null;       // fact + legal consequence in one, export-safe
   provenance: string | null;      // internal-only raw trail, excluded from export
   sources?: AppendixRowSource[];  // AI-named backing documents; internal-only, absent on pre-v5 rows
+  /**
+   * True when the row carries the "model did not return a grounded answer"
+   * fallback (F2): the section call failed, or the row was never returned even
+   * after the coverage-retry. The UI/export must show this as an explicit
+   * "not assessed" signal (amber outline), never as a normal status chip, even
+   * when the mootness backstop later stamps it 'N/A'.
+   */
+  ungrounded?: boolean;
   excludedFromClient: boolean;    // advisor hid this row; dropped + renumbered in the client export
   source: 'ai' | 'edited';
   stale: boolean;
@@ -105,7 +113,21 @@ export interface FactEntity {
   entityType: string | null;
   role: 'Taxpayer' | 'Parent' | 'Subsidiary' | 'Group entity';
   ownershipPct: number | null; // parent: effective stake in the taxpayer; subsidiary: taxpayer's effective stake (chain-multiplied)
-  related: boolean;            // meets the >25% related-party (associated enterprise) test
+  related: boolean;            // meets the related-party (associated enterprise) test (any basis below)
+  /**
+   * WHY the entity is related, when it is (F7). 'pct' = the >25% ownership test;
+   * 'consolidation_2_24b' = the 2:24b Dutch Civil Code group (consolidation /
+   * de-facto control, even at 0% shares); 'acting_together' = samenwerkende groep;
+   * 'manual' = advisor asserted it. Set from the factsheet's related_to_taxpayers
+   * basis. An entity with 0% but a consolidation basis is related=true. Undefined
+   * on non-related entities (and legacy data). Rendering groups on this, never on
+   * the bare percentage.
+   */
+  relatednessBasis?: 'pct' | 'consolidation_2_24b' | 'acting_together' | 'manual';
+  /** Tax identification number (RSIN/TIN), from the factsheet; drives duplicate detection (F9a). */
+  tin?: string | null;
+  /** Other names the same entity appears under across documents, from the factsheet (F9a). */
+  aliases?: string[];
   /**
    * For a Group entity that is associated only through a common parent: the
    * register id (e.g. "E3") of that common parent, and its effective stake in this
@@ -147,6 +169,9 @@ export interface FactEntity {
     entityType?: string | null;
     nlTaxStatus?: string | null;
     relationType?: string | null;
+    /** Advisor override for the short role label shown next to the name (e.g. "Group
+     *  company" → "Customer"). Wins over the derived characterisation in roleLabel. */
+    roleLabel?: string | null;
     relatedPct?: number | null;
     relationReason?: string | null;
     nlReason?: string | null;
@@ -286,6 +311,8 @@ export interface TransactionItem {
   relevanceReason?: string | null;
   /** Advisor's editable characteristics + status override (see TransactionAssessment). */
   assessment?: TransactionAssessment;
+  /** Advisor added this flow by hand (not AI-identified); carried across regeneration, deletable outright. */
+  manual?: boolean;
   status: FactStatus;
   excludedFromClient: boolean;
   source: 'ai' | 'edited';
@@ -318,6 +345,20 @@ export interface AppendixFacts {
   transactions: TransactionItem[];
   /** Whole Part A sections the advisor excluded from the client export. */
   excludedSections?: AppendixSectionKey[];
+  /**
+   * Chart-derived entities the advisor deleted outright. They are removed from
+   * `entities` immediately; their chartEntityId is recorded here so a later
+   * regeneration can skip re-adding them (a manual entity has no chart id, so it
+   * simply never comes back).
+   */
+  removedChartEntityIds?: string[];
+  /**
+   * Deterministic validation warnings (F6/F8/F9a): shareholder percentages that
+   * do not sum to ~100%, transactions whose borrower disagrees with the
+   * factsheet, and duplicate entities (shared TIN/alias). Shown quietly on the
+   * Facts page and NEVER in the client export. Advisory only; nothing is changed.
+   */
+  warnings?: string[];
   /** Per-section connective sentences (max ~2 sentences each). */
   narratives?: Partial<Record<NarrativeKey, Narrative>>;
   /**

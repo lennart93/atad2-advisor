@@ -40,6 +40,26 @@ export interface DocumentsBundle {
   fiscalYear: string;
 }
 
+export interface BuildDocumentsOptions {
+  /**
+   * Trim the raw documents because the verified fact sheet is available and is
+   * the primary source (see useStartAnalyze / the re-run). Without this, a big
+   * dossier ships ~180k tokens of raw documents on EVERY question call, which is
+   * slow enough to time out and trip the stall watchdog. With the fact sheet in
+   * hand the raw docs are backup, so we:
+   *   - drop the bulk line-item dumps (general_ledger, trial_balance) whose facts
+   *     are already distilled into the fact sheet,
+   *   - drop raw PDFs (extract-docfacts already OCR'd them into the fact sheet),
+   *   - cap each remaining document so one giant statement cannot dominate.
+   */
+  trim?: boolean;
+}
+
+/** Categories whose raw text is line-item noise once the fact sheet exists. */
+const TRIM_DROP_CATEGORIES = new Set(["general_ledger", "trial_balance"]);
+/** Per-document character cap when trimming (keeps the substantive head of each). */
+const TRIM_MAX_DOC_CHARS = 40_000;
+
 /**
  * Fetch all session documents and split them into:
  *  - textBlock: canonical <document …> XML for text-extractable docs (most
@@ -54,7 +74,8 @@ export interface DocumentsBundle {
  * swarm can anchor on them instead of guessing the taxpayer from a docless
  * image (e.g. a structure chart with 7 NL entities and no metadata).
  */
-export async function buildDocumentsBlock(sessionId: string): Promise<DocumentsBundle> {
+export async function buildDocumentsBlock(sessionId: string, opts: BuildDocumentsOptions = {}): Promise<DocumentsBundle> {
+  const trim = opts.trim === true;
   const [{ data: docs }, { data: session }] = await Promise.all([
     supabase
       .from("atad2_session_documents")
@@ -89,6 +110,9 @@ export async function buildDocumentsBlock(sessionId: string): Promise<DocumentsB
       continue;
     }
     if (d.mime_type === PDF_MIME_TYPE) {
+      // Trimming: a raw PDF's facts are already in the fact sheet (extract-docfacts
+      // OCR'd it), so drop the heavy native block.
+      if (trim) continue;
       pdfRefs.push({
         doc_label: d.doc_label,
         storage_path: d.storage_path,
@@ -96,12 +120,17 @@ export async function buildDocumentsBlock(sessionId: string): Promise<DocumentsB
       });
       continue;
     }
+    // Trimming: skip the line-item dumps whose facts are distilled in the sheet.
+    if (trim && TRIM_DROP_CATEGORIES.has(d.category)) continue;
     textPromises.push((async () => {
       const { data: file } = await supabase.storage
         .from("session-documents")
         .download(d.storage_path);
       if (!file) return null;
-      const text = await file.text();
+      let text = await file.text();
+      if (trim && text.length > TRIM_MAX_DOC_CHARS) {
+        text = `${text.slice(0, TRIM_MAX_DOC_CHARS)}\n[document truncated; full facts are in the verified fact sheet]`;
+      }
       const noteAttr = d.relevance_note
         ? ` relevance_note="${escapeXmlAttr(String(d.relevance_note))}"`
         : "";

@@ -28,7 +28,7 @@ const LABEL_HEIGHT = 18;
 
 function FiscalUnityFrameComp({ data }: NodeProps<FiscalUnityFrameNodeType>) {
   const { width, height, label, kind, groupId, isSelected, onFrameClick, onLabelClick } = data;
-  const stroke = kind === 'fiscal_unity' ? '#8a8980' : '#b5b4ad';
+  const stroke = kind === 'fiscal_unity' ? '#8a8479' : '#b5b4ad';
   const dasharray = kind === 'fiscal_unity' ? '4 4' : '8 4';
   const hasLabel = label.trim().length > 0;
 
@@ -79,7 +79,9 @@ function FiscalUnityFrameComp({ data }: NodeProps<FiscalUnityFrameNodeType>) {
           border: hasLabel ? `0.5px solid ${stroke}` : 'none',
           borderRadius: '2px',
           lineHeight: `${LABEL_HEIGHT}px`,
-          fontFamily: 'Inter, system-ui, sans-serif',
+          // Same stack as EntityNode's CHART_FONT; Inter was the one
+          // off-brand font declaration in the app.
+          fontFamily: "'Neue Haas Grotesk Display Pro', 'Helvetica Neue', Helvetica, Arial, sans-serif",
           fontSize: 11,
           fontWeight: 500,
           color: '#5f5e5a',

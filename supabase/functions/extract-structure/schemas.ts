@@ -14,7 +14,12 @@ export const Stage1Output = z.object({
     temp_id: TempId,
     name: z.string().min(1),
     legal_form: z.string().nullable().optional(),
-    jurisdiction_iso: Iso,
+    // Nullable: the model legitimately cannot pin a jurisdiction for some
+    // entities (natural persons, an unclear SPV). Requiring a string made the
+    // WHOLE stage-1 extraction fail on one such entity ("Expected string,
+    // received null"), which the frontend read as a hang-then-retry. The DB
+    // column is nullable and factsBuild handles a null jurisdiction.
+    jurisdiction_iso: Iso.nullable(),
     entity_type: EntityType,
     is_taxpayer: z.boolean(),
   })).min(1),

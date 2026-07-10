@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, ArrowRight, Loader2, RefreshCw } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { Button, ProcessChecklist, type ProcessStep } from '@/components/ds';
 import { useAuth } from '@/hooks/useAuth';
 import { AssessmentFooterSlot } from '@/components/assessment/AssessmentFooterSlot';
-import { AppendixTable } from '@/components/appendix/AppendixTable';
 import {
   loadAppendix, startAppendixGeneration, pollAppendixUntilReady, saveRowEdit, confirmAppendix, saveFacts, setAppendixSkip, clearAppendixFactsCache,
 } from '@/lib/appendix/client';
@@ -13,11 +13,14 @@ import type { StoredAppendix, AppendixRow, EditableField, AppendixFacts } from '
 import { useAppendixSkeleton } from '@/lib/appendix/skeletonStore';
 import { loadChart } from '@/lib/structure/client';
 import { useUiBusySignal } from '@/stores/uiBusyStore';
-import { FactsPanel } from '@/components/appendix/FactsPanel';
+import { FactsPanelV2 } from '@/components/appendix/v2/FactsPanelV2';
+import { ChecklistV2 } from '@/components/appendix/v2/ChecklistV2';
 import { AppendixLoadingCard } from '@/components/appendix/AppendixLoadingCard';
 import { buildEntityRegister } from '@/lib/appendix/facts/entityRegister';
 import { emptyFacts } from '@/lib/appendix/facts/emptyFacts';
 import { actingTogetherCandidateCount } from '@/lib/appendix/facts/actingCandidates';
+import { openHomeStateCount } from '@/lib/appendix/facts/conclusions';
+import { appendixConfirmReadiness } from '@/lib/appendix/confirmGuard';
 import { supabase } from '@/integrations/supabase/client';
 
 type Phase = 'loading' | 'generating' | 'ready' | 'error';
@@ -48,6 +51,7 @@ function mergeServerUpdate(
 export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' | 'checklist' }) {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   // Reached via an Appendix "Edit" button on the finalized Overview. The footer
   // then returns straight to the overview instead of walking the flow forward.
@@ -56,7 +60,6 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
   const { data: skeleton } = useAppendixSkeleton();
   const [appendix, setAppendix] = useState<StoredAppendix | null>(null);
   const [phase, setPhase] = useState<Phase>('loading');
-  const showSources = true;
   const [confirming, setConfirming] = useState(false);
   const [chart, setChart] = useState<{ entities: Parameters<typeof buildEntityRegister>[0]; edges: Parameters<typeof buildEntityRegister>[1]; groupings: Parameters<typeof buildEntityRegister>[2] } | null>(null);
   // The session's declared taxpayer. Used to anchor the register when extraction
@@ -297,6 +300,18 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
   const hasContent = !!appendix && (appendix.rows.length > 0 || appendix.facts !== null);
   const refining = phase === 'generating';
 
+  // Every foreign entity owes a home-state classification. The facts step cannot be
+  // left until they are all resolved; the register carries the count and a jump chip.
+  const openHomeState = page === 'facts' && appendix?.facts && !appendix.facts_skipped
+    ? openHomeStateCount(factsToShow) : 0;
+  const homeStateBlockTitle = openHomeState > 0
+    ? `Set the home-state classification for ${openHomeState} ${openHomeState === 1 ? 'entity' : 'entities'} before continuing.`
+    : undefined;
+
+  // Gate confirm: a no-risk appendix (nothing Triggered) may not be confirmed
+  // while conditions are still "Insufficient info" (they must be resolved first).
+  const confirmGuard = appendixConfirmReadiness(appendix?.rows ?? []);
+
   // Part A landed with no acting-together group while related shareholders are
   // present. It is left as-is (no automatic rebuild); the advisor can re-ask the
   // model on demand with the button below.
@@ -379,11 +394,12 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
 
       <div className={skipped ? 'opacity-60' : undefined}>
         {page === 'facts' ? (
-          <FactsPanel
+          <FactsPanelV2
             facts={factsToShow}
             onChange={appendix?.facts ? handleFactsChange : undefined}
             generated={!!appendix?.facts}
             refining={refining}
+            sessionId={sessionId}
           />
         ) : (
           // relatedParties is null on purpose: the associated-enterprises panel
@@ -404,7 +420,12 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
                 {refining ? 'Re-running' : 'Re-run analysis'}
               </Button>
             </div>
-            <AppendixTable rows={appendix.rows} skeleton={skeleton} showSources={showSources} relatedParties={null} onEdit={handleEdit} onToggleExclude={handleToggleExclude} />
+            <ChecklistV2 rows={appendix.rows} skeleton={skeleton ?? []} onEdit={handleEdit} onToggleExclude={handleToggleExclude} sessionId={sessionId} />
+            {!confirmGuard.canConfirm && confirmGuard.reason && (
+              // The confirm block, stated where it can be seen: a disabled
+              // button's title tooltip never fires in most browsers.
+              <p className="text-[12.5px] text-ds-ink-secondary">{confirmGuard.reason}</p>
+            )}
           </div>
         )}
       </div>
@@ -440,25 +461,41 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
               // re-confirm. Mirrors the structure chart's return button.
               <Button
                 variant="primary"
-                onClick={() => navigate(`/assessment-report/${sessionId}`)}
-                disabled={refining}
+                onClick={() => {
+                  // Edits made here must show on the overview: drop its cached
+                  // appendix so the (no longer always-refetching) query refetches.
+                  queryClient.invalidateQueries({ queryKey: ['appendix-download', sessionId] });
+                  navigate(`/assessment-report/${sessionId}`);
+                }}
+                disabled={refining || openHomeState > 0}
+                title={homeStateBlockTitle}
               >
                 {refining ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                 {refining ? 'Finishing' : 'Done, return to overview'}
-                <ArrowRight className="h-4 w-4 text-[#e0a48f]" />
+                <ArrowRight className="h-4 w-4" />
               </Button>
             ) : page === 'facts' ? (
-              <Button variant="primary" onClick={() => navigate(`/assessment-appendix/${sessionId}/checklist`)}>
+              <Button
+                variant="primary"
+                onClick={() => navigate(`/assessment-appendix/${sessionId}/checklist`)}
+                disabled={openHomeState > 0}
+                title={homeStateBlockTitle}
+              >
                 Next
-                <ArrowRight className="h-4 w-4 text-[#e0a48f]" />
+                <ArrowRight className="h-4 w-4" />
               </Button>
             ) : (
-              <Button variant="primary" onClick={handleConfirm} disabled={confirming || refining}>
+              <Button
+                variant="primary"
+                onClick={handleConfirm}
+                disabled={confirming || refining || !confirmGuard.canConfirm}
+                title={confirmGuard.reason ?? undefined}
+              >
                 {confirming || refining ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : null}
                 {refining ? 'Finishing' : 'Confirm appendix'}
-                <ArrowRight className="h-4 w-4 text-[#e0a48f]" />
+                <ArrowRight className="h-4 w-4" />
               </Button>
             )}
           </>

@@ -25,9 +25,14 @@ describe('withLocalQualification', () => {
     expect(next.classifications[0]).toMatchObject({ homeClass: '', source: 'edited' });
   });
 
-  it('stores the reverse-hybrid pick in the free-form homeClass spelling', () => {
-    const next = withLocalQualification(facts(), 'E2', 'reverse_hybrid', 'US');
-    expect(next.classifications[0]).toMatchObject({ homeClass: 'reverse hybrid', source: 'edited' });
+  it('stores the non-transparent pick as its free-form homeClass spelling', () => {
+    const next = withLocalQualification(facts(), 'E2', 'non-transparent', 'US');
+    expect(next.classifications[0]).toMatchObject({ homeClass: 'non-transparent', source: 'edited' });
+  });
+
+  it('stores the irrelevant pick as "irrelevant for the analysis"', () => {
+    const next = withLocalQualification(facts(), 'E2', 'irrelevant', 'US');
+    expect(next.classifications[0]).toMatchObject({ homeClass: 'irrelevant for the analysis', source: 'edited' });
   });
 
   it('confirms the row on both paths, so the advisor edit survives factsForClient', () => {

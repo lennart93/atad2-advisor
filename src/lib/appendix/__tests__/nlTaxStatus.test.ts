@@ -29,7 +29,10 @@ describe('NL_CLASSIFICATION_OPTIONS', () => {
   it('round-trips: every option stores a status key that derives its own qualification', () => {
     for (const o of NL_CLASSIFICATION_OPTIONS) {
       expect(nlQualification(o.statusKey)).toBe(o.qual);
-      expect(nlQualificationLabel(o.qual)).toBe(o.label);
+      // The picker label may intentionally differ from the shared display label:
+      // 'undetermined' reads "Unknown" in the picker but "To be determined" in the
+      // register/memo. Every other option keeps the labels aligned.
+      if (o.qual !== 'undetermined') expect(nlQualificationLabel(o.qual)).toBe(o.label);
     }
   });
 });

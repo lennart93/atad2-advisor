@@ -9,6 +9,9 @@ import { isRtfFile, isExcelFile, isPptxFile } from "@/lib/prefill/types";
 import { rtfToText, looksLikeRtf } from "@/lib/prefill/rtfToText";
 import { excelToText } from "@/lib/prefill/excelToText";
 import { pptxToText } from "@/lib/prefill/pptxToText";
+import { loadFactsheet } from "@/lib/factsheet/client";
+import { buildFactsheetBlock } from "@/lib/factsheet/buildFactsheetBlock";
+import { buildPremiseText, type QEdge } from "@/lib/prefill/questionPremise";
 
 export function useSessionDocuments(sessionId: string | null) {
   return useQuery({
@@ -446,12 +449,22 @@ export function useStartAnalyze(sessionId: string | null) {
     mutationFn: async () => {
       if (!sessionId) throw new Error("No session id");
 
+      // 0. Is the verified fact sheet ready? If so it becomes the primary source
+      //    and we TRIM the raw documents (drop ledger/trial-balance dumps + raw
+      //    PDFs, cap each doc): otherwise a big dossier ships ~180k tokens on
+      //    every question call, which is slow enough to time out. Fail-soft: no
+      //    fact sheet -> no trim, full docs, exactly as before.
+      const startFs = await loadFactsheet(sessionId).catch(() => null);
+      const factsheetReady = startFs?.generation_status === "complete" && !!startFs.factsheet;
+
       // 1. Build the documents bundle via the shared helper. Text-extractable
       //    docs go into the prompt as <document> XML; images travel as refs
       //    that the edge function fetches and base64-encodes as Anthropic
       //    image content blocks (Claude native vision, no OCR step).
-      const { textBlock: documentsBlock, imageRefs, pdfRefs, taxpayerName, fiscalYear } = await buildDocumentsBlock(sessionId);
-      if (!documentsBlock && imageRefs.length === 0 && pdfRefs.length === 0) throw new Error("No documents to analyze");
+      const { textBlock: documentsBlock, imageRefs, pdfRefs, taxpayerName, fiscalYear } = await buildDocumentsBlock(sessionId, { trim: factsheetReady });
+      // With a fact sheet in hand it alone is a valid source, so empty trimmed
+      // docs is fine; only bail when there is genuinely nothing to analyse.
+      if (!documentsBlock && imageRefs.length === 0 && pdfRefs.length === 0 && !factsheetReady) throw new Error("No documents to analyze");
 
       // 2. Atomic claim — insert prefill_jobs row.
       const { error: jobErr } = await supabase
@@ -488,33 +501,64 @@ export function useStartAnalyze(sessionId: string | null) {
       //     an abandoned run.
       const stopHeartbeat = startJobHeartbeat(sessionId);
       try {
-        // 3. Load distinct questions.
+        // 3. Load distinct questions + the decision-tree edges (answer_option ->
+        //    next_question_id) so we can tell the swarm WHY each question is
+        //    reached. The swarm answers each question in isolation; without this
+        //    it has to guess the premise from the wording alone.
         const { data: rawQuestions } = await supabase
           .from("atad2_questions")
-          .select("question_id, question, question_explanation");
+          .select("question_id, question, question_explanation, answer_option, next_question_id");
         const uniq = new Map<string, { question_id: string; question: string; question_explanation: string | null }>();
         for (const q of rawQuestions ?? []) {
-          if (!uniq.has(q.question_id)) uniq.set(q.question_id, q as never);
+          if (!uniq.has(q.question_id)) uniq.set(q.question_id, { question_id: q.question_id, question: q.question, question_explanation: q.question_explanation });
         }
         const questions = Array.from(uniq.values());
+
+        // 3a. Derive each question's premise from the tree (walk up while the
+        //     predecessor is unambiguous). Appended to the explanation per call.
+        const edges: QEdge[] = (rawQuestions ?? []).map((q) => ({
+          question_id: q.question_id,
+          answer_option: (q as { answer_option?: string }).answer_option ?? "",
+          next_question_id: (q as { next_question_id?: string | null }).next_question_id ?? null,
+        }));
+        const premiseByQ = buildPremiseText(edges, (id) => uniq.get(id)?.question ?? id);
+
+        // 3b. Use the dossier fact sheet ONLY if it is already complete (a quick,
+        //     non-blocking check) so the swarm never waits: v18 alone already
+        //     produces strong, evidence-based answers, so blocking on a build that
+        //     may not finish would add latency for no gain. When the factsheet is
+        //     not ready yet, the swarm runs without it and the progressive re-run
+        //     upgrades the weak questions once it lands.
+        let factsheetBlock = "";
+        let factsheetVersion: number | null = null;
+        if (factsheetReady && startFs?.factsheet) {
+          factsheetBlock = buildFactsheetBlock(startFs.factsheet);
+          factsheetVersion = startFs.version;
+        }
 
         // 4. Cache-warmup: fire ONE call first so the prompt-cache prefix is
         //    written before we slam Anthropic with N parallel requests.
         const failures: string[] = [];
         const queue = [...questions];
         const work = async (q: typeof questions[number]) => {
+          const premise = premiseByQ.get(q.question_id);
+          const explanation = premise
+            ? `${q.question_explanation ?? ""}\n\n${premise}`.trim()
+            : (q.question_explanation ?? "");
           try {
             await invokePrefillFn({
               action: "analyze_one",
               session_id: sessionId,
               question_id: q.question_id,
               question_text: q.question,
-              question_explanation: q.question_explanation ?? "",
+              question_explanation: explanation,
               documents_block: documentsBlock,
               image_refs: imageRefs,
               pdf_refs: pdfRefs,
               taxpayer_name: taxpayerName,
               fiscal_year: fiscalYear,
+              factsheet_block: factsheetBlock,
+              factsheet_version: factsheetVersion ?? undefined,
             });
           } catch (e) {
             failures.push(`${q.question_id}: ${(e as Error).message}`);

@@ -9,7 +9,8 @@ import { isSectionExcluded } from './facts/sections';
 import { effJurisdiction, effNlQualification, effRelationType, effRelatedPct } from './facts/entityFields';
 import { nlQualificationLabel } from './facts/nlTaxStatus';
 import { actingBasisLabel } from './facts/actingBasis';
-import { cleanReasoning } from './reasoningText';
+import { displayReasoning } from './rowReasoning';
+import { appendixMootRowIds } from './controlType';
 import { deriveConclusions, inScopeEntityIds, effLocalQualification, entityHasQualificationDifference, dutchForeignClassification } from './facts/conclusions';
 import { relevantTransactions, accountedTransactionGroups } from './facts/relevance';
 import { txMemoReason } from './facts/transactionAssessment';
@@ -41,6 +42,9 @@ export function buildAppendixPrintHtml(
 ): string {
   const internal = mode === 'internal';
   const sections: PrintSection[] = [];
+  // A moot N/A row shows its short "not reached" line, not the model's paragraph
+  // (displayReasoning), so the print export agrees with the screen and the memo.
+  const mootSet = appendixMootRowIds(rows);
 
   if (internal) {
     const byId = new Map(rows.map((r) => [r.rowId, r]));
@@ -51,7 +55,7 @@ export function buildAppendixPrintHtml(
       if (!s) { s = { heading: `Section ${sk.sectionId}. ${sk.sectionTitle}`, rows: [] }; sections.push(s); }
       s.rows.push({
         code: sk.rowId, polarityId: sk.rowId, legalBasis: sk.legalBasis, conditionTested: sk.conditionTested,
-        status: row.status, kind: sk.kind, reasoning: row.reasoning, provenance: row.provenance,
+        status: row.status, kind: sk.kind, reasoning: displayReasoning(row, mootSet), provenance: row.provenance,
         stale: row.stale, excluded: row.excludedFromClient,
       });
     }
@@ -61,7 +65,7 @@ export function buildAppendixPrintHtml(
         heading: `Section ${cs.displayNum}. ${cs.sectionTitle}`,
         rows: cs.rows.map((cr) => ({
           code: cr.displayCode, polarityId: cr.sk.rowId, legalBasis: cr.sk.legalBasis, conditionTested: cr.sk.conditionTested,
-          status: cr.row.status, kind: cr.sk.kind, reasoning: cr.row.reasoning, provenance: cr.row.provenance,
+          status: cr.row.status, kind: cr.sk.kind, reasoning: displayReasoning(cr.row, mootSet), provenance: cr.row.provenance,
           stale: cr.row.stale, excluded: false,
         })),
       });
@@ -91,7 +95,7 @@ export function buildAppendixPrintHtml(
             `<td class="c-basis">${esc(r.legalBasis)}</td>` +
             `<td>${esc(r.conditionTested)}</td>` +
             statusCell(r.status, r.polarityId, flags) +
-            `<td class="c-reason">${esc(cleanReasoning(r.reasoning))}</td>${prov}</tr>`
+            `<td class="c-reason">${esc(r.reasoning)}</td>${prov}</tr>`
           );
         })
         .join('');

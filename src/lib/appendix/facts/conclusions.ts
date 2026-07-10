@@ -1,9 +1,10 @@
 import type { AppendixFacts, ClassificationItem, FactEntity } from '@/lib/appendix/types';
 import { visibleFacts } from './visibleFacts';
 import { actingInClientReport } from './actingAnnex';
-import { effJurisdiction, effNlTaxStatus, effNlQualification } from './entityFields';
+import { effJurisdiction, effEntityType, effNlTaxStatus, effNlQualification } from './entityFields';
 import { nlQualification, type NlQualification } from './nlTaxStatus';
 import { relevantTransactions } from './relevance';
+import { defaultClassification } from '@/lib/appendix/classificationDefaults';
 
 /**
  * The deterministic summary-strip flags. Computed from the facts, never stored
@@ -23,6 +24,7 @@ export function localQualification(homeClass: string | null | undefined): NlQual
   if (c === 'transparent') return 'transparent';
   if (c === 'opaque' || c === 'non-transparent') return 'non-transparent';
   if (c === 'reverse hybrid' || c === 'reverse-hybrid' || c === 'reverse_hybrid') return 'reverse-hybrid';
+  if (c === 'irrelevant' || c.startsWith('irrelevant')) return 'irrelevant';
   return 'undetermined';
 }
 
@@ -58,7 +60,9 @@ export function dutchForeignClassification(
  * home state IS the Netherlands, so its local qualification equals the NL
  * qualification by construction: nothing separate is asked for or stored, and a
  * hybrid mismatch is impossible. Every other entity uses the model's / advisor's
- * home-state classification (homeClass).
+ * stored home-state classification (homeClass) verbatim - this is the RAW view the
+ * hybrid-mismatch and transaction-risk logic read, so it stays "undetermined" until
+ * something is actually recorded. For what to SHOW, see displayLocalQualification.
  */
 export function effLocalQualification(
   e: FactEntity,
@@ -66,6 +70,74 @@ export function effLocalQualification(
 ): NlQualification {
   if (isDutchEntity(e)) return dutchForeignClassification(e, c)?.qual ?? effNlQualification(e);
   return localQualification(c?.homeClass);
+}
+
+/**
+ * The deterministic home-state default for a foreign entity whose classification is
+ * still unrecorded: derived from its jurisdiction and legal form (a US Inc./Corp. is
+ * a per-se corporation, a HK Ltd / Irish DAC / Swiss AG is non-transparent, a US LLC
+ * is transparent by default). Returns null for a Dutch entity, one that already
+ * carries any stored home-state view, or an unknown form. The legal form is read
+ * from the name and the entity type together, since the name usually carries the
+ * statutory suffix. A proposal only (its basis is shown as the reasoning, the
+ * advisor confirms). DRAFT, pending tax review.
+ */
+export function foreignDefaultClassification(
+  e: FactEntity,
+  c: ForeignClsFields | null | undefined,
+): { qual: NlQualification; basis: string } | null {
+  if (isDutchEntity(e)) return null;
+  if ((c?.homeClass ?? '').trim() !== '') return null; // a stored view wins, even one the 4-value vocab cannot map
+  const form = `${e.name ?? ''} ${effEntityType(e) ?? ''}`.trim();
+  const def = defaultClassification(effJurisdiction(e), form);
+  if (!def) return null;
+  // A disregarded entity and a partnership are both fiscally transparent; map them
+  // straight to the 4-value vocabulary here (localQualification leaves those raw
+  // strings undetermined on purpose, for a value the model actually stored).
+  const qual: NlQualification = def.homeClass === 'non-transparent' ? 'non-transparent' : 'transparent';
+  return { qual, basis: def.basis };
+}
+
+/**
+ * The local qualification to SHOW for an entity (register + memo): the stored view
+ * when there is one, else the deterministic default for a foreign entity's
+ * jurisdiction + legal form, so a well-known form never displays a bare "To be
+ * determined". Kept separate from effLocalQualification so the hybrid-mismatch and
+ * transaction-risk seeding keep reading the raw, stored view; the default is a
+ * displayed proposal, overridden by any advisor edit.
+ */
+export function displayLocalQualification(
+  e: FactEntity,
+  c: ForeignClsFields | null | undefined,
+): NlQualification {
+  const explicit = effLocalQualification(e, c);
+  if (explicit !== 'undetermined') return explicit;
+  return foreignDefaultClassification(e, c)?.qual ?? 'undetermined';
+}
+
+/**
+ * True when a foreign (non-NL) entity still owes a home-state classification. Every
+ * non-NL entity must record how its home state views it before the facts are
+ * confirmed; the requirement is met by a stored view OR a confident jurisdiction +
+ * legal-form default (so a well-known form is never "open"). An entity dismissed as
+ * not relevant, or demoted out of the relevant set, is not counted.
+ */
+export function isForeignHomeStateOpen(
+  e: FactEntity,
+  c: ForeignClsFields | null | undefined,
+): boolean {
+  if (e.role === 'Taxpayer' || e.memberOfUnityId || e.inTaxpayerFiscalUnity) return false;
+  if (e.edits?.localNotRelevant) return false;
+  if (e.edits?.relevanceOverride === 'out') return false;
+  const jur = (effJurisdiction(e) ?? '').toUpperCase();
+  if (!jur || jur === 'NL') return false;
+  return displayLocalQualification(e, c) === 'undetermined';
+}
+
+/** How many foreign entities still owe a home-state classification (gates the step). */
+export function openHomeStateCount(facts: AppendixFacts): number {
+  const byId = new Map(facts.classifications.map((c) => [c.entityId, c]));
+  return facts.entities.filter((e) => isForeignHomeStateOpen(e, byId.get(e.id))).length;
 }
 
 /** True when this entity's derived NL qualification and the model's local (home-state) qualification are both determined and differ, or the model flagged the row hybrid. */
@@ -82,12 +154,19 @@ export function entityHasQualificationDifference(
     const foreign = dutchForeignClassification(e, c);
     if (!foreign) return false;
     const nl = effNlQualification(e);
-    return nl !== 'undetermined' && foreign.qual !== 'undetermined' && nl !== foreign.qual;
+    return isRealQual(nl) && isRealQual(foreign.qual) && nl !== foreign.qual;
   }
   if (c.hybrid) return true;
   const nl = nlQualification(effNlTaxStatus(e));
   const local = localQualification(c.homeClass);
-  return nl !== 'undetermined' && local !== 'undetermined' && nl !== local;
+  return isRealQual(nl) && isRealQual(local) && nl !== local;
+}
+
+/** A determined qualification that participates in a mismatch. 'undetermined' is
+ * unknown; 'irrelevant' is the advisor saying this entity is out of scope, so
+ * neither can create a hybrid difference. */
+function isRealQual(q: NlQualification): boolean {
+  return q !== 'undetermined' && q !== 'irrelevant';
 }
 
 /**

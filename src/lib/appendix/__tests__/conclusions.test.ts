@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { deriveConclusions, inScopeEntityIds, localQualification, effLocalQualification, entityHasQualificationDifference, dutchForeignClassification } from '@/lib/appendix/facts/conclusions';
+import { deriveConclusions, inScopeEntityIds, localQualification, effLocalQualification, displayLocalQualification, foreignDefaultClassification, entityHasQualificationDifference, dutchForeignClassification, isForeignHomeStateOpen, openHomeStateCount } from '@/lib/appendix/facts/conclusions';
 import type { AppendixFacts, FactEntity, TransactionItem, ClassificationItem } from '@/lib/appendix/types';
 
 const ent = (id: string, patch: Partial<FactEntity> = {}): FactEntity => ({
@@ -179,7 +179,75 @@ describe('effLocalQualification', () => {
   it('uses the home-state classification for a foreign entity', () => {
     const us = ent('E3', { jurisdiction: 'US', nlTaxStatus: 'transparent' });
     expect(effLocalQualification(us, cls('E3', { homeClass: 'opaque' }))).toBe('non-transparent');
+    // The RAW effective view stays undetermined until something is stored; the
+    // deterministic default only feeds displayLocalQualification.
     expect(effLocalQualification(us, undefined)).toBe('undetermined');
+  });
+});
+
+describe('displayLocalQualification / foreignDefaultClassification', () => {
+  it('fills an unset foreign view from the jurisdiction + legal form', () => {
+    const hkLtd = ent('E1', { jurisdiction: 'HK', name: 'WMC Group Asia Limited', entityType: 'corporation', nlTaxStatus: null });
+    const dac = ent('E2', { jurisdiction: 'IE', name: 'Joshua Energy One Designated Activity Company', entityType: 'corporation', nlTaxStatus: null });
+    const usCorp = ent('E3', { jurisdiction: 'US', name: 'WMC Energy Corp.', entityType: 'corporation', nlTaxStatus: null });
+    const usLlc = ent('E4', { jurisdiction: 'US', name: 'Delaware Holdings LLC', entityType: 'partnership', nlTaxStatus: null });
+    expect(displayLocalQualification(hkLtd, undefined)).toBe('non-transparent');
+    expect(displayLocalQualification(dac, undefined)).toBe('non-transparent');
+    expect(displayLocalQualification(usCorp, undefined)).toBe('non-transparent');
+    expect(displayLocalQualification(usLlc, undefined)).toBe('transparent');
+    expect(foreignDefaultClassification(hkLtd, undefined)?.basis).toMatch(/Hong Kong/i);
+  });
+
+  it('never overrides a stored home-state view, and leaves a Dutch entity / unknown form open', () => {
+    const usLlc = ent('E4', { jurisdiction: 'US', name: 'Delaware Holdings LLC', entityType: 'partnership' });
+    // A stored (even unmappable) class wins over the default: mirrors the register.
+    expect(displayLocalQualification(usLlc, cls('E4', { homeClass: 'disregarded' }))).toBe('undetermined');
+    expect(foreignDefaultClassification(usLlc, cls('E4', { homeClass: 'opaque' }))).toBeNull();
+    // Dutch entity: no foreign default; unknown foreign form: stays undetermined.
+    const nl = ent('E5', { jurisdiction: 'NL', name: 'Some BV' });
+    const unknown = ent('E6', { jurisdiction: 'BE', name: 'Mystery Vorm', entityType: null, nlTaxStatus: null });
+    expect(foreignDefaultClassification(nl, undefined)).toBeNull();
+    expect(displayLocalQualification(unknown, undefined)).toBe('undetermined');
+  });
+});
+
+describe('isForeignHomeStateOpen / openHomeStateCount', () => {
+  it('is open only for a foreign entity with no determined home-state view', () => {
+    // Unknown foreign form, nothing stored: genuinely open.
+    const unknown = ent('E1', { jurisdiction: 'BE', name: 'Mystery Vorm', entityType: null, nlTaxStatus: null });
+    expect(isForeignHomeStateOpen(unknown, undefined)).toBe(true);
+
+    // A confident jurisdiction + legal-form default satisfies the requirement.
+    const usCorp = ent('E2', { jurisdiction: 'US', name: 'WMC Energy Corp.', entityType: 'corporation', nlTaxStatus: null });
+    expect(isForeignHomeStateOpen(usCorp, undefined)).toBe(false);
+
+    // A stored home-state view satisfies it too.
+    expect(isForeignHomeStateOpen(unknown, cls('E1', { homeState: 'BE', homeClass: 'opaque' }))).toBe(false);
+  });
+
+  it('never fires for an NL entity, a jurisdiction-less entity, or the taxpayer / fiscal-unity members', () => {
+    expect(isForeignHomeStateOpen(ent('E1', { jurisdiction: 'NL', nlTaxStatus: null }), undefined)).toBe(false);
+    expect(isForeignHomeStateOpen(ent('E2', { jurisdiction: null, nlTaxStatus: null }), undefined)).toBe(false);
+    expect(isForeignHomeStateOpen(ent('E3', { jurisdiction: 'US', role: 'Taxpayer', nlTaxStatus: null }), undefined)).toBe(false);
+    expect(isForeignHomeStateOpen(ent('E4', { jurisdiction: 'US', memberOfUnityId: 'E1', nlTaxStatus: null }), undefined)).toBe(false);
+  });
+
+  it('is silenced by an explicit not-relevant dismissal or a demotion out of the relevant set', () => {
+    const base = { jurisdiction: 'BE', name: 'Mystery Vorm', entityType: null, nlTaxStatus: null } as const;
+    expect(isForeignHomeStateOpen(ent('E1', { ...base, edits: { localNotRelevant: true } }), undefined)).toBe(false);
+    expect(isForeignHomeStateOpen(ent('E2', { ...base, edits: { relevanceOverride: 'out' } }), undefined)).toBe(false);
+  });
+
+  it('counts every open foreign entity across the register', () => {
+    const f = facts({
+      entities: [
+        ent('E1', { role: 'Taxpayer', jurisdiction: 'NL' }),
+        ent('E2', { jurisdiction: 'BE', name: 'Mystery Vorm', entityType: null, nlTaxStatus: null }), // open
+        ent('E3', { jurisdiction: 'FR', name: 'Autre Forme', entityType: null, nlTaxStatus: null }),  // open
+        ent('E4', { jurisdiction: 'US', name: 'WMC Energy Corp.', entityType: 'corporation', nlTaxStatus: null }), // default satisfies
+      ],
+    });
+    expect(openHomeStateCount(f)).toBe(2);
   });
 });
 

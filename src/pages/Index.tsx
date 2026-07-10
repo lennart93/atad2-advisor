@@ -23,6 +23,7 @@ import { formatDate } from "@/utils/formatDate";
 import { formatFiscalYears } from "@/utils/formatFiscalYears";
 import { resumeUrlForSession } from "@/lib/assessment/resumeUrl";
 import { taxpayerDisplayName } from "@/lib/taxpayer";
+import { TaxpayerSubject } from "@/components/TaxpayerSubject";
 import { readLastStep } from "@/lib/assessment/lastStep";
 import { stepUrlForKey } from "@/lib/assessment/steps";
 import { groupSessionFacts } from "@/lib/dashboard/sessionFacts";
@@ -185,8 +186,6 @@ const Index = () => {
   };
 
   const deleteSession = async (sessionId: string, sessionUuid: string) => {
-    console.log('DELETE ATTEMPT:', { sessionId, sessionUuid });
-
     try {
       // First check if the session exists
       const { data: existingSession, error: checkError } = await supabase
@@ -195,8 +194,6 @@ const Index = () => {
         .eq('session_id', sessionId)
         .single();
 
-      console.log('EXISTING SESSION:', existingSession, 'CHECK ERROR:', checkError);
-
       // Delete the session by session_id - answers will be automatically deleted via CASCADE
       const { data: deleteData, error } = await supabase
         .from('atad2_sessions')
@@ -204,18 +201,11 @@ const Index = () => {
         .eq('session_id', sessionId)
         .select(); // Return deleted rows for debugging
 
-      console.log('DELETE RESULT:', { deleteData, error });
-
       if (error) throw error;
 
       // Remove from UI state immediately (no need to reload)
       setSessions(prev => {
         const newSessions = prev.filter(session => session.session_id !== sessionId);
-        console.log('UI STATE UPDATE:', {
-          before: prev.length,
-          after: newSessions.length,
-          removedSessionId: sessionId
-        });
         return newSessions;
       });
 
@@ -255,7 +245,7 @@ const Index = () => {
           </div>
           <Button onClick={() => navigate("/assessment")} className="self-start gap-2 sm:self-end">
             New assessment
-            <ArrowRight className="h-4 w-4 text-brand-terracotta" />
+            <ArrowRight className="h-4 w-4" />
           </Button>
         </header>
 
@@ -305,7 +295,7 @@ const Index = () => {
                 const dotClass = ready
                   ? "bg-brand-sage"
                   : inProgress
-                    ? "bg-brand-terracotta"
+                    ? "bg-ds-blue"
                     : "bg-ds-ink-tertiary";
 
                 return (
@@ -325,8 +315,8 @@ const Index = () => {
                       </span>
 
                       {/* Client */}
-                      <h3 className="pointer-events-none relative truncate text-[19px] font-normal tracking-tight text-ds-ink sm:text-[22px]">
-                        {taxpayerLabel}
+                      <h3 className="pointer-events-none relative min-w-0 text-[19px] font-normal tracking-tight text-ds-ink sm:text-[22px]">
+                        <TaxpayerSubject stored={session.taxpayer_name} moreClassName="text-[14px] sm:text-[15px]" />
                       </h3>
 
                       {/* Period */}
@@ -350,7 +340,7 @@ const Index = () => {
                             e.stopPropagation();
                             navigate(session.destination_url);
                           }}
-                          className="inline-flex items-center gap-2 text-[13px] text-ds-ink transition-colors hover:text-brand-terracotta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent"
+                          className="inline-flex items-center gap-2 text-[13px] text-ds-ink transition-colors hover:text-ds-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent"
                         >
                           {actionLabel}
                           <ArrowRight className="h-3.5 w-3.5" />

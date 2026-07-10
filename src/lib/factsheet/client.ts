@@ -74,3 +74,62 @@ export async function startFactsheetBuild(sessionId: string): Promise<void> {
   });
   if (error) throw error;
 }
+
+/**
+ * Best-effort gate used right before the swarm starts (useStartAnalyze): give the
+ * dossier fact sheet a bounded chance to finish so the swarm runs ONCE, grounded,
+ * instead of racing the factsheet build and re-doing weak questions. Fires
+ * extraction for any document without a facts row, triggers the build, and polls
+ * until the factsheet is complete or `capMs` elapses.
+ *
+ * NEVER throws and NEVER blocks indefinitely: on timeout (or any error) it returns
+ * null and the caller runs the swarm without the block, exactly as before, with
+ * the progressive re-run as the safety net. Keep capMs comfortably under the
+ * AnalyzingScreen stall watchdog (120s) so the wait itself never trips a stall.
+ */
+export async function ensureFactsheetReady(
+  sessionId: string,
+  capMs = 60_000,
+): Promise<StoredFactsheet | null> {
+  const deadline = Date.now() + capMs;
+  try {
+    // 1. Kick off extraction for any document that has no facts row yet (a fast
+    //    upload where the prewarm had no time). Idempotent per document.
+    const { data: docs } = await supabase
+      .from("atad2_session_documents").select("id").eq("session_id", sessionId);
+    const docIds = (docs ?? []).map((d) => d.id as string);
+    if (docIds.length === 0) return null;
+    const statuses0 = await loadDocFactsStatuses(sessionId);
+    const haveRow = new Set(statuses0.map((s) => s.document_id));
+    await Promise.all(
+      docIds.filter((id) => !haveRow.has(id)).map((id) => startDocFactsExtraction(sessionId, id).catch(() => {})),
+    );
+
+    // 2. Wait for every document to reach a terminal facts status (complete/error).
+    while (Date.now() < deadline) {
+      const statuses = await loadDocFactsStatuses(sessionId);
+      const terminal = docIds.filter((id) => {
+        const s = statuses.find((x) => x.document_id === id);
+        return s && (s.status === "complete" || s.status === "error");
+      });
+      if (terminal.length === docIds.length) break;
+      await sleep(2500);
+    }
+
+    // 3. Trigger the build and poll until it completes (or the cap hits).
+    await startFactsheetBuild(sessionId).catch(() => {});
+    while (Date.now() < deadline) {
+      const fs = await loadFactsheet(sessionId);
+      if (fs?.generation_status === "complete" && fs.factsheet) return fs;
+      if (fs?.generation_status === "error") return null;
+      await sleep(2500);
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}

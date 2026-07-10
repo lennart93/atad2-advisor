@@ -15,12 +15,15 @@ export function shortTransactionType(kind: string | null | undefined): string {
   if (!k) return '';
   const l = k.toLowerCase();
   if (/management fee|mgmt fee/.test(l)) return 'Management fee';
+  if (/current.?account|rekening.?courant/.test(l)) return 'Current account';
   if (/service|consult|advisor|secondment/.test(l)) return 'Services';
   if (/intra.?group|inter.?company|fiscal unity|fiscale eenheid/.test(l)) return 'Intra-group';
   if (/interest|loan|financ|debt|credit|note|bond|facilit/.test(l)) return 'Financing';
   if (/royalt|licen|intellectual property/.test(l)) return 'Royalties';
   if (/dividend|equity|share|capital|contribution|distribution/.test(l)) return 'Equity';
   if (/management/.test(l)) return 'Management fee';
-  // Unknown: keep the original rather than invent a category.
-  return k;
+  // Unknown: keep the original wording, but tidy raw snake_case / kebab-case into
+  // title case so a value like "current_account" never reaches the row verbatim.
+  const tidy = k.replace(/[_-]+/g, ' ').trim();
+  return tidy.charAt(0).toUpperCase() + tidy.slice(1);
 }

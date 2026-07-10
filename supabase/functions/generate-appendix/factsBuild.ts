@@ -33,6 +33,14 @@ export interface FactEntity {
   role: "Taxpayer" | "Parent" | "Subsidiary" | "Group entity";
   ownershipPct: number | null;
   related: boolean;
+  /** WHY related (F7): 'pct' | 'consolidation_2_24b' | 'acting_together' | 'manual'.
+   * Set from the factsheet; a 0%-but-consolidated entity is related=true. Mirror of
+   * src/lib/appendix/types.ts. */
+  relatednessBasis?: "pct" | "consolidation_2_24b" | "acting_together" | "manual";
+  /** TIN/RSIN from the factsheet; drives duplicate detection (F9a). */
+  tin?: string | null;
+  /** Alternate names across documents, from the factsheet (F9a). */
+  aliases?: string[];
   /** Group entity associated via a common parent: that parent's register id + its effective stake here. */
   relatedVia?: string | null;
   relatedViaPct?: number | null;
@@ -101,6 +109,8 @@ export interface TransactionItem {
    * the frontend TransactionAssessment; no derivation runs on the Deno side.
    */
   assessment?: Record<string, unknown>;
+  /** Advisor added this flow by hand (not AI-identified); carried across regeneration by mergeFacts. Mirror of src/lib/appendix/types.ts. */
+  manual?: boolean;
   status: "proposed" | "confirmed";
   excludedFromClient: boolean;
   source: "ai" | "edited";
@@ -144,6 +154,10 @@ export interface AppendixFacts {
   transactions: TransactionItem[];
   /** Whole Part A sections the advisor excluded from the client export. */
   excludedSections?: string[];
+  /** Deterministic validation warnings (F6/F8/F9a): sum-check, borrower mismatch,
+   * duplicate entities. Facts-page only, never in the client export. Mirror of
+   * src/lib/appendix/types.ts. */
+  warnings?: string[];
   /** One connective sentence per funnel section; advisor edits survive regeneration. */
   narratives?: Partial<Record<NarrativeKey, Narrative>>;
   /** True once a successful facts pass settled its acting-together assessment
@@ -226,16 +240,29 @@ function effectiveFraction(src: string, dst: string, g: OwnershipGraph): number 
 
 function roundPct(n: number): number { return Math.round(n * 100) / 100; }
 
+// Apex members: those NOT owned (directly/indirectly) by another member of the set.
+// A stake into a nested taxpayer chain reaches every member below the top, so summing
+// the effective fraction over ALL members would tally that one stake once per
+// downstream member (a 40% top-level holding clamped to 100%). Measure against the
+// apex only. Falls back to the whole set if a cycle leaves no apex.
+function apexMembers(members: string[], g: OwnershipGraph): string[] {
+  const set = new Set(members);
+  const apex = members.filter(
+    (m) => ![...set].some((o) => o !== m && reaches(o, new Set([m]), g)),
+  );
+  return apex.length ? apex : members;
+}
+
 function effectivePctToSet(src: string, targets: Iterable<string>, g: OwnershipGraph): number | null {
   let sum = 0;
-  for (const t of targets) sum += effectiveFraction(src, t, g);
+  for (const t of apexMembers([...targets], g)) sum += effectiveFraction(src, t, g);
   if (sum <= 0) return null;
   return roundPct(Math.min(sum, 1) * 100);
 }
 
 function effectivePctFromSet(sources: Iterable<string>, dst: string, g: OwnershipGraph): number | null {
   let sum = 0;
-  for (const s of sources) sum += effectiveFraction(s, dst, g);
+  for (const s of apexMembers([...sources], g)) sum += effectiveFraction(s, dst, g);
   if (sum <= 0) return null;
   return roundPct(Math.min(sum, 1) * 100);
 }
@@ -404,6 +431,7 @@ export function buildEntityRegister(entities: RawEntity[], edges: RawEdge[], gro
     role: c.role,
     ownershipPct: c.pct,
     related: c.related,
+    ...(c.related ? { relatednessBasis: "pct" as const } : {}),
     relatedVia: c.relatedViaChartId ?? null,
     relatedViaPct: c.relatedViaPct,
     ...(c.direct == null ? {} : { directLink: c.direct }),

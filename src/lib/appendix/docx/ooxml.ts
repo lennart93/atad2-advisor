@@ -153,6 +153,8 @@ export interface Cell {
   italic?: boolean;
   /** Run colour, hex without # (applies to the simple text path). */
   color?: string;
+  /** Font size in half-points for the simple text path; omit to inherit the style size. */
+  sz?: number;
   /** Cell background fill, hex without # (e.g. "FBFAF9"). */
   shade?: string;
   /** Merge this many grid columns. */
@@ -205,7 +207,7 @@ export function cell(c: Cell): string {
   if (c.paras != null) return `<w:tc>${tcPr}${c.paras}</w:tc>`;
   const jc = c.align && c.align !== 'left' ? `<w:jc w:val="${c.align}"/>` : '';
   const pPr = `<w:pPr><w:spacing w:after="${c.spacingAfter ?? 20}" w:line="${c.line ?? 240}" w:lineRule="auto"/>${jc}</w:pPr>`;
-  const inner = c.runs != null ? c.runs : run(c.text ?? '', { bold: c.bold, italic: c.italic, color: c.color });
+  const inner = c.runs != null ? c.runs : run(c.text ?? '', { bold: c.bold, italic: c.italic, color: c.color, sz: c.sz });
   return `<w:tc>${tcPr}<w:p>${pPr}${inner}</w:p></w:tc>`;
 }
 

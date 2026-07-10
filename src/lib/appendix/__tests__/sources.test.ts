@@ -112,13 +112,14 @@ describe('buildSourcePanelRows', () => {
   });
 
   it('orders structured sources before the derived and internal rows', () => {
+    // 7.1 (recapture) is moot when nothing was denied.
     const moot = appendixMootRowIds([
-      { rowId: '4.1', status: 'N/A' },
+      { rowId: '7.1', status: 'N/A' },
       { rowId: '3.1', status: 'Not triggered' },
     ]);
     const rows = buildSourcePanelRows(
       row({
-        rowId: '4.1',
+        rowId: '7.1',
         status: 'N/A',
         provenance: 'Q12',
         sources: [{ kind: 'on_file', name: 'Group structure memo', note: null }],

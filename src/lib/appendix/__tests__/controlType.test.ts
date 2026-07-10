@@ -33,24 +33,36 @@ describe('controlTypeFor', () => {
   });
 
   it('renders a moot row as N/A even when its stored status is a stale Not triggered', () => {
-    // 4.1 (secondary rule) and 2.3 are moot on the clean dossier.
-    expect(controlTypeFor(row('4.1', 'Not triggered'), moot)).toBe('na');
-    expect(controlTypeFor(row('2.3', 'Insufficient information'), moot)).toBe('na');
+    // 7.1 (recapture), 2.3 and 2.2 (structured arrangement, moot once the parties
+    // are associated) are moot on the clean dossier.
     expect(controlTypeFor(row('7.1', 'Not triggered'), moot)).toBe('na');
+    expect(controlTypeFor(row('2.3', 'Insufficient information'), moot)).toBe('na');
+    expect(controlTypeFor(row('2.2', 'Not triggered'), moot)).toBe('na');
   });
 
   it('honours an advisor override on a moot row (a deliberate status wins)', () => {
-    expect(controlTypeFor(row('4.1', 'Triggered', 'edited'), moot)).toBe('status');
+    expect(controlTypeFor(row('7.1', 'Triggered', 'edited'), moot)).toBe('status');
   });
 
-  it('renders Section 6 (including 6.1) as standard status rows', () => {
-    expect(controlTypeFor(row('6.1', 'Triggered'), moot)).toBe('status');
+  it('keeps the secondary rule (4.1) a live status row, never auto-moot', () => {
+    expect(controlTypeFor(row('4.1', 'Not triggered'), moot)).toBe('status');
+  });
+
+  it('renders the art. 12ad relatedness precondition (6.1) as a gate', () => {
+    // A met 6.1 (payment to a related party) reads "Applicable", like 2.1.
+    expect(controlTypeFor(row('6.1', 'Triggered'), moot)).toBe('gate');
+    // The substantive Section 6 tests stay status rows.
     expect(controlTypeFor(row('6.2', 'Not triggered'), moot)).toBe('status');
   });
 
   it('renders substantive conditions as status pills', () => {
-    expect(controlTypeFor(row('2.2', 'Not triggered'), moot)).toBe('status');
     expect(controlTypeFor(row('3.1', 'Triggered'), moot)).toBe('status');
     expect(controlTypeFor(row('8.1', 'Not triggered'), moot)).toBe('status');
+  });
+
+  it('keeps the structured arrangement (2.2) a live status row for unrelated parties with a mismatch', () => {
+    const liveDossier = { ...cleanDossier, '2.1': 'Not triggered' as Status, '3.1': 'Triggered' as Status };
+    const liveMoot = appendixMootRowIds(Object.entries(liveDossier).map(([rowId, status]) => ({ rowId, status })));
+    expect(controlTypeFor(row('2.2', 'Not triggered'), liveMoot)).toBe('status');
   });
 });

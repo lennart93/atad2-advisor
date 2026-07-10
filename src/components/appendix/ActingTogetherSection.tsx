@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import type { AppendixFacts, ActingTogetherCluster, FactEntity } from '@/lib/appendix/types';
 import { visibleFacts } from '@/lib/appendix/facts/visibleFacts';
 import { ACTING_BASES, actingBasisLabel, type ActingBasis } from '@/lib/appendix/facts/actingBasis';
+import { actingTogetherCandidateEntities } from '@/lib/appendix/facts/actingCandidates';
 import {
   addActingGroup,
   adoptActingSuggestion,
@@ -51,9 +52,15 @@ function holdingOf(facts: AppendixFacts, id: string): number | null {
   return e ? effRelatedPct(e) : null;
 }
 
-/** The entities the advisor can group: any non-taxpayer, non-fiscal-unity party. */
+/** The entities the advisor can group: parents and direct shareholders of the
+ *  taxpayer (the parties whose holdings an acting-together assessment combines).
+ *  Subsidiaries and other downstream group entities hold nothing in the taxpayer,
+ *  so they are never offered as members. Fiscal-unity parties sit on the taxpayer
+ *  side and are excluded too. */
 function memberCandidates(facts: AppendixFacts): FactEntity[] {
-  return facts.entities.filter((e) => e.role !== 'Taxpayer' && !e.isFiscalUnity && !e.memberOfUnityId);
+  return actingTogetherCandidateEntities(facts.entities).filter(
+    (e) => !e.isFiscalUnity && !e.memberOfUnityId,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -115,12 +122,14 @@ const SELECT_CLS =
 
 // ---------------------------------------------------------------------------
 
-/** One advisor-built group: name + category, members, target, reasoning, visibility. */
-function ManualGroupCard({ facts, cluster, editable, onChange }: {
+/** One advisor-built group: name + category, members, target, reasoning, visibility.
+ *  `bare` drops the outer card chrome so it can sit flush inside the V2 detail panel. */
+export function ManualGroupCard({ facts, cluster, editable, onChange, bare }: {
   facts: AppendixFacts;
   cluster: ActingTogetherCluster;
   editable: boolean;
   onChange?: (next: AppendixFacts) => void;
+  bare?: boolean;
 }) {
   const candidates = memberCandidates(facts);
   const addable = candidates.filter((e) => !cluster.memberEntityIds.includes(e.id));
@@ -128,9 +137,9 @@ function ManualGroupCard({ facts, cluster, editable, onChange }: {
   const visible = !cluster.excludedFromClient;
 
   return (
-    <div className="rounded-lg border border-border bg-card">
+    <div className={cn(!bare && 'rounded-lg border border-border bg-card')}>
       {/* Header: name + category + remove */}
-      <div className="flex flex-wrap items-center gap-2.5 border-b border-border bg-[#fdfcf9] px-4 py-3">
+      <div className={cn('flex flex-wrap items-center gap-2.5', bare ? 'pb-3' : 'border-b border-border bg-[#fdfcf9] px-4 py-3')}>
         {editable ? (
           <input
             value={cluster.name ?? ''}
@@ -169,7 +178,7 @@ function ManualGroupCard({ facts, cluster, editable, onChange }: {
         )}
       </div>
 
-      <div className="space-y-5 px-4 py-4">
+      <div className={cn('space-y-5 py-4', !bare && 'px-4')}>
         {hasHoldings && <CombinedMeter facts={facts} cluster={cluster} />}
 
         {/* Members */}
@@ -288,7 +297,7 @@ function ManualGroupCard({ facts, cluster, editable, onChange }: {
 // ---------------------------------------------------------------------------
 
 /** The "Add acting-together group" form: pick 2+ members, name, category, target. */
-function GroupBuilder({ facts, defaultTargetId, onCreate, onCancel }: {
+export function GroupBuilder({ facts, defaultTargetId, onCreate, onCancel }: {
   facts: AppendixFacts;
   defaultTargetId: string | null;
   onCreate: (input: { memberEntityIds: string[]; name: string; basis: ActingBasis; targetEntityId: string | null }) => void;
@@ -313,7 +322,7 @@ function GroupBuilder({ facts, defaultTargetId, onCreate, onCancel }: {
       <div className="mt-4">
         <p className="text-[10.5px] font-medium uppercase tracking-[0.13em] text-muted-foreground">Members {selected.length > 0 && <span className="text-muted-foreground/60">· {selected.length} selected</span>}</p>
         {candidates.length === 0 ? (
-          <p className="mt-2 text-[12.5px] text-muted-foreground">No entities or persons are available to group yet.</p>
+          <p className="mt-2 text-[12.5px] text-muted-foreground">No parents or direct shareholders of the taxpayer are available to group yet.</p>
         ) : (
           <div className="mt-2 flex flex-wrap gap-2">
             {candidates.map((e) => {
@@ -403,7 +412,7 @@ function GroupBuilder({ facts, defaultTargetId, onCreate, onCancel }: {
 // ---------------------------------------------------------------------------
 
 /** A non-binding AI suggestion the advisor can adopt into a real group or dismiss. */
-function HintCard({ facts, cluster, onChange }: {
+export function HintCard({ facts, cluster, onChange }: {
   facts: AppendixFacts;
   cluster: ActingTogetherCluster;
   onChange: (next: AppendixFacts) => void;
@@ -462,11 +471,11 @@ export function ActingTogetherSection({ facts, onChange, generated, refining }: 
   return (
     <div className="space-y-6">
       {/* Clarity lede: what the test is and why it is an advisor judgement call. */}
-      <p className="max-w-[660px] text-[14.5px] leading-[1.62] text-foreground">
-        For ATAD2, shareholders are associated enterprises from <span className="font-medium">{THRESHOLD}%</span>. Holders below
-        that line only matter if they <span className="font-medium">act together</span> as one group. The documents rarely
-        state this, so define the cooperating groups yourself: choose the members, the basis, and adjust the reasoning that
-        feeds the memo.
+      <p className="max-w-[900px] text-[14.5px] leading-[1.62] text-foreground">
+        For ATAD2, a shareholder is associated from <span className="font-medium">{THRESHOLD}%</span>. Separate holders that
+        <span className="font-medium"> act together</span> count as one group, so a 10% holder can join a party already above the
+        line, or several small stakes can cross it together. Documents rarely say who cooperates, so define any groups that act
+        together in the meaning of the law.
       </p>
 
       {manualGroups.map((cluster) => (

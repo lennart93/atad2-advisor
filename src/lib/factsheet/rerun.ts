@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { buildDocumentsBlock } from "@/lib/prefill/buildDocumentsBlock";
 import { invokePrefillFn } from "@/hooks/usePrefill";
 import { buildFactsheetBlock } from "./buildFactsheetBlock";
+import { buildPremiseText, type QEdge } from "@/lib/prefill/questionPremise";
 import type { Factsheet } from "./schema";
 
 export interface RerunProgress {
@@ -35,17 +36,27 @@ export async function runFactsheetRerun(
   const factsheetBlock = buildFactsheetBlock(factsheet);
   if (!factsheetBlock) return { ok: 0, failed: 0 };
 
-  const { textBlock, imageRefs, pdfRefs, taxpayerName, fiscalYear } = await buildDocumentsBlock(sessionId);
+  // The re-run only fires with a complete fact sheet, so it is always the
+  // primary source: trim the raw documents (drop dumps + PDFs, cap each) to keep
+  // each call fast.
+  const { textBlock, imageRefs, pdfRefs, taxpayerName, fiscalYear } = await buildDocumentsBlock(sessionId, { trim: true });
   if (!textBlock && imageRefs.length === 0 && pdfRefs.length === 0) return { ok: 0, failed: 0 };
 
-  // Question text/explanation for the selected ids (distinct by question_id).
+  // Question text/explanation + decision-tree edges for the premise (same as the
+  // primary swarm, so the re-run also tells the model why a question is reached).
   const { data: rawQuestions } = await supabase
     .from("atad2_questions")
-    .select("question_id, question, question_explanation");
+    .select("question_id, question, question_explanation, answer_option, next_question_id");
   const byId = new Map<string, { question: string; question_explanation: string | null }>();
   for (const q of rawQuestions ?? []) {
     if (!byId.has(q.question_id)) byId.set(q.question_id, { question: q.question, question_explanation: q.question_explanation });
   }
+  const edges: QEdge[] = (rawQuestions ?? []).map((q) => ({
+    question_id: q.question_id,
+    answer_option: (q as { answer_option?: string }).answer_option ?? "",
+    next_question_id: (q as { next_question_id?: string | null }).next_question_id ?? null,
+  }));
+  const premiseByQ = buildPremiseText(edges, (id) => byId.get(id)?.question ?? id);
 
   const targets = questionIds.filter((id) => byId.has(id));
   let done = 0;
@@ -60,13 +71,15 @@ export async function runFactsheetRerun(
   const queue = [...targets];
   const work = async (questionId: string) => {
     const q = byId.get(questionId)!;
+    const premise = premiseByQ.get(questionId);
+    const explanation = premise ? `${q.question_explanation ?? ""}\n\n${premise}`.trim() : (q.question_explanation ?? "");
     try {
       await invokePrefillFn({
         action: "analyze_one",
         session_id: sessionId,
         question_id: questionId,
         question_text: q.question,
-        question_explanation: q.question_explanation ?? "",
+        question_explanation: explanation,
         documents_block: textBlock,
         image_refs: imageRefs,
         pdf_refs: pdfRefs,

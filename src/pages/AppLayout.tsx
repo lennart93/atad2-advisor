@@ -35,9 +35,12 @@ const AppLayout = () => {
     location.pathname.startsWith("/assessment-");
   const isBareRoute = isAdminRoute || isAssessmentRoute;
 
-  useAssessmentLeaveGuard(isAssessmentRoute);
-
   const isBusy = useIsUiBusy();
+
+  // Only warn while work is actually running (analysis, generation). Progress
+  // is auto-saved, so a blanket warning on every assessment page nagged about
+  // nothing and taught users to ignore the one dialog that matters.
+  useAssessmentLeaveGuard(isAssessmentRoute && isBusy);
   const { hasAccess, isAdmin, isModerator } = useAdminAccess();
 
   const { data: userProfile } = useQuery({
@@ -82,8 +85,12 @@ const AppLayout = () => {
                 <TooltipContent side="bottom">To dashboard</TooltipContent>
               </Tooltip>
             </TooltipProvider>
-            <div>
-              <h1 className="text-base sm:text-lg font-normal tracking-tight">ATAD2 risk assessment</h1>
+            {/* On phone widths the logo is the brand; the wordmark + welcome
+                line otherwise push the header past the viewport (h-scroll). */}
+            <div className="hidden sm:block">
+              {/* Not a heading: every page supplies its own h1; a second h1 in
+                  the chrome makes the document outline lie. */}
+              <p className="text-base sm:text-lg font-normal tracking-tight">ATAD2 risk assessment</p>
               {user && (
                 <p className="text-xs sm:text-sm text-muted-foreground">
                   Welcome back, {userProfile?.first_name || user.email?.split('@')[0]}
@@ -91,7 +98,7 @@ const AppLayout = () => {
               )}
             </div>
           </div>
-          <AssessmentProgressIndicator />
+          {!isAssessmentRoute && <AssessmentProgressIndicator />}
           <div className="flex items-center gap-1.5">
             <ThemeToggle />
             {hasAccess ? (
@@ -120,8 +127,8 @@ const AppLayout = () => {
                     className="h-9 text-muted-foreground hover:text-foreground"
                     aria-label="Account menu"
                   >
-                    <UserRound className="h-4 w-4 mr-1.5" />
-                    Account
+                    <UserRound className="h-4 w-4 sm:mr-1.5" />
+                    <span className="hidden sm:inline">Account</span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-52">

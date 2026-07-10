@@ -82,4 +82,29 @@ describe('effectivePctToSet / FromSet', () => {
     const g3 = buildOwnershipGraph([e('a', 'b', 100), e('a', 'c', 100), e('b', 'd', 80), e('c', 'd', 80)]);
     expect(effectivePctFromSet(['a'], 'd', g3)).toBe(100); // 1.6 capped
   });
+
+  it('measures a parent against a nested taxpayer group by its apex share, not the summed chain', () => {
+    // Three parents split the top of an 8-entity taxpayer chain 40/35/25; the top
+    // holds 100% down the chain (t1 -> t2 -> ... -> t8). Each parent must show its
+    // real share, not a chain-summed 100%.
+    const chain = [
+      e('t1', 't2', 100), e('t2', 't3', 100), e('t3', 't4', 100),
+      e('t4', 't5', 100), e('t5', 't6', 100), e('t6', 't7', 100), e('t7', 't8', 100),
+    ];
+    const g4 = buildOwnershipGraph([
+      e('p1', 't1', 40), e('p2', 't1', 35), e('p3', 't1', 25), ...chain,
+    ]);
+    const group = ['t1', 't2', 't3', 't4', 't5', 't6', 't7', 't8'];
+    expect(effectivePctToSet('p1', group, g4)).toBe(40);
+    expect(effectivePctToSet('p2', group, g4)).toBe(35);
+    expect(effectivePctToSet('p3', group, g4)).toBe(25);
+  });
+
+  it('adds genuinely separate apex holdings but not a re-counted chain member', () => {
+    // Group has two disjoint tops a and b (neither owns the other); parent owns 30%
+    // of a and 20% of b, and a owns c inside the group. Result: 30 + 20 = 50, with
+    // c (owned by a) not adding a's stake a second time.
+    const g5 = buildOwnershipGraph([e('p', 'a', 30), e('p', 'b', 20), e('a', 'c', 100)]);
+    expect(effectivePctToSet('p', ['a', 'b', 'c'], g5)).toBe(50);
+  });
 });

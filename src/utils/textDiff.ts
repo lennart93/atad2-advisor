@@ -94,9 +94,9 @@ export function renderDiffToHtml(tokens: DiffToken[]): string {
 
     switch (token.type) {
       case 'removed':
-        return `<span style="color: #8a8980; text-decoration: line-through;">${processedText}</span>`;
+        return `<span style="color: #8a8479; text-decoration: line-through;">${processedText}</span>`;
       case 'added':
-        return `<span style="color: #1a1a1a; font-style: italic;">${processedText}</span>`;
+        return `<span style="color: #16150f; font-style: italic;">${processedText}</span>`;
       default:
         return processedText;
     }

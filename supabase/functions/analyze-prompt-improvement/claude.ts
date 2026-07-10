@@ -122,14 +122,22 @@ export async function callClaude(seg: CachedSegment): Promise<CallResult> {
   throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));
 }
 
-/** Strip ```json fences and find the first {...} block. Throws if none found. */
+/** Strip a wrapping ```json fence and return the {...} block. Throws if none. */
 export function extractJson(text: string): string {
-  const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (fenceMatch) return fenceMatch[1].trim();
-  const start = text.indexOf("{");
-  const end = text.lastIndexOf("}");
+  let t = text.trim();
+  // Only strip a code fence that wraps the WHOLE payload. The old, unanchored
+  // non-greedy `/```(?:json)?\s*([\s\S]*?)```/` stopped at the FIRST inner
+  // backtick fence, and this tool routinely puts a full system prompt (which
+  // embeds ``` examples) inside proposed_revised_system_prompt, so the match
+  // truncated the JSON mid-string -> "Unterminated string in JSON". Anchoring
+  // to start/end means an inner fence can no longer cut the payload short; a
+  // non-wrapped output falls through to the brace slice untouched.
+  const wrap = t.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?\s*```$/);
+  if (wrap) t = wrap[1].trim();
+  const start = t.indexOf("{");
+  const end = t.lastIndexOf("}");
   if (start === -1 || end === -1 || end < start) {
     throw new Error("No JSON object found in model output");
   }
-  return text.slice(start, end + 1);
+  return t.slice(start, end + 1);
 }

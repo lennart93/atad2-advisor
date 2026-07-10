@@ -27,13 +27,15 @@ import type { Status } from './types';
  */
 
 /**
- * Scope/definition gates: when satisfied (the gate condition holds) they are N/A.
- * These are the rows the checklist renders as a calm "gate" check rather than a
- * status pill. The art. 12ad relatedness row (6.1) is intentionally NOT here: it
- * stays a normal Section 6 status row, so a met precondition never reads as a
- * contradictory "Not applicable".
+ * Scope/definition gates: when satisfied (the gate condition holds) they are N/A,
+ * and the checklist renders them as a calm "gate" check labelled "Applicable"
+ * rather than a status pill. Includes the art. 12ad relatedness precondition 6.1
+ * (kept in step with GATE_ROWS in controlType.ts): a met precondition then reads
+ * "Applicable", never a risk-coloured "Triggered". Because 6.1 is also a GATE_ROW,
+ * the forced N/A renders as the "Applicable" check, not a contradictory "Not
+ * applicable".
  */
-const SCOPE_GATES = ['1.1', '1.2', '2.1'];
+const SCOPE_GATES = ['1.1', '1.2', '2.1', '6.1'];
 
 /**
  * Operative mismatch rows whose firing is the trigger for the moot rows below.
@@ -41,17 +43,6 @@ const SCOPE_GATES = ['1.1', '1.2', '2.1'];
  * under the primary rule (art. 12aa) or dual residence (art. 12ae, row 5.2).
  */
 const MISMATCH_ROWS = ['3.1', '3.2', '3.3', '3.4', '3.5', '3.6', '3.7', '3.9', '3.10', '3.11', '5.2'];
-
-/**
- * The subset of primary-rule mismatches the secondary rule (art. 12ab) can back up.
- * Art. 12ab(1) applies, with the Netherlands as recipient state, ONLY to art. 12aa
- * sub-paragraphs (a), (b), (c), (e) and (f), never (d) or (g), and it does not reach
- * a dual-residence double deduction (art. 12ae, row 5.2). So row 4.1 is a live
- * question only when one of these deduction-without-inclusion rows fired; a dossier
- * with only a (d)/(g) or dual-residence mismatch leaves 4.1 moot. This mirrors the
- * legal text carried on row 4.1 itself. DRAFT, pending tax review.
- */
-const SECONDARY_ELIGIBLE = ['3.1', '3.2', '3.3', '3.5', '3.6', '3.10', '3.11'];
 
 /** Rows whose firing means a deduction was denied / income included (recapture trigger). */
 const DENIAL_ROWS = [...MISMATCH_ROWS, '4.1'];
@@ -74,17 +65,25 @@ export function mootNaRowIds(rows: ReadonlyArray<{ rowId: string; status: Status
 
   // (b) Downstream of an absent trigger -> moot.
   const anyMismatch = MISMATCH_ROWS.some(triggered);
+  // Structured arrangement (art. 12ac) is the ALTERNATIVE route into the mismatch
+  // rules for parties that are NOT associated. Once the parties are associated
+  // (2.1 fires) that route is redundant, so 2.2 is N/A. When the parties are not
+  // associated it stays a live question (a third-party arrangement can still be
+  // structured), so it is never made moot on a "no NL mismatch" ground.
+  // DRAFT, pending tax review.
+  if (present('2.2') && triggered('2.1')) out.add('2.2');
   // Dual-inclusion income only matters when there is a mismatch to absorb.
   if (present('2.3') && !anyMismatch) out.add('2.3');
-  // Secondary rule (art. 12ab) backs up only the (a), (b), (c), (e), (f)
-  // deduction-without-inclusion mismatches; with none of those firing the
-  // Netherlands has nothing to include, so 4.1 is moot (even if a (d)/(g) or
-  // dual-residence mismatch is present).
-  const anySecondaryEligible = SECONDARY_ELIGIBLE.some(triggered);
-  if (present('4.1') && !anySecondaryEligible) out.add('4.1');
+  // Secondary rule (art. 12ab, row 4.1) is NOT auto-moot. It looks at the
+  // Netherlands as the RECIPIENT state, so it can apply even when no NL primary
+  // rule (Section 3) fired, e.g. when the payer state's primary rule applies
+  // abroad. It stays a live row, assessed on its own facts.
 
-  // Dual residence (5.x): the double-deduction and set-off rows hang off 5.1.
-  if (!triggered('5.1')) for (const id of ['5.2', '5.3']) if (present(id)) out.add(id);
+  // Dual residence (5.x): the whole art. 12ae dual-residence analysis hangs off
+  // 5.1. With no dual residence, the double deduction (5.2), the set-off against
+  // dual-inclusion income (5.3) AND the EU-carve-out sub-condition (5.4,
+  // art. 12ae(2)) are all moot.
+  if (!triggered('5.1')) for (const id of ['5.2', '5.3', '5.4']) if (present(id)) out.add(id);
 
   // Imported mismatch (art. 12ad): the carve-back rows need both a mismatch
   // elsewhere in the chain (6.2) AND the Dutch payment funding it (6.3).

@@ -70,15 +70,26 @@ serve(async (req) => {
   }
   const docRow = doc as DocRow;
 
+  // This is a fire-and-forget background prewarm (useDocFactsPrewarm). A failed
+  // extraction is recorded as status='error' on the row and reported with HTTP
+  // 200 + {ok:false}, NEVER a 5xx: a background task must not surface a red
+  // console error, and the row is already terminal so the client does not retry
+  // and build-factsheet simply excludes it (with a warning). The only non-200s
+  // are genuine caller errors (auth / bad request / doc not found), above.
   try {
     const result = await extractOne(service, docRow, body.doc_text);
-    return json(result, result.ok ? 200 : 500);
+    return json(result, 200);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(JSON.stringify({ level: "error", event: "docfacts_failed", document_id: docRow.id, error: message }));
-    // Persist the error so the row is not stuck 'pending' forever.
-    await upsertFacts(service, docRow, { status: "error", error: message.slice(0, 2000) });
-    return json({ ok: false, error: message }, 500);
+    // Persist the error so the row is terminal (never stuck), but tolerate a
+    // write failure so this handler can never itself throw an unhandled 500.
+    try {
+      await upsertFacts(service, docRow, { status: "error", error: message.slice(0, 2000) });
+    } catch (writeErr) {
+      console.error(JSON.stringify({ level: "error", event: "docfacts_error_write_failed", document_id: docRow.id, error: String(writeErr).slice(0, 300) }));
+    }
+    return json({ ok: false, error: message }, 200);
   }
 });
 
@@ -88,6 +99,13 @@ async function extractOne(
   docText: string | undefined,
 ): Promise<{ ok: boolean; status: string; error?: string }> {
   const started = Date.now();
+  // Claim a 'pending' row up front. If this isolate is killed mid-call (a large
+  // raw PDF can hit the edge wall-clock before the model returns), the row stays
+  // 'pending' rather than vanishing: the client will not re-fire it forever
+  // (useDocFactsPrewarm skips docs that already have a row) and build-factsheet's
+  // grace window bounds the wait to one cycle instead of a retry storm.
+  await upsertFacts(service, doc, { status: "pending", error: null });
+
   const prompt = await loadActivePrompt(service, "docfacts_extract_system");
 
   // Build the user content. Text docs go inline; PDF/image docs travel as a

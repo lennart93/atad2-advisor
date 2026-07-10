@@ -93,7 +93,8 @@ export default {
 						DEFAULT: 'var(--ds-ink)',
 						hover: 'var(--ds-ink-hover)',
 						secondary: 'var(--ds-ink-secondary)',
-						tertiary: 'var(--ds-ink-tertiary)'
+						tertiary: 'var(--ds-ink-tertiary)',
+						disabled: 'var(--ds-ink-disabled)'
 					},
 					hairline: 'var(--ds-hairline)',
 					page: 'var(--ds-page)',

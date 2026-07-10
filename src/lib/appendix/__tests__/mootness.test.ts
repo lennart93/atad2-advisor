@@ -22,16 +22,54 @@ const cleanDossier: Record<string, Status> = {
 describe('mootNaRowIds', () => {
   it('matches the spec reclassification on a clean, in-scope dossier', () => {
     const na = mootNaRowIds(rowsFrom(cleanDossier));
-    // 6.1 stays a live Section 6 status row; 4.1 (secondary rule) is moot with no mismatch.
-    const expected = ['1.1', '1.2', '2.1', '2.3', '4.1', '5.2', '5.3', '6.4', '6.5', '7.1', '7.2', '8.2', '8.3'];
+    // 6.1 is a satisfied relatedness gate ("Applicable"); 2.2 (structured
+    // arrangement) is N/A once the parties are associated (2.1). 4.1 (secondary
+    // rule) is NOT here: it is always a live row (NL as recipient state).
+    const expected = ['1.1', '1.2', '2.1', '2.2', '2.3', '5.2', '5.3', '5.4', '6.1', '6.4', '6.5', '7.1', '7.2', '8.2', '8.3'];
     expect([...na].sort()).toEqual(expected.sort());
   });
 
   it('leaves the substantively-assessed rows alone (they stay Not triggered)', () => {
     const na = mootNaRowIds(rowsFrom(cleanDossier));
-    for (const id of ['2.2', '3.1', '3.2', '3.3', '3.4', '3.5', '3.6', '3.7', '5.1', '5.4', '6.1', '6.2', '6.3', '8.1']) {
+    // 4.1 is always live now (never auto-moot), so it belongs in this list.
+    for (const id of ['3.1', '3.2', '3.3', '3.4', '3.5', '3.6', '3.7', '4.1', '5.1', '6.2', '6.3', '8.1']) {
       expect(na.has(id)).toBe(false);
     }
+  });
+
+  it('treats the art. 12ad relatedness precondition (6.1) as a satisfied gate when met', () => {
+    // Payment to a related party: 6.1 is met, so it is a satisfied gate (N/A ->
+    // rendered "Applicable"), not a live "Triggered" status row.
+    expect(mootNaRowIds(rowsFrom(cleanDossier)).has('6.1')).toBe(true);
+    // Genuinely not met (out of scope) -> left alone, like any unmet gate.
+    const noRelatedPayment = { ...cleanDossier, '6.1': 'Not triggered' as Status };
+    expect(mootNaRowIds(rowsFrom(noRelatedPayment)).has('6.1')).toBe(false);
+  });
+
+  // Structured arrangement (2.2) is N/A ONLY when the parties are associated (2.1):
+  // the associated-enterprise test already covers them. When the parties are not
+  // associated it stays a live row, whatever the Section 3 outcome, because a
+  // third-party arrangement can still be structured.
+  it('makes the structured arrangement (2.2) N/A when the parties are associated', () => {
+    const associatedWithMismatch = { ...cleanDossier, '2.1': 'Triggered' as Status, '3.1': 'Triggered' as Status };
+    expect(mootNaRowIds(rowsFrom(associatedWithMismatch)).has('2.2')).toBe(true);
+  });
+
+  it('keeps the structured arrangement (2.2) live when the parties are not associated', () => {
+    // No mismatch: still live (a third-party arrangement can be structured).
+    const notAssociatedNoMismatch = { ...cleanDossier, '2.1': 'Not triggered' as Status };
+    expect(mootNaRowIds(rowsFrom(notAssociatedNoMismatch)).has('2.2')).toBe(false);
+    // With a mismatch and unrelated parties: also live.
+    const unrelatedWithMismatch = { ...cleanDossier, '2.1': 'Not triggered' as Status, '3.1': 'Triggered' as Status };
+    expect(mootNaRowIds(rowsFrom(unrelatedWithMismatch)).has('2.2')).toBe(false);
+  });
+
+  it('never auto-moots the secondary rule (4.1): NL is the recipient state', () => {
+    // Whatever the Section 3 outcome, 4.1 stays a live row (a foreign primary rule
+    // may apply even when no NL primary mismatch fired).
+    expect(mootNaRowIds(rowsFrom(cleanDossier)).has('4.1')).toBe(false);
+    const withMismatch = { ...cleanDossier, '3.1': 'Triggered' as Status };
+    expect(mootNaRowIds(rowsFrom(withMismatch)).has('4.1')).toBe(false);
   });
 
   it('forces Insufficient information on a moot row to N/A', () => {
@@ -73,30 +111,5 @@ describe('mootNaRowIds', () => {
     expect(na.has('8.3')).toBe(false);
     // The other moot rows are still caught.
     expect(na.has('2.3')).toBe(true);
-  });
-
-  // Secondary rule (art. 12ab) scoping: 4.1 backs up ONLY the (a),(b),(c),(e),(f)
-  // deduction-without-inclusion mismatches, never (d)/(g) or a dual-residence
-  // double deduction. Row 4.1's own text carries exactly this rule.
-  it('makes the secondary rule (4.1) N/A when only a double-deduction (g) mismatch fired', () => {
-    const doubleDeductionOnly = { ...cleanDossier, '3.7': 'Triggered' as Status };
-    expect(mootNaRowIds(rowsFrom(doubleDeductionOnly)).has('4.1')).toBe(true);
-  });
-
-  it('makes the secondary rule (4.1) N/A when only a disregarded-PE (d) mismatch fired', () => {
-    const dOnly = { ...cleanDossier, '3.4': 'Triggered' as Status };
-    expect(mootNaRowIds(rowsFrom(dOnly)).has('4.1')).toBe(true);
-  });
-
-  it('makes the secondary rule (4.1) N/A when only a dual-residence double deduction fired', () => {
-    const dualResDd = { ...cleanDossier, '5.1': 'Triggered' as Status, '5.2': 'Triggered' as Status };
-    expect(mootNaRowIds(rowsFrom(dualResDd)).has('4.1')).toBe(true);
-  });
-
-  it('keeps the secondary rule (4.1) live for any (a),(b),(c),(e),(f) D/NI mismatch', () => {
-    for (const id of ['3.1', '3.2', '3.3', '3.5', '3.6']) {
-      const dni = { ...cleanDossier, [id]: 'Triggered' as Status };
-      expect(mootNaRowIds(rowsFrom(dni)).has('4.1')).toBe(false);
-    }
   });
 });
