@@ -10,6 +10,7 @@ import { toast } from "@/components/ui/app-toast";
 import { Download, ArrowLeft, Archive } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import DownloadMemoButton from "@/components/DownloadMemoButton";
+import { formatDateTime } from "@/utils/formatDate";
 
 const ReportDetail = () => {
   const { reportId } = useParams<{ reportId: string }>();
@@ -75,15 +76,9 @@ const ReportDetail = () => {
     URL.revokeObjectURL(url);
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("nl-NL", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
+  // Shared app format (English, "12 Mar 2026, 17:17"); the local nl-NL variant
+  // rendered Dutch month names in an English-only UI.
+  const formatDate = (dateString: string) => formatDateTime(dateString);
 
   if (!user) {
     navigate("/auth");

@@ -47,8 +47,12 @@ export function usePrefillJob(sessionId: string | null) {
 
   useEffect(() => {
     if (!sessionId) return;
+    // Unique topic per mount: supabase.channel() returns the EXISTING channel
+    // for a duplicate topic, so simultaneous consumers (upload page, worklist,
+    // analysis narrative) would share one channel and the first unmount's
+    // cleanup would kill realtime for the others. Same fix as useOpenQuestions.
     const channel = supabase
-      .channel(`prefill-job-${sessionId}`)
+      .channel(`prefill-job-${sessionId}-${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "atad2_prefill_jobs", filter: `session_id=eq.${sessionId}` },
@@ -84,8 +88,9 @@ export function useAllPrefills(sessionId: string | null) {
 
   useEffect(() => {
     if (!sessionId) return;
+    // Unique topic per mount, see usePrefillJob above for why.
     const channel = supabase
-      .channel(`question-prefills-${sessionId}`)
+      .channel(`question-prefills-${sessionId}-${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "atad2_question_prefills", filter: `session_id=eq.${sessionId}` },

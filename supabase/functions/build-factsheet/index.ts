@@ -71,6 +71,7 @@ serve(async (req) => {
 interface DocFactsRow { document_id: string; facts: unknown; status: string; error: string | null; updated_at: string; }
 
 async function runMerge(c: SupabaseClient, sessionId: string) {
+  const stopHeartbeat = startHeartbeat(c, sessionId);
   try {
     const { data: rowsRaw } = await c
       .from("atad2_document_facts")
@@ -211,6 +212,8 @@ async function runMerge(c: SupabaseClient, sessionId: string) {
   } catch (err) {
     console.error(JSON.stringify({ level: "error", event: "factsheet_merge_failed", session_id: sessionId, message: String(err).slice(0, 500) }));
     await setStatus(c, sessionId, "error", { error: String(err).slice(0, 500) });
+  } finally {
+    stopHeartbeat();
   }
 }
 
@@ -240,4 +243,24 @@ async function setStatus(c: SupabaseClient, sessionId: string, status: string, e
     .update({ generation_status: status, updated_at: new Date().toISOString(), ...extra })
     .eq("session_id", sessionId);
   if (error) throw error;
+}
+
+/**
+ * Keep updated_at fresh while a merge runs. The isFresh() guard treats a
+ * 'generating' row as stale after 90s, which a big chunked merge exceeds;
+ * without a heartbeat a manual Rebuild mid-run passed the guard and started a
+ * second concurrent merge, so both read the same version, both wrote version+1
+ * and the last writer silently replaced the other's factsheet. A run whose
+ * isolate dies stops beating, so takeover after 90s still works.
+ */
+function startHeartbeat(c: SupabaseClient, sessionId: string): () => void {
+  const beat = setInterval(() => {
+    c.from("atad2_session_factsheet")
+      .update({ updated_at: new Date().toISOString() })
+      .eq("session_id", sessionId).eq("generation_status", "generating")
+      .then(({ error }) => {
+        if (error) console.warn(JSON.stringify({ level: "warn", event: "factsheet_heartbeat_failed", session_id: sessionId, message: String(error.message) }));
+      });
+  }, 30_000);
+  return () => clearInterval(beat);
 }

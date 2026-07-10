@@ -73,6 +73,7 @@ export function buildEntityRegister(
     role: c.role,
     ownershipPct: c.pct,
     related: c.related,
+    ...(c.related ? { relatednessBasis: 'pct' as const } : {}),
     relatedVia: c.relatedViaChartId ?? null,
     relatedViaPct: c.relatedViaPct,
     ...(c.direct == null ? {} : { directLink: c.direct }),

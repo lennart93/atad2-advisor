@@ -7,7 +7,7 @@ import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } fro
 import { toast } from "@/components/ui/sonner";
 import { formatDate, formatDateTime } from "@/utils/formatDate";
 import { formatFiscalYears } from "@/utils/formatFiscalYears";
-import { taxpayerDisplayName, parseTaxpayerNames } from "@/lib/taxpayer";
+import { taxpayerDisplayName, parseTaxpayerNames, dedupeEntityNames } from "@/lib/taxpayer";
 import { ArrowLeft, ArrowRight, Loader2, AlertTriangle, Info, CheckCircle, Pencil, X, Check, Layers } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -87,24 +87,6 @@ const EYEBROW = "text-[11px] font-normal uppercase tracking-[0.16em] text-ds-ink
 // "Show all {count}" toggle. Large structures (20+ entities) would otherwise
 // flood the header.
 const ROSTER_CAP = 8;
-
-/**
- * Deduplicate the taxpayer-subject names before counting or listing them. The
- * stored list can repeat the same entity (e.g. a name entered twice at intake);
- * matching is case-insensitive on the trimmed name, and the first spelling wins.
- */
-function dedupeEntityNames(names: string[]): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const raw of names) {
-    const name = raw.trim();
-    const key = name.toLowerCase();
-    if (!key || seen.has(key)) continue;
-    seen.add(key);
-    out.push(name);
-  }
-  return out;
-}
 
 /**
  * One entity in the "Entities in scope" roster: a hairline-bordered, subtly
@@ -313,10 +295,18 @@ const AssessmentReport = () => {
       })
     : '';
 
-  // Sync currentMemoMarkdown with latestReport when it changes
+  // Sync currentMemoMarkdown with latestReport. The buffer exists to protect
+  // accepted-feedback edits, so a freshly generated memo only replaces it when
+  // the buffer still equals the report text that seeded it (i.e. the user has
+  // no local edits). Without this, regenerating the memo kept showing the OLD
+  // text on screen while downloads used the new one.
+  const seededReportMdRef = useRef<string | null>(null);
   useEffect(() => {
-    if (latestReport?.report_md && !currentMemoMarkdown) {
-      setCurrentMemoMarkdown(latestReport.report_md);
+    const incoming = latestReport?.report_md;
+    if (!incoming) return;
+    if (!currentMemoMarkdown || currentMemoMarkdown === seededReportMdRef.current || currentMemoMarkdown === incoming) {
+      seededReportMdRef.current = incoming;
+      if (currentMemoMarkdown !== incoming) setCurrentMemoMarkdown(incoming);
     }
   }, [latestReport?.report_md]);
 

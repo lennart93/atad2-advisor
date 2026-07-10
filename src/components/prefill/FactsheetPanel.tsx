@@ -143,12 +143,12 @@ function FactsheetBody({ sheet }: { sheet: NonNullable<Awaited<ReturnType<typeof
               <tbody className="align-top">
                 {sheet.entities.map((e, i) => (
                   <tr key={i} className="border-t border-ds-hairline/60">
-                    <td className="py-1 pr-3">{e.canonical_name || "—"}</td>
-                    <td className="py-1 pr-3 text-ds-ink-secondary">{e.aliases.filter((a) => a && a !== e.canonical_name).join(", ") || "—"}</td>
-                    <td className="py-1 pr-3 ds-tabular-nums">{e.tin || "—"}</td>
-                    <td className="py-1 pr-3">{e.jurisdiction || "—"}</td>
+                    <td className="py-1 pr-3">{e.canonical_name || "-"}</td>
+                    <td className="py-1 pr-3 text-ds-ink-secondary">{e.aliases.filter((a) => a && a !== e.canonical_name).join(", ") || "-"}</td>
+                    <td className="py-1 pr-3 ds-tabular-nums">{e.tin || "-"}</td>
+                    <td className="py-1 pr-3">{e.jurisdiction || "-"}</td>
                     <td className="py-1 pr-3">{e.nl_classification}</td>
-                    <td className="py-1 text-ds-ink-secondary">{e.related_to_taxpayers?.is_related ? (e.related_to_taxpayers.basis ?? "yes") : "—"}</td>
+                    <td className="py-1 text-ds-ink-secondary">{e.related_to_taxpayers?.is_related ? (e.related_to_taxpayers.basis ?? "yes") : "-"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -163,14 +163,14 @@ function FactsheetBody({ sheet }: { sheet: NonNullable<Awaited<ReturnType<typeof
             {ext.map((l, i) => (
               <li key={`e${i}`}>
                 External: <span className="font-medium">{l.borrower || "?"}</span> from {l.lender || "unidentified lender"}
-                {l.amount != null ? ` — ${l.ccy ?? ""} ${l.amount.toLocaleString("en-US")}` : ""}{l.rate ? `, ${l.rate}` : ""}
+                {l.amount != null ? `, ${l.ccy ?? ""} ${l.amount.toLocaleString("en-US")}` : ""}{l.rate ? `, ${l.rate}` : ""}
                 {l.unusual_terms ? <span className="text-ds-amber-text"> · {l.unusual_terms}</span> : ""}
               </li>
             ))}
             {ic.map((l, i) => (
               <li key={`i${i}`}>
                 Intercompany: {l.lender || "?"} → {l.borrower || "?"}
-                {l.amount != null ? ` — ${l.ccy ?? ""} ${l.amount.toLocaleString("en-US")}` : ""}{l.rate ? `, ${l.rate}` : ""}
+                {l.amount != null ? `, ${l.ccy ?? ""} ${l.amount.toLocaleString("en-US")}` : ""}{l.rate ? `, ${l.rate}` : ""}
               </li>
             ))}
           </ul>

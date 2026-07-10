@@ -62,7 +62,7 @@ export async function runAnalyzeOne(
   // and before any factsheet exists — an empty block is a no-op prefix.
   factsheetBlock: string = "",
   factsheetVersion: number | null = null,
-): Promise<{ ok: boolean; error?: string; usage?: Record<string, number> }> {
+): Promise<{ ok: boolean; error?: string; skipped?: string; usage?: Record<string, number> }> {
   const started = Date.now();
 
   try {
@@ -191,21 +191,59 @@ export async function runAnalyzeOne(
       return s.length <= max ? s : s.slice(0, max - 1) + "…";
     };
 
-    const { error: upsertErr } = await serviceClient
+    const payload = {
+      suggested_toelichting: truncate(parsed.suggested_toelichting, 4000),
+      source_refs: parsed.source_refs,
+      suggested_answer: parsed.suggested_answer,
+      confidence_pct: parsed.confidence_pct,
+      answer_rationale: truncate(parsed.answer_rationale, 300),
+      contextual_hint: truncate(parsed.contextual_hint, 1000),
+      suggested_toelichting_unknown: truncate(unknownToelichting, 4000),
+      client_question: truncate(parsed.client_question, 450),
+      user_action: "pending",
+    };
+
+    // Guarded write instead of a blind upsert. The client only re-fires
+    // analyze_one for pending rows, but that check happens at SELECTION time:
+    // an advisor can accept/dismiss the suggestion while the model call for a
+    // re-run is still in flight, and a blind upsert would then land late and
+    // reset user_action to 'pending' (dismissed card reappears, accepted card
+    // re-prompts). So: update ONLY while the row is still pending; insert only
+    // when no row exists; otherwise the advisor's action wins and the late
+    // result is dropped.
+    let upsertErr: { message?: string } | null = null;
+    const { data: updated, error: updErr } = await serviceClient
       .from("atad2_question_prefills")
-      .upsert({
-        session_id: sessionId,
-        question_id: questionId,
-        suggested_toelichting: truncate(parsed.suggested_toelichting, 4000),
-        source_refs: parsed.source_refs,
-        suggested_answer: parsed.suggested_answer,
-        confidence_pct: parsed.confidence_pct,
-        answer_rationale: truncate(parsed.answer_rationale, 300),
-        contextual_hint: truncate(parsed.contextual_hint, 1000),
-        suggested_toelichting_unknown: truncate(unknownToelichting, 4000),
-        client_question: truncate(parsed.client_question, 450),
-        user_action: "pending",
-      }, { onConflict: "session_id,question_id" });
+      .update(payload)
+      .eq("session_id", sessionId)
+      .eq("question_id", questionId)
+      .eq("user_action", "pending")
+      .select("question_id");
+    if (updErr) {
+      upsertErr = updErr;
+    } else if (!updated || updated.length === 0) {
+      const { data: existing } = await serviceClient
+        .from("atad2_question_prefills")
+        .select("user_action")
+        .eq("session_id", sessionId)
+        .eq("question_id", questionId)
+        .maybeSingle();
+      if (existing) {
+        console.log(JSON.stringify({
+          level: "info", event: "prefill_write_skipped_advisor_acted",
+          session_id: sessionId, question_id: questionId, user_action: existing.user_action,
+        }));
+        return { ok: true, skipped: "advisor_acted" };
+      }
+      const { error: insErr } = await serviceClient
+        .from("atad2_question_prefills")
+        .insert({ session_id: sessionId, question_id: questionId, ...payload });
+      // A concurrent insert of the same row is fine: that writer carried an
+      // equivalent fresh result. Anything else is a real failure.
+      if (insErr && !String(insErr.message ?? "").includes("duplicate key")) {
+        upsertErr = insErr;
+      }
+    }
 
     if (upsertErr) {
       // Surface DB write failures explicitly. Without this, a connection-pool
@@ -225,9 +263,8 @@ export async function runAnalyzeOne(
     // factsheet_version + evidence live on columns added by the factsheet-pipeline
     // migration. Write them as a SEPARATE, failure-tolerant follow-up (same
     // pattern as committed_text in usePrefill): if that migration has not reached
-    // this DB yet, a combined upsert would fail the whole row. RE-RUN SAFETY: the
-    // client only re-fires analyze_one for rows with user_action='pending', so
-    // this upsert never clobbers an advisor-accepted/dismissed/resolved row;
+    // this DB yet, a combined write would fail the whole row. Re-run safety is
+    // enforced server-side above (the guarded update only touches pending rows);
     // contradictions on recorded answers flow through the existing reopen
     // mechanism (confidence >= 60) in sync_open_questions_from_prefill.
     if (factsheetVersion !== null || parsed.evidence) {
@@ -336,6 +373,21 @@ function buildAttachmentList(pdfRefs: PdfRef[], imageRefs: ImageRef[]): string {
   return `\n\n## Attachments\n\n${parts.join("\n\n")}\n`;
 }
 
+/**
+ * Storage paths are always `${userId}/${sessionId}/${docId}.${ext}` (see the
+ * upload in usePrefill). The service-role client below BYPASSES Storage RLS, so
+ * a caller-supplied path must be checked against the session the JWT owner was
+ * already verified to own — otherwise a caller could name another tenant's path
+ * and have its bytes paraphrased back into their own suggestions (a cross-tenant
+ * document read). Requiring the session segment closes that: the caller's own
+ * verified session id can never match another session's folder.
+ */
+function pathBelongsToSession(storagePath: string, sessionId: string): boolean {
+  if (!storagePath || storagePath.includes("..")) return false;
+  const segs = storagePath.split("/");
+  return segs.length === 3 && segs[1] === sessionId;
+}
+
 export async function fetchImageBlocks(
   serviceClient: SupabaseClient,
   sessionId: string,
@@ -345,6 +397,14 @@ export async function fetchImageBlocks(
   if (refs.length === 0) return [];
   const blocks: AnthropicBlock[] = [];
   for (const ref of refs) {
+    if (!pathBelongsToSession(ref.storage_path, sessionId)) {
+      console.warn(JSON.stringify({
+        level: "warn", event: "storage_path_rejected",
+        session_id: sessionId, question_id: questionId,
+        storage_path: ref.storage_path,
+      }));
+      continue;
+    }
     try {
       const { data, error } = await serviceClient.storage
         .from("session-documents")
@@ -374,6 +434,14 @@ export async function fetchPdfBlocks(
   if (refs.length === 0) return [];
   const blocks: AnthropicBlock[] = [];
   for (const ref of refs) {
+    if (!pathBelongsToSession(ref.storage_path, sessionId)) {
+      console.warn(JSON.stringify({
+        level: "warn", event: "storage_path_rejected",
+        session_id: sessionId, question_id: questionId,
+        storage_path: ref.storage_path,
+      }));
+      continue;
+    }
     try {
       const { data, error } = await serviceClient.storage
         .from("session-documents")

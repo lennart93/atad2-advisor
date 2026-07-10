@@ -23,6 +23,19 @@ function fmtAmount(amount: number | null | undefined, ccy: string | null | undef
   return ccy ? `${ccy} ${n}` : n;
 }
 
+// foreign_pes and dual_residence_indications are deliberately untyped in the
+// schema (z.unknown()), so render each item generically: a string as-is,
+// anything else as compact JSON. Better an ugly-but-present fact than a
+// silently dropped one.
+function fmtUnknown(item: unknown): string {
+  if (typeof item === "string") return item;
+  try {
+    return JSON.stringify(item);
+  } catch {
+    return String(item);
+  }
+}
+
 export function buildFactsheetBlock(fs: Factsheet | null): string {
   if (!fs) return "";
   const lines: string[] = [];
@@ -88,8 +101,10 @@ export function buildFactsheetBlock(fs: Factsheet | null): string {
   }
 
   const per = fs.pe_and_residence;
-  if (per && (per.negatives.length || per.vat_registrations.length || per.dual_residence_indications.length)) {
+  if (per && (per.negatives.length || per.vat_registrations.length || per.dual_residence_indications.length || per.foreign_pes.length)) {
     lines.push("", "### PE / residence");
+    for (const p of per.foreign_pes) lines.push(`- Foreign PE: ${fmtUnknown(p)}`);
+    for (const d of per.dual_residence_indications) lines.push(`- Dual-residence indication: ${fmtUnknown(d)}`);
     for (const v of per.vat_registrations) lines.push(`- VAT registration: ${v.entity || "?"}${v.country ? ` in ${v.country}` : ""}${v.purpose ? ` (${v.purpose})` : ""}`);
     for (const n of per.negatives) {
       lines.push(`- NEGATIVE (evidenced): ${n.claim}${fmtSources(n.evidence)}`);

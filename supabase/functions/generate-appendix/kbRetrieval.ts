@@ -16,10 +16,12 @@ export interface KbQuery {
 interface MatchRow { content?: string; metadata?: { source?: string } }
 
 export async function retrieveKb(c: SupabaseClient, queries: KbQuery[]): Promise<string> {
-  const out: string[] = [];
-  for (const q of queries) {
+  // The queries are independent (each its own embedding + vector match), so run
+  // them concurrently; sequentially they sat on the generation's critical path.
+  // Result order follows the input order, exactly as the sequential loop did.
+  const perQuery = await Promise.all(queries.map(async (q) => {
     const vec = await embedQuery(q.query);
-    if (!vec) continue;
+    if (!vec) return [];
     const { data, error } = await c.rpc("match_documents", {
       query_embedding: vec,
       match_count: q.k,
@@ -27,11 +29,9 @@ export async function retrieveKb(c: SupabaseClient, queries: KbQuery[]): Promise
     });
     if (error || !Array.isArray(data)) {
       if (error) console.warn(JSON.stringify({ level: "warn", event: "kb_match_failed", message: String(error.message ?? error).slice(0, 200) }));
-      continue;
+      return [];
     }
-    for (const row of data as MatchRow[]) {
-      if (row.content) out.push(row.content.trim());
-    }
-  }
-  return [...new Set(out)].join("\n\n");
+    return (data as MatchRow[]).map((row) => row.content?.trim()).filter((s): s is string => !!s);
+  }));
+  return [...new Set(perQuery.flat())].join("\n\n");
 }

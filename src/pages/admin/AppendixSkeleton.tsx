@@ -237,7 +237,7 @@ export default function AppendixSkeleton() {
                     <Select value={r.effect || "none"} onValueChange={(v) => update(i, { effect: v === "none" ? "" : v })}>
                       <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="none">—</SelectItem>
+                        <SelectItem value="none">None</SelectItem>
                         <SelectItem value="D/NI">D/NI</SelectItem>
                         <SelectItem value="DD">DD</SelectItem>
                       </SelectContent>
