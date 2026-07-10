@@ -270,9 +270,11 @@ function StatusLegend() {
       <LegendItem term="Triggered" hint="risk identified" swatch={<span className="h-2 w-2 rounded-full bg-[#bf8a3c]" aria-hidden />} />
       <LegendItem term="Insufficient info" hint="facts missing" swatch={<span className="h-2 w-2 rounded-full bg-[#5c6f80]" aria-hidden />} />
       <LegendItem term="Not triggered" hint="no risk" swatch={<span className="h-2 w-2 rounded-full bg-[#8f9866]" aria-hidden />} />
+      {/* Same wording as the row pill; "N/A" in the hint bridges to the Word
+          export, which abbreviates. */}
       <LegendItem
-        term="N/A"
-        hint="does not apply"
+        term="Not applicable"
+        hint="N/A, does not apply"
         swatch={<CircleSlash className="h-4 w-4 text-[#b3ad9f]" aria-hidden />}
       />
     </div>
