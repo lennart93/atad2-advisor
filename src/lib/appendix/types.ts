@@ -311,6 +311,8 @@ export interface TransactionItem {
   relevanceReason?: string | null;
   /** Advisor's editable characteristics + status override (see TransactionAssessment). */
   assessment?: TransactionAssessment;
+  /** Advisor added this flow by hand (not AI-identified); carried across regeneration, deletable outright. */
+  manual?: boolean;
   status: FactStatus;
   excludedFromClient: boolean;
   source: 'ai' | 'edited';

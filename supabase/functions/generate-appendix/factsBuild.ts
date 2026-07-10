@@ -109,6 +109,8 @@ export interface TransactionItem {
    * the frontend TransactionAssessment; no derivation runs on the Deno side.
    */
   assessment?: Record<string, unknown>;
+  /** Advisor added this flow by hand (not AI-identified); carried across regeneration by mergeFacts. Mirror of src/lib/appendix/types.ts. */
+  manual?: boolean;
   status: "proposed" | "confirmed";
   excludedFromClient: boolean;
   source: "ai" | "edited";

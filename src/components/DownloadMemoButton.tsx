@@ -46,6 +46,7 @@ const dotParser = (tag: string) => ({
 import { supabase } from '@/integrations/supabase/client';
 import { loadAppendix } from '@/lib/appendix/client';
 import { buildMemoAppendicesXml } from '@/lib/appendix/docx/memoAppendices';
+import { applyDraftWatermark } from '@/lib/appendix/docx/draftWatermark';
 import { preprocessMemoTemplate } from '@/lib/appendix/docx/memoTemplatePatches';
 import { loadAppendixSkeleton } from '@/lib/appendix/skeletonStore';
 import { normalizeEntityName } from '@/lib/legalName';
@@ -68,6 +69,8 @@ type Props = {
   includeFactsAppendix?: boolean;
   /** Override: include Appendix 2 (conditions) in the .docx. When undefined, falls back to the appendix's checklist_skipped flag. */
   includeChecklistAppendix?: boolean;
+  /** Stamp a diagonal DRAFT watermark on every page of the .docx. Default false. */
+  draftWatermark?: boolean;
 };
 
 export default function DownloadMemoButton({
@@ -82,6 +85,7 @@ export default function DownloadMemoButton({
   includeChart = true,
   includeFactsAppendix,
   includeChecklistAppendix,
+  draftWatermark = false,
 }: Props) {
   const [loading, setLoading] = useState(false);
 
@@ -449,6 +453,13 @@ export default function DownloadMemoButton({
         );
       }
       console.groupEnd();
+
+      // After render, because the section properties come in via
+      // {{@appendicesXml}}: before render there is no <w:sectPr> to hang the
+      // watermark's header reference on.
+      if (draftWatermark) {
+        applyDraftWatermark(doc.getZip() as PizZip);
+      }
 
       const blob = doc.getZip().generate({ type: 'blob' });
 

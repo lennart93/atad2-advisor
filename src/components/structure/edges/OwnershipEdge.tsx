@@ -3,12 +3,15 @@ import {
   BaseEdge,
   EdgeLabelRenderer,
   getSmoothStepPath,
+  useInternalNode,
   useStore,
   type Edge,
   type EdgeProps,
   type ReactFlowState,
 } from '@xyflow/react';
 import { PALETTE } from '@/lib/structure/palette';
+import { getAppScale } from '@/lib/appScale';
+import { NODE_WIDTH, NODE_HEIGHT } from '@/lib/structure/labelMeasure';
 import { computeSafeDetourX, type RoutedEdgeSpec } from '@/lib/structure/edgeRouting';
 
 // Herexport voor bestaande imports/tests; de implementatie woont in de
@@ -309,10 +312,12 @@ export interface OwnershipEdgeData extends Record<string, unknown> {
 export type OwnershipEdgeType = Edge<OwnershipEdgeData, 'ownership'>;
 
 export function OwnershipEdge({
-  sourceX,
-  sourceY,
-  targetX,
-  targetY,
+  sourceX: measuredSourceX,
+  sourceY: measuredSourceY,
+  targetX: measuredTargetX,
+  targetY: measuredTargetY,
+  source,
+  target,
   id,
   data,
   selected,
@@ -325,6 +330,27 @@ export function OwnershipEdge({
   const [dragDraft, setDragDraft] = useState<{ dx: number; dy: number } | null>(null);
   const [hover, setHover] = useState(false);
   const zoom = useStore((s: ReactFlowState) => s.transform[2]);
+
+  // De sourceX/targetY die React Flow aanlevert komen uit een DOM-meting van
+  // de handles (getBoundingClientRect), en die meting telt de globale
+  // html-zoom (--app-scale) mee terwijl de node-posities dat niet doen. Elk
+  // eindpunt verschuift daardoor 15%: 12px rechts van het kaart-midden en de
+  // bron-stub begint onder de kaart. De ankers zijn hier deterministisch —
+  // altijd midden-onder de bron en midden-boven de dochter op de vaste
+  // 160x100-geometrie — dus reken ze zelf uit vanaf de node-posities. De
+  // gemeten waarden blijven alleen als vangnet voor een onbekende node.
+  const sourceNode = useInternalNode(source);
+  const targetNode = useInternalNode(target);
+  const sourceX = sourceNode
+    ? sourceNode.internals.positionAbsolute.x + NODE_WIDTH / 2
+    : measuredSourceX;
+  const sourceY = sourceNode
+    ? sourceNode.internals.positionAbsolute.y + NODE_HEIGHT
+    : measuredSourceY;
+  const targetX = targetNode
+    ? targetNode.internals.positionAbsolute.x + NODE_WIDTH / 2
+    : measuredTargetX;
+  const targetY = targetNode ? targetNode.internals.positionAbsolute.y : measuredTargetY;
 
   const { path } = computeOwnershipPath({
     sourceX, sourceY, targetX, targetY,
@@ -390,12 +416,15 @@ export function OwnershipEdge({
     const startDy = dy;
     let moved = false;
 
+    // clientX/Y zijn scherm-px waar de globale html-zoom al in zit; deel dus
+    // door de viewport-zoom EN de app-schaal om op chart-px uit te komen.
+    const z = Math.max(0.01, zoom * getAppScale());
+
     const onMove = (ev: MouseEvent) => {
       const ddxScreen = ev.clientX - startX;
       const ddyScreen = ev.clientY - startY;
       if (!moved && Math.hypot(ddxScreen, ddyScreen) < 4) return;
       moved = true;
-      const z = Math.max(0.01, zoom);
       setDragDraft({ dx: startDx + ddxScreen / z, dy: startDy + ddyScreen / z });
     };
 

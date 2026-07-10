@@ -126,6 +126,50 @@ describe('FactsPanelV2 — resting state + master-detail (section 3)', () => {
     const next = onChange.mock.calls[0][0] as AppendixFacts;
     expect(next.transactions.find((t) => t.id === 'T1')?.excludedFromClient).toBe(true);
   });
+
+  it('reveals the add-transaction form from the collapsed affordance, also when the list is empty', () => {
+    render(<FactsPanelV2 facts={facts()} onChange={vi.fn()} generated sessionId="s1" />);
+    fireEvent.click(within(section()).getByRole('button', { name: /Add transaction/i }));
+    expect(within(section()).getByLabelText('From entity')).toBeInTheDocument();
+    expect(within(section()).getByLabelText('To entity')).toBeInTheDocument();
+    expect(within(section()).getByLabelText('Transaction type')).toBeInTheDocument();
+    cleanup();
+    // Empty list: the section rests collapsed (nothing flagged); opened, it still
+    // offers the form next to the empty-state line.
+    render(<FactsPanelV2 facts={{ ...facts(), transactions: [] }} onChange={vi.fn()} generated sessionId="s1" />);
+    fireEvent.click(within(section()).getAllByRole('button', { name: /Intra-group transactions/i })[0]);
+    expect(within(section()).getByText('No intra-group transactions identified.')).toBeInTheDocument();
+    expect(within(section()).getByRole('button', { name: /Add transaction/i })).toBeInTheDocument();
+  });
+
+  it('hides the add-transaction affordance when read-only', () => {
+    render(<FactsPanelV2 facts={facts()} generated sessionId="s1" />);
+    expect(within(section()).queryByRole('button', { name: /Add transaction/i })).not.toBeInTheDocument();
+  });
+
+  it('deletes a hand-added transaction in two steps from its panel', () => {
+    const onChange = vi.fn();
+    const withManual: AppendixFacts = {
+      ...facts(),
+      transactions: [...facts().transactions, tx('T3', 'E2', 'E1', { manual: true, source: 'edited' })],
+    };
+    render(<FactsPanelV2 facts={withManual} onChange={onChange} generated sessionId="s1" />);
+    // The hand-added flow is flagged (cross-border, needs assessment) so it is a resting row.
+    fireEvent.click(within(section()).getByText(/added/));
+    const panel = screen.getByRole('complementary');
+    fireEvent.click(within(panel).getByRole('button', { name: /^Delete transaction$/i }));
+    fireEvent.click(within(panel).getByRole('button', { name: /Confirm delete/i }));
+    const next = onChange.mock.calls.at(-1)![0] as AppendixFacts;
+    expect(next.transactions.some((t) => t.id === 'T3')).toBe(false);
+    expect(next.transactions).toHaveLength(2);
+  });
+
+  it('offers no delete on an AI-identified transaction', () => {
+    render(<FactsPanelV2 facts={facts()} onChange={vi.fn()} generated sessionId="s1" />);
+    fireEvent.click(rows()[0]); // T1, source 'ai'
+    const panel = screen.getByRole('complementary');
+    expect(within(panel).queryByRole('button', { name: /Delete transaction/i })).not.toBeInTheDocument();
+  });
 });
 
 describe('FactsPanelV2 — entity register (section 1)', () => {

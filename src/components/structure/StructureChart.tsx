@@ -28,6 +28,7 @@ import {
   type OwnershipEdgeType,
 } from './edges/OwnershipEdge';
 import { NODE_WIDTH, NODE_HEIGHT } from '@/lib/structure/labelMeasure';
+import { getAppScale } from '@/lib/appScale';
 import { routeOwnershipEdges } from '@/lib/structure/edgeRouting';
 import { taxpayerCenteredViewport, type ChartBounds } from '@/lib/structure/viewportFraming';
 import { computeConvergingLabelCounts, computeSiblingChildCounts } from '@/lib/structure/labelLayout';
@@ -351,11 +352,15 @@ function StructureChartInner(props: StructureChartProps) {
         return;
       }
       const bounds: ChartBounds = { minX, minY, maxX, maxY };
+      // getBoundingClientRect telt de globale html-zoom (--app-scale) mee,
+      // maar React Flow's coordinatenstelsel niet; terugdelen zodat de
+      // taxpayer echt gecentreerd staat en de fit-zoom klopt.
+      const appScale = getAppScale();
       const vp = taxpayerCenteredViewport({
         bounds,
         taxpayerCenterX: taxpayer.position_x + NODE_WIDTH / 2,
-        viewportWidth: pane.width,
-        viewportHeight: pane.height,
+        viewportWidth: pane.width / appScale,
+        viewportHeight: pane.height / appScale,
       });
       reactFlow.setViewport(vp, { duration });
       hasFramedRef.current = true;

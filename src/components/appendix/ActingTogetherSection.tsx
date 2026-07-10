@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import type { AppendixFacts, ActingTogetherCluster, FactEntity } from '@/lib/appendix/types';
 import { visibleFacts } from '@/lib/appendix/facts/visibleFacts';
 import { ACTING_BASES, actingBasisLabel, type ActingBasis } from '@/lib/appendix/facts/actingBasis';
+import { actingTogetherCandidateEntities } from '@/lib/appendix/facts/actingCandidates';
 import {
   addActingGroup,
   adoptActingSuggestion,
@@ -51,9 +52,15 @@ function holdingOf(facts: AppendixFacts, id: string): number | null {
   return e ? effRelatedPct(e) : null;
 }
 
-/** The entities the advisor can group: any non-taxpayer, non-fiscal-unity party. */
+/** The entities the advisor can group: parents and direct shareholders of the
+ *  taxpayer (the parties whose holdings an acting-together assessment combines).
+ *  Subsidiaries and other downstream group entities hold nothing in the taxpayer,
+ *  so they are never offered as members. Fiscal-unity parties sit on the taxpayer
+ *  side and are excluded too. */
 function memberCandidates(facts: AppendixFacts): FactEntity[] {
-  return facts.entities.filter((e) => e.role !== 'Taxpayer' && !e.isFiscalUnity && !e.memberOfUnityId);
+  return actingTogetherCandidateEntities(facts.entities).filter(
+    (e) => !e.isFiscalUnity && !e.memberOfUnityId,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -315,7 +322,7 @@ export function GroupBuilder({ facts, defaultTargetId, onCreate, onCancel }: {
       <div className="mt-4">
         <p className="text-[10.5px] font-medium uppercase tracking-[0.13em] text-muted-foreground">Members {selected.length > 0 && <span className="text-muted-foreground/60">· {selected.length} selected</span>}</p>
         {candidates.length === 0 ? (
-          <p className="mt-2 text-[12.5px] text-muted-foreground">No entities or persons are available to group yet.</p>
+          <p className="mt-2 text-[12.5px] text-muted-foreground">No parents or direct shareholders of the taxpayer are available to group yet.</p>
         ) : (
           <div className="mt-2 flex flex-wrap gap-2">
             {candidates.map((e) => {

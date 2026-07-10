@@ -876,19 +876,19 @@ function mergeFacts(existing: AppendixFacts | null, fresh: AppendixFacts): Appen
   let outEntities = entities;
   let outClassifications = classifications;
   let outActingTogether = actingTogether;
+  const remap = new Map<string, string>();
+  const remapId = (id: string) => remap.get(id) ?? id;
   if (manual.length) {
     let maxN = 0;
     for (const e of entities) {
       const m = /^E(\d+)$/.exec(e.id);
       if (m) maxN = Math.max(maxN, Number(m[1]));
     }
-    const remap = new Map<string, string>();
     const carried = manual.map((e) => {
       const newId = `E${++maxN}`;
       if (newId !== e.id) remap.set(e.id, newId);
       return { ...e, id: newId };
     });
-    const remapId = (id: string) => remap.get(id) ?? id;
     const manualIds = new Set(manual.map((e) => e.id));
     const carriedCls = existing.classifications
       .filter((c) => manualIds.has(c.entityId))
@@ -900,11 +900,28 @@ function mergeFacts(existing: AppendixFacts | null, fresh: AppendixFacts): Appen
       memberEntityIds: a.memberEntityIds.map(remapId),
     }));
   }
+  // Hand-added (manual) transactions likewise have no AI counterpart, so the fresh
+  // rebuild above drops them. Carry them over, remapping a party that was itself a
+  // hand-added (renumbered) entity, skipping any flow the fresh output now
+  // identified on its own (same parties + kind) and any flow whose party no longer
+  // exists in the rebuilt register.
+  let outTransactions = transactions;
+  const manualTx = existing.transactions.filter((t) => t.manual);
+  if (manualTx.length) {
+    const freshKeys = new Set(transactions.map(txKey));
+    const knownIds = new Set(outEntities.map((e) => e.id));
+    outTransactions = [
+      ...transactions,
+      ...manualTx
+        .map((t) => ({ ...t, fromEntityId: remapId(t.fromEntityId), toEntityId: remapId(t.toEntityId) }))
+        .filter((t) => !freshKeys.has(txKey(t)) && knownIds.has(t.fromEntityId) && knownIds.has(t.toEntityId)),
+    ];
+  }
   // Section-level exclusions are an advisor scope decision; carry them across regen.
   return renumberFacts({
     entities: outEntities,
     classifications: outClassifications,
-    transactions,
+    transactions: outTransactions,
     actingTogether: outActingTogether,
     excludedSections: existing.excludedSections,
     narratives: Object.keys(narratives).length ? narratives : undefined,

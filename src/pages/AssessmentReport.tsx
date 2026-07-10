@@ -208,6 +208,9 @@ const AssessmentReport = () => {
   // default (appendices default on); local to the download, not persisted.
   const [includeFactsOverride, setIncludeFactsOverride] = useState<boolean | null>(null);
   const [includeChecklistOverride, setIncludeChecklistOverride] = useState<boolean | null>(null);
+  // Per-download choice: stamp a diagonal DRAFT watermark on every page of the
+  // Word export. Off by default; local to the download, not persisted.
+  const [includeDraftWatermark, setIncludeDraftWatermark] = useState(false);
   // Roster "Show all" toggle: large structures collapse to ROSTER_CAP chips.
   const [showAllEntities, setShowAllEntities] = useState(false);
 
@@ -303,7 +306,6 @@ const AssessmentReport = () => {
   const checklistAppendixAvailable = !!appendixConfirmed && (appendixForDownload?.rows?.some((r) => !r.excludedFromClient) ?? false);
   const includeFactsAppendix = includeFactsOverride ?? !(appendixForDownload?.facts_skipped ?? false);
   const includeChecklistAppendix = includeChecklistOverride ?? !(appendixForDownload?.checklist_skipped ?? false);
-  const anyIncludeOption = !!chartSnapshot?.snapshot_png || factsAppendixAvailable || checklistAppendixAvailable;
   // Date-only label for the memorandum meta line (e.g. "26 June 2026").
   const generatedDateLabel = latestReport?.generated_at
     ? new Date(latestReport.generated_at).toLocaleDateString('en-GB', {
@@ -1071,7 +1073,7 @@ const AssessmentReport = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-5">
-                {latestReport && anyIncludeOption && (
+                {latestReport && (
                   <div>
                     <p className="mb-1 text-[11px] font-normal uppercase tracking-[0.07em] text-ds-ink-tertiary">
                       Include in the memorandum
@@ -1104,6 +1106,13 @@ const AssessmentReport = () => {
                           Appendix 2 · Condition assessment
                         </MemoInclusionRow>
                       )}
+                      <MemoInclusionRow
+                        checked={includeDraftWatermark}
+                        disabled={isGeneratingReport}
+                        onToggle={() => setIncludeDraftWatermark(!includeDraftWatermark)}
+                      >
+                        DRAFT watermark on every page
+                      </MemoInclusionRow>
                     </div>
                   </div>
                 )}
@@ -1152,6 +1161,7 @@ const AssessmentReport = () => {
                       includeChart={includeChartInMemo && !!chartSnapshot?.snapshot_png}
                       includeFactsAppendix={includeFactsAppendix}
                       includeChecklistAppendix={includeChecklistAppendix}
+                      draftWatermark={includeDraftWatermark}
                     />
 
                     {latestReport && (
@@ -1383,6 +1393,17 @@ const AssessmentReport = () => {
               index=""
               title="Question responses"
               summary={responsesLocked ? `${answers.length} answered · locked` : `${answers.length} answered`}
+              action={
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={responsesLocked}
+                  onClick={() => setOvOpen("responses", true)}
+                >
+                  <Pencil className="h-3.5 w-3.5 mr-1.5" />
+                  Edit
+                </Button>
+              }
               open={ovOpen("responses")}
               onToggle={() => setOvOpen("responses", !ovOpen("responses"))}
             >

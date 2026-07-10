@@ -16,6 +16,7 @@ import { RolledUpGroup } from './RolledUpGroup';
 import { AppendixRowItem } from './AppendixRowItem';
 import { DetailPanel } from './DetailPanel';
 import { TransactionDetail, transactionPanelHeading } from './TransactionDetail';
+import { AddTransactionForm } from './AddTransactionForm';
 import { EntityRegisterSection } from './EntityRegisterSection';
 import { EntityDetail, entityPanelHeading } from './EntityDetail';
 import { ActingTogetherSectionV2 } from './ActingTogetherSectionV2';
@@ -95,7 +96,12 @@ export function FactsPanelV2({ facts, onChange, generated, refining, sessionId }
       key={t.id}
       rowId={t.id}
       domId={`v2-tx-${t.id}`}
-      label={<span>{nameOf(facts, t.fromEntityId)} → {nameOf(facts, t.toEntityId)}</span>}
+      label={
+        <span>
+          {nameOf(facts, t.fromEntityId)} → {nameOf(facts, t.toEntityId)}
+          {t.manual && <span className="ml-1.5 rounded-sm bg-muted px-1 text-[10px] text-muted-foreground">added</span>}
+        </span>
+      }
       meta={shortTransactionType(t.kind)}
       reason={txNeedsAttention(facts, t) ? txStatusReason(facts, t) : null}
       selected={selectedId === t.id}
@@ -209,6 +215,11 @@ export function FactsPanelV2({ facts, onChange, generated, refining, sessionId }
                     {routine.map((t) => renderTxRow(t, true))}
                   </RolledUpGroup>
                 )}
+              </div>
+            )}
+            {editable && (
+              <div className="mt-4">
+                <AddTransactionForm facts={facts} onChange={change} onCreated={select} />
               </div>
             )}
           </SectionRow>
