@@ -45,3 +45,25 @@ SELECT tablename, policyname, cmd, roles, qual, with_check FROM pg_policies
 WHERE schemaname='public' AND (qual='true' OR with_check='true' OR 'anon'=ANY(roles)) ORDER BY tablename;
 SELECT policyname, cmd, qual FROM pg_policies WHERE tablename='atad2_sessions' AND cmd='DELETE';
 ```
+
+---
+
+## Live remediation log (11 Jul 2026, secskills round)
+
+**Applied to production (verified):**
+- **n8n IDOR fixed** — all three webhooks (`generate-report`, `submit-feedback`, `parse-memo`) had a `Verify Auth` node that validated the token but not session ownership. Added an ownership gate (queries `atad2_sessions` with the caller's own token so RLS decides) to all three via the n8n API. Verified live; smoke-tested fail-closed. Confirmed the actual IDOR: `generate-report` fetches session+answers via a service-role Supabase node filtered only on `session_id`, so any valid token + another user's `session_id` processed that dossier. Rollback backups saved.
+- **`documents` table hardened** — RLS was already ON (so the broad anon grants were NOT exploitable), but revoked the dangerous `anon`/`authenticated` INSERT/UPDATE/DELETE/TRUNCATE/REFERENCES/TRIGGER grants (kept SELECT). It is the RAG knowledge base (3550 embeddings), not tenant data.
+- **API security headers live** — added HSTS, X-Content-Type-Options, X-Frame-Options: DENY, Referrer-Policy, Permissions-Policy to `api.atad2.tax` in Caddy (`/root/caddy/Caddyfile`) + stripped the `Server: kong/2.8.1` banner. validate-before-reload, backup saved.
+- **prefill-documents IDOR fix deployed** — patched `analyze.ts` (`pathBelongsToSession`) rsync'd to the VM edge container, restarted, md5 verified (host=container=local `0f72d961…`), folder intact, boots (401 on no-auth).
+
+**Verified safe (no action needed):**
+- JWT signing secrets (Supabase anon + n8n API token) are NOT default/weak — no forgeable service_role tokens.
+- RLS on all `atad2_*` tables; anon reads return `[]`; F2 (sessions DELETE) already clean on live; F3 (reports INSERT) service_role-only; Studio `:3000` not directly reachable.
+
+**Frontend headers (in working tree, needs deploy):** added `public/serve.json` with the same headers. The live frontend `atad2.tax` is served by Azure (not the VM Caddy), so this ships only on the next frontend deploy and must be verified post-deploy (if pm2 serve does not honor serve.json, set headers at the Azure gateway that currently adds `ACAO: *`).
+
+**Still open (needs your decision / not auto-changed):**
+- **`db.atad2.tax` exposes Supabase Studio to the internet** behind HTTP basic-auth (bcrypt cost 14). Recommend restricting to an admin IP / VPN in the Caddy block. Not changed automatically (could lock you out).
+- **n8n Caddy block reflects any `Origin` with `Allow-Credentials: true`** — CORS misconfig, low impact (bearer tokens, not cookies).
+- **`N8N_SIGNING_SECRET` and `CLEANUP_SECRET` are UNSET** on the edge container — both functions fail closed (safe), but `cleanup-expired-sessions` is effectively not running and `n8n-report` is unused (reports are written directly by the n8n workflow's service-role node).
+- **Git:** security fixes are in the working tree, not committed (deploy.yml + .gitignore already had unrelated uncommitted design-branch changes, so a clean scoped commit needs your sequencing). `dist.zip` un-tracked.
