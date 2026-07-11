@@ -500,6 +500,8 @@ export function OwnershipEdge({
                     setEditing(false);
                   }
                 }}
+                // Editor opens on the user's own click; moving focus into it is expected.
+                // eslint-disable-next-line jsx-a11y/no-autofocus
                 autoFocus
                 style={{
                   width: 50, fontSize: 11, padding: '2px 4px',
@@ -509,6 +511,9 @@ export function OwnershipEdge({
                 onClick={(e) => e.stopPropagation()}
               />
             ) : (
+              // Mouse drag affordance on the chart label; the keyboard path for
+              // editing the percentage is the Ownership field in the edge inspector panel.
+              // eslint-disable-next-line jsx-a11y/no-static-element-interactions
               <div
                 onMouseDown={startDragOrEdit}
                 style={{ cursor: dragging ? 'grabbing' : 'grab', userSelect: 'none' }}

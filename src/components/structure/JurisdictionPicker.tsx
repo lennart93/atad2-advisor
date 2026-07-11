@@ -70,6 +70,8 @@ export function JurisdictionPicker({ id, value, onChange, placeholder = 'Select 
           placeholder="Custom code"
           onChange={(e) => onChange(e.target.value.toUpperCase())}
           onBlur={() => onSettled?.()}
+          // Custom-code mode is entered on the user's own click; keep focus in the field.
+          // eslint-disable-next-line jsx-a11y/no-autofocus
           autoFocus
         />
         <button

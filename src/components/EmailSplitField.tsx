@@ -182,6 +182,8 @@ export const EmailSplitField = React.forwardRef<HTMLInputElement, EmailSplitFiel
             onBlur={() => setFocused(false)}
             onKeyDown={handleKeyDown}
             disabled={disabled}
+            // Opt-in via prop; used to land focus on the email field of the auth forms.
+            // eslint-disable-next-line jsx-a11y/no-autofocus
             autoFocus={autoFocus}
             maxLength={64}
             aria-describedby={error ? `${id}-error` : `${id}-help`}

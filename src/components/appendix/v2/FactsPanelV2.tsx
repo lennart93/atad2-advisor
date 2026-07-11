@@ -171,6 +171,8 @@ export function FactsPanelV2({ facts, onChange, generated, refining, sessionId }
             open={sectionState.isOpen('register')}
             onToggle={() => sectionState.setOpen('register', !sectionState.isOpen('register'))}
           >
+            {/* Arrow-key delegation for the focusable rows inside; not interactive itself. */}
+            {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
             <div onKeyDown={onListKeyDown}>
               <EntityRegisterSection facts={facts} onChange={onChange} selectedId={selectedId} onSelect={select} />
             </div>
@@ -187,6 +189,7 @@ export function FactsPanelV2({ facts, onChange, generated, refining, sessionId }
             open={sectionState.isOpen('acting')}
             onToggle={() => sectionState.setOpen('acting', !sectionState.isOpen('acting'))}
           >
+            {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions -- arrow-key delegation */}
             <div onKeyDown={onListKeyDown}>
               <ActingTogetherSectionV2 facts={facts} onChange={onChange} selectedId={selectedId} onSelect={select} />
             </div>
@@ -208,6 +211,7 @@ export function FactsPanelV2({ facts, onChange, generated, refining, sessionId }
                 {generated ? 'No intra-group transactions identified.' : 'Not generated yet.'}
               </p>
             ) : (
+              // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- arrow-key delegation
               <div onKeyDown={onListKeyDown}>
                 {flagged.map((t) => renderTxRow(t, false))}
                 {routine.length > 0 && (

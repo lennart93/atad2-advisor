@@ -21,8 +21,17 @@ const CHART_FONT = "'Neue Haas Grotesk Display Pro', 'Helvetica Neue', Helvetica
 function ClusterNodeComp({ data, selected }: NodeProps<ClusterNodeType>) {
   return (
     <div
+      role="button"
+      tabIndex={0}
+      aria-label={`Expand ${data.name} (${data.count} entities)`}
       style={{ width: W + OFFSET * 2, height: H + OFFSET * 2, position: 'relative', cursor: 'pointer' }}
       onClick={() => data.onExpand()}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          data.onExpand();
+        }
+      }}
     >
       <Handle type="target" position={Position.Top} id="top" style={{ opacity: 0 }} />
       <svg

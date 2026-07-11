@@ -153,6 +153,8 @@ export function FloatingFeedbackButton() {
                 onChange={(e) => setMessage(e.target.value)}
                 placeholder={PLACEHOLDERS[category]}
                 maxLength={5000}
+                // Panel opens on the user's own click; moving focus into it is expected.
+                // eslint-disable-next-line jsx-a11y/no-autofocus
                 autoFocus
                 className="min-h-[120px] focus-visible:border-brand-terracotta focus-visible:ring-brand-terracotta-soft focus-visible:ring-offset-0"
               />

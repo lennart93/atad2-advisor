@@ -684,15 +684,15 @@ const AssessmentConfirmation = () => {
                   const Icon = cfg.icon;
                   const isSel = selectedOverrideOutcome === key;
                   return (
-                    <div
+                    <label
                       key={key}
+                      htmlFor={key}
                       className={cn(
                         "flex cursor-pointer items-start gap-3 rounded-[3px] border px-[18px] py-[15px] transition-colors",
                         isSel
                           ? cn(cfg.cardSelBorder, cfg.cardSelBg)
                           : cn("border-ds-hairline", cfg.cardHover),
                       )}
-                      onClick={() => setSelectedOverrideOutcome(key as OutcomeType)}
                     >
                       <RadioGroupItem
                         value={key}
@@ -709,22 +709,21 @@ const AssessmentConfirmation = () => {
                         strokeWidth={1.8}
                       />
                       <div className="min-w-0 flex-1">
-                        <Label
-                          htmlFor={key}
+                        <span
                           className={cn(
-                            "block cursor-pointer text-[13.5px]",
+                            "block cursor-pointer text-[13.5px] leading-none",
                             isSel
                               ? cn("font-medium", cfg.cardSelTitle)
                               : "font-normal text-ds-ink",
                           )}
                         >
                           {cfg.label}
-                        </Label>
+                        </span>
                         <p className="mt-1 text-[12.5px] leading-relaxed text-ds-ink-secondary">
                           {cfg.description}
                         </p>
                       </div>
-                    </div>
+                    </label>
                   );
                 })}
               </RadioGroup>

@@ -405,6 +405,8 @@ function RevenueCell({
   }
 
   return (
+    // Click handler only keeps the popover click from triggering the row's open-session click.
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div className="w-[150px] flex justify-end" onClick={(e) => e.stopPropagation()}>
       <Popover
         open={open}
@@ -473,6 +475,8 @@ function RevenueCell({
                     }
                   }}
                   placeholder="0"
+                  // Popover opens on the user's own click; moving focus into it is expected.
+                  // eslint-disable-next-line jsx-a11y/no-autofocus
                   autoFocus
                   className="h-9 flex-1 bg-transparent pr-3 text-sm outline-none tabular-nums placeholder:text-muted-foreground"
                 />

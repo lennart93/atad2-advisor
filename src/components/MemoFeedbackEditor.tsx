@@ -260,14 +260,17 @@ const MemoFeedbackEditor: React.FC<MemoFeedbackEditorProps> = ({
                 className={`absolute -left-[34px] top-1.5 hidden h-[22px] w-[22px] items-center justify-center rounded-[6px] border bg-ds-card transition-all md:flex ${
                   isMarked
                     ? "border-brand-terracotta text-brand-terracotta opacity-100"
-                    : "border-ds-hairline text-ds-ink-tertiary opacity-0 hover:border-brand-terracotta hover:text-brand-terracotta group-hover:opacity-100"
+                    : "border-ds-hairline text-ds-ink-tertiary opacity-0 hover:border-brand-terracotta hover:text-brand-terracotta focus-visible:opacity-100 group-hover:opacity-100"
                 }`}
               >
                 <MessageSquare className="h-3 w-3" />
               </button>
 
               {/* Paragraph body. Hover tints soft terracotta, bleeding ~20px into
-                  both side margins via the negative horizontal margin + padding. */}
+                  both side margins via the negative horizontal margin + padding.
+                  Mouse convenience only; the keyboard path is the adjacent
+                  "Comment on this paragraph" button. */}
+              {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
               <div
                 onClick={() => handleParagraphClick(index)}
                 className={`-mx-5 cursor-pointer rounded-[6px] px-5 py-1.5 transition-colors [&_p]:!mb-0 ${
@@ -285,7 +288,7 @@ const MemoFeedbackEditor: React.FC<MemoFeedbackEditorProps> = ({
               {isActive && (
                 <div className="mt-2 rounded-[6px] border border-ds-hairline bg-ds-page p-3 duration-200 animate-in slide-in-from-top-2">
                   <div className="mb-2 flex items-center justify-between">
-                    <label className="text-[13px] text-ds-ink-secondary">
+                    <label htmlFor={`memo-paragraph-feedback-${index}`} className="text-[13px] text-ds-ink-secondary">
                       Feedback on this paragraph (optional)
                     </label>
                     <button
@@ -301,6 +304,7 @@ const MemoFeedbackEditor: React.FC<MemoFeedbackEditorProps> = ({
                     </button>
                   </div>
                   <Textarea
+                    id={`memo-paragraph-feedback-${index}`}
                     value={feedbackByParagraph[index] || ""}
                     onChange={(e) => handleFeedbackChange(index, e.target.value)}
                     onKeyDown={(e) => {
@@ -312,6 +316,8 @@ const MemoFeedbackEditor: React.FC<MemoFeedbackEditorProps> = ({
                     placeholder="Type feedback and press Enter to save (Shift+Enter for new line)"
                     className="min-h-[60px] resize-y rounded-[6px] border-ds-hairline bg-ds-card text-[14px] focus-visible:border-brand-terracotta focus-visible:shadow-[0_0_0_3px_rgba(194,92,60,0.12)] focus-visible:ring-0 focus-visible:ring-offset-0"
                     disabled={isSubmitting}
+                    // Editor opens on the user's own click; moving focus into it is expected.
+                    // eslint-disable-next-line jsx-a11y/no-autofocus
                     autoFocus
                     onClick={(e) => e.stopPropagation()}
                   />
@@ -321,10 +327,19 @@ const MemoFeedbackEditor: React.FC<MemoFeedbackEditorProps> = ({
               {/* Locked feedback display (has feedback, not currently editing) */}
               {!isActive && hasFeedback && (
                 <div
-                  className={`mt-2 rounded-[6px] border border-ds-hairline bg-ds-page p-3 transition-colors ${
+                  role="button"
+                  tabIndex={isSubmitting ? -1 : 0}
+                  aria-label="Edit feedback for this paragraph"
+                  className={`mt-2 rounded-[6px] border border-ds-hairline bg-ds-page p-3 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-terracotta ${
                     isSubmitting ? "cursor-default" : "cursor-pointer"
                   }`}
                   onClick={() => !isSubmitting && handleParagraphClick(index)}
+                  onKeyDown={(e) => {
+                    if (!isSubmitting && (e.key === "Enter" || e.key === " ")) {
+                      e.preventDefault();
+                      handleParagraphClick(index);
+                    }
+                  }}
                 >
                   <p className="mb-1 flex items-center gap-1.5 text-[13px] text-ds-ink-secondary">
                     {isSubmitting && <Loader2 className="h-3 w-3 animate-spin" />}

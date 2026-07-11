@@ -139,10 +139,11 @@ export default function PromptTuner() {
         {!confirmed && tab === "memo" && (
           <>
             <AdminCard>
-              <label className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground font-normal block mb-2">
+              <label htmlFor="tuner-improved-memo" className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground font-normal block mb-2">
                 Improved memo
               </label>
               <Textarea
+                id="tuner-improved-memo"
                 rows={12}
                 className="font-mono text-xs"
                 placeholder="Paste your hand-improved version of the memo here..."
@@ -162,10 +163,11 @@ export default function PromptTuner() {
 
             {manualMode ? (
               <AdminCard>
-                <label className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground font-normal block mb-2">
+                <label htmlFor="tuner-original-memo" className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground font-normal block mb-2">
                   Paste the original (AI) memo
                 </label>
                 <Textarea
+                  id="tuner-original-memo"
                   rows={10}
                   className="font-mono text-xs"
                   placeholder="Paste the original AI memo here..."

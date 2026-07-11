@@ -222,6 +222,8 @@ function Stepper({
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span
+                        // Focusable so keyboard users can reach the locked-step tooltip (WCAG 1.4.13).
+                        // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
                         tabIndex={0}
                         className="inline-flex cursor-default items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent"
                       >

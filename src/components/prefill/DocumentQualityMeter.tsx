@@ -62,6 +62,8 @@ export function DocumentQualityMeter({ docs }: Props) {
         <TooltipTrigger asChild>
           <div
             role="img"
+            // Focusable so keyboard users can reach the tooltip (WCAG 1.4.13).
+            // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
             tabIndex={0}
             className="relative flex h-6 w-56 cursor-help items-center rounded-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent focus-visible:ring-offset-2"
             aria-label={

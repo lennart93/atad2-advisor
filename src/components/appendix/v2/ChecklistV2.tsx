@@ -117,6 +117,8 @@ export function ChecklistV2({ rows, skeleton, onEdit, onToggleExclude, sessionId
           <span className="tabular-nums text-[11px] text-muted-foreground">{sk.rowId}</span>
         </span>
         <span className="min-w-0 flex-1 pt-px text-[14px] leading-snug text-foreground">{sk.conditionTested}</span>
+        {/* Handlers only stop propagation to the row; StatusControl inside is the interactive element. */}
+        {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
         <span className="shrink-0" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
           <StatusControl
             rowId={sk.rowId}
@@ -163,6 +165,8 @@ export function ChecklistV2({ rows, skeleton, onEdit, onToggleExclude, sessionId
                 open={sectionState.isOpen(sec.sectionId)}
                 onToggle={() => sectionState.setOpen(sec.sectionId, !sectionState.isOpen(sec.sectionId))}
               >
+                {/* Arrow-key delegation for the focusable rows inside; not interactive itself. */}
+                {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
                 <div onKeyDown={onListKeyDown}>
                   {flagged.map(renderRow)}
                   {routine.length > 0 && (

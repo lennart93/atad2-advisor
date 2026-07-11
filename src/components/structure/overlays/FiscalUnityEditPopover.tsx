@@ -39,6 +39,8 @@ export function FiscalUnityEditPopover({
       style={{ left: screenX, top: screenY + 8, minWidth: 220 }}
     >
       <Input
+        // Popover opens on the user's own click; moving focus into it is expected.
+        // eslint-disable-next-line jsx-a11y/no-autofocus
         autoFocus
         value={draft}
         onChange={(e) => setDraft(e.target.value)}

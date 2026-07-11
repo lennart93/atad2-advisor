@@ -68,6 +68,9 @@ function FiscalUnityFrameComp({ data }: NodeProps<FiscalUnityFrameNodeType>) {
         />
       </svg>
       <div
+        role="button"
+        tabIndex={0}
+        aria-label={hasLabel ? `Edit fiscal unity ${label}` : 'Edit fiscal unity'}
         style={{
           position: 'absolute',
           top: `-${LABEL_HEIGHT / 2}px`,
@@ -93,6 +96,14 @@ function FiscalUnityFrameComp({ data }: NodeProps<FiscalUnityFrameNodeType>) {
         onClick={(e) => {
           e.stopPropagation();
           onLabelClick?.(groupId, e.clientX, e.clientY);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            e.stopPropagation();
+            const r = e.currentTarget.getBoundingClientRect();
+            onLabelClick?.(groupId, r.left + r.width / 2, r.top + r.height / 2);
+          }
         }}
       >
         {hasLabel ? label : ''}

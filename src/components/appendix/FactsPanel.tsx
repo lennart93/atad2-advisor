@@ -1189,6 +1189,8 @@ export function FactsPanel({ facts, onChange, generated, refining, embedded, hid
         {expanded && (
           <tr id={detailId} className={cn('border-b border-border', t.excludedFromClient && 'opacity-60')}>
             <td colSpan={TX_COLS} className="p-0">
+              {/* Click handler only stops row-toggle propagation; not interactive itself. */}
+              {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
               <div
                 className="bg-[#fcfbf8] pb-5 pl-[50px] pr-3 pt-3"
                 onClick={(ev) => ev.stopPropagation()}

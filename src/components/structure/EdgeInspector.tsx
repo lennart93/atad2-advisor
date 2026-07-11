@@ -29,12 +29,13 @@ export function EdgeInspector({ edge, onChange, onDelete }: Props) {
         />
       </div>
 
-      <label className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-md border border-ds-hairline bg-ds-fill-muted hover:bg-ds-fill-muted transition-colors cursor-pointer">
+      <label htmlFor="edge-label-visible" className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-md border border-ds-hairline bg-ds-fill-muted hover:bg-ds-fill-muted transition-colors cursor-pointer">
         <div className="flex flex-col">
           <span className="text-[13px] font-normal text-ds-ink leading-tight">Show % on chart</span>
           <span className="text-[11px] text-ds-ink-secondary leading-tight">Value still feeds the memo</span>
         </div>
         <Switch
+          id="edge-label-visible"
           checked={!edge.label_hidden}
           onCheckedChange={(c) => onChange({ label_hidden: !c })}
         />

@@ -54,6 +54,8 @@ export function KeepAsUnknownDialog({
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           placeholder="For example: client confirmed the information is not available."
+          // Dialog opens on the user's own action; moving focus to its field is expected.
+          // eslint-disable-next-line jsx-a11y/no-autofocus
           autoFocus
         />
         <AlertDialogFooter>
