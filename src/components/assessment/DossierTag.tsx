@@ -139,11 +139,13 @@ export function DossierTag({
       <PopoverTrigger asChild>
         <button
           type="button"
-          aria-label={`Current dossier: ${taxpayerLabel}${fyLabel ? `, ${fyLabel}` : ''}`}
           onMouseEnter={() => setHovered(true)}
           onMouseLeave={() => setHovered(false)}
           className="inline-flex max-w-[260px] min-w-0 items-center gap-2 rounded-ds-control border border-ds-hairline bg-ds-card px-2.5 py-1.5 text-left transition-colors duration-150 hover:bg-ds-fill-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent"
         >
+          {/* Name = "Current dossier:" + the visible chip text, so the visible
+              label is part of the accessible name (WCAG 2.5.3 Label in Name). */}
+          <span className="sr-only">Current dossier: </span>
           <FolderIcon className="size-3.5 shrink-0 text-ds-ink-secondary" aria-hidden="true" />
           {/* Lead entity + "+N", matching the dashboard ledger; the full list
               lives in the popover below. A comma-joined run clips to noise. */}

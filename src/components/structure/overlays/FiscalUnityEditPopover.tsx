@@ -41,6 +41,8 @@ export function FiscalUnityEditPopover({
   };
 
   return (
+    // Escape-to-close on the dialog container is the standard dialog pattern.
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
     <div
       ref={ref}
       role="dialog"
