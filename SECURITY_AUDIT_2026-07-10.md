@@ -67,3 +67,18 @@ SELECT policyname, cmd, qual FROM pg_policies WHERE tablename='atad2_sessions' A
 - **n8n Caddy block reflects any `Origin` with `Allow-Credentials: true`** — CORS misconfig, low impact (bearer tokens, not cookies).
 - **`N8N_SIGNING_SECRET` and `CLEANUP_SECRET` are UNSET** on the edge container — both functions fail closed (safe), but `cleanup-expired-sessions` is effectively not running and `n8n-report` is unused (reports are written directly by the n8n workflow's service-role node).
 - **Git:** security fixes are in the working tree, not committed (deploy.yml + .gitignore already had unrelated uncommitted design-branch changes, so a clean scoped commit needs your sequencing). `dist.zip` un-tracked.
+
+---
+
+## Round 2 (11 Jul) — deeper checks
+
+**Dependencies:** `npm audit` found 21 vulns (1 critical, 10 high). Fixed the highest-value runtime one: **react-router-dom 6.26.2 -> 6.30.4** (open-redirect / XSS via untrusted paths); build + full 1204-test suite green; committed (`911b6fc`). A broad `npm audit fix` was avoided (added 78 packages). Remaining: `xmldom` critical has NO upstream fix (via docxtemplater-image-module-free; mitigated by DOCX output escaping, processes generated chart images not untrusted XML) — monitor/replace; `ws`/`lodash`/`minimatch` are transitive/low-exploitability.
+
+**n8n + Auth hardening review:**
+- Supabase Auth is well configured: JWT expiry 1h, no anonymous users, email confirm on, and signup is effectively firm-only via the `enforce_signup_email_domain` trigger (`@svalneratlas.com$`, SECURITY DEFINER, empty search_path; subdomain/double-@ tricks don't bypass). 16 users, all confirmed. OTP rate limits run on GoTrue defaults (could be set explicitly).
+- kong proxy `:8000` and admin `:8001` are NOT reachable on the VM public IP (only Caddy :443). n8n UI requires login (`/rest` → 401).
+- **n8n is the crown jewel** (holds the service-role Supabase credential + SMTP + OpenAI + Anthropic). Action for owner: **enable MFA on the n8n account** + rotate the n8n API key (it was shared in a chat).
+
+**Rate limiting:** deferred by decision. Only route is enabling the kong `rate-limiting` plugin (not in `KONG_PLUGINS`), which needs a kong container recreate (brief full-API blip) and can only limit per-IP (all users share the anon apikey). Recommendation for later: app-level per-user limits in the edge functions, or the kong per-IP limit if abuse appears.
+
+**Authenticated pentest (empirical, throwaway @svalneratlas.com user, then deleted):** with a valid non-owner token, cross-tenant reads of `atad2_sessions/answers/session_factsheet/document_facts/question_prefills/reports/session_documents` for another user's session all returned `[]` (RLS holds); `build-factsheet` and `generate-appendix` returned **403**; n8n `generate-report` with another user's session_id was **rejected (no report generated)** — confirming the IDOR fix. No cross-tenant exposure found.
