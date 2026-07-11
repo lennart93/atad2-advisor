@@ -10,6 +10,7 @@ import PublicOnlyRoute from "@/components/routing/PublicOnlyRoute";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import AdminRoute from "@/components/routing/AdminRoute";
 import ScrollRestoration from "@/components/routing/ScrollRestoration";
+import RouteFocus from "@/components/routing/RouteFocus";
 // Route-based code splitting
 const Index = lazy(() => import("./pages/Index"));
 const Auth = lazy(() => import("./pages/Auth"));
@@ -62,6 +63,7 @@ const App = () => (
         <Toaster />
         <BrowserRouter>
           <ScrollRestoration />
+          <RouteFocus />
           <ErrorBoundary>
             <Suspense fallback={<LoadingSpinner />}>
                 <Routes>
