@@ -229,7 +229,7 @@ const ResetPassword = () => {
         aria-hidden
         className="pointer-events-none absolute inset-0 bg-gradient-to-b from-primary/5 via-background to-background"
       />
-      <MotionPage className="relative w-full max-w-md space-y-8">
+      <MotionPage as="main" className="relative w-full max-w-md space-y-8">
         <div className="text-center space-y-5">
           <div className="flex justify-center">
             <AnimatedLogo size={56} />
@@ -388,6 +388,8 @@ const ResetPassword = () => {
                         size="sm"
                         className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                         onClick={() => setShowPassword(!showPassword)}
+                        aria-label={showPassword ? "Hide password" : "Show password"}
+                        aria-pressed={showPassword}
                       >
                         {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </Button>
@@ -418,6 +420,8 @@ const ResetPassword = () => {
                         size="sm"
                         className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                         onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                        aria-pressed={showConfirmPassword}
                       >
                         {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </Button>

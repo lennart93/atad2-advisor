@@ -160,7 +160,7 @@ const VerifyEmail = () => {
         aria-hidden
         className="pointer-events-none absolute inset-0 bg-gradient-to-b from-primary/5 via-background to-background"
       />
-      <MotionPage className="relative w-full max-w-md space-y-8">
+      <MotionPage as="main" className="relative w-full max-w-md space-y-8">
         <div className="text-center space-y-5">
           <div className="flex justify-center">
             <AnimatedLogo size={56} />

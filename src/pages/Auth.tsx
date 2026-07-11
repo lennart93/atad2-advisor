@@ -384,7 +384,7 @@ const Auth = () => {
 
       {/* ── Right: the form (all original logic unchanged) ── */}
       <div className="flex items-center justify-center px-6 py-12 sm:px-12">
-        <MotionPage className="w-full max-w-md">
+        <MotionPage as="main" className="w-full max-w-md">
           {/* Mobile-only brand mark (left panel is hidden < lg) */}
           <div className="mb-8 flex items-center gap-3 lg:hidden">
             <AnimatedLogo size={36} />
@@ -488,6 +488,8 @@ const Auth = () => {
                       size="sm"
                       className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                       onClick={() => setSignInShowPassword(!signInShowPassword)}
+                      aria-label={signInShowPassword ? "Hide password" : "Show password"}
+                      aria-pressed={signInShowPassword}
                     >
                       {signInShowPassword ? (
                         <EyeOff className="h-4 w-4" />
@@ -687,6 +689,8 @@ const Auth = () => {
                           size="sm"
                           className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                           onClick={() => setShowPassword(!showPassword)}
+                          aria-label={showPassword ? "Hide password" : "Show password"}
+                          aria-pressed={showPassword}
                         >
                           {showPassword ? (
                             <EyeOff className="h-4 w-4" />

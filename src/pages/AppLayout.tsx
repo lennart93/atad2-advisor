@@ -68,6 +68,12 @@ const AppLayout = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:text-foreground focus:shadow-md focus:ring-2 focus:ring-ring"
+      >
+        Skip to main content
+      </a>
       <header className="sticky top-0 z-40 border-b border-[hsl(var(--border-subtle))] bg-background/70 backdrop-blur-md supports-[backdrop-filter]:bg-background/60">
         <div className="mx-auto max-w-6xl px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -152,9 +158,11 @@ const AppLayout = () => {
 
       {/* Content */}
       {isBareRoute ? (
-        <Outlet />
+        <main id="main-content" tabIndex={-1} className="outline-none">
+          <Outlet />
+        </main>
       ) : (
-        <main className="p-4">
+        <main id="main-content" tabIndex={-1} className="p-4 outline-none">
           <div className="max-w-4xl mx-auto">
             <Outlet />
           </div>
