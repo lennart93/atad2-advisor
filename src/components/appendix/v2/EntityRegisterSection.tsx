@@ -200,7 +200,7 @@ export function EntityRegisterSection({ facts, onChange, selectedId, onSelect }:
                 <button type="button" onClick={() => setShowAll((v) => !v)} aria-expanded={showAll} className="flex items-center gap-2.5 text-left">
                   <span className={GROUP_LABEL}>Other</span>
                   <span className={GROUP_META}>{restEnts.length} {restEnts.length === 1 ? 'entity' : 'entities'} · below 25%, no qualification difference</span>
-                  {showAll ? <ChevronUp className="h-3 w-3 text-muted-foreground/70" /> : <ChevronDown className="h-3 w-3 text-muted-foreground/70" />}
+                  {showAll ? <ChevronUp className="h-3 w-3 text-muted-foreground" /> : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
                 </button>
               </td>
             </tr>

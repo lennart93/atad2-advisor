@@ -49,8 +49,8 @@ export function SectionRow({
             {needReview} need review
           </span>
         ) : (
-          <span className="inline-flex shrink-0 items-center gap-1.5 text-[12.5px] text-brand-sage-deep">
-            <Check className="h-3.5 w-3.5" aria-hidden />
+          <span className="inline-flex shrink-0 items-center gap-1.5 text-[12.5px] text-ds-green-text">
+            <Check className="h-3.5 w-3.5 text-brand-sage-deep" aria-hidden />
             {verifiedLabel}
           </span>
         ))}

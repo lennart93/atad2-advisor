@@ -27,7 +27,7 @@ export function RolledUpGroup({ summary, children }: { summary: ReactNode; child
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
           className={cn(
-            'inline-flex items-center gap-1 text-[11px] uppercase tracking-wide text-muted-foreground/70 transition-colors hover:text-foreground',
+            'inline-flex items-center gap-1 text-[11px] uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground',
           )}
         >
           {open ? 'Hide' : 'Show'}

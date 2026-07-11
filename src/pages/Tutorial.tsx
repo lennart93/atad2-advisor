@@ -232,7 +232,7 @@ const Tutorial = () => {
                     Chapter {chapterIdx + 1} of {chapters.length}
                   </span>
                   {chapter.steps.length > 1 && (
-                    <span className="text-[10px] font-mono text-muted-foreground/70">
+                    <span className="text-[10px] font-mono text-muted-foreground">
                       · step {stepIdx + 1} of {chapter.steps.length}
                     </span>
                   )}

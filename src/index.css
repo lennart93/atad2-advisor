@@ -77,7 +77,7 @@ All colors MUST be HSL.
     --secondary-foreground: 48 16% 7%;
 
     --muted: 42 15% 94%;
-    --muted-foreground: 40 8% 51%;   /* #8a8479 warm grey */
+    --muted-foreground: 40 8% 41%;   /* #716b60 warm grey — darkened from 51% for WCAG AA (4.5:1) on all light surfaces */
 
     --accent: 42 15% 94%;            /* neutral warm hover (NOT the brand accent) */
     --accent-foreground: 48 16% 7%;
@@ -92,8 +92,8 @@ All colors MUST be HSL.
     --radius: 0.125rem;              /* 2px — brand is flat & near-square */
 
     /* Brand accents — use these for markers, active states, arrows, etc. */
-    --brand-terracotta: 14 52% 50%;       /* #c25c3c */
-    --brand-terracotta-deep: 14 58% 42%;  /* #a8492d */
+    --brand-terracotta: 14 52% 45%;       /* #ae5337 — darkened from 50% so 11px terracotta labels meet AA */
+    --brand-terracotta-deep: 14 58% 41%;  /* #a4472c — AA on terracotta-soft */
     --brand-terracotta-soft: 18 47% 89%;  /* #f0ddd5 */
     --brand-sage: 71 20% 53%;             /* #97a06f */
     --brand-sage-deep: 74 18% 43%;        /* #79825a */

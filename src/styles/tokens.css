@@ -20,7 +20,7 @@
   --ds-ink-hover: #2a2820;      /* solid (ink) button hover */
   --ds-ink-disabled: rgba(22, 21, 15, 0.38); /* disabled primary-button fill: dimmed ink, stays warm */
   --ds-ink-secondary: #57534a;  /* secondary text; lightest tone that may carry readable text (AA) */
-  --ds-ink-tertiary: #8a8479;   /* icons + decoration only: below 4.5:1 on card/page, not for text */
+  --ds-ink-tertiary: #736d62;   /* darkened for WCAG AA: also safe for the small text that grew onto it */
   --ds-hairline: rgba(22, 21, 15, 0.12);
   --ds-page: #faf8f4;           /* warm paper page background */
   --ds-card: #ffffff;           /* card / control background (white on paper) */
@@ -33,7 +33,7 @@
    * that resolves to this token, pick up the brand accent. */
   --ds-accent: #c25c3c;
   --ds-accent-bg: #f0ddd5;
-  --ds-accent-text: #a8492d;
+  --ds-accent-text: #a4472c;    /* AA (4.55:1) on --ds-accent-bg */
 
   /* Semantic: amber = the real ATAD2 risk outcome (and genuine blocking /
    * insufficient-information attention). Rare by design, never decoration. */
@@ -82,7 +82,7 @@
   --ds-ink-hover: #ffffff;
   --ds-ink-disabled: rgba(244, 242, 236, 0.32);
   --ds-ink-secondary: #b0a89c;
-  --ds-ink-tertiary: #847d6f;
+  --ds-ink-tertiary: #8e8779;   /* lightened for WCAG AA on the dark card */
   --ds-hairline: rgba(255, 255, 255, 0.14);
   --ds-page: #14130f;
   --ds-card: #1c1a15;
@@ -90,7 +90,7 @@
 
   --ds-accent: #d27e5e;
   --ds-accent-bg: #43332c;
-  --ds-accent-text: #d27e5e;
+  --ds-accent-text: #d98f73;    /* lightened for WCAG AA on the dark accent panel */
 
   --ds-amber: #d99b45;
   --ds-amber-bg: rgba(186, 117, 23, 0.18);

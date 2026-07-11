@@ -219,7 +219,7 @@ export function ManualGroupCard({ facts, cluster, editable, onChange, bare }: {
             )}
           </div>
           {editable && cluster.memberEntityIds.length <= 2 && (
-            <p className="mt-1.5 text-[11px] text-muted-foreground/70">A group needs at least two members.</p>
+            <p className="mt-1.5 text-[11px] text-muted-foreground">A group needs at least two members.</p>
           )}
         </div>
 
@@ -403,7 +403,7 @@ export function GroupBuilder({ facts, defaultTargetId, onCreate, onCancel }: {
         >
           Cancel
         </button>
-        {!canCreate && <span className="text-[11.5px] text-muted-foreground/70">Select at least two members.</span>}
+        {!canCreate && <span className="text-[11.5px] text-muted-foreground">Select at least two members.</span>}
       </div>
     </div>
   );

@@ -149,7 +149,7 @@ export function WorklistPointsList({
                   className={cn(
                     "font-medium",
                     worklist.resolvedPoints > 0
-                      ? "text-brand-sage-deep"
+                      ? "text-ds-green-text"
                       : "text-ds-ink",
                   )}
                 >

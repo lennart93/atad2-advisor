@@ -845,7 +845,7 @@ const AssessmentReport = () => {
                         ? "text-brand-warning-deep"
                         : riskOutcome.status === "insufficient"
                           ? "text-brand-info-deep"
-                          : "text-brand-sage-deep"
+                          : "text-ds-green-text"
                     }`}
                   >
                     {riskOutcome.text}

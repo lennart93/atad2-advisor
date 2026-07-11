@@ -352,7 +352,7 @@ function AssociationRow({ p }: { p: RelatedParty }) {
       <span className={cn('truncate', associated ? 'font-normal text-foreground' : 'text-muted-foreground')} title={p.name}>
         {p.name}
       </span>
-      {p.jurisdiction && <span className="shrink-0 text-[10px] uppercase text-muted-foreground/70">{p.jurisdiction}</span>}
+      {p.jurisdiction && <span className="shrink-0 text-[10px] uppercase text-muted-foreground">{p.jurisdiction}</span>}
       <span className="flex-1" />
       <span className="shrink-0 tabular-nums text-muted-foreground">{pct(p.ownershipPct)}</span>
       {reverse && <span className="shrink-0 text-[10px] font-normal text-ds-ink-secondary">&ge;50%</span>}

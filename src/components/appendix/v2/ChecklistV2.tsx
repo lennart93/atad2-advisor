@@ -27,7 +27,7 @@ interface Section { sectionId: string; sectionTitle: string; items: SkeletonRow[
 const DIGEST_INFO = (
   <div className="space-y-1.5">
     <p className="font-medium text-foreground">Status key</p>
-    <p><span className="text-brand-sage-deep">Not triggered / N/A</span>, no risk or out of scope.</p>
+    <p><span className="text-ds-green-text">Not triggered / N/A</span>, no risk or out of scope.</p>
     <p><span className="text-[#4a5b6b]">Insufficient info</span>, a fact is missing.</p>
     <p><span className="text-[#8a6a2a]">Triggered</span>, a condition fires; review it.</p>
   </div>

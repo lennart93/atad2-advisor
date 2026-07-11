@@ -65,7 +65,7 @@ export function DetailPanel({
           </>
         ) : (
           <div className="flex min-h-[220px] items-center justify-center px-6 py-10 text-center">
-            <p className="text-[13px] text-muted-foreground/70">{emptyHint}</p>
+            <p className="text-[13px] text-muted-foreground">{emptyHint}</p>
           </div>
         )}
       </aside>

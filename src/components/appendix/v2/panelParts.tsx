@@ -149,7 +149,7 @@ export function SegmentedControl<T extends string | null>({ options, value, onCh
                 ? o.tone === 'needs'
                   ? 'bg-brand-terracotta-soft text-brand-terracotta-deep'
                   : o.tone === 'no_risk'
-                    ? 'bg-brand-sage-soft text-brand-sage-deep'
+                    ? 'bg-brand-sage-soft text-ds-green-text'
                     : 'bg-foreground text-white'
                 : 'text-muted-foreground hover:bg-muted hover:text-foreground',
             )}

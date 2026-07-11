@@ -560,7 +560,7 @@ export function FactsPanel({ facts, onChange, generated, refining, embedded, hid
   const renderEntityRow = (e: FactEntity) => {
     const isMember = !!e.memberOfUnityId;
     const isTaxpayer = e.role === 'Taxpayer' || !!e.isFiscalUnity;
-    const muted = isMember ? 'text-muted-foreground/70' : 'text-muted-foreground';
+    const muted = isMember ? 'text-muted-foreground' : 'text-muted-foreground';
     const jur = effJurisdiction(e);
     const status = effNlTaxStatus(e);
     const nlQual = effNlQualification(e);
@@ -648,13 +648,13 @@ export function FactsPanel({ facts, onChange, generated, refining, embedded, hid
               <span className="ml-1.5 text-[9.5px] font-normal uppercase tracking-wide text-muted-foreground/60">{roleLabel(e)}</span>
             )}
             {e.isFiscalUnity && (
-              <span className="ml-1.5 rounded-sm bg-brand-sage-soft px-1 text-[10px] font-normal text-brand-sage-deep">
+              <span className="ml-1.5 rounded-sm bg-brand-sage-soft px-1 text-[10px] font-normal text-ds-green-text">
                 fiscal unity
               </span>
             )}
             {e.inTaxpayerFiscalUnity && (
               <span
-                className="ml-1.5 rounded-sm bg-brand-sage-soft px-1 text-[10px] font-normal text-brand-sage-deep"
+                className="ml-1.5 rounded-sm bg-brand-sage-soft px-1 text-[10px] font-normal text-ds-green-text"
                 title="Forms a Dutch fiscal unity (fiscale eenheid) with E1; part of the same NL taxpayer"
               >
                 fiscal unity · taxpayer
@@ -1335,7 +1335,7 @@ export function FactsPanel({ facts, onChange, generated, refining, embedded, hid
                                 ? choice.value === 'needs'
                                   ? 'bg-brand-terracotta-soft text-brand-terracotta-deep'
                                   : choice.value === 'no_risk'
-                                    ? 'bg-brand-sage-soft text-brand-sage-deep'
+                                    ? 'bg-brand-sage-soft text-ds-green-text'
                                     : 'bg-foreground text-white'
                                 : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                             )}
@@ -1472,7 +1472,7 @@ export function FactsPanel({ facts, onChange, generated, refining, embedded, hid
                         className={cn(
                           'inline-flex items-center gap-1.5 rounded-[3px] border px-2.5 py-1 text-[12px] transition-colors',
                           allOtherHidden
-                            ? 'border-brand-sage bg-brand-sage-soft text-brand-sage-deep'
+                            ? 'border-brand-sage bg-brand-sage-soft text-ds-green-text'
                             : 'border-border text-muted-foreground hover:bg-muted hover:text-foreground',
                         )}
                       >
@@ -1484,7 +1484,7 @@ export function FactsPanel({ facts, onChange, generated, refining, embedded, hid
                       type="button"
                       onClick={() => setShowAllEntities((v) => !v)}
                       aria-expanded={showAllEntities}
-                      className="inline-flex items-center gap-1 text-[11px] uppercase tracking-wide text-muted-foreground/70 transition-colors hover:text-foreground"
+                      className="inline-flex items-center gap-1 text-[11px] uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground"
                     >
                       {showAllEntities ? 'Hide' : 'Show all'}
                       {showAllEntities ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
@@ -1699,7 +1699,7 @@ export function FactsPanel({ facts, onChange, generated, refining, embedded, hid
                           type="button"
                           onClick={() => setShowAssessed((v) => !v)}
                           aria-expanded={showAssessed}
-                          className="inline-flex items-center gap-1 text-[11px] uppercase tracking-wide text-muted-foreground/70 transition-colors hover:text-foreground"
+                          className="inline-flex items-center gap-1 text-[11px] uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground"
                         >
                           {showAssessed ? 'Hide' : 'Show all'}
                           {showAssessed ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}

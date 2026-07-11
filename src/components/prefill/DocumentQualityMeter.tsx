@@ -22,7 +22,7 @@ const TIER_PILL: Record<
 > = {
   good:      { label: 'Good',      text: 'text-ds-ink-secondary', ring: 'ring-ds-hairline' },
   strong:    { label: 'Strong',    text: 'text-ds-ink-secondary', ring: 'ring-ds-hairline' },
-  excellent: { label: 'Excellent', text: 'text-brand-sage-deep',  ring: 'ring-brand-sage/45' },
+  excellent: { label: 'Excellent', text: 'text-ds-green-text',  ring: 'ring-brand-sage/45' },
 };
 
 const SEGMENT_COLOR: Record<Exclude<QualityTier, 'empty'>, string> = {
