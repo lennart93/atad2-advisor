@@ -110,15 +110,19 @@ export default function AssessmentUpload() {
     // No WizardCard here: each DocumentsWorklist phase owns its own card so
     // the analysis screen's coffee aside can sit outside (below) the card.
     return (
-      <DocumentsWorklist
-        sessionId={sessionId}
-        onReviewQuestionnaire={() => navigate(`/assessment?session=${sessionId}`)}
-      />
+      <>
+        <h1 className="sr-only">Documents</h1>
+        <DocumentsWorklist
+          sessionId={sessionId}
+          onReviewQuestionnaire={() => navigate(`/assessment?session=${sessionId}`)}
+        />
+      </>
     );
   }
 
   return (
     <>
+      <h1 className="sr-only">Documents</h1>
       <WizardCard>
         <DocumentUploadStep sessionId={sessionId} locked={locked} />
       </WizardCard>

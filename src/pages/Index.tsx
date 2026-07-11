@@ -271,7 +271,7 @@ const Index = () => {
           ) : sessions.length === 0 ? (
             <FadeIn>
               <div className="flex flex-col items-center justify-center gap-3 border-y border-ds-hairline px-6 py-20 text-center">
-                <h3 className="text-[17px] font-normal tracking-tight text-ds-ink">No assessments yet</h3>
+                <h2 className="text-[17px] font-normal tracking-tight text-ds-ink">No assessments yet</h2>
                 <p className="text-[13px] text-ds-ink-secondary">
                   Start your first ATAD2 assessment to see it here.
                 </p>
@@ -316,9 +316,9 @@ const Index = () => {
                       </span>
 
                       {/* Client */}
-                      <h3 className="pointer-events-none relative min-w-0 text-[19px] font-normal tracking-tight text-ds-ink sm:text-[22px]">
+                      <h2 className="pointer-events-none relative min-w-0 text-[19px] font-normal tracking-tight text-ds-ink sm:text-[22px]">
                         <TaxpayerSubject stored={session.taxpayer_name} moreClassName="text-[14px] sm:text-[15px]" />
-                      </h3>
+                      </h2>
 
                       {/* Period */}
                       <div className="pointer-events-none relative flex flex-col gap-0.5">

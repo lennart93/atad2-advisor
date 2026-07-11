@@ -14,8 +14,9 @@ export interface RowEye {
  * No chevron, no inline controls. The eye stays as a small muted icon on the right.
  * Selected: 2px left accent border + subtle tint. The whole row opens the panel.
  *
- * A div[role=button] (not a <button>) so the eye can be a real nested button
- * without invalid markup; `data-appendix-row` + tabIndex make ↑/↓/Enter work.
+ * Structure: the outer div is layout only; the content area is the
+ * div[role=button] (`data-appendix-row` + tabIndex make ↑/↓/Enter work) and the
+ * eye is a sibling, so no interactive control is nested inside another.
  */
 export function AppendixRowItem({
   rowId, domId, label, meta, reason, selected, routine, onSelect, eye,
@@ -33,26 +34,28 @@ export function AppendixRowItem({
   return (
     <div
       id={domId}
-      data-appendix-row
-      role="button"
-      tabIndex={0}
-      aria-pressed={selected}
-      onClick={onSelect}
-      onKeyDown={(ev) => {
-        if (ev.currentTarget === ev.target && (ev.key === 'Enter' || ev.key === ' ')) {
-          ev.preventDefault();
-          onSelect();
-        }
-      }}
       className={cn(
-        'group flex cursor-pointer items-start gap-3 border-b border-border py-2.5 pr-2 pl-3 transition-colors hover:bg-accent focus:bg-accent focus:outline-none',
+        'group flex items-start gap-3 border-b border-border pr-2 pl-3 transition-colors hover:bg-accent focus-within:bg-accent',
         selected
           ? 'border-l-2 border-l-brand-terracotta bg-brand-terracotta-soft/25 pl-[10px]'
           : 'border-l-2 border-l-transparent',
         routine && 'opacity-90',
       )}
     >
-      <div className="min-w-0 flex-1">
+      <div
+        data-appendix-row
+        role="button"
+        tabIndex={0}
+        aria-pressed={selected}
+        onClick={onSelect}
+        onKeyDown={(ev) => {
+          if (ev.currentTarget === ev.target && (ev.key === 'Enter' || ev.key === ' ')) {
+            ev.preventDefault();
+            onSelect();
+          }
+        }}
+        className="min-w-0 flex-1 cursor-pointer py-2.5 focus:outline-none"
+      >
         <div className="flex items-center gap-2">
           <span className="shrink-0 font-mono text-[11px] text-ds-ink-secondary">{rowId}</span>
           <span className={cn('min-w-0 truncate text-[14px]', routine ? 'text-muted-foreground' : 'text-foreground')}>
@@ -76,7 +79,7 @@ export function AppendixRowItem({
           title={eye.label}
           onClick={(e) => { e.stopPropagation(); eye.onToggle(); }}
           className={cn(
-            'mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-[3px] transition-colors',
+            'mt-[12px] inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-[3px] transition-colors',
             eye.hidden
               ? 'text-muted-foreground hover:bg-muted hover:text-foreground'
               : 'text-brand-sage-deep hover:bg-brand-sage-soft',

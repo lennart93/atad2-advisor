@@ -1060,7 +1060,7 @@ const AssessmentReport = () => {
           {/* Generate Report Button — brought into the terracotta-top card family */}
           <Card>
             <CardHeader className="space-y-1.5">
-              <CardTitle>Generate memorandum</CardTitle>
+              <CardTitle as="h2">Generate memorandum</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-5">

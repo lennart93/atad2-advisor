@@ -144,7 +144,7 @@ const Sessions = () => {
   };
 
   return (
-    <main>
+    <div>
       <Seo title="Admin Sessions" description="Manage ATAD2 sessions" canonical="/admin/sessions" />
       <div className="flex items-end justify-between mb-4">
         <div>
@@ -231,7 +231,7 @@ const Sessions = () => {
         </div>
       )}
 
-    </main>
+    </div>
   );
 };
 

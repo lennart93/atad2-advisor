@@ -109,7 +109,7 @@ const Users = () => {
   const isLoading = loadingProfiles || loadingRoles;
 
   return (
-    <main>
+    <div>
       <Seo title="Admin Users & Roles" description="Manage users and roles" canonical="/admin/users" />
       <div className="flex items-end justify-between mb-4">
         <div>
@@ -232,7 +232,7 @@ const Users = () => {
         onOpenChange={setAccessDialog}
         actionLabel="change user roles"
       />
-    </main>
+    </div>
   );
 };
 

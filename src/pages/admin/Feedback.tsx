@@ -134,7 +134,7 @@ const Feedback = () => {
   });
 
   return (
-    <main>
+    <div>
       <Seo title="Admin Feedback" description="User feedback inbox" canonical="/admin/feedback" />
 
       <div className="flex items-end justify-between mb-4">
@@ -237,7 +237,7 @@ const Feedback = () => {
           />
         )}
       </SlideInPanel>
-    </main>
+    </div>
   );
 };
 

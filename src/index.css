@@ -434,6 +434,14 @@ All colors MUST be HSL.
 /* --- Structure chart: brand the stock React Flow zoom controls ---
    A flat white hairline +/- stack instead of React Flow's default shadowed
    chrome, matching the Svalner editorial look (RULE 3: 2px radius, flat). */
+/* Keyboard focus on chart nodes: same terracotta ring as the rest of the app.
+   React Flow's default focus style is a subtle shadow that fails WCAG 2.4.7. */
+.react-flow__node:focus-visible {
+  outline: 2px solid var(--ds-accent, #c25c3c);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
 .react-flow__controls {
   box-shadow: 0 1px 2px rgb(27 26 24 / 0.08);
   border: 1px solid hsl(var(--border));

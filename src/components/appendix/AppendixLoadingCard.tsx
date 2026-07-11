@@ -23,9 +23,9 @@ export function AppendixLoadingCard({
         <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
           Appendix · {partLabel}
         </p>
-        <h2 className="mt-2 text-[23px] font-normal tracking-tight text-ds-ink">
+        <h1 className="mt-2 text-[23px] font-normal tracking-tight text-ds-ink">
           Preparing the appendix
-        </h2>
+        </h1>
         <p className="mt-2 text-[14.5px] leading-[1.6] text-ds-ink-secondary">
           The entity register is being assembled and the appendix sections drafted
           from the documents and answers. You can stay on this page.

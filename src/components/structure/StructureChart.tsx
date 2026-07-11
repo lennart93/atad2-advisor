@@ -100,10 +100,15 @@ function StructureChartInner(props: StructureChartProps) {
   // React Flow multi-select: vuurt bij elke shift-klik / box-select. We laten
   // de single-select afhandelen door onNodeClick (zonder shift) en de
   // multi-select door deze callback wanneer 2+ nodes geselecteerd zijn.
+  // Eén node via het toetsenbord (Tab naar de node, Enter/spatie selecteert in
+  // React Flow) komt óók hier binnen — dat is de keyboard-route naar de
+  // inspector, dus die vertalen we naar dezelfde single-select als een klik.
   useOnSelectionChange({
     onChange: ({ nodes: selNodes }) => {
       if (selNodes.length >= 2) {
         props.onSelectionChange({ kind: 'nodes', ids: selNodes.map((n) => n.id) });
+      } else if (selNodes.length === 1) {
+        props.onSelectionChange({ kind: 'node', id: selNodes[0].id });
       }
     },
   });
@@ -114,6 +119,11 @@ function StructureChartInner(props: StructureChartProps) {
       return {
         id: e.id,
         type: 'entity',
+        // Accessible name for the focusable chart node (React Flow renders it
+        // as aria-label); mirrors what the card shows visually.
+        ariaLabel: [e.name, e.legal_form, e.jurisdiction_iso, e.is_taxpayer ? 'taxpayer' : null]
+          .filter(Boolean)
+          .join(', '),
         position: { x: e.position_x, y: e.position_y },
         data: {
           name: e.name,
@@ -131,6 +141,7 @@ function StructureChartInner(props: StructureChartProps) {
     const clusters: ClusterNodeType[] = props.clusterNodes.map((c) => ({
       id: c.id,
       type: 'cluster',
+      ariaLabel: `${c.data.name}, collapsed group of ${c.data.count} entities`,
       position: c.position,
       data: c.data,
     }));

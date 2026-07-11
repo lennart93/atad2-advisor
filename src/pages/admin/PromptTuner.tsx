@@ -116,7 +116,7 @@ export default function PromptTuner() {
   const placeholdersHint = PROMPT_DESCRIPTORS.find((d) => d.key === targetKey)?.placeholders;
 
   return (
-    <main>
+    <div>
       <Seo title="Admin Prompt Tuner" description="Turn an improved output into a sharper prompt" canonical="/admin/prompt-tuner" />
       <div className="mb-6">
         <div className="text-[11px] font-normal uppercase tracking-[0.16em] text-ds-ink-secondary mb-1">Admin</div>
@@ -257,6 +257,6 @@ export default function PromptTuner() {
           onClose={() => setDraft(null)}
         />
       )}
-    </main>
+    </div>
   );
 }

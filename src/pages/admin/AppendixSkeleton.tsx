@@ -166,7 +166,7 @@ export default function AppendixSkeleton() {
   };
 
   return (
-    <main>
+    <div>
       <Seo title="Admin · Appendix legal framework" description="Edit the ATAD2 technical-appendix rows" canonical="/admin/appendix-skeleton" />
       <div className="flex items-end justify-between mb-6">
         <div>
@@ -280,6 +280,6 @@ export default function AppendixSkeleton() {
           </Button>
         </div>
       )}
-    </main>
+    </div>
   );
 }

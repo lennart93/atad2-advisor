@@ -78,7 +78,7 @@ const Questions = () => {
   };
 
   return (
-    <main>
+    <div>
       <Seo
         title="Admin Questions"
         description="Manage ATAD2 questions"
@@ -160,7 +160,7 @@ const Questions = () => {
         onOpenChange={setAccessDialog}
         actionLabel="edit questions"
       />
-    </main>
+    </div>
   );
 };
 

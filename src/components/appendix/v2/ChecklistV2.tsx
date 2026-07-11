@@ -96,30 +96,36 @@ export function ChecklistV2({ rows, skeleton, onEdit, onToggleExclude, sessionId
     const ctype = controlTypeFor(row, mootSet);
     const tone = rowTone(row.status, sk.rowId);
     const selected = selectedId === sk.rowId;
+    // Outer div is layout only; the label area is the row's button and the
+    // StatusControl is a sibling, so no interactive control nests in another.
     return (
       <div
         key={sk.rowId}
         id={`v2-cond-${sk.rowId}`}
-        data-appendix-row
-        role="button"
-        tabIndex={0}
-        aria-pressed={selected}
-        onClick={() => select(sk.rowId)}
-        onKeyDown={(ev) => { if (ev.currentTarget === ev.target && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); select(sk.rowId); } }}
         className={cn(
-          'group flex cursor-pointer items-start gap-3 border-b border-border py-2.5 pr-2 transition-colors hover:bg-accent focus:bg-accent focus:outline-none',
+          'group flex items-start gap-3 border-b border-border pr-2 transition-colors hover:bg-accent focus-within:bg-accent',
           selected ? 'border-l-2 border-l-ds-ink bg-ds-fill-muted pl-[10px]' : 'border-l-2 border-l-transparent pl-3',
           row.excludedFromClient && 'opacity-55',
         )}
       >
-        <span className="flex w-9 shrink-0 items-center gap-1.5 pt-[3px]">
-          <span className="h-[7px] w-[7px] shrink-0 rounded-full" style={{ backgroundColor: dotColor(tone) }} aria-hidden />
-          <span className="tabular-nums text-[11px] text-muted-foreground">{sk.rowId}</span>
-        </span>
-        <span className="min-w-0 flex-1 pt-px text-[14px] leading-snug text-foreground">{sk.conditionTested}</span>
-        {/* Handlers only stop propagation to the row; StatusControl inside is the interactive element. */}
+        <div
+          data-appendix-row
+          role="button"
+          tabIndex={0}
+          aria-pressed={selected}
+          onClick={() => select(sk.rowId)}
+          onKeyDown={(ev) => { if (ev.currentTarget === ev.target && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); select(sk.rowId); } }}
+          className="flex min-w-0 flex-1 cursor-pointer items-start gap-3 py-2.5 focus:outline-none"
+        >
+          <span className="flex w-9 shrink-0 items-center gap-1.5 pt-[3px]">
+            <span className="h-[7px] w-[7px] shrink-0 rounded-full" style={{ backgroundColor: dotColor(tone) }} aria-hidden />
+            <span className="tabular-nums text-[11px] text-muted-foreground">{sk.rowId}</span>
+          </span>
+          <span className="min-w-0 flex-1 pt-px text-[14px] leading-snug text-foreground">{sk.conditionTested}</span>
+        </div>
+        {/* Keydown only stops the arrow-key list delegation from hijacking the control. */}
         {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
-        <span className="shrink-0" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+        <span className="shrink-0 pt-2.5" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
           <StatusControl
             rowId={sk.rowId}
             ctype={ctype}

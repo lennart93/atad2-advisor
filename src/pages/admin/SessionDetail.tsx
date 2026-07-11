@@ -67,30 +67,30 @@ const SessionDetail = () => {
 
   if (loadingSession) {
     return (
-      <main>
+      <div>
         <Skeleton className="h-8 w-48 mb-4" />
         <Skeleton className="h-24 w-full" />
-      </main>
+      </div>
     );
   }
 
   if (!session) {
     return (
-      <main>
+      <div>
         <div className="text-center py-16">
           <div className="text-muted-foreground mb-4">This session could not be found. It may have been deleted.</div>
           <Button variant="outline" onClick={() => navigate("/admin/sessions")}>
             Back to sessions
           </Button>
         </div>
-      </main>
+      </div>
     );
   }
 
   const completed = Boolean(session.completed || session.status === "completed");
 
   return (
-    <main>
+    <div>
       <Seo title={`Session ${session.session_id}`} description="Session detail" canonical={`/admin/sessions/${id}`} />
 
       <div className="mb-4 flex items-center justify-between">
@@ -233,7 +233,7 @@ const SessionDetail = () => {
         onOpenChange={setAccessDialog}
         actionLabel="delete this session"
       />
-    </main>
+    </div>
   );
 };
 

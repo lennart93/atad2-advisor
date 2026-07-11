@@ -2126,7 +2126,7 @@ const Assessment = () => {
     return (
       <>
         <WizardCard>
-              <h2 className="text-2xl font-normal tracking-tight text-ds-ink">Start risk assessment</h2>
+              <h1 className="text-2xl font-normal tracking-tight text-ds-ink">Start risk assessment</h1>
               <p className="mt-2 text-[15px] text-ds-ink-secondary">
                 Start with the taxpayer and the tax year. The rest follows step by step.
               </p>
@@ -2553,8 +2553,12 @@ const Assessment = () => {
                 >
                   <div className="mb-6">
                     {currentQuestion.question_title && (
-                      <h2 className="mb-3 text-[11px] font-medium uppercase tracking-[0.16em] text-ds-accent-text">{currentQuestion.question_title}</h2>
+                      <p className="mb-3 text-[11px] font-medium uppercase tracking-[0.16em] text-ds-accent-text">{currentQuestion.question_title}</p>
                     )}
+                    {/* The question is the page's level-one heading for assistive tech;
+                        the visible copy below keeps its original markup (it can expand
+                        an example panel, which does not belong inside a heading). */}
+                    <h1 className="sr-only">{currentQuestion.question}</h1>
                     <p className="text-2xl sm:text-3xl font-normal tracking-tight leading-snug text-left text-ds-ink">
                       <QuestionText
                         question={currentQuestion.question}

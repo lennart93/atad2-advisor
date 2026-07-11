@@ -908,7 +908,8 @@ const [busy, setBusy] = useState(false);
         }
       />
 
-      <main className="relative flex-1 min-h-0">
+      <div className="relative flex-1 min-h-0">
+        <h1 className="sr-only">Structure chart</h1>
         {showLoader ? (
             <div className="absolute inset-0 flex items-center justify-center bg-card">
               <AtlasLoader
@@ -1105,7 +1106,7 @@ const [busy, setBusy] = useState(false);
             onClose={() => setSelection(null)}
           />
         )}
-      </main>
+      </div>
 
       {editingGrouping && (
         <FiscalUnityEditPopover

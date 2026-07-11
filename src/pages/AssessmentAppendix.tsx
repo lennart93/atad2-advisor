@@ -352,6 +352,7 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
     ];
     return (
       <div className="flex flex-col items-center justify-center gap-4 py-24 text-center">
+        <h1 className="sr-only">Technical appendix</h1>
         <ProcessChecklist steps={errorSteps} className="min-w-56 text-left" />
         <p role="alert" className="text-[13px] text-ds-ink-secondary">
           {appendix?.error_message
@@ -377,6 +378,7 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
 
   return (
     <div className="space-y-4">
+      <h1 className="sr-only">{page === 'facts' ? 'Technical appendix, facts and relationships' : 'Technical appendix, conditions checklist'}</h1>
       {skipped && (
         <p className="rounded-md border border-[hsl(var(--border-subtle))] bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
           This page is skipped and will be left out of the report. The content is kept and can be restored with Unskip.

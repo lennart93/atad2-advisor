@@ -78,7 +78,7 @@ const AuditLogs = () => {
   }, [logs, search, actionFilter]);
 
   return (
-    <main>
+    <div>
       <Seo title="Audit Logs" description="Security audit logs" canonical="/admin/audit" />
       <div className="flex items-end justify-between mb-4">
         <div>
@@ -166,7 +166,7 @@ const AuditLogs = () => {
           )}
         </div>
       )}
-    </main>
+    </div>
   );
 };
 

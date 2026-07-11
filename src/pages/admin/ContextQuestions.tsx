@@ -98,7 +98,7 @@ const ContextQuestions = () => {
   const prefillTrigger = isNewPath ? searchParams.get("trigger") ?? undefined : undefined;
 
   return (
-    <main>
+    <div>
       <Seo
         title="Admin Context Questions"
         description="Manage ATAD2 context questions"
@@ -246,7 +246,7 @@ const ContextQuestions = () => {
         onOpenChange={setAccessDialog}
         actionLabel="edit context questions"
       />
-    </main>
+    </div>
   );
 };
 

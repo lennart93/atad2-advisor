@@ -130,7 +130,7 @@ const Dashboard = () => {
   });
 
   return (
-    <main>
+    <div>
       <Seo
         title="Dashboard"
         description="ATAD2 Admin Dashboard"
@@ -229,7 +229,7 @@ const Dashboard = () => {
           })}
         </StaggerChildren>
       </section>
-    </main>
+    </div>
   );
 };
 

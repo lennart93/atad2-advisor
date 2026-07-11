@@ -87,7 +87,7 @@ const ReportDetail = () => {
 
   if (isLoading) {
     return (
-      <main className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-8">
         <Skeleton className="h-8 w-48 mb-6" />
         <Card className="p-6">
           <Skeleton className="h-6 w-64 mb-4" />
@@ -98,13 +98,13 @@ const ReportDetail = () => {
             <Skeleton className="h-4 w-3/4" />
           </div>
         </Card>
-      </main>
+      </div>
     );
   }
 
   if (error || !report) {
     return (
-      <main className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-8">
         <Seo
           title="Report not found"
           description="The requested report could not be found"
@@ -120,12 +120,12 @@ const ReportDetail = () => {
             Back to dashboard
           </Button>
         </div>
-      </main>
+      </div>
     );
   }
 
   return (
-    <main className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 py-8">
       <Seo
         title={report.report_title || "ATAD2 Report"}
         description="Detailed ATAD2 risk analysis report"
@@ -231,7 +231,7 @@ const ReportDetail = () => {
           </div>
         </Card>
       </div>
-    </main>
+    </div>
   );
 };
 

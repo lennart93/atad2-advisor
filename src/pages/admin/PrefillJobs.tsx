@@ -36,7 +36,7 @@ export default function PrefillJobs() {
   });
 
   return (
-    <main>
+    <div>
       <div className="flex items-end justify-between mb-6">
         <div>
           <div className="text-[11px] font-normal uppercase tracking-[0.16em] text-ds-ink-secondary mb-1">Admin</div>
@@ -118,7 +118,7 @@ export default function PrefillJobs() {
       </AdminCard>
 
       {detailJobId && <JobDetailDrawer jobId={detailJobId} onClose={() => setDetailJobId(null)} />}
-    </main>
+    </div>
   );
 }
 

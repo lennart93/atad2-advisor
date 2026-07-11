@@ -38,7 +38,7 @@ export default function Prompts() {
   const rowFor = (key: string) => active.data?.find((r) => r.key === key);
 
   return (
-    <main>
+    <div>
       <Seo title="Admin Prompts" description="Review and edit the system prompts behind each assessment step" canonical="/admin/prompts" />
       <div className="flex items-end justify-between mb-6">
         <div>
@@ -150,6 +150,6 @@ export default function Prompts() {
           onClose={() => { setHistoryKey(null); active.refetch(); }}
         />
       )}
-    </main>
+    </div>
   );
 }

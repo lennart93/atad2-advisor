@@ -57,7 +57,7 @@ const DataExplorer = () => {
   const totalPages = data ? Math.max(1, Math.ceil(data.total / PAGE_SIZE)) : 1;
 
   return (
-    <main>
+    <div>
       <Seo title="Admin Data Explorer" description="Read-only browser for Supabase tables" canonical="/admin/explorer" />
       <div className="flex items-end justify-between mb-4">
         <div>
@@ -186,7 +186,7 @@ const DataExplorer = () => {
           </pre>
         )}
       </SlideInPanel>
-    </main>
+    </div>
   );
 };
 

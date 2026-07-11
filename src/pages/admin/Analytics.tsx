@@ -130,7 +130,7 @@ const Analytics = () => {
   }, [sessions]);
 
   return (
-    <main>
+    <div>
       <Seo title="Admin Analytics" description="Trends and insights for ATAD2" canonical="/admin/analytics" />
       <div className="flex items-end justify-between mb-6">
         <div>
@@ -249,7 +249,7 @@ const Analytics = () => {
           </ResponsiveContainer>
         )}
       </AdminCard>
-    </main>
+    </div>
   );
 };
 
