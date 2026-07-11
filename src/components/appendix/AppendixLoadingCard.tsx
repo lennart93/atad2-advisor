@@ -18,7 +18,8 @@ export function AppendixLoadingCard({
 }) {
   return (
     <div className="flex justify-center py-16">
-      <div className="w-full max-w-[480px] rounded-[3px] border border-ds-hairline border-t-[3px] border-t-ds-accent bg-ds-card px-10 pb-[34px] pt-[38px]">
+      {/* role=status: step changes (Waiting -> Working -> Done) are announced politely. */}
+      <div role="status" className="w-full max-w-[480px] rounded-[3px] border border-ds-hairline border-t-[3px] border-t-ds-accent bg-ds-card px-10 pb-[34px] pt-[38px]">
         <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
           Appendix · {partLabel}
         </p>

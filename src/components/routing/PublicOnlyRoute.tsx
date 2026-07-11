@@ -12,7 +12,7 @@ const PublicOnlyRoute = ({ children }: PublicOnlyRouteProps) => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-muted-foreground">Loading...</p>
+        <p role="status" className="text-muted-foreground">Loading...</p>
       </div>
     );
   }

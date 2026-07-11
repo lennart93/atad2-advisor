@@ -223,7 +223,7 @@ const Index = () => {
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-[13px] text-ds-ink-secondary">Loading...</p>
+        <p role="status" className="text-[13px] text-ds-ink-secondary">Loading...</p>
       </div>
     );
   }

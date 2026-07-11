@@ -63,7 +63,7 @@ export function OpenQuestionsWorklistBody({
 
   if (worklist.phase === "loading" || worklist.phase === "composing") {
     return (
-      <p className="flex items-center gap-2 py-6 text-[13px] text-ds-ink-secondary">
+      <p role="status" className="flex items-center gap-2 py-6 text-[13px] text-ds-ink-secondary">
         <Loader2 className="h-4 w-4 motion-safe:animate-spin text-ds-ink-secondary" />
         Preparing the points...
       </p>

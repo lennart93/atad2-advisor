@@ -353,7 +353,7 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
     return (
       <div className="flex flex-col items-center justify-center gap-4 py-24 text-center">
         <ProcessChecklist steps={errorSteps} className="min-w-56 text-left" />
-        <p className="text-[13px] text-ds-ink-secondary">
+        <p role="alert" className="text-[13px] text-ds-ink-secondary">
           {appendix?.error_message
             ? `Appendix generation failed: ${appendix.error_message}`
             : 'Appendix generation failed.'}

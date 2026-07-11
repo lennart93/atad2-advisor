@@ -65,7 +65,7 @@ export function OpenQuestionsPanel({
 
   if (isLoading) {
     return (
-      <p className="py-6 text-[13px] text-ds-ink-secondary">Loading open questions...</p>
+      <p role="status" className="py-6 text-[13px] text-ds-ink-secondary">Loading open questions...</p>
     );
   }
 

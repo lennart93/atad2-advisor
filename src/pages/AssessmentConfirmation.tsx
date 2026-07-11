@@ -292,7 +292,7 @@ const AssessmentConfirmation = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
-        <p className="text-[13px] text-ds-ink-secondary">Loading...</p>
+        <p role="status" className="text-[13px] text-ds-ink-secondary">Loading...</p>
       </div>
     );
   }

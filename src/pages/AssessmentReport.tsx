@@ -718,7 +718,7 @@ const AssessmentReport = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
-        <p className="text-[15px] text-ds-ink-secondary">Loading assessment report...</p>
+        <p role="status" className="text-[15px] text-ds-ink-secondary">Loading assessment report...</p>
       </div>
     );
   }

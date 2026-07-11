@@ -51,7 +51,7 @@ const queryClient = new QueryClient();
 
 const LoadingSpinner = () => (
   <div className="min-h-screen flex items-center justify-center">
-    <p className="text-lg text-muted-foreground">Loading...</p>
+    <p role="status" className="text-lg text-muted-foreground">Loading...</p>
   </div>
 );
 
