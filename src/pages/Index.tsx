@@ -76,7 +76,9 @@ interface SessionListItem {
 const LEDGER_COLS =
   // Fixed last column (not `auto`) so the 1fr client column resolves identically
   // in the header grid and every row grid — that is what makes columns line up.
-  "sm:grid sm:grid-cols-[52px_minmax(0,1fr)_180px_150px_200px] sm:items-center sm:gap-4";
+  // md, not sm: with the app-wide html zoom the five fixed columns only truly
+  // fit from ~768px; at 640-767px the grid overflowed sideways (WCAG reflow).
+  "md:grid md:grid-cols-[52px_minmax(0,1fr)_180px_150px_200px] md:items-center md:gap-4";
 const EYEBROW = "text-[11px] font-normal uppercase tracking-[0.16em] text-ds-ink-secondary";
 
 const Index = () => {
@@ -236,7 +238,7 @@ const Index = () => {
         {/* Title block */}
         <header className="flex flex-col gap-8 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="text-5xl font-normal leading-[0.98] tracking-[-0.03em] text-ds-ink sm:text-6xl">
+            <h1 className="text-4xl font-normal leading-[0.98] tracking-[-0.03em] text-ds-ink min-[400px]:text-5xl sm:text-6xl">
               Assessments
             </h1>
             <p className="mt-5 max-w-md text-[15px] text-ds-ink-secondary">
@@ -302,7 +304,7 @@ const Index = () => {
                 return (
                   <motion.div key={session.id} variants={staggerItem}>
                     <div
-                      className={`group relative flex flex-col gap-3 border-b border-ds-hairline px-1 py-6 transition-colors duration-150 hover:bg-ds-fill-muted ${LEDGER_COLS} sm:gap-4`}
+                      className={`group relative flex flex-col gap-3 border-b border-ds-hairline px-1 py-6 transition-colors duration-150 hover:bg-ds-fill-muted ${LEDGER_COLS} md:gap-4`}
                     >
                       <Link
                         to={session.destination_url}
@@ -311,7 +313,7 @@ const Index = () => {
                       />
 
                       {/* No. */}
-                      <span className="pointer-events-none relative hidden text-[13px] tabular-nums text-ds-ink-tertiary sm:block">
+                      <span className="pointer-events-none relative hidden text-[13px] tabular-nums text-ds-ink-tertiary md:block">
                         {no}
                       </span>
 
@@ -335,7 +337,7 @@ const Index = () => {
                       </div>
 
                       {/* Actions */}
-                      <div className="relative z-10 flex items-center justify-start gap-4 sm:justify-end">
+                      <div className="relative z-10 flex items-center justify-start gap-4 md:justify-end">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();

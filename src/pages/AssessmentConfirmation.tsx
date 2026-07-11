@@ -475,7 +475,7 @@ const AssessmentConfirmation = () => {
                     className="h-[15px] w-[15px] text-ds-accent"
                     strokeWidth={1.7}
                   />
-                  <span className={EYEBROW}>Additional context</span>
+                  <label htmlFor="additional-context" className={EYEBROW}>Additional context</label>
                 </div>
                 <span className="shrink-0 rounded-full bg-ds-fill-muted px-2.5 py-[3px] text-[11px] text-ds-ink-secondary">
                   Optional
@@ -618,7 +618,7 @@ const AssessmentConfirmation = () => {
                   className="h-[15px] w-[15px] text-ds-accent"
                   strokeWidth={1.7}
                 />
-                <span className={EYEBROW}>Your reasoning</span>
+                <label htmlFor="override-reason" className={EYEBROW}>Your reasoning</label>
               </div>
               <p className="text-[13.5px] leading-relaxed text-ds-ink-secondary">
                 Set out why the preliminary outcome does not fit, with the facts
