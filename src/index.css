@@ -409,9 +409,22 @@ All colors MUST be HSL.
   50%      { opacity: 0.55; }
 }
 @media (prefers-reduced-motion: reduce) {
+  /* Kill non-essential animation and transitions app-wide (WCAG 2.3.3).
+     Durations collapse to near-zero instead of `none` so animationend /
+     transitionend events still fire for components that wait on them.
+     The animated logo is excluded: its reduced-motion behaviour is the
+     deliberate slow pulse defined below. */
+  :where(*:not(.animated-logo):not(.animated-logo *)),
+  :where(*:not(.animated-logo):not(.animated-logo *))::before,
+  :where(*:not(.animated-logo):not(.animated-logo *))::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
   .animated-logo img { transition: opacity 0.3s ease; }
   .animated-logo.is-idle img { animation: none; }
-  .animated-logo.is-working img { animation: logo-work-pulse 1.5s ease-in-out infinite; }
+  .animated-logo.is-working img { animation: logo-work-pulse 1.5s ease-in-out infinite !important; }
   .animated-logo.is-interactive:hover img { transform: none; opacity: 0.8; }
 }
 

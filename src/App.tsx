@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/app-toast";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { MotionConfig } from "framer-motion";
 import { AuthProvider } from "@/hooks/useAuth";
 import ProtectedRoute from "@/components/routing/ProtectedRoute";
 import PublicOnlyRoute from "@/components/routing/PublicOnlyRoute";
@@ -58,6 +59,8 @@ const LoadingSpinner = () => (
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
+    {/* Framer-motion honours the OS "reduce motion" setting app-wide. */}
+    <MotionConfig reducedMotion="user">
     <TooltipProvider>
       <AuthProvider>
         <Toaster />
@@ -116,6 +119,7 @@ const App = () => (
         </BrowserRouter>
       </AuthProvider>
     </TooltipProvider>
+    </MotionConfig>
   </QueryClientProvider>
 );
 
