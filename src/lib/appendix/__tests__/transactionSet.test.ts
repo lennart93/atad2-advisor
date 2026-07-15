@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
-  nextTransactionId, addManualTransaction, deleteManualTransaction,
+  nextTransactionId, addManualTransaction, deleteManualTransaction, isSelfTransaction,
 } from '@/lib/appendix/facts/transactionSet';
-import { effTxStatus } from '@/lib/appendix/facts/transactionAssessment';
+import { effTxStatus, withTxField } from '@/lib/appendix/facts/transactionAssessment';
 import { emptyFacts } from '@/lib/appendix/facts/emptyFacts';
 import type { AppendixFacts, FactEntity, TransactionItem } from '@/lib/appendix/types';
 
@@ -67,5 +67,29 @@ describe('deleteManualTransaction', () => {
   it('leaves an AI-identified flow alone', () => {
     const out = deleteManualTransaction(facts([aiTx]), 'T1');
     expect(out.transactions).toHaveLength(1);
+  });
+});
+
+describe('self-transaction guards', () => {
+  it('isSelfTransaction spots the same entity on both sides', () => {
+    expect(isSelfTransaction({ fromEntityId: 'E5', toEntityId: 'E5' })).toBe(true);
+    expect(isSelfTransaction({ fromEntityId: 'E1', toEntityId: 'E5' })).toBe(false);
+  });
+
+  it('addManualTransaction refuses a self-transaction outright', () => {
+    expect(() => addManualTransaction(facts(), { fromEntityId: 'E1', toEntityId: 'E1', kind: 'loan' }))
+      .toThrow(/two different entities/);
+  });
+
+  it('withTxField refuses a party edit that would create a self-transaction', () => {
+    const next = withTxField(facts([aiTx]), 'T1', { toEntityId: 'E1' });
+    expect(next.transactions[0].toEntityId).toBe('E2');
+  });
+
+  it('withTxField fixes an existing self-transaction to a valid counterparty', () => {
+    const broken = facts([{ ...aiTx, id: 'T9', toEntityId: 'E1' }]);
+    const fixed = withTxField(broken, 'T9', { toEntityId: 'E2' });
+    expect(fixed.transactions[0].toEntityId).toBe('E2');
+    expect(isSelfTransaction(fixed.transactions[0])).toBe(false);
   });
 });

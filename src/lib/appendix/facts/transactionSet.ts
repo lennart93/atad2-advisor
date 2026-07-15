@@ -18,6 +18,15 @@ export function nextTransactionId(facts: AppendixFacts): string {
   return `T${max + 1}`;
 }
 
+/**
+ * Both sides of a flow reference the same entity: an invalid record. The form
+ * and the setters refuse to create one; an existing one (bad AI output or legacy
+ * data) is surfaced as a data issue in the list until the counterparty is fixed.
+ */
+export function isSelfTransaction(t: Pick<TransactionItem, 'fromEntityId' | 'toEntityId'>): boolean {
+  return t.fromEntityId === t.toEntityId;
+}
+
 export interface NewTransactionInput {
   fromEntityId: string;
   toEntityId: string;
@@ -34,6 +43,8 @@ export interface NewTransactionInput {
 export function addManualTransaction(
   facts: AppendixFacts, input: NewTransactionInput,
 ): { facts: AppendixFacts; id: string } {
+  // Data-layer guard, independent of the form's own exclusion of the picked party.
+  if (isSelfTransaction(input)) throw new Error('A transaction needs two different entities.');
   const id = nextTransactionId(facts);
   const tx: TransactionItem = {
     id,

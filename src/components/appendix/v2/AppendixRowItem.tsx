@@ -19,13 +19,15 @@ export interface RowEye {
  * eye is a sibling, so no interactive control is nested inside another.
  */
 export function AppendixRowItem({
-  rowId, domId, label, meta, reason, selected, routine, onSelect, eye,
+  rowId, domId, label, meta, reason, reasonTone, selected, routine, onSelect, eye,
 }: {
   rowId: string;
   domId?: string;
   label: ReactNode;
   meta?: ReactNode;
   reason?: string | null;
+  /** 'error' renders the reason in accent: a data issue that must be corrected. */
+  reasonTone?: 'error';
   selected: boolean;
   routine?: boolean;
   onSelect: () => void;
@@ -69,7 +71,12 @@ export function AppendixRowItem({
           )}
         </div>
         {reason && (
-          <p className="mt-0.5 truncate text-[11.5px] leading-snug text-muted-foreground">{reason}</p>
+          <p className={cn(
+            'mt-0.5 truncate text-[11.5px] leading-snug',
+            reasonTone === 'error' ? 'font-medium text-brand-terracotta-deep' : 'text-muted-foreground',
+          )}>
+            {reason}
+          </p>
         )}
       </div>
       {eye && (

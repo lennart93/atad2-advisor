@@ -6,9 +6,10 @@ import { cn } from '@/lib/utils';
 import { deleteManualTransaction } from '@/lib/appendix/facts/transactionSet';
 import {
   TX_CHARACTERISTICS, effCharacteristic, characteristicReason, withTxCharacteristic, withTxRationale, withTxStatusOverride,
-  effTxStatus, isTxStatusOverridden, txMemoReason, isOpenState, stateOptions, stateLabel,
+  withTxField, effTxStatus, isTxStatusOverridden, txMemoReason, isOpenState, stateOptions, stateLabel,
   type TxCharacteristicKey,
 } from '@/lib/appendix/facts/transactionAssessment';
+import { isSelfTransaction } from '@/lib/appendix/facts/transactionSet';
 import { shortTransactionType } from '@/lib/appendix/facts/transactionCategory';
 import { effJurisdiction } from '@/lib/appendix/facts/entityFields';
 import { FlagBanner, PanelGroup, KeyValueRow, ReasoningField, SegmentedControl } from './panelParts';
@@ -54,7 +55,33 @@ export function TransactionDetail({ facts, tx, onChange }: {
         {tx.instrument ? ` · ${tx.instrument}` : ''}
       </p>
 
-      {needs && <FlagBanner>{txMemoReason(facts, tx)}</FlagBanner>}
+      {/* Invalid record: the same entity on both sides. The banner names the data
+          issue and the select underneath fixes it in place (the setter refuses to
+          store another self-transaction). Assessment only makes sense after the fix. */}
+      {isSelfTransaction(tx) && (
+        <>
+          <FlagBanner>
+            Invalid transaction: {nameOf(facts, tx.fromEntityId)} is listed on both sides. Set the correct counterparty below.
+          </FlagBanner>
+          <PanelGroup label="Correct counterparty">
+            <Select onValueChange={(v) => onChange(withTxField(facts, tx.id, { toEntityId: v }))}>
+              <SelectTrigger
+                aria-label="Correct counterparty"
+                className="h-9 w-auto min-w-[220px] gap-3 border-brand-terracotta bg-brand-terracotta-soft px-3 text-[14px] text-brand-terracotta-deep shadow-none [&>span]:!flex"
+              >
+                <SelectValue placeholder="Choose the receiving entity" />
+              </SelectTrigger>
+              <SelectContent>
+                {facts.entities.filter((e) => e.id !== tx.fromEntityId).map((e) => (
+                  <SelectItem key={e.id} value={e.id}>{e.id} · {e.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </PanelGroup>
+        </>
+      )}
+
+      {needs && !isSelfTransaction(tx) && <FlagBanner>{txMemoReason(facts, tx)}</FlagBanner>}
 
       {/* Assessment */}
       <PanelGroup label="Assessment" info={CHAR_INFO}>

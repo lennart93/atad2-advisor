@@ -55,6 +55,11 @@ export function AddTransactionForm({ facts, onChange, onCreated }: {
         <p className="text-[11px] font-medium uppercase tracking-[0.13em] text-muted-foreground">Add transaction</p>
         <button type="button" onClick={reset} aria-label="Close" className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
       </div>
+      {/* The pickers already exclude the other side's selection; this message is the
+          visible rule if the state ever ends up equal anyway. */}
+      {fromId !== '' && fromId === toId && (
+        <p className="mt-2 text-[12.5px] text-brand-terracotta-deep">The two parties must be different entities.</p>
+      )}
       <div className="mt-3 flex flex-wrap items-center gap-2.5">
         {partySelect(fromId, setFromId, 'From entity', toId)}
         <span className="text-[13px] text-muted-foreground" aria-hidden>→</span>

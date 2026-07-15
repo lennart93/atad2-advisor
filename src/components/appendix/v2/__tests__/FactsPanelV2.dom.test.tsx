@@ -164,6 +164,22 @@ describe('FactsPanelV2 — resting state + master-detail (section 3)', () => {
     expect(next.transactions).toHaveLength(2);
   });
 
+  it('surfaces a self-transaction as a data issue and fixes it from the panel', () => {
+    const onChange = vi.fn();
+    const broken: AppendixFacts = {
+      ...facts(),
+      transactions: [...facts().transactions, tx('T9', 'E3', 'E3')],
+    };
+    render(<FactsPanelV2 facts={broken} onChange={onChange} generated sessionId="s1" />);
+    // The invalid row is flagged (never rolled up) with the error reason.
+    expect(within(section()).getByText(/Invalid transaction: the same entity is on both sides/)).toBeInTheDocument();
+    // Its panel names the issue and offers the counterparty fix.
+    fireEvent.click(within(section()).getByText(/Invalid transaction/));
+    const panel = screen.getByRole('complementary');
+    expect(within(panel).getByText(/listed on both sides/)).toBeInTheDocument();
+    expect(within(panel).getByRole('combobox', { name: 'Correct counterparty' })).toBeInTheDocument();
+  });
+
   it('offers no delete on an AI-identified transaction', () => {
     render(<FactsPanelV2 facts={facts()} onChange={vi.fn()} generated sessionId="s1" />);
     fireEvent.click(rows()[0]); // T1, source 'ai'

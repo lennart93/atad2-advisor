@@ -11,6 +11,7 @@ import { shortTransactionType } from '@/lib/appendix/facts/transactionCategory';
 import { effJurisdiction } from '@/lib/appendix/facts/entityFields';
 import { JurisFlagCode } from './JurisFlagCode';
 import { actingTogetherCandidateCount } from '@/lib/appendix/facts/actingCandidates';
+import { isSelfTransaction } from '@/lib/appendix/facts/transactionSet';
 import { ManualGroupCard } from '@/components/appendix/ActingTogetherSection';
 import { SectionRow } from './SectionRow';
 import { RolledUpGroup } from './RolledUpGroup';
@@ -95,7 +96,9 @@ export function FactsPanelV2({ facts, onChange, generated, refining, sessionId }
   const selectedGroup = !selectedTx && !selectedEntity ? (facts.actingTogether.find((c) => c.id === selectedId) ?? null) : null;
   const panelOpen = !!(selectedTx || selectedEntity || selectedGroup);
 
-  const renderTxRow = (t: TransactionItem, routineRow: boolean) => (
+  const renderTxRow = (t: TransactionItem, routineRow: boolean) => {
+    const invalid = isSelfTransaction(t);
+    return (
     <AppendixRowItem
       key={t.id}
       rowId={t.id}
@@ -109,7 +112,10 @@ export function FactsPanelV2({ facts, onChange, generated, refining, sessionId }
         </span>
       }
       meta={shortTransactionType(t.kind)}
-      reason={txNeedsAttention(facts, t) ? txStatusReason(facts, t) : null}
+      reason={invalid
+        ? 'Invalid transaction: the same entity is on both sides. Set the correct counterparty.'
+        : txNeedsAttention(facts, t) ? txStatusReason(facts, t) : null}
+      reasonTone={invalid ? 'error' : undefined}
       selected={selectedId === t.id}
       routine={routineRow}
       onSelect={() => select(t.id)}
@@ -119,7 +125,8 @@ export function FactsPanelV2({ facts, onChange, generated, refining, sessionId }
         label: t.excludedFromClient ? `Show ${t.id} in the client report` : `Hide ${t.id} from the client report`,
       } : null}
     />
-  );
+    );
+  };
 
   // Panel content resolved from the current selection.
   let heading: { eyebrow?: ReactNode; title?: ReactNode } = {};

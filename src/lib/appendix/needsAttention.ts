@@ -4,7 +4,8 @@ import type {
 } from './types';
 import { effJurisdiction } from './facts/entityFields';
 import { isForeignHomeStateOpen } from './facts/conclusions';
-import { needsAssessmentTransactions, noRiskTransactions, transactionNeedsAssessment } from './facts/transactionAssessment';
+import { transactionNeedsAssessment } from './facts/transactionAssessment';
+import { isSelfTransaction } from './facts/transactionSet';
 import { actingTogetherCandidateCount } from './facts/actingCandidates';
 import { actingInClientReport } from './facts/actingAnnex';
 import { controlTypeFor, appendixMootRowIds } from './controlType';
@@ -24,11 +25,12 @@ import { rowTone } from './conditionPolarity';
 
 /**
  * A transaction needs attention when its assessment lands it in "Needs assessment"
- * (a risk category open, or an advisor override). Routine = "No risk identified".
- * This is exactly today's relevant/no-risk split (relevance.ts / transactionAssessment.ts).
+ * (a risk category open, or an advisor override), or when the record itself is
+ * invalid (the same entity on both sides): a data issue stays visible until the
+ * counterparty is corrected, it never rolls up as routine.
  */
 export function txNeedsAttention(facts: AppendixFacts, t: TransactionItem): boolean {
-  return transactionNeedsAssessment(facts, t);
+  return isSelfTransaction(t) || transactionNeedsAssessment(facts, t);
 }
 
 export interface TransactionSplit {
@@ -37,7 +39,10 @@ export interface TransactionSplit {
 }
 
 export function splitTransactions(facts: AppendixFacts): TransactionSplit {
-  return { flagged: needsAssessmentTransactions(facts), routine: noRiskTransactions(facts) };
+  return {
+    flagged: facts.transactions.filter((t) => txNeedsAttention(facts, t)),
+    routine: facts.transactions.filter((t) => !txNeedsAttention(facts, t)),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -129,7 +134,7 @@ export function partADigest(facts: AppendixFacts): PartADigest {
   const cls = classificationsById(facts);
   const entitiesFlagged = facts.entities.filter((e) => entityNeedsAttention(e, cls.get(e.id))).length;
   const groupsFlagged = actingSectionNeedsAttention(facts) ? 1 : 0;
-  const txFlagged = needsAssessmentTransactions(facts).length;
+  const txFlagged = facts.transactions.filter((t) => txNeedsAttention(facts, t)).length;
   return {
     entities: facts.entities.length,
     groups: clientGroupCount(facts),

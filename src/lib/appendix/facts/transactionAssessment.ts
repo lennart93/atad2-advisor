@@ -407,10 +407,15 @@ export function withTxStatusOverride(
   );
 }
 
-/** Edit a descriptive field (parties, type, instrument). */
+/** Edit a descriptive field (parties, type, instrument). A party edit that would
+ *  leave the same entity on both sides is refused (data-layer backstop). */
 export function withTxField(
   facts: AppendixFacts, id: string,
   patch: Partial<Pick<TransactionItem, 'kind' | 'instrument' | 'fromEntityId' | 'toEntityId'>>,
 ): AppendixFacts {
-  return patchTx(facts, id, (t) => ({ ...t, ...patch, source: 'edited' }));
+  return patchTx(facts, id, (t) => {
+    const next = { ...t, ...patch, source: 'edited' as const };
+    if (next.fromEntityId === next.toEntityId) return t;
+    return next;
+  });
 }

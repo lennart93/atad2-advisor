@@ -54,7 +54,10 @@ describe('Facts page review gate (dev preview harness)', () => {
     render(<AppendixPreview initialFacts={oneOpenItem()} />);
     expect(next()).toBeDisabled();
     // Open the flagged transaction and override its status to "No risk identified".
-    fireEvent.click(screen.getByText(/HoldCo B\.V\. → USCo Inc\./));
+    // (The row label interleaves names with jurisdiction flags, so target the row node.)
+    const row = document.getElementById('v2-tx-T1')?.querySelector<HTMLElement>('[data-appendix-row]');
+    if (!row) throw new Error('T1 row not found');
+    fireEvent.click(row);
     const panel = screen.getByRole('complementary');
     fireEvent.click(within(panel).getByRole('button', { name: 'No risk identified' }));
     expect(next()).toBeEnabled();
