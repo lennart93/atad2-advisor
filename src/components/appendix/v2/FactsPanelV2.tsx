@@ -8,6 +8,8 @@ import {
 } from '@/lib/appendix/needsAttention';
 import { txStatusReason } from '@/lib/appendix/facts/transactionAssessment';
 import { shortTransactionType } from '@/lib/appendix/facts/transactionCategory';
+import { effJurisdiction } from '@/lib/appendix/facts/entityFields';
+import { JurisFlagCode } from './JurisFlagCode';
 import { actingTogetherCandidateCount } from '@/lib/appendix/facts/actingCandidates';
 import { ManualGroupCard } from '@/components/appendix/ActingTogetherSection';
 import { SectionRow } from './SectionRow';
@@ -34,6 +36,19 @@ function withTxExcluded(facts: AppendixFacts, id: string, excluded: boolean): Ap
 }
 function nameOf(facts: AppendixFacts, id: string): string {
   return facts.entities.find((e) => e.id === id)?.name ?? id;
+}
+function jurOf(facts: AppendixFacts, id: string): string | null {
+  const e = facts.entities.find((x) => x.id === id);
+  return e ? effJurisdiction(e) : null;
+}
+/** "Name 🇳🇱 NL", with the register's Unknown treatment when the jurisdiction is missing. */
+function PartyWithJurisdiction({ facts, id }: { facts: AppendixFacts; id: string }) {
+  return (
+    <>
+      {nameOf(facts, id)}
+      <JurisFlagCode iso={jurOf(facts, id)} className="mx-1.5 align-[-1px]" />
+    </>
+  );
 }
 
 const REGISTER_INFO =
@@ -87,7 +102,9 @@ export function FactsPanelV2({ facts, onChange, generated, refining, sessionId }
       domId={`v2-tx-${t.id}`}
       label={
         <span>
-          {nameOf(facts, t.fromEntityId)} → {nameOf(facts, t.toEntityId)}
+          <PartyWithJurisdiction facts={facts} id={t.fromEntityId} />
+          {'→ '}
+          <PartyWithJurisdiction facts={facts} id={t.toEntityId} />
           {t.manual && <span className="ml-1.5 rounded-sm bg-muted px-1 text-[10px] text-muted-foreground">added</span>}
         </span>
       }

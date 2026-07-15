@@ -2,7 +2,6 @@ import { Fragment, useState } from 'react';
 import { ChevronDown, ChevronUp, Eye, EyeOff, Plus, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { AppendixFacts, FactEntity } from '@/lib/appendix/types';
-import { CountryFlag } from '@/components/CountryFlag';
 import { JurisdictionPicker } from '@/components/structure/JurisdictionPicker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { effJurisdiction, effNlQualification } from '@/lib/appendix/facts/entityFields';
@@ -12,6 +11,7 @@ import { effRelevanceOverride, addManualEntity } from '@/lib/appendix/facts/enti
 import { actingInClientReport } from '@/lib/appendix/facts/actingAnnex';
 import { roleLabel } from '@/lib/appendix/facts/roleLabel';
 import { UnknownValue } from './UnknownValue';
+import { JurisFlagCode } from './JurisFlagCode';
 
 const NA = '–';
 const GROUP_LABEL = 'text-[12px] font-medium uppercase tracking-[0.13em] text-muted-foreground';
@@ -19,15 +19,6 @@ const GROUP_META = 'text-[12px] text-muted-foreground/60';
 
 function pct(n: number | null): string {
   return n == null ? NA : `${Number.isInteger(n) ? n : n.toFixed(2)}%`;
-}
-
-function JurisFlagCode({ iso }: { iso: string }) {
-  return (
-    <span className="inline-flex items-center gap-1.5">
-      <CountryFlag iso={iso} className="!h-[13px] !w-[18px] shadow-[0_0_0_1px_rgba(20,18,12,0.08)]" />
-      <span className="text-[13.5px] uppercase tracking-[0.02em] tabular-nums text-foreground">{iso}</span>
-    </span>
-  );
 }
 
 /**
@@ -125,7 +116,7 @@ export function EntityRegisterSection({ facts, onChange, selectedId, onSelect }:
           )}
         </td>
         <td className="py-0.5 pr-2">
-          {jur ? <JurisFlagCode iso={jur} /> : <UnknownValue />}
+          <JurisFlagCode iso={jur} />
         </td>
         <td className="pr-2">
           {nlQual === 'undetermined'
