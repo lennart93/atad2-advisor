@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from 'react';
+import { useEffect, useMemo, type ReactNode } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { AppendixFacts } from '@/lib/appendix/types';
@@ -24,6 +24,12 @@ interface Props {
   generated?: boolean;
   refining?: boolean;
   sessionId?: string;
+  /**
+   * Hands the parent a "jump to the first unresolved item" action (the footer's
+   * Review next button): opens the section, selects the item and scrolls to it.
+   * Called with null on unmount.
+   */
+  registerReviewNext?: (fn: (() => void) | null) => void;
 }
 
 function withTxExcluded(facts: AppendixFacts, id: string, excluded: boolean): AppendixFacts {
@@ -46,7 +52,7 @@ const TX_SECTION_INFO =
  * as resting-state lists on the left, one sticky detail rail on the right. Selection
  * is resolved by id to an entity, a group or a transaction and rendered in the panel.
  */
-export function FactsPanelV2({ facts, onChange, generated, refining, sessionId }: Props) {
+export function FactsPanelV2({ facts, onChange, generated, refining, sessionId, registerReviewNext }: Props) {
   const editable = !!onChange;
   const change = onChange ?? (() => { /* read-only fallback */ });
 
@@ -72,6 +78,33 @@ export function FactsPanelV2({ facts, onChange, generated, refining, sessionId }
   const selectedEntity = !selectedTx ? (facts.entities.find((e) => e.id === selectedId) ?? null) : null;
   const selectedGroup = !selectedTx && !selectedEntity ? (facts.actingTogether.find((c) => c.id === selectedId) ?? null) : null;
   const panelOpen = !!(selectedTx || selectedEntity || selectedGroup);
+
+  // The footer's "Review next": open the section of the first unresolved item,
+  // select it (entities and transactions open their panel) and scroll to it.
+  useEffect(() => {
+    if (!registerReviewNext) return;
+    registerReviewNext(() => {
+      const firstEntity = facts.entities.find((e) => entityNeedsAttention(e, clsById.get(e.id)));
+      if (firstEntity) {
+        sectionState.setOpen('register', true);
+        select(firstEntity.id);
+        requestAnimationFrame(() => document.getElementById(`v2-entity-${firstEntity.id}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }));
+        return;
+      }
+      if (actingSectionNeedsAttention(facts)) {
+        sectionState.setOpen('acting', true);
+        requestAnimationFrame(() => document.getElementById('v2-section-acting')?.scrollIntoView({ block: 'center', behavior: 'smooth' }));
+        return;
+      }
+      const firstTx = flagged[0];
+      if (firstTx) {
+        sectionState.setOpen('transactions', true);
+        select(firstTx.id);
+        requestAnimationFrame(() => document.getElementById(`v2-tx-${firstTx.id}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }));
+      }
+    });
+    return () => registerReviewNext(null);
+  });
 
   // Panel content resolved from the current selection.
   let heading: { eyebrow?: ReactNode; title?: ReactNode } = {};

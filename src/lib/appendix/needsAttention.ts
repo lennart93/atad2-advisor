@@ -143,6 +143,39 @@ export function partADigest(facts: AppendixFacts): PartADigest {
   };
 }
 
+export interface PartAReviewProgress {
+  /** Reviewable items on the page: every entity, every transaction, plus the acting-together section as one item. */
+  total: number;
+  reviewed: number;
+  /** Items still flagged (same number that gates Next). */
+  open: number;
+  openEntities: number;
+  openTransactions: number;
+  openActing: 0 | 1;
+}
+
+/** The footer's quiet progress over the page's reviewable items. */
+export function partAReviewProgress(facts: AppendixFacts): PartAReviewProgress {
+  const cls = classificationsById(facts);
+  const openEntities = facts.entities.filter((e) => entityNeedsAttention(e, cls.get(e.id))).length;
+  const openTransactions = facts.transactions.filter((t) => txNeedsAttention(facts, t)).length;
+  const openActing = actingSectionNeedsAttention(facts) ? 1 : 0;
+  const total = facts.entities.length + facts.transactions.length + 1;
+  const open = openEntities + openTransactions + openActing;
+  return { total, reviewed: total - open, open, openEntities, openTransactions, openActing };
+}
+
+/** "2 entities and 13 transactions still need review", for the disabled Next tooltip. */
+export function openItemsPhrase(p: PartAReviewProgress): string | null {
+  const parts: string[] = [];
+  if (p.openEntities > 0) parts.push(`${p.openEntities} ${p.openEntities === 1 ? 'entity' : 'entities'}`);
+  if (p.openTransactions > 0) parts.push(`${p.openTransactions} ${p.openTransactions === 1 ? 'transaction' : 'transactions'}`);
+  if (p.openActing > 0) parts.push('the acting-together section');
+  if (parts.length === 0) return null;
+  const list = parts.length > 2 ? `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}` : parts.join(' and ');
+  return `${list} still ${p.open === 1 ? 'needs' : 'need'} review`;
+}
+
 export interface PartBDigest {
   conditions: number;
   needReview: number;

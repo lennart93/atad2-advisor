@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ArrowRight } from 'lucide-react';
 import { Button, FooterBarGrid } from '@/components/ds';
 import { FactsPanelV2 } from '@/components/appendix/v2/FactsPanelV2';
+import { ReviewProgress } from '@/components/appendix/v2/ReviewProgress';
 import { emptyFacts } from '@/lib/appendix/facts/emptyFacts';
-import { partADigest } from '@/lib/appendix/needsAttention';
+import { partAReviewProgress, openItemsPhrase } from '@/lib/appendix/needsAttention';
 import type { AppendixFacts, FactEntity, TransactionItem } from '@/lib/appendix/types';
 
 // ---------------------------------------------------------------------------
@@ -48,11 +49,10 @@ function fixtureFacts(): AppendixFacts {
 
 export default function AppendixPreview({ initialFacts }: { initialFacts?: AppendixFacts } = {}) {
   const [facts, setFacts] = useState<AppendixFacts>(initialFacts ?? fixtureFacts);
-  // The same review gate the real facts page applies to its Next button.
-  const openReview = partADigest(facts).needReview;
-  const reviewBlockReason = openReview > 0
-    ? "Resolve all items marked 'need review' to continue."
-    : undefined;
+  // The same review gate + footer the real facts page uses.
+  const progress = partAReviewProgress(facts);
+  const nextBlockTitle = openItemsPhrase(progress) ?? undefined;
+  const reviewNextRef = useRef<(() => void) | null>(null);
 
   return (
     <div className="min-h-screen bg-background">
@@ -61,19 +61,25 @@ export default function AppendixPreview({ initialFacts }: { initialFacts?: Appen
           <h1 className="text-lg text-foreground">Technical appendix — facts preview (dev fixture)</h1>
           <Button variant="secondary" size="sm" onClick={() => setFacts(fixtureFacts())}>Reset fixture</Button>
         </div>
-        <FactsPanelV2 facts={facts} onChange={setFacts} generated sessionId="dev-preview" />
+        <FactsPanelV2
+          facts={facts}
+          onChange={setFacts}
+          generated
+          sessionId="dev-preview"
+          registerReviewNext={(fn) => { reviewNextRef.current = fn; }}
+        />
       </div>
       <div className="fixed inset-x-0 bottom-0 border-t border-border bg-background px-6 py-3">
         <FooterBarGrid
           right={
             <>
-              {reviewBlockReason && (
-                <span className="mr-1 text-[12.5px] text-ds-ink-secondary">{reviewBlockReason}</span>
-              )}
-              <Button variant="primary" disabled={openReview > 0} title={reviewBlockReason} onClick={() => { /* preview only */ }}>
-                Next
-                <ArrowRight className="h-4 w-4" />
-              </Button>
+              <ReviewProgress progress={progress} onReviewNext={() => reviewNextRef.current?.()} />
+              <span title={progress.open > 0 ? nextBlockTitle : undefined}>
+                <Button variant="primary" disabled={progress.open > 0} title={progress.open > 0 ? nextBlockTitle : undefined} onClick={() => { /* preview only */ }}>
+                  Next
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </span>
             </>
           }
         />

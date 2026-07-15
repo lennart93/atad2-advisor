@@ -41,13 +41,24 @@ const oneOpenItem = (): AppendixFacts => ({
 });
 
 const next = () => screen.getByRole('button', { name: /^Next$/ });
-const BLOCK_MSG = /Resolve all items marked 'need review' to continue\./;
 
 describe('Facts page review gate (dev preview harness)', () => {
-  it('disables Next and states the reason while items need review', () => {
+  it('disables Next, shows quiet progress and names the open items in the tooltip', () => {
     render(<AppendixPreview initialFacts={oneOpenItem()} />);
     expect(next()).toBeDisabled();
-    expect(screen.getByText(BLOCK_MSG)).toBeInTheDocument();
+    // 3 entities + 1 transaction + the acting section = 5 items; 1 transaction open.
+    expect(screen.getByText('4 of 5 reviewed')).toBeInTheDocument();
+    expect(screen.getByRole('progressbar', { name: 'Review progress' })).toBeInTheDocument();
+    expect(next()).toHaveAttribute('title', '1 transaction still needs review');
+    expect(screen.getByRole('button', { name: 'Review next' })).toBeInTheDocument();
+  });
+
+  it('Review next opens the first unresolved item in the panel', () => {
+    render(<AppendixPreview initialFacts={oneOpenItem()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Review next' }));
+    const panel = screen.getByRole('complementary');
+    // The flagged transaction T1 is selected and its assessment opens.
+    expect(within(panel).getByText(/T1 ·/)).toBeInTheDocument();
   });
 
   it('enables Next in place when the last review item is resolved', () => {
@@ -61,13 +72,15 @@ describe('Facts page review gate (dev preview harness)', () => {
     const panel = screen.getByRole('complementary');
     fireEvent.click(within(panel).getByRole('button', { name: 'No risk identified' }));
     expect(next()).toBeEnabled();
-    expect(screen.queryByText(BLOCK_MSG)).not.toBeInTheDocument();
+    // Fully reviewed: the progress cluster retires.
+    expect(screen.queryByText(/of 5 reviewed/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Review next' })).not.toBeInTheDocument();
   });
 
   it('starts enabled when nothing needs review', () => {
     const clean = oneOpenItem();
     render(<AppendixPreview initialFacts={{ ...clean, transactions: [] }} />);
     expect(next()).toBeEnabled();
-    expect(screen.queryByText(BLOCK_MSG)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Review next' })).not.toBeInTheDocument();
   });
 });

@@ -21,7 +21,8 @@ import { emptyFacts } from '@/lib/appendix/facts/emptyFacts';
 import { actingTogetherCandidateCount } from '@/lib/appendix/facts/actingCandidates';
 import { openHomeStateCount } from '@/lib/appendix/facts/conclusions';
 import { appendixConfirmReadiness } from '@/lib/appendix/confirmGuard';
-import { partADigest } from '@/lib/appendix/needsAttention';
+import { partAReviewProgress, openItemsPhrase } from '@/lib/appendix/needsAttention';
+import { ReviewProgress } from '@/components/appendix/v2/ReviewProgress';
 import { decideFactsGate } from '@/lib/appendix/factsGate';
 import { currentEffectiveFingerprint } from '@/lib/assessment/effectiveAnswersClient';
 import { startExtraction } from '@/lib/structure/extraction';
@@ -301,12 +302,14 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
 
   // The facts step cannot be left while any item on the page is still marked
   // "need review" (the same per-section count the section headers show). Skipping
-  // the page is the explicit way out; a skipped page does not gate.
-  const openReview = page === 'facts' && appendix?.facts && !appendix.facts_skipped
-    ? partADigest(factsToShow).needReview : 0;
-  const reviewBlockReason = openReview > 0
-    ? "Resolve all items marked 'need review' to continue."
-    : undefined;
+  // the page is the explicit way out; a skipped page does not gate. The footer
+  // states it as quiet progress ("5 of 18 reviewed") with a Review-next jump.
+  const reviewProgress = page === 'facts' && appendix?.facts && !appendix.facts_skipped
+    ? partAReviewProgress(factsToShow) : null;
+  const openReview = reviewProgress?.open ?? 0;
+  const nextBlockTitle = reviewProgress ? openItemsPhrase(reviewProgress) ?? undefined : undefined;
+  // The panel hands us its "jump to the first unresolved item" action.
+  const reviewNextRef = useRef<(() => void) | null>(null);
 
   // Gate confirm: a no-risk appendix (nothing Triggered) may not be confirmed
   // while conditions are still "Insufficient info" (they must be resolved first).
@@ -412,6 +415,7 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
             generated={!!appendix?.facts}
             refining={refining}
             sessionId={sessionId}
+            registerReviewNext={(fn) => { reviewNextRef.current = fn; }}
           />
         ) : (
           // relatedParties is null on purpose: the associated-enterprises panel
@@ -447,10 +451,10 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
         }
         right={
           <>
-            {/* The block reason, stated where it can be seen: a disabled button's
-                title tooltip never fires in most browsers. */}
-            {!fromOverview && page === 'facts' && reviewBlockReason && (
-              <span className="mr-1 text-[12.5px] text-ds-ink-secondary">{reviewBlockReason}</span>
+            {/* Quiet review progress next to Next, plus the jump to the first
+                unresolved item; the disabled button's tooltip names what is open. */}
+            {!fromOverview && page === 'facts' && !skipped && reviewProgress && (
+              <ReviewProgress progress={reviewProgress} onReviewNext={() => reviewNextRef.current?.()} />
             )}
             {/* Skip page sits to the left of the dark primary, which stays
                 right-most: the two forward actions are grouped on the right. */}
@@ -477,15 +481,18 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
                 <ArrowRight className="h-4 w-4" />
               </Button>
             ) : page === 'facts' ? (
-              <Button
-                variant="primary"
-                onClick={() => navigate(`/assessment-appendix/${sessionId}/checklist`)}
-                disabled={openReview > 0}
-                title={reviewBlockReason}
-              >
-                Next
-                <ArrowRight className="h-4 w-4" />
-              </Button>
+              // The span carries the tooltip: a disabled button swallows hover events.
+              <span title={openReview > 0 ? nextBlockTitle : undefined}>
+                <Button
+                  variant="primary"
+                  onClick={() => navigate(`/assessment-appendix/${sessionId}/checklist`)}
+                  disabled={openReview > 0}
+                  title={openReview > 0 ? nextBlockTitle : undefined}
+                >
+                  Next
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </span>
             ) : (
               <Button
                 variant="primary"
