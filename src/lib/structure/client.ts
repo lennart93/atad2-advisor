@@ -10,7 +10,8 @@ import type {
 // want to drag it over the wire. snapshot_captured_at is tiny, so it stays in.
 const CHART_COLUMNS =
   'id, session_id, status, draft_extracted_at, finalized_at, canvas_width, ' +
-  'canvas_height, warnings, snapshot_captured_at, created_at, updated_at';
+  'canvas_height, warnings, snapshot_captured_at, created_at, updated_at, ' +
+  'answers_fingerprint';
 
 export async function loadChart(sessionId: string) {
   const { data: chart } = await supabase

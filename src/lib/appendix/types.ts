@@ -373,6 +373,8 @@ export interface AppendixFacts {
 export interface StoredAppendix {
   id: string;
   session_id: string;
+  /** Fingerprint of the effective answer set the run used; null on legacy dossiers. */
+  answers_fingerprint: string | null;
   review_status: ReviewStatus;
   generation_status: GenerationStatus;
   rows: AppendixRow[];

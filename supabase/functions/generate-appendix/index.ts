@@ -9,6 +9,8 @@ import { retrieveKb } from "./kbRetrieval.ts";
 import { SKELETON_ROWS, type ServerSkeletonRow } from "./skeletonRows.ts";
 import { mootNaRowIds } from "./mootness.ts";
 import { loadAppendixPrompt, loadPrompt } from "./promptsLoader.ts";
+import { loadEffectiveAnswers } from "../_shared/effectiveAnswersDb.ts";
+import { answersFingerprint } from "../_shared/effectiveAnswers.ts";
 import { buildFactsheetBlock } from "./factsheetBlock.ts";
 import { loadSessionFactsheet, linkFactsheetToRegister, borrowerAttributionWarnings } from "./factsheetLink.ts";
 import { defaultClassification } from "./classificationDefaults.ts";
@@ -235,17 +237,26 @@ async function runGeneration(c: SupabaseClient, appendixId: string, sessionId: s
 
     const { data: session } = await c
       .from("atad2_sessions").select("taxpayer_name, fiscal_year").eq("session_id", sessionId).maybeSingle();
-    const { data: answersRaw } = await c
-      .from("atad2_answers").select("question_id, answer, explanation").eq("session_id", sessionId);
-    const answers = (answersRaw ?? []) as Answer[];
+    // Effective answers: recorded answers win, prefill suggestions fill the
+    // gaps. This lets the definitive-looking run happen while the user is
+    // still in the questionnaire; the stored fingerprint tells the Facts page
+    // whether this run matches the final answers.
+    const effective = await loadEffectiveAnswers(c, sessionId);
+    const answersFp = await answersFingerprint(effective);
+    const answers: Answer[] = effective.map((a) => ({
+      question_id: a.question_id, answer: a.answer, explanation: a.explanation,
+    }));
     const answersByQ = new Map(answers.map((a) => [a.question_id, a]));
 
     // Load the legal-framework rows from the DB (falls back to the static seed).
     const allRows = await loadSkeletonRows(c);
-    // Which rows render (1bis only if Q2=Yes)
+    // Which rows render (1bis only if Q2=Yes). Case-insensitive: suggestions
+    // are lowercase ('yes') while recorded answers may be capitalized; the
+    // fingerprint lowercases too, so casing alone must never change the row set.
     const rows = allRows.filter((r) => {
       if (!r.renderIfQuestionEquals) return true;
-      return answersByQ.get(r.renderIfQuestionEquals.questionId)?.answer === r.renderIfQuestionEquals.equals;
+      const got = answersByQ.get(r.renderIfQuestionEquals.questionId)?.answer;
+      return got?.toLowerCase() === r.renderIfQuestionEquals.equals.toLowerCase();
     });
 
     const structureBlock = await loadStructureBlock(c, sessionId);
@@ -410,7 +421,12 @@ async function runGeneration(c: SupabaseClient, appendixId: string, sessionId: s
       // F2: a row the model never returned (even after the coverage-retry) is
       // ungrounded — an explicit "not assessed" signal, not a normal status.
       const ungrounded = !m;
-      const statusRaw = m?.status ?? "Insufficient information";
+      // "N/A" is advisor vocabulary, not model vocabulary: the model answers the
+      // binary question (does the condition fire or not). A model-emitted "N/A"
+      // reads "Not triggered"; the deterministic moot backstop below re-stamps
+      // "N/A" where the condition is genuinely not reached, so gates and moot
+      // rows are unaffected. Mirrors normalizeAiNaStatuses on the frontend.
+      const statusRaw = m?.status === "N/A" ? "Not triggered" : (m?.status ?? "Insufficient information");
       let status = sk.allowedStates.includes(statusRaw) ? statusRaw : "Insufficient information";
       // An ungrounded row (no model output for it) carries a bare "-", never a
       // sentence: the amber "not assessed" badge (ungrounded flag) already says
@@ -527,12 +543,20 @@ async function runGeneration(c: SupabaseClient, appendixId: string, sessionId: s
       }
     }
 
-    await c.from("atad2_appendix").update({
+    const finalRow = {
       rows: reviewed, facts: factsToStore, facts_input_hash: factsHashToStore,
       generation_status: "ready",
       model: prompt.model, prompt_version: prompt.version,
       generated_at: new Date().toISOString(), updated_at: new Date().toISOString(),
-    }).eq("id", appendixId);
+    };
+    const { error: finalErr } = await c.from("atad2_appendix")
+      .update({ ...finalRow, answers_fingerprint: answersFp }).eq("id", appendixId);
+    if (finalErr) {
+      // answers_fingerprint column may not exist yet (migration not applied).
+      console.warn(JSON.stringify({ level: "warn", event: "appendix_fingerprint_write_failed", message: String(finalErr.message), appendixId }));
+      const { error: legacyErr } = await c.from("atad2_appendix").update(finalRow).eq("id", appendixId);
+      if (legacyErr) throw legacyErr;
+    }
   } catch (err) {
     console.error(JSON.stringify({ level: "error", event: "appendix_generation_failed", message: String(err), appendixId }));
     await setGenStatus(c, appendixId, "error", { error_message: String(err).slice(0, 500) });

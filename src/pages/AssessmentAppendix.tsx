@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, ArrowRight, Loader2, RefreshCw } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Loader2 } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { Button, ProcessChecklist, type ProcessStep } from '@/components/ds';
 import { useAuth } from '@/hooks/useAuth';
@@ -21,6 +21,9 @@ import { emptyFacts } from '@/lib/appendix/facts/emptyFacts';
 import { actingTogetherCandidateCount } from '@/lib/appendix/facts/actingCandidates';
 import { openHomeStateCount } from '@/lib/appendix/facts/conclusions';
 import { appendixConfirmReadiness } from '@/lib/appendix/confirmGuard';
+import { decideFactsGate } from '@/lib/appendix/factsGate';
+import { currentEffectiveFingerprint } from '@/lib/assessment/effectiveAnswersClient';
+import { startExtraction } from '@/lib/structure/extraction';
 import { supabase } from '@/integrations/supabase/client';
 
 type Phase = 'loading' | 'generating' | 'ready' | 'error';
@@ -95,45 +98,54 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
     return () => { cancelled = true; };
   }, [sessionId]);
 
+  // Poortwachter: de feiten verschijnen pas wanneer de opgeslagen run de
+  // HUIDIGE effectieve antwoorden weerspiegelt (vingerafdruk-match). Tot die
+  // tijd toont de pagina de wachtstatus en start hij zelf de ontbrekende stap
+  // (chart-refine of bijlage-generatie). Een al bevestigde bijlage wordt
+  // altijd direct getoond (grandfathering, zie decideFactsGate).
   useEffect(() => {
     if (!sessionId) return;
     let cancelled = false;
-    const ac = new AbortController();
+    const fired = new Set<string>(); // action-dedup binnen deze mount
 
     (async () => {
+      const deadline = Date.now() + 8 * 60_000;
       try {
-        let a = await loadAppendix(sessionId);
-        // Re-trigger generation only when there is genuinely no usable result:
-        // no row yet, a prior run errored, or a 'generating' row has gone stale
-        // (its background work never ran). A ready appendix is left as-is; the
-        // appendix is never rebuilt just because it was opened again. An empty
-        // acting-together with candidates is re-checked on demand via the
-        // "Re-check relationships" button, not automatically on every visit.
-        const needsStart =
-          !a ||
-          a.generation_status === 'error' ||
-          (a.generation_status === 'generating' && isStaleGenerating(a.updated_at));
-        if (needsStart) {
-          await startAppendixGeneration(sessionId);
-          a = await loadAppendix(sessionId);
-        }
-        if (cancelled) return;
-        if (a) {
-          setAppendix(a);
-          setPhase(a.generation_status === 'generating' ? 'generating' : a.generation_status);
-        } else {
+        while (!cancelled) {
+          const [a, c, fp] = await Promise.all([
+            loadAppendix(sessionId),
+            loadChart(sessionId).catch(() => null),
+            currentEffectiveFingerprint(sessionId),
+          ]);
+          if (cancelled) return;
+          const decision = decideFactsGate({
+            appendix: a ? {
+              generation_status: a.generation_status,
+              review_status: a.review_status,
+              answers_fingerprint: a.answers_fingerprint,
+              generatingIsFresh: a.generation_status === 'generating' && !isStaleGenerating(a.updated_at),
+            } : null,
+            currentFingerprint: fp.fingerprint,
+            chartStatus: c?.chart?.status ?? null,
+            chartFingerprint: c?.chart?.answers_fingerprint ?? null,
+          });
+          if (decision.kind === 'show' && a) {
+            setAppendix(a);
+            setPhase(a.generation_status === 'generating' ? 'ready' : a.generation_status);
+            return;
+          }
           setPhase('generating');
-        }
-        if (!a || a.generation_status === 'generating') {
-          await pollAppendixUntilReady(
-            sessionId,
-            (upd) => {
-              if (cancelled) return;
-              setAppendix((prev) => mergeServerUpdate(prev, upd, dirtyRowIds.current, factsDirty.current));
-              setPhase(upd.generation_status === 'generating' ? 'generating' : upd.generation_status);
-            },
-            ac.signal,
-          );
+          const actionKey = `${decision.kind === 'wait' ? decision.action : 'none'}:${fp.fingerprint}`;
+          if (decision.kind === 'wait' && decision.action === 'start-refine' && !fired.has(actionKey)) {
+            fired.add(actionKey);
+            startExtraction(sessionId, 'refine').catch(() => { /* gate keeps polling */ });
+          }
+          if (decision.kind === 'wait' && decision.action === 'start-appendix' && !fired.has(actionKey)) {
+            fired.add(actionKey);
+            startAppendixGeneration(sessionId).catch(() => { /* gate keeps polling */ });
+          }
+          if (Date.now() > deadline) throw new Error('The appendix did not become ready in time. Retry from this page.');
+          await new Promise((r) => setTimeout(r, 4000));
         }
       } catch (e) {
         if (!cancelled) {
@@ -143,10 +155,7 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
       }
     })();
 
-    return () => {
-      cancelled = true;
-      ac.abort();
-    };
+    return () => { cancelled = true; };
   }, [sessionId]);
 
   const handleEdit = async (rowId: string, field: EditableField, value: string) => {
@@ -221,25 +230,6 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
     } catch (e) {
       setPhase('error');
       toast.error('Could not re-check relationships', { description: String(e) });
-    }
-  };
-
-  // Advisor-driven "re-run the condition analysis" for Part B. The Part A facts
-  // are keyed on structure + documents (not the questionnaire answers), so the
-  // edge function reuses them and only re-runs the Part B swarm, folding in the
-  // latest questionnaire answers. In-session and server-side row edits are kept.
-  const handleRerunChecklist = async () => {
-    if (!sessionId || !appendix) return;
-    setPhase('generating');
-    try {
-      await startAppendixGeneration(sessionId);
-      await pollAppendixUntilReady(sessionId, (upd) => {
-        setAppendix((prev) => mergeServerUpdate(prev, upd, dirtyRowIds.current, factsDirty.current));
-        setPhase(upd.generation_status === 'generating' ? 'generating' : upd.generation_status);
-      });
-    } catch (e) {
-      setPhase('error');
-      toast.error('Could not re-run the analysis', { description: String(e) });
     }
   };
 
@@ -334,7 +324,16 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
         status: phase === 'generating' ? 'current' : 'pending',
       },
     ];
-    return <AppendixLoadingCard partLabel={page === 'facts' ? 'Part A' : 'Part B'} steps={steps} />;
+    return (
+      <AppendixLoadingCard
+        partLabel={page === 'facts' ? 'Part A' : 'Part B'}
+        steps={steps}
+        {...(phase === 'generating' ? {
+          title: 'Processing your answers',
+          description: 'The appendix is being brought in line with the assessment answers. This usually takes a moment; you can stay on this page.',
+        } : {})}
+      />
+    );
   }
 
   if (phase === 'error' || !appendix) {
@@ -407,21 +406,6 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
           // relatedParties is null on purpose: the associated-enterprises panel
           // is gone, the Part A master table already carries that overview.
           <div className="space-y-3">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-xs text-ds-ink-secondary">
-                Changed a questionnaire answer? Re-run the analysis to fold it in. Your manual edits are kept.
-              </span>
-              <Button
-                variant="secondary"
-                size="sm"
-                className="shrink-0"
-                onClick={handleRerunChecklist}
-                disabled={refining}
-              >
-                {refining ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                {refining ? 'Re-running' : 'Re-run analysis'}
-              </Button>
-            </div>
             <ChecklistV2 rows={appendix.rows} skeleton={skeleton ?? []} onEdit={handleEdit} onToggleExclude={handleToggleExclude} sessionId={sessionId} />
             {!confirmGuard.canConfirm && confirmGuard.reason && (
               // The confirm block, stated where it can be seen: a disabled

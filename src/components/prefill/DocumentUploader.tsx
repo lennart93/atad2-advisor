@@ -17,6 +17,9 @@ interface Props {
   locked: boolean;
 }
 
+/** Uploads that may run at the same time; the rest stays queued until a slot frees up. */
+const MAX_CONCURRENT_UPLOADS = 3;
+
 export function DocumentUploader({ sessionId, locked }: Props) {
   const store = usePrefillStore();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -58,8 +61,16 @@ export function DocumentUploader({ sessionId, locked }: Props) {
 
   useEffect(() => {
     if (locked) return;
+    // Cap the number of simultaneous uploads. Every upload makes several
+    // supabase calls that each take the shared browser auth-token lock
+    // (Navigator LockManager, 10s acquire timeout); dropping 20+ files at
+    // once starves that lock and random uploads fail with a lock timeout.
+    // The effect re-runs on every status change, so the queue drains itself.
+    let inFlight = store.pendingFiles.filter((p) => p.status === "uploading").length;
     for (const p of store.pendingFiles) {
       if (p.status !== "queued") continue;
+      if (inFlight >= MAX_CONCURRENT_UPLOADS) break;
+      inFlight += 1;
       store.setStatus(p.localId, "uploading");
       // mutateAsync (not mutate + callbacks): one shared mutation hook serves
       // every file, and react-query keeps only the LAST mutate() call's

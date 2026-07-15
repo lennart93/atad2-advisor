@@ -209,8 +209,11 @@ export function computeOwnershipPath(p: PathInputs): PathResult {
 const PARENT_DROP_OFFSET = 22;
 
 // Hoe ver BOVEN de top-handle van de dochter het %-label standaard rust als het
-// niet in het midden van de lijn mag staan (chart-px). Net onder de bus.
-const NEAR_CHILD_OFFSET = 14;
+// niet in het midden van de lijn mag staan (chart-px). Net onder de bus, en
+// ruim boven de TAXPAYER-badge die 8px boven de kaart uitsteekt (het labelvak
+// is ~16px hoog, dus het onderrand-punt ligt zo op targetY-14, 6px boven de
+// badge). LANE_BOTTOM_PAD in edgeRouting houdt de onderste rail hierboven.
+const NEAR_CHILD_OFFSET = 22;
 
 export interface DefaultLabelPosInput {
   sourceX: number;

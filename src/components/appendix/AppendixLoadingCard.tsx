@@ -11,10 +11,15 @@ import type { ProcessStep } from '@/components/ds';
 export function AppendixLoadingCard({
   partLabel,
   steps,
+  title = 'Preparing the appendix',
+  description = 'The entity register is being assembled and the appendix sections drafted from the documents and answers. You can stay on this page.',
 }: {
   /** "Part A" / "Part B", to match the section the advisor is heading for. */
   partLabel: string;
   steps: ProcessStep[];
+  /** Override for the sync-with-answers wait state ("Processing your answers"). */
+  title?: string;
+  description?: string;
 }) {
   return (
     <div className="flex justify-center py-16">
@@ -24,11 +29,10 @@ export function AppendixLoadingCard({
           Appendix · {partLabel}
         </p>
         <h1 className="mt-2 text-[23px] font-normal tracking-tight text-ds-ink">
-          Preparing the appendix
+          {title}
         </h1>
         <p className="mt-2 text-[14.5px] leading-[1.6] text-ds-ink-secondary">
-          The entity register is being assembled and the appendix sections drafted
-          from the documents and answers. You can stay on this page.
+          {description}
         </p>
 
         {/* Indeterminate progress: a terracotta glint travelling the track. */}

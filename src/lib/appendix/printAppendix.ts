@@ -10,7 +10,7 @@ import { effJurisdiction, effNlQualification, effRelationType, effRelatedPct } f
 import { nlQualificationLabel } from './facts/nlTaxStatus';
 import { actingBasisLabel } from './facts/actingBasis';
 import { displayReasoning } from './rowReasoning';
-import { appendixMootRowIds } from './controlType';
+import { appendixMootRowIds, GATE_ROWS } from './controlType';
 import { deriveConclusions, inScopeEntityIds, effLocalQualification, entityHasQualificationDifference, dutchForeignClassification } from './facts/conclusions';
 import { relevantTransactions, accountedTransactionGroups } from './facts/relevance';
 import { txMemoReason } from './facts/transactionAssessment';
@@ -74,7 +74,13 @@ export function buildAppendixPrintHtml(
 
   const statusCell = (status: Status | null, polarityId: string, flag: string) => {
     const { bg, fg } = tonePrintColor(rowTone(status, polarityId));
-    return `<td class="c-status" style="background:${bg};color:${fg};">${esc(statusDisplayLabel(status))}${flag}</td>`;
+    const label = statusDisplayLabel(status);
+    // A gateway row (1.1 / 1.2 / 2.1 / 6.1) carries a plain black note after the
+    // label; the label itself keeps the status colour and weight.
+    const gateNote = label && GATE_ROWS.has(polarityId)
+      ? `<span class="gate-note"> (gateway question)</span>`
+      : '';
+    return `<td class="c-status" style="background:${bg};color:${fg};">${esc(label)}${gateNote}${flag}</td>`;
   };
 
   const header =
@@ -315,6 +321,7 @@ export function buildAppendixPrintHtml(
   .c-reason { width: 34%; }
   .c-prov { width: 16%; color: #555; font-size: 10px; background: #fafafa; }
   .flag { color: #6b7280; font-size: 9px; white-space: nowrap; font-weight: 400; }
+  .gate-note { color: #111; font-weight: 400; }
 </style></head><body>
 <h1>ATAD2 technical appendix</h1>
 ${banner}

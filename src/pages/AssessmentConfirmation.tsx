@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useAppendixPrewarm } from "@/hooks/useAppendixPrewarm";
+import { useSpeculativeRefine } from "@/hooks/useSpeculativeRefine";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ds";
 import { WizardCard } from "@/components/assessment/WizardCard";
@@ -114,6 +116,13 @@ const AssessmentConfirmation = () => {
   const { sessionId } = useParams<{ sessionId: string }>();
   const { user } = useAuth();
   const navigate = useNavigate();
+
+  // Het venster tussen vragenlijst en Facts-pagina is precies waar de
+  // speculatieve keten moet bijtrekken: wijken de definitieve antwoorden af
+  // van de suggesties waar de runs op draaiden, dan vuurt de refine hier met
+  // een nieuwe vingerafdruk en volgt de bijlage via de prewarm vanzelf.
+  useSpeculativeRefine(sessionId, true);
+  useAppendixPrewarm(sessionId);
 
   const [sessionData, setSessionData] = useState<SessionData | null>(null);
   const [drivers, setDrivers] = useState<DriverAnswer[]>([]);

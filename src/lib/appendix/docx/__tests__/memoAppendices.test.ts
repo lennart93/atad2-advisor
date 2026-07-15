@@ -275,6 +275,18 @@ describe('buildMemoAppendicesXml', () => {
     expect(gateXml).not.toContain('>N/A<');
   });
 
+  it('appends a plain black "(gateway question)" note to gateway rows only', () => {
+    // The four gateway rows (1.1 / 1.2 / 2.1 / 6.1) carry the note after the
+    // status label, in normal weight and body ink; the label keeps its colour.
+    const gateSkeleton: SkeletonRow[] = [{ ...skeleton[0], rowId: '1.1' }];
+    const gateXml = buildMemoAppendicesXml(null, [condRow('1.1', 'N/A', 'In scope.')], gateSkeleton, { includeChecklist: true });
+    expect(gateXml).toContain(
+      '<w:rPr><w:color w:val="1A1A1A"/><w:sz w:val="19"/><w:szCs w:val="19"/></w:rPr><w:t xml:space="preserve"> (gateway question)</w:t>',
+    );
+    // Non-gateway rows (the base fixture) never carry the note.
+    expect(xml).not.toContain('gateway question');
+  });
+
   it('prefixes the condition name with a small black code, name in ink', () => {
     // All appendix text is black now; the code is set apart by size, not colour.
     expect(xml).toContain('<w:color w:val="1A1A1A"/><w:sz w:val="18"/><w:szCs w:val="18"/></w:rPr><w:t xml:space="preserve">B.1.1  </w:t>');

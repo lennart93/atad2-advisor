@@ -67,6 +67,17 @@ describe('buildAppendixPrintHtml', () => {
     expect(internal).toContain('excluded');
   });
 
+  it('appends a plain black "(gateway question)" note to gateway rows only', () => {
+    // 1.1 is a gateway row (controlType.GATE_ROWS); 3.2 is not. The note sits
+    // after the status label in a normal-weight black span.
+    const html = buildAppendixPrintHtml(
+      [row('1.1', 'Triggered', 'In scope.'), row('3.2', 'Triggered', 'x')],
+      'dossier',
+    );
+    expect(html).toContain('<span class="gate-note"> (gateway question)</span>');
+    expect(html.match(/gateway question/g)).toHaveLength(1);
+  });
+
   it('escapes HTML in row content', () => {
     const html = buildAppendixPrintHtml([row('3.2', 'Not triggered', 'a < b & c')], 'dossier');
     expect(html).toContain('a &lt; b &amp; c');

@@ -9,7 +9,6 @@ import { StatusControl, RowDetail } from '@/components/appendix/AppendixTable';
 import { partBDigest, conditionNeedsAttention, sectionWorstStatus } from '@/lib/appendix/needsAttention';
 import { AppendixDigest } from './AppendixDigest';
 import { SectionRow } from './SectionRow';
-import { RolledUpGroup } from './RolledUpGroup';
 import { DetailPanel } from './DetailPanel';
 import { InfoPopover } from './InfoPopover';
 import { useAppendixSelection, useRowListKeyNav, useSectionOpenState } from './hooks';
@@ -39,8 +38,8 @@ function dotColor(tone: ReturnType<typeof rowTone>): string {
 
 /**
  * Part B (spec §6): the condition checklist as resting-state sections. Each skeleton
- * section is a SectionRow showing its worst status; triggered / insufficient / not-
- * assessed conditions stay visible, the rest roll up. The reasoning, Source panel and
+ * section is a SectionRow showing its worst status; opening a section shows all of
+ * its conditions directly (no roll-up). The reasoning, Source panel and
  * visibility toggle move into the one detail panel (reusing the tested RowDetail); the
  * editable status pill stays on the row. The six-part legend is gone (see the digest (i)).
  */
@@ -125,7 +124,7 @@ export function ChecklistV2({ rows, skeleton, onEdit, onToggleExclude, sessionId
         </div>
         {/* Keydown only stops the arrow-key list delegation from hijacking the control. */}
         {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
-        <span className="shrink-0 pt-2.5" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+        <span className="shrink-0 self-center" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
           <StatusControl
             rowId={sk.rowId}
             ctype={ctype}
@@ -157,7 +156,6 @@ export function ChecklistV2({ rows, skeleton, onEdit, onToggleExclude, sessionId
         <div className="min-w-0 space-y-4">
           {sections.map((sec) => {
             const flagged = sec.items.filter((sk) => { const r = byId.get(sk.rowId); return r && conditionNeedsAttention(r, mootSet); });
-            const routine = sec.items.filter((sk) => !flagged.includes(sk));
             const worst = sectionWorstStatus(sec.items.map((sk) => byId.get(sk.rowId)!), mootSet);
             return (
               <SectionRow
@@ -174,12 +172,7 @@ export function ChecklistV2({ rows, skeleton, onEdit, onToggleExclude, sessionId
                 {/* Arrow-key delegation for the focusable rows inside; not interactive itself. */}
                 {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
                 <div onKeyDown={onListKeyDown}>
-                  {flagged.map(renderRow)}
-                  {routine.length > 0 && (
-                    <RolledUpGroup summary={`${routine.length} ${routine.length === 1 ? 'condition' : 'conditions'} · no action needed`}>
-                      {routine.map(renderRow)}
-                    </RolledUpGroup>
-                  )}
+                  {sec.items.map(renderRow)}
                 </div>
               </SectionRow>
             );

@@ -134,6 +134,7 @@ export type Database = {
         Row: {
           id: string
           session_id: string
+          answers_fingerprint: string | null
           review_status: string
           generation_status: string
           rows: Json
@@ -153,6 +154,7 @@ export type Database = {
         Insert: {
           id?: string
           session_id: string
+          answers_fingerprint?: string | null
           review_status?: string
           generation_status?: string
           rows?: Json
@@ -172,6 +174,7 @@ export type Database = {
         Update: {
           id?: string
           session_id?: string
+          answers_fingerprint?: string | null
           review_status?: string
           generation_status?: string
           rows?: Json
@@ -1183,6 +1186,7 @@ export type Database = {
       }
       atad2_structure_charts: {
         Row: {
+          answers_fingerprint: string | null
           canvas_height: number
           canvas_width: number
           created_at: string
@@ -1199,6 +1203,7 @@ export type Database = {
           warnings: Json
         }
         Insert: {
+          answers_fingerprint?: string | null
           canvas_height?: number
           canvas_width?: number
           created_at?: string
@@ -1215,6 +1220,7 @@ export type Database = {
           warnings?: Json
         }
         Update: {
+          answers_fingerprint?: string | null
           canvas_height?: number
           canvas_width?: number
           created_at?: string

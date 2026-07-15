@@ -114,7 +114,7 @@ describe('computeDefaultLabelPos — % resting placement', () => {
     });
     // No longer the midpoint — rests just above the child, clear of the bus.
     expect(pos.x).toBe(500);
-    expect(pos.y).toBe(200 - 14);
+    expect(pos.y).toBe(200 - 22);
     expect(pos.y).toBeGreaterThan(150); // strictly below the bus crossing
   });
 
@@ -123,7 +123,17 @@ describe('computeDefaultLabelPos — % resting placement', () => {
       ...parent, targetX: 800, convergingOwners: 1, siblingCount: 1,
     });
     expect(pos.x).toBe(800);
-    expect(pos.y).toBe(200 - 14);
+    expect(pos.y).toBe(200 - 22);
+  });
+
+  it('clears the TAXPAYER pill that straddles the child top edge', () => {
+    // De pill beslaat targetY-8 .. targetY+8; het labelvak is ~16px hoog rond
+    // zijn middelpunt. Het label-middelpunt moet dus minstens 18px boven de
+    // dochter-top rusten, anders hangt het % over het woord TAXPAYER.
+    const pos = computeDefaultLabelPos({
+      ...parent, targetX: 800, convergingOwners: 1, siblingCount: 1,
+    });
+    expect(pos.y).toBeLessThanOrEqual(200 - 18);
   });
 
   it('drops a converging % under its OWN parent when that parent has one child', () => {
@@ -142,7 +152,7 @@ describe('computeDefaultLabelPos — % resting placement', () => {
     });
     // Under a hub "below the parent" is ambiguous, so the % goes to the child.
     expect(pos.x).toBe(1200);
-    expect(pos.y).toBe(200 - 14);
+    expect(pos.y).toBe(200 - 22);
   });
 });
 

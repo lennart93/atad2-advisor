@@ -33,10 +33,7 @@ import {
 import { addOrMergeFiscalUnity } from '@/lib/structure/fiscalUnity';
 import { computeFrameLayouts } from '@/lib/structure/fiscalUnityLayout';
 import { startExtraction, pollUntilTerminal } from '@/lib/structure/extraction';
-import { loadAppendix, startAppendixGeneration } from '@/lib/appendix/client';
-import { buildEntityRegister } from '@/lib/appendix/facts/entityRegister';
-import { registerMatchesChart } from '@/lib/appendix/facts/registerSync';
-import type { FactEntity } from '@/lib/appendix/types';
+import { loadAppendix } from '@/lib/appendix/client';
 import { FiscalUnityEditPopover } from './overlays/FiscalUnityEditPopover';
 import { captureChartSnapshot } from '@/lib/structure/captureChartSnapshot';
 import type { Node } from '@xyflow/react';
@@ -187,18 +184,14 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
   // out of the chart (non-destructive — the rows stay; un-hiding is done in the
   // appendix). hidden ids are chartEntityIds; synthetic fiscal-unity ids (fu:*)
   // are not real chart entities and are ignored.
-  // On leaving this step: when the chart no longer produces the register the
-  // appendix was generated from (entities, edges, groupings; positions do not
-  // count), kick off a non-destructive appendix refresh in the background, so
-  // the appendix never quietly keeps describing an older structure.
-  const appendixRegisterRef = useRef<FactEntity[] | null>(null);
-
+  // Chart edits deliberately never touch the appendix (advisor decision, Jul
+  // 2026): the appendix is reviewed and confirmed before this step and stays
+  // exactly as reviewed; only appendix-side actions regenerate it.
   useEffect(() => {
     let cancelled = false;
     loadAppendix(sessionId)
       .then((a) => {
         if (cancelled || !a?.facts) return;
-        appendixRegisterRef.current = a.facts.entities;
         const ids = a.facts.entities
           .filter((e) => e.hidden && !e.chartEntityId.startsWith('fu:'))
           .map((e) => e.chartEntityId);
@@ -207,15 +200,6 @@ export function StructureChartStep({ sessionId }: { sessionId: string }) {
       .catch(() => { /* no appendix yet → hide nothing */ });
     return () => { cancelled = true; };
   }, [sessionId]);
-
-  const maybeResyncAppendix = () => {
-    const stored = appendixRegisterRef.current;
-    if (!stored?.length || entities.length === 0) return;
-    const fromChart = buildEntityRegister(entities, edges, groupings);
-    if (fromChart.length && !registerMatchesChart(stored, fromChart)) {
-      startAppendixGeneration(sessionId).catch(() => { /* appendix page has a backstop */ });
-    }
-  };
 
   const [status, setStatus] = useState<ChartStatus | 'loading'>('loading');
 
@@ -830,7 +814,6 @@ const [busy, setBusy] = useState(false);
       }
       await finalizeChart(chart.id);
     }
-    maybeResyncAppendix();
     // The overview caches the chart snapshot (no more always-refetch); a fresh
     // save must show, so drop that cache before returning.
     queryClient.invalidateQueries({ queryKey: ['report-chart-snapshot', sessionId] });
@@ -845,7 +828,6 @@ const [busy, setBusy] = useState(false);
         console.warn('[StructureChartStep] unfinalize failed', err);
       }
     }
-    maybeResyncAppendix();
     queryClient.invalidateQueries({ queryKey: ['report-chart-snapshot', sessionId] });
     navigate(`/assessment-report/${sessionId}`);
   };
@@ -874,7 +856,7 @@ const [busy, setBusy] = useState(false);
           editFromOverview ? null : (
             <Button
               variant="secondary"
-              onClick={() => { maybeResyncAppendix(); navigate(`/assessment-appendix/${sessionId}`); }}
+              onClick={() => navigate(`/assessment-appendix/${sessionId}`)}
             >
               <ArrowLeft />
               Previous

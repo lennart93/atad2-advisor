@@ -34,7 +34,7 @@ import { displayReasoning } from '../rowReasoning';
 import { buildClientSections } from '../clientExport';
 import { statusDisplayLabel } from '../status';
 import { rowTone } from '../conditionPolarity';
-import { appendixMootRowIds, controlTypeFor } from '../controlType';
+import { appendixMootRowIds, controlTypeFor, GATE_ROWS } from '../controlType';
 import { normalizeEntityName } from '@/lib/legalName';
 import { cell, emptyPara, para, row, run, table, textPara, TAB } from './ooxml';
 import type { Cell, TableOpts } from './ooxml';
@@ -172,12 +172,17 @@ function statusVisual(r: AppendixRow, mootSet: ReadonlySet<string>): StatusVisua
   }
 }
 
-/** An Appendix-2 status cell: the whole cell shaded, a small icon + label inside. */
+/** An Appendix-2 status cell: the whole cell shaded, a small icon + label inside.
+ *  A gateway row (1.1 / 1.2 / 2.1 / 6.1) carries a plain black "(gateway question)"
+ *  note after the label; the icon + label keep their status formatting. */
 function statusCell(r: AppendixRow, mootSet: ReadonlySet<string>, width: number): string {
   const v = statusVisual(r, mootSet);
   if (!v) return cell({ text: '', width, margins: DATA_MAR, line: BODY_LINE });
+  const gateNote = GATE_ROWS.has(r.rowId)
+    ? run(' (gateway question)', { color: INK, sz: HEAD_SZ })
+    : '';
   return cell({
-    runs: run(`${v.icon}  `, { color: v.fg, sz: HEAD_SZ }) + run(v.label, { bold: true, color: v.fg, sz: HEAD_SZ }),
+    runs: run(`${v.icon}  `, { color: v.fg, sz: HEAD_SZ }) + run(v.label, { bold: true, color: v.fg, sz: HEAD_SZ }) + gateNote,
     width,
     shade: v.fill,
     margins: { top: 80, bottom: 80, left: 140, right: 100 },
@@ -409,7 +414,11 @@ function factsAppendix(rawFacts: AppendixFacts, pageBreakBefore: boolean): strin
           ? para(run(clsSecond, { color: WARM_GREY, sz: ROLE_SZ }), { line: 240, spacingAfter: 0 })
           : '');
       const relatedText =
-        e.role === 'Taxpayer' || isMember ? '' : relatedPctOf(e) != null ? pct(relatedPctOf(e)) : '-';
+        e.role === 'Taxpayer' || isMember
+          ? 'n/a'
+          : relatedPctOf(e) != null
+            ? pct(relatedPctOf(e))
+            : '-';
       return row([
         dataCell(`E${num}`, ENTITY_COLS[0], { color: FAINT }),
         cell({ paras: namePara + rolePara, width: ENTITY_COLS[1], margins: DATA_MAR }),

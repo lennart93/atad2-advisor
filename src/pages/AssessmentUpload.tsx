@@ -29,6 +29,7 @@ import { computeQuality } from "@/lib/prefill/qualityMeter";
 import { useAppendixPrewarm } from "@/hooks/useAppendixPrewarm";
 import { useDocFactsPrewarm } from "@/hooks/useDocFactsPrewarm";
 import { useFactsheetPrewarm } from "@/hooks/useFactsheetPrewarm";
+import { useSpeculativeRefine } from "@/hooks/useSpeculativeRefine";
 import { FactsheetPanel } from "@/components/prefill/FactsheetPanel";
 
 export default function AssessmentUpload() {
@@ -54,6 +55,11 @@ export default function AssessmentUpload() {
   const swarmRunning = job?.status === "stage2_running";
   useDocFactsPrewarm(sessionId, swarmRunning);
   const factsheetPrewarm = useFactsheetPrewarm(sessionId, swarmRunning);
+
+  // Speculatieve chart-verrijking: zodra de prefill-pipeline is uitgewerkt
+  // draait de refine alvast op de suggestie-antwoorden, zodat de bijlage
+  // meestal definitief klaarstaat voordat de gebruiker de Facts-pagina haalt.
+  useSpeculativeRefine(sessionId, factsheetPrewarm.settled && !swarmRunning);
 
   const [waiting, setWaiting] = useState(false);
 

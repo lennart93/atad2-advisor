@@ -38,10 +38,11 @@ const DETOUR_MIN_SEPARATION = 16;
 // Verticale maatvoering van de banen in een tussenruimte. LANE_TOP_PAD houdt
 // het "%-onder-de-moeder"-label (sourceY + 22, zie OwnershipEdge) vrij van de
 // bovenste rail; LANE_BOTTOM_PAD houdt het "%-boven-de-dochter"-label
-// (targetY - 14) vrij van de onderste rail.
+// (targetY - 22, verhoogd zodat het vrij blijft van de TAXPAYER-badge die 8px
+// boven de kaart uitsteekt) vrij van de onderste rail.
 export const LANE_STEP = 16;
-export const LANE_TOP_PAD = 28;
-export const LANE_BOTTOM_PAD = 24;
+export const LANE_TOP_PAD = 32;
+export const LANE_BOTTOM_PAD = 32;
 
 // Horizontale marge waarbinnen twee rails NIET dezelfde baan mogen delen.
 const RAIL_CLEARANCE = 24;
@@ -132,10 +133,45 @@ interface RailGroup {
   max: number;
 }
 
+// Een corridor: aaneengesloten x-interval dat in ALLE tussenliggende rijen
+// van een lange lijn vrij is van node-lichamen (incl. SAFE_HALF_WIDTH marge).
+interface Corridor {
+  L: number;
+  R: number;
+}
+
+/**
+ * Vrije daal-corridors tussen de node-kolommen van de tussenliggende rijen.
+ * De uiterste corridors zijn open (Infinity); een corridor mag 0px breed zijn
+ * (precies één lijnpositie).
+ */
+function freeCorridors(intermediateXs: number[]): Corridor[] {
+  const cols = Array.from(new Set(intermediateXs)).sort((a, b) => a - b);
+  if (cols.length === 0) return [{ L: -Infinity, R: Infinity }];
+  const out: Corridor[] = [{ L: -Infinity, R: cols[0] - SAFE_HALF_WIDTH }];
+  for (let i = 0; i < cols.length - 1; i++) {
+    const L = cols[i] + SAFE_HALF_WIDTH;
+    const R = cols[i + 1] - SAFE_HALF_WIDTH;
+    if (R - L >= -0.01) out.push({ L, R });
+  }
+  out.push({ L: cols[cols.length - 1] + SAFE_HALF_WIDTH, R: Infinity });
+  return out;
+}
+
+const clampX = (x: number, c: Corridor) => Math.min(Math.max(x, c.L), c.R);
+
 /**
  * Pure banen-planning op rij-volgorde + X-posities (Y speelt geen rol).
  * Deterministisch: dezelfde rijen + edges geven altijd hetzelfde plan, zodat
  * tierLayout (gap-hoogtes) en StructureChart (concrete Y's) op één lijn zitten.
+ *
+ * Lange lijnen kiezen hun daal-kolom in twee stappen:
+ *  1. corridor-keuze: elke vrije corridor krijgt een kruisings-score (jog die
+ *     over andermans waaier-rail zou lopen weegt zwaarst, dan verticalen die
+ *     dwars door een rail prikken), daarna telt afstand tot de dochter;
+ *  2. verdeling: lijnen die dezelfde corridor kozen worden — gesorteerd op
+ *     dochter-kolom — naast elkaar gelegd, zodat hun jogs elkaar niet kruisen.
+ *     Lijnen naar dezelfde dochter delen één kolom (ze voegen toch samen).
  */
 export function planLanes(rows: LaneRowSlot[][], edges: LanePlanEdge[]): LanePlan {
   const rowOf = new Map<string, number>();
@@ -149,10 +185,6 @@ export function planLanes(rows: LaneRowSlot[][], edges: LanePlanEdge[]): LanePla
 
   const byEdge = new Map<string, EdgeLanePlan>();
   const railGroups = new Map<string, RailGroup>();
-  // Al vergeven daal-kolommen: {x, vanaf-rij, tot-rij, dochter}. Lijnen naar
-  // DEZELFDE dochter mogen een kolom delen (ze voegen toch samen), lijnen naar
-  // verschillende dochters niet.
-  const takenDetours: Array<{ x: number; fromRow: number; toRow: number; to: string }> = [];
 
   const extendGroup = (key: string, gap: number, ...xs: number[]) => {
     let g = railGroups.get(key);
@@ -167,7 +199,7 @@ export function planLanes(rows: LaneRowSlot[][], edges: LanePlanEdge[]): LanePla
     }
   };
 
-  // Stabiele volgorde zodat detour-toewijzing deterministisch is.
+  // Stabiele volgorde zodat de planning deterministisch is.
   const ordered = edges
     .filter((e) => {
       const r1 = rowOf.get(e.from);
@@ -176,82 +208,162 @@ export function planLanes(rows: LaneRowSlot[][], edges: LanePlanEdge[]): LanePla
     })
     .sort((a, b) => a.id.localeCompare(b.id));
 
+  // ---- Pas 1: aangrenzende edges. Hun waaier-rails (A) staan daarna vast,
+  // zodat de corridor-score van lange lijnen er rekening mee kan houden.
+  const longs: typeof ordered = [];
   for (const e of ordered) {
     const r1 = rowOf.get(e.from)!;
     const r2 = rowOf.get(e.to)!;
     const sx = xOf.get(e.from)!;
     const tx = xOf.get(e.to)!;
-    const gapA = r1;
-    const isAligned = Math.abs(tx - sx) < STRAIGHT_EPS;
-
-    if (r2 === r1 + 1) {
-      if (isAligned) {
-        byEdge.set(e.id, {
-          kind: 'straight', sourceGap: gapA,
-          laneA: null, detourX: null, targetGap: null, laneB: null,
-        });
-      } else {
-        extendGroup(`A|${gapA}|${e.from}`, gapA, sx, tx);
-        byEdge.set(e.id, {
-          kind: 'adjacent', sourceGap: gapA,
-          laneA: -1, detourX: null, targetGap: null, laneB: null, // laneA volgt na kleuring
-        });
-      }
+    if (r2 > r1 + 1) {
+      longs.push(e);
       continue;
     }
+    if (Math.abs(tx - sx) < STRAIGHT_EPS) {
+      byEdge.set(e.id, {
+        kind: 'straight', sourceGap: r1,
+        laneA: null, detourX: null, targetGap: null, laneB: null,
+      });
+    } else {
+      extendGroup(`A|${r1}|${e.from}`, r1, sx, tx);
+      byEdge.set(e.id, {
+        kind: 'adjacent', sourceGap: r1,
+        laneA: -1, detourX: null, targetGap: null, laneB: null, // laneA volgt na kleuring
+      });
+    }
+  }
 
-    // Lange lijn: verzamel de node-kolommen van de tussenliggende rijen.
+  const aGroupsInGap = (gap: number): RailGroup[] =>
+    Array.from(railGroups.values()).filter((g) => g.gap === gap && g.key.startsWith('A|'));
+
+  // ---- Pas 2: corridor-keuze per lange lijn.
+  interface LongPick {
+    e: LanePlanEdge;
+    r1: number;
+    r2: number;
+    sx: number;
+    tx: number;
+    corridor: Corridor;
+    desired: number;
+  }
+  const picks: LongPick[] = [];
+  for (const e of longs) {
+    const r1 = rowOf.get(e.from)!;
+    const r2 = rowOf.get(e.to)!;
+    const sx = xOf.get(e.from)!;
+    const tx = xOf.get(e.to)!;
+    const gapB = r2 - 1;
+
     const intermediateXs: number[] = [];
     for (let r = r1 + 1; r < r2; r++) {
       for (const slot of rows[r]) intermediateXs.push(slot.x);
     }
-    const relevantTaken = takenDetours
-      .filter((d) => d.to !== e.to && d.fromRow < r2 && d.toRow > r1)
-      .map((d) => d.x);
 
-    // Recht boven elkaar én de kolom is vrij → pure verticale lijn.
-    if (isAligned) {
-      const columnFree =
-        !intermediateXs.some((ix) => Math.abs(tx - ix) < SAFE_HALF_WIDTH) &&
-        !relevantTaken.some((dx) => Math.abs(tx - dx) < DETOUR_MIN_SEPARATION);
-      if (columnFree) {
-        takenDetours.push({ x: tx, fromRow: r1, toRow: r2, to: e.to });
-        byEdge.set(e.id, {
-          kind: 'straight', sourceGap: gapA,
-          laneA: null, detourX: null, targetGap: null, laneB: null,
-        });
-        continue;
+    let best: { corridor: Corridor; rep: number; score: number; dTx: number; dSx: number } | null =
+      null;
+    for (const corridor of freeCorridors(intermediateXs)) {
+      const rep = clampX(tx, corridor);
+      let score = 0;
+      // Jog over andermans waaier-rail heen = het zwaarst (vlecht-effect).
+      const jogMin = Math.min(rep, tx);
+      const jogMax = Math.max(rep, tx);
+      for (const g of aGroupsInGap(gapB)) {
+        if (jogMax - jogMin >= 0.5 && jogMin < g.max && g.min < jogMax) score += 2;
+        if (g.min < rep && rep < g.max) score += 1; // verticaal dwars door de rail
+      }
+      for (let gg = r1 + 1; gg < gapB; gg++) {
+        for (const g of aGroupsInGap(gg)) {
+          if (g.min < rep && rep < g.max) score += 1;
+        }
+      }
+      const cand = { corridor, rep, score, dTx: Math.abs(rep - tx), dSx: Math.abs(rep - sx) };
+      if (
+        best === null ||
+        cand.score < best.score ||
+        (cand.score === best.score &&
+          (cand.dTx < best.dTx ||
+            (cand.dTx === best.dTx &&
+              (cand.dSx < best.dSx || (cand.dSx === best.dSx && cand.corridor.L < best.corridor.L)))))
+      ) {
+        best = cand;
       }
     }
+    picks.push({ e, r1, r2, sx, tx, corridor: best!.corridor, desired: best!.rep });
+  }
 
-    const detourX = pickDetourColumn(tx, sx, intermediateXs, relevantTaken);
-    takenDetours.push({ x: detourX, fromRow: r1, toRow: r2, to: e.to });
-    extendGroup(`A|${gapA}|${e.from}`, gapA, sx, detourX);
+  // ---- Pas 3: kolom-verdeling binnen elke corridor. Lijnen naar dezelfde
+  // dochter delen één kolom; verder gesorteerd op gewenste positie zodat de
+  // jogs links/rechts netjes uitwaaieren zonder elkaar te kruisen.
+  const byCorridor = new Map<string, LongPick[]>();
+  for (const p of picks) {
+    const key = `${p.corridor.L}|${p.corridor.R}`;
+    const list = byCorridor.get(key) ?? [];
+    list.push(p);
+    byCorridor.set(key, list);
+  }
 
-    const needsJogBack = Math.abs(detourX - tx) >= 0.5;
-    const gapB = r2 - 1;
-    if (needsJogBack) extendGroup(`B|${gapB}|${e.to}`, gapB, detourX, tx);
+  for (const members of byCorridor.values()) {
+    const byTarget = new Map<string, LongPick[]>();
+    for (const p of members) {
+      const list = byTarget.get(p.e.to) ?? [];
+      list.push(p);
+      byTarget.set(p.e.to, list);
+    }
+    const cols = Array.from(byTarget.values()).sort(
+      (a, b) => a[0].desired - b[0].desired || a[0].e.to.localeCompare(b[0].e.to),
+    );
+    const { L, R } = members[0].corridor;
+    let sep = DETOUR_MIN_SEPARATION;
+    if (cols.length > 1 && Number.isFinite(L) && Number.isFinite(R)) {
+      sep = Math.min(sep, Math.max(6, (R - L) / (cols.length - 1)));
+    }
+    const xs = cols.map((c) => c[0].desired);
+    for (let i = 1; i < xs.length; i++) xs[i] = Math.max(xs[i], xs[i - 1] + sep);
+    if (Number.isFinite(R) && xs[xs.length - 1] > R) {
+      const over = xs[xs.length - 1] - R;
+      for (let i = 0; i < xs.length; i++) xs[i] -= over;
+    }
+    if (Number.isFinite(L) && xs[0] < L) {
+      xs[0] = L;
+      for (let i = 1; i < xs.length; i++) xs[i] = Math.max(xs[i], xs[i - 1] + sep);
+    }
 
-    byEdge.set(e.id, {
-      kind: 'longskip', sourceGap: gapA,
-      laneA: -1, detourX,
-      targetGap: needsJogBack ? gapB : null,
-      laneB: needsJogBack ? -1 : null,
+    cols.forEach((colMembers, i) => {
+      const detourX = xs[i];
+      for (const p of colMembers) {
+        const gapB = p.r2 - 1;
+        const needsJogBack = Math.abs(detourX - p.tx) >= 0.5;
+        // Recht onder de bron én recht boven de dochter → pure verticale lijn.
+        if (!needsJogBack && Math.abs(p.tx - p.sx) < STRAIGHT_EPS) {
+          byEdge.set(p.e.id, {
+            kind: 'straight', sourceGap: p.r1,
+            laneA: null, detourX: null, targetGap: null, laneB: null,
+          });
+          continue;
+        }
+        extendGroup(`A|${p.r1}|${p.e.from}`, p.r1, p.sx, detourX);
+        if (needsJogBack) extendGroup(`B|${gapB}|${p.e.to}`, gapB, detourX, p.tx);
+        byEdge.set(p.e.id, {
+          kind: 'longskip', sourceGap: p.r1,
+          laneA: -1, detourX,
+          targetGap: needsJogBack ? gapB : null,
+          laneB: needsJogBack ? -1 : null,
+        });
+      }
     });
   }
 
-  // Baan-toewijzing per gap: interval-kleuring. Rails die elkaar (met marge)
-  // horizontaal overlappen komen in verschillende banen; niet-overlappende
-  // rails mogen een baan delen.
+  // Baan-toewijzing per gap: interval-kleuring, in twee klassen. Waaier-rails
+  // (A) krijgen de bovenste banen, invoeg-rails (B) liggen daar altijd ONDER
+  // (dicht bij de dochter). Zo daalt de staart van een lange lijn nooit dwars
+  // door — of bovenop — de bron-daal van een moeder in de rij erboven.
   const laneOfGroup = new Map<string, number>();
   const gaps = new Set<number>();
   for (const g of railGroups.values()) gaps.add(g.gap);
   const laneCountByGap: number[] = new Array(Math.max(rows.length - 1, 0)).fill(0);
 
-  for (const gap of gaps) {
-    const groups = Array.from(railGroups.values())
-      .filter((g) => g.gap === gap)
-      .sort((a, b) => a.min - b.min || a.max - b.max || a.key.localeCompare(b.key));
+  const colorClass = (groups: RailGroup[], laneOffset: number): number => {
     const lanes: Array<Array<{ min: number; max: number }>> = [];
     for (const g of groups) {
       let lane = 0;
@@ -263,9 +375,18 @@ export function planLanes(rows: LaneRowSlot[][], edges: LanePlanEdge[]): LanePla
       }
       if (lane === lanes.length) lanes.push([]);
       lanes[lane].push({ min: g.min, max: g.max });
-      laneOfGroup.set(g.key, lane);
+      laneOfGroup.set(g.key, laneOffset + lane);
     }
-    if (gap >= 0 && gap < laneCountByGap.length) laneCountByGap[gap] = lanes.length;
+    return lanes.length;
+  };
+
+  for (const gap of gaps) {
+    const inGap = Array.from(railGroups.values())
+      .filter((g) => g.gap === gap)
+      .sort((a, b) => a.min - b.min || a.max - b.max || a.key.localeCompare(b.key));
+    const aCount = colorClass(inGap.filter((g) => g.key.startsWith('A|')), 0);
+    const bCount = colorClass(inGap.filter((g) => g.key.startsWith('B|')), aCount);
+    if (gap >= 0 && gap < laneCountByGap.length) laneCountByGap[gap] = aCount + bCount;
   }
 
   // Vul de definitieve baan-indexen in.

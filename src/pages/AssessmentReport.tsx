@@ -191,8 +191,8 @@ const AssessmentReport = () => {
   const [includeFactsOverride, setIncludeFactsOverride] = useState<boolean | null>(null);
   const [includeChecklistOverride, setIncludeChecklistOverride] = useState<boolean | null>(null);
   // Per-download choice: stamp a diagonal DRAFT watermark on every page of the
-  // Word export. Off by default; local to the download, not persisted.
-  const [includeDraftWatermark, setIncludeDraftWatermark] = useState(false);
+  // Word export. On by default; local to the download, not persisted.
+  const [includeDraftWatermark, setIncludeDraftWatermark] = useState(true);
   // Roster "Show all" toggle: large structures collapse to ROSTER_CAP chips.
   const [showAllEntities, setShowAllEntities] = useState(false);
 
@@ -1069,41 +1069,45 @@ const AssessmentReport = () => {
                     <p className="mb-1 text-[11px] font-normal uppercase tracking-[0.07em] text-ds-ink-tertiary">
                       Include in the memorandum
                     </p>
-                    <div className="divide-y divide-ds-hairline border-y border-ds-hairline">
-                      {chartSnapshot?.snapshot_png && (
+                    <div className="grid grid-cols-1 gap-x-8 border-y border-ds-hairline sm:grid-cols-2">
+                      <div className="divide-y divide-ds-hairline">
+                        {chartSnapshot?.snapshot_png && (
+                          <MemoInclusionRow
+                            checked={includeChartInMemo}
+                            disabled={isGeneratingReport}
+                            onToggle={() => setIncludeChartInMemo(!includeChartInMemo)}
+                          >
+                            Structure chart
+                          </MemoInclusionRow>
+                        )}
                         <MemoInclusionRow
-                          checked={includeChartInMemo}
+                          checked={includeDraftWatermark}
                           disabled={isGeneratingReport}
-                          onToggle={() => setIncludeChartInMemo(!includeChartInMemo)}
+                          onToggle={() => setIncludeDraftWatermark(!includeDraftWatermark)}
                         >
-                          Structure chart
+                          DRAFT watermark
                         </MemoInclusionRow>
-                      )}
-                      {factsAppendixAvailable && (
-                        <MemoInclusionRow
-                          checked={includeFactsAppendix}
-                          disabled={isGeneratingReport}
-                          onToggle={() => setIncludeFactsOverride(!includeFactsAppendix)}
-                        >
-                          Appendix 1 · Facts &amp; relationships
-                        </MemoInclusionRow>
-                      )}
-                      {checklistAppendixAvailable && (
-                        <MemoInclusionRow
-                          checked={includeChecklistAppendix}
-                          disabled={isGeneratingReport}
-                          onToggle={() => setIncludeChecklistOverride(!includeChecklistAppendix)}
-                        >
-                          Appendix 2 · Condition assessment
-                        </MemoInclusionRow>
-                      )}
-                      <MemoInclusionRow
-                        checked={includeDraftWatermark}
-                        disabled={isGeneratingReport}
-                        onToggle={() => setIncludeDraftWatermark(!includeDraftWatermark)}
-                      >
-                        DRAFT watermark on every page
-                      </MemoInclusionRow>
+                      </div>
+                      <div className="divide-y divide-ds-hairline">
+                        {factsAppendixAvailable && (
+                          <MemoInclusionRow
+                            checked={includeFactsAppendix}
+                            disabled={isGeneratingReport}
+                            onToggle={() => setIncludeFactsOverride(!includeFactsAppendix)}
+                          >
+                            Appendix 1 · Facts &amp; relationships
+                          </MemoInclusionRow>
+                        )}
+                        {checklistAppendixAvailable && (
+                          <MemoInclusionRow
+                            checked={includeChecklistAppendix}
+                            disabled={isGeneratingReport}
+                            onToggle={() => setIncludeChecklistOverride(!includeChecklistAppendix)}
+                          >
+                            Appendix 2 · Condition assessment
+                          </MemoInclusionRow>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1223,7 +1227,9 @@ const AssessmentReport = () => {
                       </div>
                       <div className="mb-4 border-b border-ds-hairline pb-4">
                         <p className={`${EYEBROW} mb-1.5`}>Prepared for</p>
-                        <p className="text-sm text-ds-ink">{taxpayerDisplayName(sessionData.taxpayer_name)}</p>
+                        {dedupeEntityNames(parseTaxpayerNames(sessionData.taxpayer_name)).map((name) => (
+                          <p key={name} className="text-sm leading-relaxed text-ds-ink">{name}</p>
+                        ))}
                       </div>
                       <div className="mb-4 border-b border-ds-hairline pb-4">
                         <p className={`${EYEBROW} mb-1.5`}>Fiscal year</p>
@@ -1286,7 +1292,6 @@ const AssessmentReport = () => {
               id="ov-structure"
               index=""
               title="Structure chart"
-              summary={chartSnapshot?.snapshot_png ? "Ownership chart snapshot" : "Snapshot unavailable"}
               action={
                 <Button
                   variant="ghost"
@@ -1324,7 +1329,6 @@ const AssessmentReport = () => {
               id="ov-appendix1"
               index=""
               title="Appendix 1 · Facts & relationships"
-              summary={`${appendixForDownload.facts.entities.length} entities`}
               action={
                 <Button
                   variant="ghost"
@@ -1350,7 +1354,6 @@ const AssessmentReport = () => {
               id="ov-appendix2"
               index=""
               title="Appendix 2 · Condition assessment"
-              summary={`${appendixForDownload.rows.filter((r) => !r.excludedFromClient).length} conditions`}
               action={
                 <Button
                   variant="ghost"
@@ -1383,7 +1386,6 @@ const AssessmentReport = () => {
               id="ov-responses"
               index=""
               title="Question responses"
-              summary={responsesLocked ? `${answers.length} answered · locked` : `${answers.length} answered`}
               action={
                 <Button
                   variant="ghost"

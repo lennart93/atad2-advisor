@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import type { StoredAppendix, AppendixRow, EditableField, GenerationStatus, AppendixFacts } from './types';
 import { normalizeFacts } from './facts/emptyFacts';
+import { normalizeAiNaStatuses } from './normalizeAiNa';
 
 export function coerceFacts(raw: unknown): AppendixFacts | null {
   if (raw == null || typeof raw !== 'object') return null;
@@ -21,9 +22,10 @@ export async function loadAppendix(sessionId: string): Promise<StoredAppendix | 
   return {
     id: data.id,
     session_id: data.session_id,
+    answers_fingerprint: (data as { answers_fingerprint?: string | null }).answers_fingerprint ?? null,
     review_status: data.review_status as StoredAppendix['review_status'],
     generation_status: data.generation_status as GenerationStatus,
-    rows: (data.rows ?? []) as AppendixRow[],
+    rows: normalizeAiNaStatuses((data.rows ?? []) as AppendixRow[]),
     facts: coerceFacts((data as { facts?: unknown }).facts),
     facts_skipped: (data as { facts_skipped?: boolean }).facts_skipped ?? false,
     checklist_skipped: (data as { checklist_skipped?: boolean }).checklist_skipped ?? false,

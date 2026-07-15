@@ -8,6 +8,8 @@ export interface FactsheetPrewarmState {
   status: FactsheetGenerationStatus | "waiting_docs";
   version: number;
   rerun: { active: boolean; done: number; total: number };
+  /** True once the pipeline is uitgewerkt: factsheet compleet voor de huidige doc-set en de progressieve re-run gedaan. */
+  settled: boolean;
 }
 
 // Build/rerun dedup across mounts (the hook mounts on more than one page).
@@ -27,7 +29,7 @@ const POLL_MS = 5000;
  */
 export function useFactsheetPrewarm(sessionId: string | null | undefined, paused = false): FactsheetPrewarmState {
   const [state, setState] = useState<FactsheetPrewarmState>({
-    status: "idle", version: 0, rerun: { active: false, done: 0, total: 0 },
+    status: "idle", version: 0, rerun: { active: false, done: 0, total: 0 }, settled: false,
   });
   const rerunningRef = useRef(false);
 
@@ -67,7 +69,7 @@ export function useFactsheetPrewarm(sessionId: string | null | undefined, paused
           const completeIds = statuses.filter((s) => s.status === "complete").map((s) => s.document_id).sort();
 
           if (!allTerminal) {
-            if (!cancelled) setState((s) => ({ ...s, status: "waiting_docs", version: fs?.version ?? 0 }));
+            if (!cancelled) setState((s) => ({ ...s, status: "waiting_docs", version: fs?.version ?? 0, settled: false }));
           } else {
             // Decide staleness of the current factsheet vs the complete doc set.
             const newestTerminal = statuses
@@ -91,7 +93,7 @@ export function useFactsheetPrewarm(sessionId: string | null | undefined, paused
             }
 
             if (!cancelled) {
-              setState((s) => ({ ...s, status: (fs?.generation_status ?? "idle") as FactsheetGenerationStatus, version: fs?.version ?? 0 }));
+              setState((s) => ({ ...s, status: (fs?.generation_status ?? "idle") as FactsheetGenerationStatus, version: fs?.version ?? 0, settled: false }));
             }
 
             // Progressive re-run once a new version is complete.
@@ -103,6 +105,7 @@ export function useFactsheetPrewarm(sessionId: string | null | undefined, paused
               // Settled: complete factsheet for this exact doc set, re-run done.
               if (!stale && rerunDoneVersions.has(verKey) && !rerunningRef.current) {
                 delay = 60_000;
+                if (!cancelled) setState((s) => (s.settled ? s : { ...s, settled: true }));
               }
             }
           }

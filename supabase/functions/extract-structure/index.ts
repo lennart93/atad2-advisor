@@ -10,6 +10,8 @@ import {
 } from "./schemas.ts";
 import { loadDocumentsBlock } from "./documentsLoader.ts";
 import { formatQaBlock } from "./formatters.ts";
+import { loadEffectiveAnswers } from "../_shared/effectiveAnswersDb.ts";
+import { answersFingerprint } from "../_shared/effectiveAnswers.ts";
 import { isStaleExtracting } from "./staleness.ts";
 import { loadStructurePrompts, type LoadedStructurePrompts } from "./promptsLoader.ts";
 
@@ -304,23 +306,23 @@ async function appendWarning(
   if (error) throw error;
 }
 
-async function loadQaAnswersText(client: SupabaseClient, sessionId: string): Promise<string> {
-  // Loads question_id, question_text, answer AND explanation. The explanation
-  // free-text is where users typically write entity names, transaction
-  // details, and classification rationale — without this column we lose
-  // most of the user's actual testimony.
-  const { data, error } = await client
-    .from("atad2_answers")
-    .select("question_id, question_text, answer, explanation")
-    .eq("session_id", sessionId);
-  if (error) throw error;
-  const rows = (data ?? []).map((r) => ({
-    question_id: r.question_id as string,
-    question_text: r.question_text as string,
-    answer: r.answer as string,
-    explanation: (r.explanation ?? null) as string | null,
-  }));
-  return formatQaBlock(rows);
+async function loadQaAnswersText(
+  client: SupabaseClient,
+  sessionId: string,
+): Promise<{ qaText: string; fingerprint: string }> {
+  // Effective answers: the recorded answer where the question is answered,
+  // otherwise the prefill suggestion. This is what makes the refine pass able
+  // to run speculatively while the user is still in the questionnaire. The
+  // explanation free-text is where users typically write entity names,
+  // transaction details, and classification rationale.
+  const rows = await loadEffectiveAnswers(client, sessionId);
+  const qaText = formatQaBlock(rows.map((r) => ({
+    question_id: r.question_id,
+    question_text: r.question_text ?? "",
+    answer: r.answer,
+    explanation: r.explanation,
+  })));
+  return { qaText, fingerprint: await answersFingerprint(rows) };
 }
 
 async function loadTaxpayerName(client: SupabaseClient, sessionId: string): Promise<string> {
@@ -332,6 +334,9 @@ async function loadTaxpayerName(client: SupabaseClient, sessionId: string): Prom
   return data?.taxpayer_name ?? "";
 }
 
+// Deliberately REAL answers only: self-chaining B on half-filled suggestions
+// right after Phase A would double the model runs; the speculative start is
+// the frontend's job (useSpeculativeRefine).
 async function hasQaAnswers(client: SupabaseClient, sessionId: string): Promise<boolean> {
   const { count } = await client
     .from("atad2_answers")
@@ -580,7 +585,7 @@ async function runPhaseB(
   try {
     const prompts = await loadStructurePrompts(serviceClient);
     const docsBlock = await loadDocumentsBlock(serviceClient, sessionId);
-    const qaText = await loadQaAnswersText(serviceClient, sessionId);
+    const { qaText, fingerprint: answersFp } = await loadQaAnswersText(serviceClient, sessionId);
     const taxpayerName = await loadTaxpayerName(serviceClient, sessionId);
     const taxpayerDisplay = parseTaxpayerNames(taxpayerName).join(", ") || taxpayerName;
     const cachedSystem =
@@ -690,14 +695,25 @@ async function runPhaseB(
     }
 
     await ensureTaxpayersFlagged(serviceClient, chartId, taxpayerName);
+    const finalPatch = {
+      status: "draft_ready",
+      draft_extracted_at: new Date().toISOString(),
+    };
     const { error: finalUpdateErr } = await serviceClient
       .from("atad2_structure_charts")
-      .update({
-        status: "draft_ready",
-        draft_extracted_at: new Date().toISOString(),
-      })
+      .update({ ...finalPatch, answers_fingerprint: answersFp })
       .eq("id", chartId);
-    if (finalUpdateErr) throw finalUpdateErr;
+    if (finalUpdateErr) {
+      // answers_fingerprint column may not exist yet (migration not applied).
+      // Fall back without it so the run still lands.
+      console.warn(JSON.stringify({
+        level: "warn", event: "fingerprint_write_failed",
+        message: String(finalUpdateErr.message), chart_id: chartId,
+      }));
+      const { error: legacyErr } = await serviceClient
+        .from("atad2_structure_charts").update(finalPatch).eq("id", chartId);
+      if (legacyErr) throw legacyErr;
+    }
   } finally {
     stopHeartbeat();
   }

@@ -45,10 +45,10 @@ function condSection(id: string): HTMLElement {
 describe('ChecklistV2 — Part B resting state + panel', () => {
   it('opens the section with a finding and collapses the verified one', () => {
     render(<ChecklistV2 rows={rows} skeleton={skeleton} onEdit={vi.fn()} onToggleExclude={vi.fn()} sessionId="s1" />);
-    // Section 3 (has a triggered finding) is open; its flagged row is visible.
+    // Section 3 (has a triggered finding) is open; ALL its rows are visible
+    // directly (no roll-up layer): one click on the section header is enough.
     expect(within(condSection('3')).getByText('A deduction without inclusion arises.')).toBeInTheDocument();
-    // The clean 3.2 row is rolled up (hidden until Show).
-    expect(within(condSection('3')).queryByText('The mismatch is attributable to the taxpayer.')).not.toBeInTheDocument();
+    expect(within(condSection('3')).getByText('The mismatch is attributable to the taxpayer.')).toBeInTheDocument();
     // Section 1 (only a gate, no finding) starts collapsed: its body is not rendered.
     expect(within(condSection('1')).queryByText('The taxpayer is within scope.')).not.toBeInTheDocument();
   });

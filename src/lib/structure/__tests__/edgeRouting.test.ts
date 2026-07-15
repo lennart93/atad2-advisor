@@ -110,9 +110,9 @@ describe('gapHeightForLanes', () => {
   it('groeit pas boven de basishoogte bij 3+ banen', () => {
     expect(gapHeightForLanes(0, 80)).toBe(80);
     expect(gapHeightForLanes(1, 80)).toBe(80);
-    expect(gapHeightForLanes(2, 80)).toBe(80); // 28+24+16 = 68 < 80
-    expect(gapHeightForLanes(3, 80)).toBe(84);
-    expect(gapHeightForLanes(4, 80)).toBe(100);
+    expect(gapHeightForLanes(2, 80)).toBe(80); // 32+32+16 = 80
+    expect(gapHeightForLanes(3, 80)).toBe(96);
+    expect(gapHeightForLanes(4, 80)).toBe(112);
   });
 });
 
@@ -174,6 +174,119 @@ describe('routeOwnershipEdges — concrete rail-Y’s', () => {
     });
     expect(routed.has('up')).toBe(false);
     expect(routed.has('side')).toBe(false);
+  });
+});
+
+describe('Duvel-scenario: lange lijnen ontwijken andermans rails en dalen', () => {
+  // Reconstructie van de kaart uit de screenshot (14 jul 2026): twee lange
+  // lijnen uit Duhco NL naar rij 3, terwijl DMN (pal boven Brouwerij) zelf een
+  // waaier naar OberHen heeft. De oude planning legde de invoeg-rail BOVEN
+  // DMN's waaier-rail en koos een daal-kolom dwars door DMN's rail heen,
+  // waardoor de eind-daal van de lange lijn over DMN's eigen bron-daal viel.
+  const C = (cx: number, y: number) => ({ x: cx - NODE_WIDTH / 2, y });
+  const nodes = [
+    { id: 'duvelNV', ...C(823.5, 0) },
+    { id: 'duhcoNL', ...C(728.7, 180) },
+    { id: 'duhcoSA', ...C(920, 180) },
+    { id: 'drieWijzen', ...C(504, 360) },
+    { id: 'dmn', ...C(696, 360) },
+    { id: 'ipack', ...C(888, 360) },
+    { id: 'proeflokaal', ...C(1080, 360) },
+    { id: 'goudenIJ', ...C(504, 540) },
+    { id: 'brouwerij', ...C(696, 540) },
+    { id: 'oberhen', ...C(888, 540) },
+  ];
+  const duvelEdges = [
+    { id: 'e1', from: 'duvelNV', to: 'duhcoNL' },
+    { id: 'e2', from: 'duvelNV', to: 'duhcoSA' },
+    { id: 'e3', from: 'duhcoNL', to: 'drieWijzen' },
+    { id: 'e4', from: 'duhcoNL', to: 'dmn' },
+    { id: 'e5', from: 'duhcoSA', to: 'ipack' },
+    { id: 'e6', from: 'duhcoSA', to: 'proeflokaal' },
+    { id: 'e7', from: 'duhcoNL', to: 'goudenIJ' },
+    { id: 'e8', from: 'duhcoNL', to: 'brouwerij' },
+    { id: 'e9', from: 'dmn', to: 'oberhen' },
+    { id: 'e10', from: 'drieWijzen', to: 'goudenIJ' },
+  ];
+  const cxOf = new Map(nodes.map((n) => [n.id, n.x + NODE_WIDTH / 2]));
+
+  it('invoeg-rails (B) liggen onder waaier-rails (A) in dezelfde tussenruimte', () => {
+    const routed = routeOwnershipEdges({ nodes, edges: duvelEdges });
+    const dmnRail = routed.get('e9')!.railY1!;
+    for (const id of ['e7', 'e8']) {
+      const r = routed.get(id)!;
+      expect(r.kind).toBe('longskip');
+      expect(r.railY2).not.toBeNull();
+      expect(r.railY2!).toBeGreaterThan(dmnRail);
+    }
+  });
+
+  it('de invoeg-jog overlapt de waaier-rail van een andere moeder niet', () => {
+    const routed = routeOwnershipEdges({ nodes, edges: duvelEdges });
+    // DMN's rail loopt van 696 (bron) tot 888 (OberHen). De jog van e8 naar
+    // Brouwerij (696) moet daar volledig LINKS van blijven.
+    const e8 = routed.get('e8')!;
+    const jogMin = Math.min(e8.detourX!, cxOf.get('brouwerij')!);
+    const jogMax = Math.max(e8.detourX!, cxOf.get('brouwerij')!);
+    const railMin = Math.min(cxOf.get('dmn')!, cxOf.get('oberhen')!);
+    const railMax = Math.max(cxOf.get('dmn')!, cxOf.get('oberhen')!);
+    const overlaps = jogMin < railMax && railMin < jogMax;
+    expect(overlaps).toBe(false);
+    // En de daal-kolom zelf prikt niet door die rail heen.
+    expect(e8.detourX! > railMin && e8.detourX! < railMax).toBe(false);
+  });
+
+  it('twee lange lijnen delen een corridor met onderlinge afstand', () => {
+    const routed = routeOwnershipEdges({ nodes, edges: duvelEdges });
+    const d7 = routed.get('e7')!.detourX!;
+    const d8 = routed.get('e8')!.detourX!;
+    expect(Math.abs(d7 - d8)).toBeGreaterThanOrEqual(15);
+    // Beide kolommen blijven uit de node-lichamen van rij 2.
+    for (const col of ['drieWijzen', 'dmn', 'ipack', 'proeflokaal']) {
+      for (const d of [d7, d8]) {
+        expect(Math.abs(d - cxOf.get(col)!)).toBeGreaterThanOrEqual(SAFE_HALF_WIDTH - 0.01);
+      }
+    }
+  });
+
+  it('geen twee verticale segmenten van verschillende lijnen over elkaar', () => {
+    const routed = routeOwnershipEdges({ nodes, edges: duvelEdges });
+    type V = { edge: string; from: string; to: string; x: number; y1: number; y2: number };
+    const verts: V[] = [];
+    const push = (e: (typeof duvelEdges)[number], x: number, a: number, b: number) =>
+      verts.push({ edge: e.id, from: e.from, to: e.to, x, y1: Math.min(a, b), y2: Math.max(a, b) });
+    for (const e of duvelEdges) {
+      const r = routed.get(e.id)!;
+      const sx = cxOf.get(e.from)!;
+      const tx = cxOf.get(e.to)!;
+      const sy = nodes.find((n) => n.id === e.from)!.y + NODE_HEIGHT;
+      const ty = nodes.find((n) => n.id === e.to)!.y;
+      if (r.kind === 'straight' || r.railY1 == null) {
+        push(e, sx, sy, ty);
+        continue;
+      }
+      push(e, sx, sy, r.railY1);
+      const dX = r.detourX ?? tx;
+      if (r.kind === 'adjacent' || r.railY2 == null || Math.abs(dX - tx) < 0.5) {
+        push(e, tx, r.railY1, ty);
+      } else {
+        push(e, dX, r.railY1, r.railY2);
+        push(e, tx, r.railY2, ty);
+      }
+    }
+    for (let i = 0; i < verts.length; i++) {
+      for (let j = i + 1; j < verts.length; j++) {
+        const a = verts[i];
+        const b = verts[j];
+        if (a.edge === b.edge) continue;
+        // Zelfde moeder deelt haar bron-daal; zelfde dochter voegt samen — dat
+        // zijn bewuste visuele merges. Alles daarbuiten mag niet samenvallen.
+        if (a.from === b.from || a.to === b.to) continue;
+        if (Math.abs(a.x - b.x) >= 8) continue;
+        const overlap = Math.min(a.y2, b.y2) - Math.max(a.y1, b.y1);
+        expect(overlap, `${a.edge} en ${b.edge} vallen samen op x≈${a.x}`).toBeLessThanOrEqual(1);
+      }
+    }
   });
 });
 
