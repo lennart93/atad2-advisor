@@ -42,22 +42,25 @@ export function KeyValueRow({ label, attention, sub, children }: {
         <div className="shrink-0">{children}</div>
       </div>
       {sub != null && sub !== '' && (
-        <p className="-mt-1 pb-2 text-[12px] leading-snug text-muted-foreground">{sub}</p>
+        <div className="-mt-1 pb-2 text-[12px] leading-snug text-muted-foreground">{sub}</div>
       )}
     </div>
   );
 }
 
 /**
- * Empty reasoning renders as a "+ Add reasoning" link (spec §5 empty-state rule);
+ * Empty rationale renders as a "+ Add rationale" link (spec §5 empty-state rule);
  * clicking expands an inline textarea. Existing text shows with an edit affordance.
  * Commits on blur; an optional `onDraft` runs the "Draft, review and adjust" AI action.
+ * `dense` renders the empty-state link smaller and muted, for the per-line
+ * affordances inside the assessment list.
  */
-export function ReasoningField({ value, placeholder, onCommit, draftAction }: {
+export function ReasoningField({ value, placeholder, onCommit, draftAction, dense }: {
   value: string | null;
   placeholder?: string;
   onCommit: (text: string) => void;
   draftAction?: { label: string; run: () => void; busy?: boolean };
+  dense?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value ?? '');
@@ -127,9 +130,14 @@ export function ReasoningField({ value, placeholder, onCommit, draftAction }: {
     <button
       type="button"
       onClick={start}
-      className="inline-flex items-center gap-1.5 text-[13px] text-brand-terracotta transition-colors hover:text-brand-terracotta-deep"
+      className={cn(
+        'inline-flex items-center gap-1.5 transition-colors',
+        dense
+          ? 'text-[12px] text-muted-foreground hover:text-foreground'
+          : 'text-[13px] text-brand-terracotta hover:text-brand-terracotta-deep',
+      )}
     >
-      <Plus className="h-3.5 w-3.5" /> Add reasoning
+      <Plus className={dense ? 'h-3 w-3' : 'h-3.5 w-3.5'} /> Add rationale
     </button>
   );
 }

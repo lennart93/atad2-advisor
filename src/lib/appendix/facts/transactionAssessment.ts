@@ -301,12 +301,13 @@ export function isTxStatusOverridden(t: TransactionItem): boolean {
   return t.assessment?.statusOverride != null;
 }
 
-/** True once the advisor has touched any characteristic, the rationale or the override. */
+/** True once the advisor has touched any characteristic, a rationale or the override. */
 export function isTxAssessmentEdited(t: TransactionItem): boolean {
   const a = t.assessment;
   if (!a) return false;
   return a.statusOverride != null
     || (a.rationale != null && a.rationale.trim() !== '')
+    || Object.values(a.lineRationales ?? {}).some((v) => v != null && v.trim() !== '')
     || a.crossBorder != null
     || TX_RISK_KEYS.some((k) => a[k] != null);
 }
@@ -360,14 +361,29 @@ function capitalise(s: string): string {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
 }
 
+/** The advisor's documented rationale: the transaction-level note plus any
+ *  per-line notes (labelled by their characteristic), joined into one line. */
+function advisorRationaleLine(t: TransactionItem): string | null {
+  const a = t.assessment;
+  const parts: string[] = [];
+  if (a?.rationale?.trim()) parts.push(a.rationale.trim());
+  for (const meta of TX_CHARACTERISTICS) {
+    const note = a?.lineRationales?.[meta.key]?.trim();
+    if (note) parts.push(`${meta.label}: ${note}`);
+  }
+  return parts.length ? parts.join(' ') : null;
+}
+
 /**
  * The reason line carried into the memo, the print dossier and the accounted
- * grouping. Priority: the advisor's rationale, then an override reason, then, for
- * an untouched flow, the AI's original reason, then the derived clause.
+ * grouping. Priority: the advisor's documented rationale (transaction-level
+ * plus per-line notes), then an override reason, then, for an untouched
+ * transaction, the AI's original reason, then the derived clause.
  */
 export function txMemoReason(facts: AppendixFacts, t: TransactionItem): string {
   const a = t.assessment;
-  if (a?.rationale?.trim()) return a.rationale.trim();
+  const documented = advisorRationaleLine(t);
+  if (documented) return documented;
   if (a?.statusOverride && a?.overrideReason?.trim()) return a.overrideReason.trim();
   if (!isTxAssessmentEdited(t) && t.relevanceReason?.trim()) return t.relevanceReason.trim();
   return effTxStatus(facts, t) === 'needs'
@@ -413,10 +429,23 @@ export function withTxCharacteristic(
   return patchTx(facts, id, (t) => withAssessment(t, { [key]: value }));
 }
 
-/** Set the free-text rationale (empty string clears it). */
+/** Set the free-text transaction-level rationale (empty string clears it). */
 export function withTxRationale(facts: AppendixFacts, id: string, text: string): AppendixFacts {
   const value = text.trim() === '' ? null : text;
   return patchTx(facts, id, (t) => withAssessment(t, { rationale: value }));
+}
+
+/** Set or clear the rationale on one assessment line (empty string clears it). */
+export function withTxLineRationale(
+  facts: AppendixFacts, id: string, key: TxCharacteristicKey, text: string,
+): AppendixFacts {
+  const value = text.trim() === '' ? null : text.trim();
+  return patchTx(facts, id, (t) => {
+    const next = { ...t.assessment?.lineRationales };
+    if (value == null) delete next[key];
+    else next[key] = value;
+    return withAssessment(t, { lineRationales: next });
+  });
 }
 
 /** Set or clear the status override. A null status clears the override and its reason. */

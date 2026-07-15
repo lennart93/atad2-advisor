@@ -289,8 +289,17 @@ export interface TransactionAssessment {
   hybridEntityMismatch?: QuadState;
   importedMismatch?: QuadState;
   permanentEstablishment?: QuadState;   // disregarded-PE / branch mismatch
-  /** Free-text reasoning shown in the panel and carried into the memo line. */
+  /** Free-text rationale shown in the panel and carried into the memo line. */
   rationale?: string | null;
+  /**
+   * Advisor rationale per assessment line (keyed by characteristic), so each
+   * answer can carry its own documented justification instead of one catch-all
+   * note. Included in the memo reason line next to `rationale`.
+   */
+  lineRationales?: Partial<Record<
+    'crossBorder' | 'hybridInstrument' | 'hybridEntityMismatch' | 'importedMismatch' | 'permanentEstablishment',
+    string
+  >>;
   /** Advisor's explicit bucket, overriding the derived one. Null/absent = follow the characteristics. */
   statusOverride?: TxStatus | null;
   /** Required whenever statusOverride is set: why the advisor overrode the derived status. */

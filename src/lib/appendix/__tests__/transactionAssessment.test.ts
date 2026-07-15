@@ -4,8 +4,8 @@ import {
   effTxStatus, deriveTxStatus, txStatusReason, txStatusLabel, txMemoReason,
   effCrossBorder, effHybridEntityMismatch, effHybridInstrument, effImportedMismatch,
   needsAssessmentTransactions, noRiskTransactions,
-  withTxCharacteristic, withTxRationale, withTxStatusOverride, withTxField,
-  isTxStatusOverridden, characteristicReason,
+  withTxCharacteristic, withTxRationale, withTxLineRationale, withTxStatusOverride, withTxField,
+  isTxStatusOverridden, isTxAssessmentEdited, characteristicReason,
 } from '@/lib/appendix/facts/transactionAssessment';
 
 const ent = (id: string, jur: string | null, patch: Partial<FactEntity> = {}): FactEntity => ({
@@ -217,5 +217,32 @@ describe('characteristicReason: one grounded sentence per preliminary value', ()
     expect(characteristicReason(edited, edited.transactions[0], 'hybridEntityMismatch')).toBeNull();
     // The untouched categories keep their derived sentence.
     expect(characteristicReason(edited, edited.transactions[0], 'crossBorder')).not.toBeNull();
+  });
+});
+
+describe('per-line rationales', () => {
+  const base = () => facts(
+    [ent('E1', 'NL', { role: 'Taxpayer' }), ent('E2', 'US')],
+    [tx('T1', 'E1', 'E2')],
+  );
+
+  it('withTxLineRationale sets, labels into the memo line, and clears', () => {
+    let f = withTxLineRationale(base(), 'T1', 'hybridEntityMismatch', 'Confirmed by local advisor.');
+    expect(f.transactions[0].assessment?.lineRationales?.hybridEntityMismatch).toBe('Confirmed by local advisor.');
+    expect(txMemoReason(f, f.transactions[0])).toBe('Hybrid entity mismatch: Confirmed by local advisor.');
+    f = withTxLineRationale(f, 'T1', 'hybridEntityMismatch', '');
+    expect(f.transactions[0].assessment?.lineRationales?.hybridEntityMismatch).toBeUndefined();
+  });
+
+  it('memo line joins the transaction-level rationale with the per-line notes', () => {
+    let f = withTxRationale(base(), 'T1', 'Overall assessment pending.');
+    f = withTxLineRationale(f, 'T1', 'crossBorder', 'Both entities confirmed.');
+    expect(txMemoReason(f, f.transactions[0]))
+      .toBe('Overall assessment pending. Cross-border: Both entities confirmed.');
+  });
+
+  it('a line rationale alone counts as an advisor edit', () => {
+    const f = withTxLineRationale(base(), 'T1', 'importedMismatch', 'n/a per group memo');
+    expect(isTxAssessmentEdited(f.transactions[0])).toBe(true);
   });
 });

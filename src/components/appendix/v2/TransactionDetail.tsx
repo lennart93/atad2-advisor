@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { cn } from '@/lib/utils';
 import { deleteManualTransaction } from '@/lib/appendix/facts/transactionSet';
 import {
-  TX_CHARACTERISTICS, effCharacteristic, characteristicReason, withTxCharacteristic, withTxRationale, withTxStatusOverride,
+  TX_CHARACTERISTICS, effCharacteristic, characteristicReason, withTxCharacteristic, withTxRationale, withTxLineRationale, withTxStatusOverride,
   withTxField, effTxStatus, isTxStatusOverridden, txMemoReason, isOpenState, stateOptions, stateLabel,
   type TxCharacteristicKey,
 } from '@/lib/appendix/facts/transactionAssessment';
@@ -89,8 +89,28 @@ export function TransactionDetail({ facts, tx, onChange }: {
           {TX_CHARACTERISTICS.map((meta) => {
             const v = effCharacteristic(facts, tx, meta.key);
             const open = charIsOpen(meta.key, v);
+            const why = characteristicReason(facts, tx, meta.key);
             return (
-              <KeyValueRow key={meta.key} label={meta.label} attention={open} sub={characteristicReason(facts, tx, meta.key)}>
+              <KeyValueRow
+                key={meta.key}
+                label={meta.label}
+                attention={open}
+                sub={
+                  <>
+                    {why && <p>{why}</p>}
+                    {/* Per-line rationale: each answer carries its own documented
+                        justification, which flows into the memo reason line. */}
+                    <div className={why ? 'mt-1' : undefined}>
+                      <ReasoningField
+                        dense
+                        value={tx.assessment?.lineRationales?.[meta.key] ?? null}
+                        placeholder="e.g. Foreign classification not yet confirmed; requested from local advisor."
+                        onCommit={(text) => onChange(withTxLineRationale(facts, tx.id, meta.key, text))}
+                      />
+                    </div>
+                  </>
+                }
+              >
                 <Select value={v} onValueChange={(nv) => onChange(withTxCharacteristic(facts, tx.id, meta.key, nv as QuadState))}>
                   <SelectTrigger
                     aria-label={meta.label}
@@ -113,13 +133,32 @@ export function TransactionDetail({ facts, tx, onChange }: {
         </div>
       </PanelGroup>
 
-      {/* Reasoning */}
-      <PanelGroup label="Reasoning">
+      {/* Transaction-level rationale (the per-line notes live on their own lines above). */}
+      <PanelGroup label="Rationale">
         <ReasoningField
           value={tx.assessment?.rationale ?? null}
-          placeholder="Explain the assessment of this flow. This text is used in the memo."
+          placeholder="e.g. Foreign classification of D.R.C. S.A. not yet confirmed; requested from local advisor."
           onCommit={(text) => onChange(withTxRationale(facts, tx.id, text))}
         />
+        {!tx.assessment?.rationale?.trim() && (
+          <button
+            type="button"
+            onClick={() => {
+              // Deterministic draft seeded from the current dropdown answers: the
+              // derived one-liners joined into an editable starting point.
+              const sentences = TX_CHARACTERISTICS
+                .map((m) => characteristicReason(facts, tx, m.key))
+                .filter(Boolean);
+              if (sentences.length) onChange(withTxRationale(facts, tx.id, sentences.join(' ')));
+            }}
+            className="mt-1.5 block text-[12px] text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Draft from the current answers
+          </button>
+        )}
+        <p className="mt-1.5 text-[11.5px] leading-snug text-muted-foreground/70">
+          Documented rationale is included in the memo and working paper.
+        </p>
       </PanelGroup>
 
       {/* Status */}
