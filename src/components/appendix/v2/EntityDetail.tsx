@@ -23,8 +23,16 @@ const RELATION_TYPES = ['Subsidiary', 'Parent', 'Sister company', 'Associate', '
 const NA = '–';
 
 const SELECT_CLS = 'h-9 w-auto min-w-[176px] gap-3 border-border bg-card px-3 text-[14px] text-foreground shadow-none [&>span]:!flex';
-const SELECT_TODO = 'border-brand-terracotta bg-brand-terracotta-soft text-brand-terracotta-deep';
-const SELECT_REQUIRED = 'border-brand-terracotta bg-card text-brand-terracotta-deep';
+// One rule for every classification select: the accent "attention" treatment fires
+// if and only if the value is still "To be determined" (matches the transaction
+// panel's open-category styling); a resolved select is always neutral.
+const SELECT_ATTENTION = 'border-brand-terracotta bg-brand-terracotta-soft text-brand-terracotta-deep';
+// The jurisdiction picker's facts variant ships a permanent terracotta ring (its
+// table-cell context); inside the panel it follows the same attention rule as the
+// classification selects: neutral once filled, accent only while empty.
+const JUR_PICKER_CLS = 'h-9 rounded-md bg-card px-3 text-[14px] ring-0 hover:bg-card';
+const jurPickerCls = (filled: boolean) =>
+  cn(JUR_PICKER_CLS, filled ? 'border-border' : SELECT_ATTENTION);
 
 function pct(n: number | null): string {
   return n == null ? NA : `${Number.isInteger(n) ? n : n.toFixed(2)}%`;
@@ -56,12 +64,12 @@ function PctInput({ value, onCommit }: { value: number | null; onCommit: (n: num
   );
 }
 
-function ClassSelect({ value, required, onPick, id }: {
-  value: string; required?: boolean; id?: string; onPick: (qual: string) => void;
+function ClassSelect({ value, onPick, id }: {
+  value: string; id?: string; onPick: (qual: string) => void;
 }) {
   return (
     <Select value={value} onValueChange={onPick}>
-      <SelectTrigger id={id} aria-label="Classification" className={cn(SELECT_CLS, required && SELECT_REQUIRED, value === 'undetermined' && !required && SELECT_TODO)}>
+      <SelectTrigger id={id} aria-label="Classification" className={cn(SELECT_CLS, value === 'undetermined' && SELECT_ATTENTION)}>
         <SelectValue>{nlQualificationLabel(value as never)}</SelectValue>
       </SelectTrigger>
       <SelectContent>
@@ -174,6 +182,7 @@ export function EntityDetail({ facts, entity: e, classification: c, onChange }: 
           value={jur ?? ''}
           onChange={(iso) => onChange(withEntityEdit(facts, e.id, 'jurisdiction', iso || null))}
           placeholder="Jurisdiction"
+          className={jurPickerCls(!!jur)}
         />
       </PanelGroup>
 
@@ -199,7 +208,6 @@ export function EntityDetail({ facts, entity: e, classification: c, onChange }: 
           <ClassSelect
             id={`v2-home-state-select-${e.id}`}
             value={localQual}
-            required={localQual === 'undetermined'}
             onPick={(v) => {
               const mapped = v === 'transparent' ? 'transparent' : v === 'non-transparent' ? 'non-transparent' : v === 'irrelevant' ? 'irrelevant' : 'unknown';
               onChange(withLocalQualification(facts, e.id, mapped, jur));
@@ -226,6 +234,7 @@ export function EntityDetail({ facts, entity: e, classification: c, onChange }: 
                   value={foreignCls?.state ?? ''}
                   onChange={(iso) => onChange(withForeignClassificationState(facts, e.id, iso || null))}
                   placeholder="Country…"
+                  className={jurPickerCls(!!foreignCls?.state)}
                 />
                 <ClassSelect
                   value={foreignCls?.qual ?? 'undetermined'}
