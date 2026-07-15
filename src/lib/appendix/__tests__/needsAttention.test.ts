@@ -51,6 +51,15 @@ describe('txNeedsAttention / splitTransactions', () => {
     expect(split.flagged.map((t) => t.id)).toEqual(['T1']);
     expect(split.routine.map((t) => t.id)).toEqual(['T2']);
   });
+
+  it('a self-transaction is always flagged as a data issue, never routine', () => {
+    const f = facts(
+      [ent('E1', 'NL', { role: 'Taxpayer' })],
+      [tx('T9', 'E1', 'E1')],
+    );
+    expect(txNeedsAttention(f, f.transactions[0])).toBe(true);
+    expect(splitTransactions(f).flagged.map((t) => t.id)).toEqual(['T9']);
+  });
 });
 
 describe('entityNeedsAttention', () => {
@@ -120,12 +129,14 @@ describe('conditionNeedsAttention', () => {
 describe('digests', () => {
   it('partADigest counts entities/groups/transactions and total flagged', () => {
     const f = facts(
-      [ent('E1', 'NL', { role: 'Taxpayer' }), ent('E2', 'US'), ent('E9', null)],
-      [tx('T1', 'E1', 'E2'), tx('T2', 'E1', 'E1')],
+      // T2 is a genuinely domestic flow between two NL entities (a same-entity
+      // "T2" here would now count as an invalid record and be flagged).
+      [ent('E1', 'NL', { role: 'Taxpayer' }), ent('E2', 'US'), ent('E3', 'NL'), ent('E9', null)],
+      [tx('T1', 'E1', 'E2'), tx('T2', 'E1', 'E3')],
       { actingTogether: [group('A1', { origin: 'manual' })] },
     );
     const d = partADigest(f);
-    expect(d.entities).toBe(3);
+    expect(d.entities).toBe(4);
     expect(d.groups).toBe(1);
     expect(d.transactions).toBe(2);
     // E9 (missing jur) + T1 (cross-border) flagged; T2 domestic, manual group settled.
