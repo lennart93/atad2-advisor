@@ -371,7 +371,8 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
     try {
       await setAppendixSkip(appendix.id, page, next);
     } catch (e) {
-      toast.error('Could not update skip', { description: String(e) });
+      setAppendix({ ...appendix, ...(page === 'facts' ? { facts_skipped: !next } : { checklist_skipped: !next }) });
+      toast.error('Could not update skip', { description: (e as { message?: string })?.message ?? String(e) });
     }
   };
 

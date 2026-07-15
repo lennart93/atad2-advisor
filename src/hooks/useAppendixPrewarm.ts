@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
 import { loadChart } from '@/lib/structure/client';
 import { startAppendixGeneration } from '@/lib/appendix/client';
-import { appendixPrewarmKey } from '@/lib/appendix/prewarmKey';
+import { appendixPrewarmKey, shouldStartAppendix } from '@/lib/appendix/prewarmKey';
+import { currentEffectiveFingerprint } from '@/lib/assessment/effectiveAnswersClient';
 
 /** Keys that already fired, shared across mounts (upload, Q&A, confirmation). */
 const prewarmedKeys = new Set<string>();
@@ -30,8 +31,14 @@ export function useAppendixPrewarm(sessionId: string | null | undefined): void {
           answers_fingerprint: chart.answers_fingerprint ?? null,
         } : null);
         if (key && !prewarmedKeys.has(key)) {
-          prewarmedKeys.add(key);
-          startAppendixGeneration(sessionId).catch(() => {});
+          // Second gate: skip (without consuming the key) when the chart no
+          // longer matches the current effective answers; the re-refine that
+          // is underway produces a new key and this generation would be waste.
+          const { fingerprint } = await currentEffectiveFingerprint(sessionId);
+          if (shouldStartAppendix(chart?.answers_fingerprint ?? null, fingerprint)) {
+            prewarmedKeys.add(key);
+            startAppendixGeneration(sessionId).catch(() => {});
+          }
         }
       } catch { /* keep polling */ }
       // Keep polling while mounted: a re-refine (deviating answers) produces a

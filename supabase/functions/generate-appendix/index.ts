@@ -23,6 +23,7 @@ import {
   type Narrative, type NarrativeKey,
 } from "./factsBuild.ts";
 import { reviewAppendix, type ReviewRowInput } from "./reviewAppendix.ts";
+import { applyReviewSafely } from "./reviewApply.ts";
 import { callFable, appendixReviewEnabled, hasFableKey } from "./fable.ts";
 
 // The gate rows (mirror of GATE_ROWS in src/lib/appendix/controlType.ts): a
@@ -493,14 +494,32 @@ async function runGeneration(c: SupabaseClient, appendixId: string, sessionId: s
       return { ...prev, aiStatus: fresh.aiStatus, aiReasoning: fresh.aiReasoning, aiProvenance: fresh.aiProvenance, provenance: fresh.provenance, sources: fresh.sources };
     });
 
-    // Holistic review (Fable 5): after the per-section swarm + deterministic
-    // layers, one pass over the WHOLE Part B tightens wording, de-duplicates
-    // repeated explanations into article cross-references, and straightens
-    // cross-row narrative. It never changes a status and only touches AI rows
-    // whose text a reader actually sees; a guard drops the pass whole if any
-    // number, entity or citation would be lost. Silent + best-effort: any failure
-    // keeps the un-reviewed rows. Off-switch: APPENDIX_REVIEW_ENABLED=false.
-    let reviewed = merged;
+    // Ready-write BEFORE the holistic review: the review is a wording polish of
+    // 30-60s that used to block the whole appendix. The user is released here;
+    // the review below lands afterwards, and only where still safe.
+    const finalRow = {
+      rows: merged, facts: factsToStore, facts_input_hash: factsHashToStore,
+      generation_status: "ready",
+      model: prompt.model, prompt_version: prompt.version,
+      generated_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+    };
+    const { error: finalErr } = await c.from("atad2_appendix")
+      .update({ ...finalRow, answers_fingerprint: answersFp }).eq("id", appendixId);
+    if (finalErr) {
+      // answers_fingerprint column may not exist yet (migration not applied).
+      console.warn(JSON.stringify({ level: "warn", event: "appendix_fingerprint_write_failed", message: String(finalErr.message), appendixId }));
+      const { error: legacyErr } = await c.from("atad2_appendix").update(finalRow).eq("id", appendixId);
+      if (legacyErr) throw legacyErr;
+    }
+
+    // Holistic review (Fable 5), ASYNC after the ready-write: one pass over the
+    // WHOLE Part B tightens wording, de-duplicates repeated explanations into
+    // article cross-references, and straightens cross-row narrative. It never
+    // changes a status; a guard drops the pass whole if any number, entity or
+    // citation would be lost. Because the advisor may already be reading or
+    // editing, the result is re-applied against a FRESH read: a confirmed
+    // appendix is never touched, and per row only where the reasoning is still
+    // exactly what this run wrote (applyReviewSafely). Best-effort throughout.
     if (appendixReviewEnabled() && hasFableKey()) {
       try {
         const skById = new Map(rows.map((sk) => [sk.rowId, sk]));
@@ -527,35 +546,39 @@ async function runGeneration(c: SupabaseClient, appendixId: string, sessionId: s
           { taxpayerName: taxpayerDisplayName(session?.taxpayer_name), entityNames, factsBlock },
           callFable,
         );
-        if (result.status === "reviewed" && result.rows.length) {
-          const newReasonById = new Map(result.rows.map((x) => [x.rowId, x.reasoning]));
-          reviewed = merged.map((r) => {
-            const nr = newReasonById.get(r.rowId);
-            return nr ? { ...r, reasoning: nr, aiReasoning: nr } : r;
-          });
+        if (result.status === "reviewed" && (result.rows.length || result.warnings.length)) {
+          const { data: fresh } = await c
+            .from("atad2_appendix").select("rows, facts, review_status").eq("id", appendixId).maybeSingle();
+          if (fresh?.review_status === "confirmed") {
+            console.log(JSON.stringify({ level: "info", event: "appendix_review_skipped_confirmed", appendixId }));
+          } else if (fresh) {
+            const newReasonById = new Map(result.rows.map((x) => [x.rowId, x.reasoning]));
+            const { rows: appliedRows, applied } = applyReviewSafely(
+              (fresh.rows ?? []) as unknown as Parameters<typeof applyReviewSafely>[0],
+              merged as unknown as Parameters<typeof applyReviewSafely>[1],
+              newReasonById,
+            );
+            const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+            if (applied > 0) patch.rows = appliedRows;
+            if (result.warnings.length && fresh.facts) {
+              const freshFacts = fresh.facts as AppendixFacts;
+              freshFacts.warnings = dedupeStrings([
+                ...(freshFacts.warnings ?? []),
+                ...result.warnings.map((w) => `Holistic review: ${w}`),
+              ]);
+              patch.facts = freshFacts;
+            }
+            if (applied > 0 || patch.facts) {
+              await c.from("atad2_appendix").update(patch).eq("id", appendixId);
+            }
+            console.log(JSON.stringify({ level: "info", event: "appendix_review", appendixId, status: result.status, changed: result.rows.length, applied, contradictions: result.warnings.length }));
+          }
+        } else {
+          console.log(JSON.stringify({ level: "info", event: "appendix_review", appendixId, status: result.status, changed: 0, applied: 0, contradictions: 0 }));
         }
-        if (result.warnings.length && factsToStore) {
-          factsToStore.warnings = dedupeStrings([...(factsToStore.warnings ?? []), ...result.warnings.map((w) => `Holistic review: ${w}`)]);
-        }
-        console.log(JSON.stringify({ level: "info", event: "appendix_review", appendixId, status: result.status, changed: result.rows.length, contradictions: result.warnings.length }));
       } catch (err) {
         console.warn(JSON.stringify({ level: "warn", event: "appendix_review_failed", appendixId, message: String(err) }));
       }
-    }
-
-    const finalRow = {
-      rows: reviewed, facts: factsToStore, facts_input_hash: factsHashToStore,
-      generation_status: "ready",
-      model: prompt.model, prompt_version: prompt.version,
-      generated_at: new Date().toISOString(), updated_at: new Date().toISOString(),
-    };
-    const { error: finalErr } = await c.from("atad2_appendix")
-      .update({ ...finalRow, answers_fingerprint: answersFp }).eq("id", appendixId);
-    if (finalErr) {
-      // answers_fingerprint column may not exist yet (migration not applied).
-      console.warn(JSON.stringify({ level: "warn", event: "appendix_fingerprint_write_failed", message: String(finalErr.message), appendixId }));
-      const { error: legacyErr } = await c.from("atad2_appendix").update(finalRow).eq("id", appendixId);
-      if (legacyErr) throw legacyErr;
     }
   } catch (err) {
     console.error(JSON.stringify({ level: "error", event: "appendix_generation_failed", message: String(err), appendixId }));

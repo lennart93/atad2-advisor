@@ -13,3 +13,18 @@ export function appendixPrewarmKey(
   if (status !== 'draft_ready' && status !== 'user_edited' && status !== 'finalized') return null;
   return `${sessionId}:draft:${chart?.answers_fingerprint ?? 'legacy'}`;
 }
+
+/**
+ * Second gate on top of the key: only start a generation when the chart still
+ * belongs to the CURRENT effective answers. A mismatch means a re-refine is
+ * underway or imminent, and a run started now would be thrown away (that was
+ * the wasted duplicate run measured on 15 Jul). A legacy chart without a
+ * fingerprint predates the fingerprint system and fires as before.
+ */
+export function shouldStartAppendix(
+  chartFingerprint: string | null,
+  currentFingerprint: string,
+): boolean {
+  if (chartFingerprint === null) return true;
+  return chartFingerprint === currentFingerprint;
+}

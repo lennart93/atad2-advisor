@@ -28,6 +28,8 @@ const ReportDetail = lazy(() => import("./pages/ReportDetail"));
 const EmailConfirmed = lazy(() => import("./pages/EmailConfirmed"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const AppLayout = lazy(() => import("./pages/AppLayout"));
+// Dev-only fixture preview (never bundled in production).
+const AppendixPreview = import.meta.env.DEV ? lazy(() => import("./pages/dev/AppendixPreview")) : null;
 const AssessmentShell = lazy(() => import("./components/assessment/AssessmentShell"));
 const Tutorial = lazy(() => import("./pages/Tutorial"));
 
@@ -70,6 +72,7 @@ const App = () => (
           <ErrorBoundary>
             <Suspense fallback={<LoadingSpinner />}>
                 <Routes>
+                  {AppendixPreview && <Route path="/__dev/appendix-preview" element={<AppendixPreview />} />}
                   <Route path="/auth" element={<PublicOnlyRoute><Auth /></PublicOnlyRoute>} />
                   <Route path="/verify-email" element={<VerifyEmail />} />
                   <Route path="/forgot-password" element={<ForgotPassword />} />

@@ -121,7 +121,7 @@ const AssessmentConfirmation = () => {
   // speculatieve keten moet bijtrekken: wijken de definitieve antwoorden af
   // van de suggesties waar de runs op draaiden, dan vuurt de refine hier met
   // een nieuwe vingerafdruk en volgt de bijlage via de prewarm vanzelf.
-  useSpeculativeRefine(sessionId, true);
+  useSpeculativeRefine(sessionId, true, false);
   useAppendixPrewarm(sessionId);
 
   const [sessionData, setSessionData] = useState<SessionData | null>(null);

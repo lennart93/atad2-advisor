@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { appendixPrewarmKey } from '@/lib/appendix/prewarmKey';
+import { appendixPrewarmKey, shouldStartAppendix } from '@/lib/appendix/prewarmKey';
 
 describe('appendixPrewarmKey', () => {
   it('fires only on draft-and-later chart statuses', () => {
@@ -13,5 +13,17 @@ describe('appendixPrewarmKey', () => {
   it('a re-refined chart (new fingerprint) yields a new key, a legacy chart a stable one', () => {
     expect(appendixPrewarmKey('s1', { status: 'draft_ready', answers_fingerprint: 'v2' })).toBe('s1:draft:v2');
     expect(appendixPrewarmKey('s1', { status: 'draft_ready', answers_fingerprint: null })).toBe('s1:draft:legacy');
+  });
+});
+
+describe('shouldStartAppendix', () => {
+  it('starts when the chart matches the current answers', () => {
+    expect(shouldStartAppendix('fp1', 'fp1')).toBe(true);
+  });
+  it('skips when the chart belongs to an older answer set (re-refine underway)', () => {
+    expect(shouldStartAppendix('fp1', 'fp2')).toBe(false);
+  });
+  it('grandfathers a legacy chart without fingerprint', () => {
+    expect(shouldStartAppendix(null, 'fp2')).toBe(true);
   });
 });

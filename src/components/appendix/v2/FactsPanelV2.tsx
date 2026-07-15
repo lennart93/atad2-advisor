@@ -10,7 +10,6 @@ import { txStatusReason } from '@/lib/appendix/facts/transactionAssessment';
 import { shortTransactionType } from '@/lib/appendix/facts/transactionCategory';
 import { actingTogetherCandidateCount } from '@/lib/appendix/facts/actingCandidates';
 import { ManualGroupCard } from '@/components/appendix/ActingTogetherSection';
-import { AppendixDigest } from './AppendixDigest';
 import { SectionRow } from './SectionRow';
 import { RolledUpGroup } from './RolledUpGroup';
 import { AppendixRowItem } from './AppendixRowItem';
@@ -81,16 +80,6 @@ export function FactsPanelV2({ facts, onChange, generated, refining, sessionId }
   const selectedGroup = !selectedTx && !selectedEntity ? (facts.actingTogether.find((c) => c.id === selectedId) ?? null) : null;
   const panelOpen = !!(selectedTx || selectedEntity || selectedGroup);
 
-  const jumpToFirstFlagged = () => {
-    const firstEntity = facts.entities.find((e) => entityNeedsAttention(e, clsById.get(e.id)));
-    const firstTx = flagged[0];
-    const target = firstEntity ? { sec: 'register' as const, dom: `v2-entity-${firstEntity.id}` }
-      : firstTx ? { sec: 'transactions' as const, dom: `v2-tx-${firstTx.id}` } : null;
-    if (!target) return;
-    sectionState.setOpen(target.sec, true);
-    requestAnimationFrame(() => document.getElementById(target.dom)?.scrollIntoView({ block: 'center', behavior: 'smooth' }));
-  };
-
   const renderTxRow = (t: TransactionItem, routineRow: boolean) => (
     <AppendixRowItem
       key={t.id}
@@ -148,16 +137,6 @@ export function FactsPanelV2({ facts, onChange, generated, refining, sessionId }
 
   return (
     <div className="space-y-4">
-      <AppendixDigest
-        counts={[
-          `${digest.entities} ${digest.entities === 1 ? 'entity' : 'entities'}`,
-          `${digest.groups} ${digest.groups === 1 ? 'group' : 'groups'}`,
-          `${digest.transactions} ${digest.transactions === 1 ? 'transaction' : 'transactions'}`,
-        ]}
-        needReview={digest.needReview}
-        onNeedReviewClick={jumpToFirstFlagged}
-      />
-
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
         <div className="min-w-0 space-y-4">
           {/* Section 1 — The group and the taxpayer. */}
