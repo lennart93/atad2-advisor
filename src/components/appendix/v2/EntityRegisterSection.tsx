@@ -120,7 +120,7 @@ export function EntityRegisterSection({ facts, onChange, selectedId, onSelect }:
         </td>
         <td className="pr-2">
           {nlQual === 'undetermined'
-            ? <UnknownValue />
+            ? <UnknownValue label="To be determined" />
             : <span className="text-foreground">{nlQualificationLabel(nlQual)}</span>}
           {!isNl && (flagged ? (
             <button

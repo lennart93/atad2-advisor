@@ -41,7 +41,11 @@ export const NL_CLASSIFICATION_OPTIONS: ReadonlyArray<{
 }> = [
   { qual: 'non-transparent', statusKey: 'non_transparent', label: 'Non-transparent' },
   { qual: 'transparent',     statusKey: 'transparent',     label: 'Transparent' },
-  { qual: 'undetermined',    statusKey: 'unknown',         label: 'Unknown' },
+  // One label for the unresolved state everywhere ("To be determined", the same
+  // wording the transaction assessment uses); the option used to read "Unknown",
+  // which made picking it look like a silent remap once the trigger showed the
+  // display label.
+  { qual: 'undetermined',    statusKey: 'unknown',         label: 'To be determined' },
   { qual: 'irrelevant',      statusKey: 'irrelevant',      label: 'Irrelevant for the analysis' },
 ];
 
@@ -93,8 +97,8 @@ export function nlQualificationLabel(q: NlQualification): string {
     case 'irrelevant':
       return 'Irrelevant for the analysis';
     default:
-      // The shared display label stays "To be determined" (memo + register);
-      // only the picker option (NL_CLASSIFICATION_OPTIONS) reads "Unknown".
+      // "To be determined" is the one label for the unresolved state, in the
+      // picker options, the trigger, the register and the memo alike.
       return 'To be determined';
   }
 }
