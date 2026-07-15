@@ -349,7 +349,7 @@ describe('buildMemoAppendicesXml', () => {
 
   it('numbers the A. subsections by what renders, and prefixes Appendix 2 with B.', () => {
     const xml = buildMemoAppendicesXml(facts, rows, skeleton);
-    expect(xml).toContain('A.1 The group and the taxpayer');
+    expect(xml).toContain('A.1 The taxpayer and the group');
     expect(xml).toContain('A.2 Acting together'); // the fixture has an annex-worthy cluster
     expect(xml).toContain('A.3 Intra-group transactions');
     expect(xml).toContain('B.1 Scope and taxpayer status'); // section
@@ -376,7 +376,7 @@ describe('buildMemoAppendicesXml', () => {
 describe('buildMemoAppendicesXml — review fixes', () => {
   it('honours whole-section client exclusions (excludedSections)', () => {
     const xml = buildMemoAppendicesXml({ ...facts, excludedSections: ['actingTogether', 'transactions'] }, rows, skeleton);
-    expect(xml).toContain('A.1 The group and the taxpayer');
+    expect(xml).toContain('A.1 The taxpayer and the group');
     expect(xml).not.toContain('Acting together');
     expect(xml).not.toContain('Intra-group transactions');
     expect(xml).not.toContain('Co-investors under a shareholders agreement.');
@@ -388,7 +388,7 @@ describe('buildMemoAppendicesXml — review fixes', () => {
       rows,
       skeleton,
     );
-    expect(xml).not.toContain('The group and the taxpayer');
+    expect(xml).not.toContain('The taxpayer and the group');
     expect(xml).toContain('A.1 Acting together'); // sibling sections still render, renumbered
   });
 
@@ -430,7 +430,7 @@ describe('buildMemoAppendicesXml — review fixes', () => {
     // Under-table notes removed.
     expect(xml).not.toContain('qualify as related parties');
     expect(xml).not.toContain('still to be determined');
-    expect(xml).toContain('A.1 The group and the taxpayer');
+    expect(xml).toContain('A.1 The taxpayer and the group');
   });
 
   it('characterises below-25% group entities instead of a bare "Other" role', () => {

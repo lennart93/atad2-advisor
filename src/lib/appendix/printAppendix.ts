@@ -145,7 +145,7 @@ export function buildAppendixPrintHtml(
       `<tr><td>Acting-together groups</td><td>${at > 0 ? `${at} ${at === 1 ? 'group' : 'groups'}` : 'None'}</td></tr>` +
       `</table>`;
 
-    // A.1 - The group and the taxpayer: taxpayer side (incl. fiscal-unity members) first.
+    // A.1 - The taxpayer and the group: taxpayer side (incl. fiscal-unity members) first.
     const isTaxpayerSide = (e: FactEntity) =>
       e.role === 'Taxpayer' || !!e.memberOfUnityId || !!e.inTaxpayerFiscalUnity;
     const roleText = (e: FactEntity): string => {
@@ -188,7 +188,7 @@ export function buildAppendixPrintHtml(
       f.entities.filter((e) => !isTaxpayerSide(e)).map((e) => registerRow(e, false)).join('');
     const refHeader = internal ? `<th class="c-num">Ref</th>` : '';
     const registerBlock = (!drop('entityRegister') && registerRows)
-      ? `<h2>A.1 · The group and the taxpayer</h2>` + narrative('register') +
+      ? `<h2>A.1 · The taxpayer and the group</h2>` + narrative('register') +
         `<table><tr>${refHeader}<th>Entity</th><th>Jurisdiction</th><th>Classification (NL)</th><th>Role</th></tr>${registerRows}</table>`
       : '';
 

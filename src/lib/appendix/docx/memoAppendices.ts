@@ -340,9 +340,9 @@ function factsAppendix(rawFacts: AppendixFacts, pageBreakBefore: boolean): strin
     return (n > 1 ? emptyPara() : '') + textPara(`A.${n} ${title}`, { style: 'Heading2' });
   };
 
-  // A.1 The group and the taxpayer (starts directly here; no summary block).
+  // A.1 The taxpayer and the group (starts directly here; no summary block).
   if (showRegister) {
-    out.push(subHead('The group and the taxpayer'));
+    out.push(subHead('The taxpayer and the group'));
     out.push(
       textPara(
         'The overview below shows the taxpayer(s) and the group entities relevant to this assessment, with their jurisdiction, tax classification and effective related-party interest. A local qualification is shown only where an entity is foreign.',

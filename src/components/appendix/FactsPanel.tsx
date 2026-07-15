@@ -1396,12 +1396,12 @@ export function FactsPanel({ facts, onChange, generated, refining, embedded, hid
       )}
 
       {/* ------------------------------------------------------------------ */}
-      {/* 1. The group and the taxpayer                                        */}
+      {/* 1. The taxpayer and the group                                        */}
       {/* ------------------------------------------------------------------ */}
       {!hideRegister && (
       <Exhibit
         number={1}
-        title="The group and the taxpayer"
+        title="The taxpayer and the group"
         embedded={embedded}
         headerRight={editable && openHomeStateEntities.length > 0 ? (
           <button

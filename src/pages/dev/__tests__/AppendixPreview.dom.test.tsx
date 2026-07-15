@@ -54,8 +54,8 @@ describe('Facts page review gate (dev preview harness)', () => {
     render(<AppendixPreview initialFacts={oneOpenItem()} />);
     expect(next()).toBeDisabled();
     // Open the flagged transaction and override its status to "No risk identified".
-    // (The row label interleaves names with jurisdiction flags, so target the row node.)
-    const row = document.getElementById('v2-tx-T1')?.querySelector<HTMLElement>('[data-appendix-row]');
+    // (The table row itself is the interactive element, keyed by its dom id.)
+    const row = document.getElementById('v2-tx-T1');
     if (!row) throw new Error('T1 row not found');
     fireEvent.click(row);
     const panel = screen.getByRole('complementary');

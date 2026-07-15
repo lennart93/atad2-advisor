@@ -97,7 +97,7 @@ describe('buildAppendixPrintHtml', () => {
 
   it('dossier drops whole Part A sections the advisor excluded; internal keeps them', () => {
     const kept = buildAppendixPrintHtml([row('3.2', 'Triggered', 'x')], 'dossier', undefined, richFacts());
-    expect(kept).toContain('A.1 · The group and the taxpayer');
+    expect(kept).toContain('A.1 · The taxpayer and the group');
     expect(kept).toContain('A.2 · Related parties');
     expect(kept).toContain('Acting together');
     expect(kept).toContain('A.4 · Relevant transactions');
@@ -115,13 +115,13 @@ describe('buildAppendixPrintHtml', () => {
 
     // The internal working copy ignores the exclusions entirely.
     const internal = buildAppendixPrintHtml([row('3.2', 'Triggered', 'x')], 'internal', undefined, richFacts(allExcluded));
-    expect(internal).toContain('A.1 · The group and the taxpayer');
+    expect(internal).toContain('A.1 · The taxpayer and the group');
     expect(internal).toContain('Acting together');
   });
 
   it('relatedness exclusion drops the related-parties section, not the register', () => {
     const html = buildAppendixPrintHtml([row('3.2', 'Triggered', 'x')], 'dossier', undefined, richFacts(['relatedness']));
-    expect(html).toContain('A.1 · The group and the taxpayer');
+    expect(html).toContain('A.1 · The taxpayer and the group');
     expect(html).not.toContain('A.2 · Related parties');
     const kept = buildAppendixPrintHtml([row('3.2', 'Triggered', 'x')], 'dossier', undefined, richFacts());
     expect(kept).toContain('A.2 · Related parties');

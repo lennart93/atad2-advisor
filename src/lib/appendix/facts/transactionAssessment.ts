@@ -328,6 +328,27 @@ export function txStatusReason(facts: AppendixFacts, t: TransactionItem): string
   return 'flagged for assessment';
 }
 
+/**
+ * The compact risk label for the transaction list (dot + label in the RISK
+ * column): the first open risk category, shortened. The full phrasing stays in
+ * the detail panel. Null when the transaction carries no open risk.
+ */
+export function txRiskShortLabel(facts: AppendixFacts, t: TransactionItem): string | null {
+  if (effTxStatus(facts, t) === 'no_risk') return null;
+  for (const key of TX_RISK_KEYS) {
+    if (isOpenState(effCharacteristic(facts, t, key))) {
+      switch (key) {
+        case 'hybridEntityMismatch': return 'hybrid entity';
+        case 'hybridInstrument': return 'hybrid instrument';
+        case 'importedMismatch': return 'imported mismatch';
+        case 'permanentEstablishment': return 'PE mismatch';
+      }
+    }
+  }
+  // Overridden to "needs" with every category cleared.
+  return 'flagged';
+}
+
 /** "Needs assessment · possible hybrid financial instrument" / "No risk identified". */
 export function txStatusLabel(facts: AppendixFacts, t: TransactionItem): string {
   return effTxStatus(facts, t) === 'needs'

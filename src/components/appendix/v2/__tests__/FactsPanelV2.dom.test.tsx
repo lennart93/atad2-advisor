@@ -82,10 +82,10 @@ describe('FactsPanelV2 — resting state + master-detail (section 3)', () => {
     expect(within(section()).queryByRole('combobox')).not.toBeInTheDocument();
   });
 
-  it('expands the roll-up on Show', () => {
+  it('expands the no-risk group on its toggle row', () => {
     render(<FactsPanelV2 facts={facts()} onChange={vi.fn()} generated sessionId="s1" />);
     expect(rows()).toHaveLength(1);
-    fireEvent.click(within(section()).getByRole('button', { name: /^Show$/i }));
+    fireEvent.click(within(section()).getByRole('button', { name: /No risk identified/i }));
     expect(rows()).toHaveLength(2);
     expect(within(section()).getByText(/DutchCo B\.V\./)).toBeInTheDocument();
   });
@@ -96,7 +96,7 @@ describe('FactsPanelV2 — resting state + master-detail (section 3)', () => {
     expect(screen.getByText('Assessment')).toBeInTheDocument();
     expect(screen.getByText(/T1 ·/)).toBeInTheDocument();
     // Reveal + select the routine row; the panel swaps in place.
-    fireEvent.click(within(section()).getByRole('button', { name: /^Show$/i }));
+    fireEvent.click(within(section()).getByRole('button', { name: /No risk identified/i }));
     fireEvent.click(rows()[1]); // T2
     expect(screen.getByText(/T2 ·/)).toBeInTheDocument();
     expect(screen.getAllByText('Assessment')).toHaveLength(1);
@@ -171,10 +171,10 @@ describe('FactsPanelV2 — resting state + master-detail (section 3)', () => {
       transactions: [...facts().transactions, tx('T9', 'E3', 'E3')],
     };
     render(<FactsPanelV2 facts={broken} onChange={onChange} generated sessionId="s1" />);
-    // The invalid row is flagged (never rolled up) with the error reason.
-    expect(within(section()).getByText(/Invalid transaction: the same entity is on both sides/)).toBeInTheDocument();
+    // The invalid row is flagged (never rolled up) with the short error label.
+    expect(within(section()).getByText(/invalid: same entity/)).toBeInTheDocument();
     // Its panel names the issue and offers the counterparty fix.
-    fireEvent.click(within(section()).getByText(/Invalid transaction/));
+    fireEvent.click(within(section()).getByText(/invalid: same entity/));
     const panel = screen.getByRole('complementary');
     expect(within(panel).getByText(/listed on both sides/)).toBeInTheDocument();
     expect(within(panel).getByRole('combobox', { name: 'Correct counterparty' })).toBeInTheDocument();
