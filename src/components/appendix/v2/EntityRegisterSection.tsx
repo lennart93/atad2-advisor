@@ -11,6 +11,7 @@ import { entityHasQualificationDifference, isForeignHomeStateOpen } from '@/lib/
 import { effRelevanceOverride, addManualEntity } from '@/lib/appendix/facts/entitySet';
 import { actingInClientReport } from '@/lib/appendix/facts/actingAnnex';
 import { roleLabel } from '@/lib/appendix/facts/roleLabel';
+import { UnknownValue } from './UnknownValue';
 
 const NA = '–';
 const GROUP_LABEL = 'text-[12px] font-medium uppercase tracking-[0.13em] text-muted-foreground';
@@ -124,11 +125,11 @@ export function EntityRegisterSection({ facts, onChange, selectedId, onSelect }:
           )}
         </td>
         <td className="py-0.5 pr-2">
-          {jur ? <JurisFlagCode iso={jur} /> : <span className="text-muted-foreground">{NA}</span>}
+          {jur ? <JurisFlagCode iso={jur} /> : <UnknownValue />}
         </td>
         <td className="pr-2">
           {nlQual === 'undetermined'
-            ? <span className="text-[10.5px] text-muted-foreground/40">{NA}</span>
+            ? <UnknownValue />
             : <span className="text-foreground">{nlQualificationLabel(nlQual)}</span>}
           {!isNl && (flagged ? (
             <button
