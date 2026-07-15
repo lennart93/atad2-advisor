@@ -206,6 +206,83 @@ export function effCharacteristic(facts: AppendixFacts, t: TransactionItem, key:
 }
 
 // ---------------------------------------------------------------------------
+// Per-characteristic reasoning: one sentence naming WHY the preliminary answer
+// was reached, grounded on the facts (jurisdictions, classifications, instrument).
+// Only a seeded (derived) value gets a sentence; once the advisor has set the
+// characteristic themselves it is no longer preliminary, so nothing is shown and
+// the free-text rationale carries their why.
+// ---------------------------------------------------------------------------
+
+function nameOrFallback(e: FactEntity | undefined): string {
+  return e?.name?.trim() || 'the counterparty';
+}
+
+function listNames(ents: (FactEntity | undefined)[]): string {
+  return ents.map(nameOrFallback).join(' and ');
+}
+
+function needsCrossBorder(what: string): string {
+  return `${capitalise(what)} requires a cross-border element, which this domestic flow lacks.`;
+}
+
+/**
+ * The one-line explanation for a characteristic's PRELIMINARY value, mirroring
+ * the seed logic branch by branch so the sentence never contradicts the shown
+ * value. Returns null for an advisor-set characteristic.
+ */
+export function characteristicReason(
+  facts: AppendixFacts, t: TransactionItem, key: TxCharacteristicKey,
+): string | null {
+  if (t.assessment?.[key] != null) return null;
+  const [from, to] = partiesOf(facts, t);
+  const fj = from ? effJurisdiction(from) : null;
+  const tj = to ? effJurisdiction(to) : null;
+  const cb = effCrossBorder(facts, t);
+  const raw = t.instrument?.trim();
+  const instrumentLabel = raw ? (/^(the|a|an)\s/i.test(raw) ? raw : `the ${raw}`) : 'the instrument';
+
+  switch (key) {
+    case 'crossBorder': {
+      if (!fj || !tj) {
+        const missing = [!fj ? from : undefined, !tj ? to : undefined].filter(Boolean) as FactEntity[];
+        return `The jurisdiction of ${listNames(missing)} is unknown, so the cross-border status cannot be assessed yet.`;
+      }
+      return fj.toUpperCase() !== tj.toUpperCase()
+        ? `${nameOrFallback(from)} is located in ${fj} and ${nameOrFallback(to)} in ${tj}, so the flow crosses a border.`
+        : `Both parties are located in ${fj}, so the flow stays within one jurisdiction.`;
+    }
+    case 'hybridEntityMismatch': {
+      if (cb === 'no') return needsCrossBorder('a hybrid entity mismatch');
+      const confirmed = [from, to].filter((e) => partyHasConfirmedMismatch(facts, e));
+      if (confirmed.length > 0) {
+        return `${listNames(confirmed)} ${confirmed.length === 1 ? 'is' : 'are'} classified differently for Dutch purposes and in ${confirmed.length === 1 ? 'its' : 'their'} home state.`;
+      }
+      const undetermined = [from, to].filter((e) => partyLocalUndetermined(facts, e));
+      if (isTransactionRelevant(t) && undetermined.length > 0) {
+        return `The home-state classification of ${listNames(undetermined)} is not yet recorded, so a hybrid entity mismatch cannot be ruled out.`;
+      }
+      return 'Neither party shows a classification difference between the Netherlands and its home state.';
+    }
+    case 'hybridInstrument': {
+      if (cb === 'no') return needsCrossBorder('a hybrid instrument mismatch');
+      const advisorSetEntity = t.assessment?.hybridEntityMismatch != null;
+      if (isTransactionRelevant(t) && !advisorSetEntity && effHybridEntityMismatch(facts, t) === 'no') {
+        return `The documents flag this flow while neither party shows an entity-level mismatch, so the treatment of ${instrumentLabel} itself is the open question.`;
+      }
+      return `There is no indication that ${instrumentLabel} is treated differently (debt versus equity) in the two states.`;
+    }
+    case 'importedMismatch': {
+      if (cb === 'no') return needsCrossBorder('an imported mismatch');
+      return 'There is no indication that this payment funds a hybrid mismatch elsewhere in the group.';
+    }
+    case 'permanentEstablishment': {
+      if (cb === 'no') return needsCrossBorder('a permanent establishment mismatch');
+      return 'Neither party is recorded as acting through a permanent establishment for this flow.';
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Derived status + reason
 // ---------------------------------------------------------------------------
 

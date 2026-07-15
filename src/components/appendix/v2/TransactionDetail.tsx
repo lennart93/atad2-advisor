@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { cn } from '@/lib/utils';
 import { deleteManualTransaction } from '@/lib/appendix/facts/transactionSet';
 import {
-  TX_CHARACTERISTICS, effCharacteristic, withTxCharacteristic, withTxRationale, withTxStatusOverride,
+  TX_CHARACTERISTICS, effCharacteristic, characteristicReason, withTxCharacteristic, withTxRationale, withTxStatusOverride,
   effTxStatus, isTxStatusOverridden, txMemoReason, isOpenState, stateOptions, stateLabel,
   type TxCharacteristicKey,
 } from '@/lib/appendix/facts/transactionAssessment';
@@ -63,7 +63,7 @@ export function TransactionDetail({ facts, tx, onChange }: {
             const v = effCharacteristic(facts, tx, meta.key);
             const open = charIsOpen(meta.key, v);
             return (
-              <KeyValueRow key={meta.key} label={meta.label} attention={open}>
+              <KeyValueRow key={meta.key} label={meta.label} attention={open} sub={characteristicReason(facts, tx, meta.key)}>
                 <Select value={v} onValueChange={(nv) => onChange(withTxCharacteristic(facts, tx.id, meta.key, nv as QuadState))}>
                   <SelectTrigger
                     aria-label={meta.label}

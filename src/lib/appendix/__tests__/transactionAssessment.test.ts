@@ -5,7 +5,7 @@ import {
   effCrossBorder, effHybridEntityMismatch, effHybridInstrument, effImportedMismatch,
   needsAssessmentTransactions, noRiskTransactions,
   withTxCharacteristic, withTxRationale, withTxStatusOverride, withTxField,
-  isTxStatusOverridden,
+  isTxStatusOverridden, characteristicReason,
 } from '@/lib/appendix/facts/transactionAssessment';
 
 const ent = (id: string, jur: string | null, patch: Partial<FactEntity> = {}): FactEntity => ({
@@ -150,5 +150,72 @@ describe('buckets and descriptive edits', () => {
     const next = withTxField(f, 'T1', { instrument: 'Shareholder loan' });
     expect(next.transactions[0].instrument).toBe('Shareholder loan');
     expect(next.transactions[0].source).toBe('edited');
+  });
+});
+
+describe('characteristicReason: one grounded sentence per preliminary value', () => {
+  const base = () => facts(
+    [ent('E1', 'NL', { role: 'Taxpayer', name: 'HoldCo B.V.' }), ent('E2', 'US', { name: 'USCo Inc.' })],
+    [tx('T1', 'E1', 'E2', { instrument: 'the shareholder loan' })],
+  );
+
+  it('explains a cross-border seed with both jurisdictions', () => {
+    const f = base();
+    expect(characteristicReason(f, f.transactions[0], 'crossBorder'))
+      .toBe('HoldCo B.V. is located in NL and USCo Inc. in US, so the flow crosses a border.');
+  });
+
+  it('explains a domestic seed and the N/A categories it relaxes', () => {
+    const f = facts(
+      [ent('E1', 'NL', { role: 'Taxpayer', name: 'A B.V.' }), ent('E3', 'NL', { name: 'B B.V.' })],
+      [tx('T2', 'E1', 'E3')],
+    );
+    expect(characteristicReason(f, f.transactions[0], 'crossBorder'))
+      .toBe('Both parties are located in NL, so the flow stays within one jurisdiction.');
+    expect(characteristicReason(f, f.transactions[0], 'importedMismatch'))
+      .toBe('An imported mismatch requires a cross-border element, which this domestic flow lacks.');
+  });
+
+  it('explains an unknown jurisdiction as the open point', () => {
+    const f = facts(
+      [ent('E1', 'NL', { role: 'Taxpayer', name: 'A B.V.' }), ent('E9', null, { name: 'Mystery Co' })],
+      [tx('T3', 'E1', 'E9')],
+    );
+    expect(characteristicReason(f, f.transactions[0], 'crossBorder'))
+      .toBe('The jurisdiction of Mystery Co is unknown, so the cross-border status cannot be assessed yet.');
+  });
+
+  it('names the party whose home-state view is missing', () => {
+    const f = base();
+    expect(characteristicReason(f, f.transactions[0], 'hybridEntityMismatch'))
+      .toBe('The home-state classification of USCo Inc. is not yet recorded, so a hybrid entity mismatch cannot be ruled out.');
+  });
+
+  it('names the confirmed hybrid party', () => {
+    const f = facts(
+      [ent('E1', 'NL', { role: 'Taxpayer', name: 'A B.V.' }), ent('E2', 'US', { name: 'USCo Inc.', nlTaxStatus: 'transparent' })],
+      [tx('T1', 'E1', 'E2')],
+      [cls('E2', { homeClass: 'opaque' })],
+    );
+    expect(characteristicReason(f, f.transactions[0], 'hybridEntityMismatch'))
+      .toBe('USCo Inc. is classified differently for Dutch purposes and in its home state.');
+  });
+
+  it('points at the instrument when the AI flag has no entity-level cause', () => {
+    const f = facts(
+      [ent('E1', 'NL', { role: 'Taxpayer' }), ent('E2', 'US')],
+      [tx('T1', 'E1', 'E2', { instrument: 'the shareholder loan' })],
+      [cls('E2', { homeClass: 'opaque' })],
+    );
+    expect(characteristicReason(f, f.transactions[0], 'hybridInstrument'))
+      .toBe('The documents flag this flow while neither party shows an entity-level mismatch, so the treatment of the shareholder loan itself is the open question.');
+  });
+
+  it('returns null once the advisor has set the characteristic', () => {
+    const f = base();
+    const edited = withTxCharacteristic(f, 'T1', 'hybridEntityMismatch', 'no');
+    expect(characteristicReason(edited, edited.transactions[0], 'hybridEntityMismatch')).toBeNull();
+    // The untouched categories keep their derived sentence.
+    expect(characteristicReason(edited, edited.transactions[0], 'crossBorder')).not.toBeNull();
   });
 });

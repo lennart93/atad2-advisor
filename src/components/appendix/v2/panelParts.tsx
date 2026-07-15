@@ -29,14 +29,21 @@ export function PanelGroup({ label, info, children }: { label: string; info?: Re
 /**
  * One compact key-value row: label left, value right (usually an inline select),
  * hairline separator. The unresolved field gets accent treatment via `attention`.
+ * `sub` is an optional secondary line under the row (e.g. the one-sentence
+ * reasoning behind a derived value); nothing renders when it is absent.
  */
-export function KeyValueRow({ label, attention, children }: {
-  label: string; attention?: boolean; children: ReactNode;
+export function KeyValueRow({ label, attention, sub, children }: {
+  label: string; attention?: boolean; sub?: ReactNode; children: ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-ds-hairline py-2 last:border-b-0">
-      <span className={cn('text-[13px]', attention ? 'text-brand-terracotta-deep' : 'text-ds-ink-secondary')}>{label}</span>
-      <div className="shrink-0">{children}</div>
+    <div className="border-b border-ds-hairline last:border-b-0">
+      <div className="flex items-center justify-between gap-3 py-2">
+        <span className={cn('text-[13px]', attention ? 'text-brand-terracotta-deep' : 'text-ds-ink-secondary')}>{label}</span>
+        <div className="shrink-0">{children}</div>
+      </div>
+      {sub != null && sub !== '' && (
+        <p className="-mt-1 pb-2 text-[12px] leading-snug text-muted-foreground">{sub}</p>
+      )}
     </div>
   );
 }
