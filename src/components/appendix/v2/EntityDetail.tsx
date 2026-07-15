@@ -165,6 +165,18 @@ export function EntityDetail({ facts, entity: e, classification: c, onChange }: 
         </div>
       </PanelGroup>
 
+      {/* Jurisdiction. Editable here so a register row flagged for a missing
+          jurisdiction can actually be resolved from its panel (the table cell
+          itself is read-only display). */}
+      <PanelGroup label="Jurisdiction">
+        <JurisdictionPicker
+          variant="facts"
+          value={jur ?? ''}
+          onChange={(iso) => onChange(withEntityEdit(facts, e.id, 'jurisdiction', iso || null))}
+          placeholder="Jurisdiction"
+        />
+      </PanelGroup>
+
       {/* Classification (NL) */}
       <PanelGroup label="Classification (NL)">
         <ClassSelect

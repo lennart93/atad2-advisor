@@ -21,6 +21,7 @@ import { emptyFacts } from '@/lib/appendix/facts/emptyFacts';
 import { actingTogetherCandidateCount } from '@/lib/appendix/facts/actingCandidates';
 import { openHomeStateCount } from '@/lib/appendix/facts/conclusions';
 import { appendixConfirmReadiness } from '@/lib/appendix/confirmGuard';
+import { partADigest } from '@/lib/appendix/needsAttention';
 import { decideFactsGate } from '@/lib/appendix/factsGate';
 import { currentEffectiveFingerprint } from '@/lib/assessment/effectiveAnswersClient';
 import { startExtraction } from '@/lib/structure/extraction';
@@ -298,6 +299,15 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
     ? `Set the home-state classification for ${openHomeState} ${openHomeState === 1 ? 'entity' : 'entities'} before continuing.`
     : undefined;
 
+  // The facts step cannot be left while any item on the page is still marked
+  // "need review" (the same per-section count the section headers show). Skipping
+  // the page is the explicit way out; a skipped page does not gate.
+  const openReview = page === 'facts' && appendix?.facts && !appendix.facts_skipped
+    ? partADigest(factsToShow).needReview : 0;
+  const reviewBlockReason = openReview > 0
+    ? "Resolve all items marked 'need review' to continue."
+    : undefined;
+
   // Gate confirm: a no-risk appendix (nothing Triggered) may not be confirmed
   // while conditions are still "Insufficient info" (they must be resolved first).
   const confirmGuard = appendixConfirmReadiness(appendix?.rows ?? []);
@@ -437,6 +447,11 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
         }
         right={
           <>
+            {/* The block reason, stated where it can be seen: a disabled button's
+                title tooltip never fires in most browsers. */}
+            {!fromOverview && page === 'facts' && reviewBlockReason && (
+              <span className="mr-1 text-[12.5px] text-ds-ink-secondary">{reviewBlockReason}</span>
+            )}
             {/* Skip page sits to the left of the dark primary, which stays
                 right-most: the two forward actions are grouped on the right. */}
             <Button variant="secondary" onClick={handleToggleSkip}>
@@ -465,8 +480,8 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
               <Button
                 variant="primary"
                 onClick={() => navigate(`/assessment-appendix/${sessionId}/checklist`)}
-                disabled={openHomeState > 0}
-                title={homeStateBlockTitle}
+                disabled={openReview > 0}
+                title={reviewBlockReason}
               >
                 Next
                 <ArrowRight className="h-4 w-4" />

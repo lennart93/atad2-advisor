@@ -3,6 +3,7 @@ import { ArrowRight } from 'lucide-react';
 import { Button, FooterBarGrid } from '@/components/ds';
 import { FactsPanelV2 } from '@/components/appendix/v2/FactsPanelV2';
 import { emptyFacts } from '@/lib/appendix/facts/emptyFacts';
+import { partADigest } from '@/lib/appendix/needsAttention';
 import type { AppendixFacts, FactEntity, TransactionItem } from '@/lib/appendix/types';
 
 // ---------------------------------------------------------------------------
@@ -45,8 +46,13 @@ function fixtureFacts(): AppendixFacts {
   };
 }
 
-export default function AppendixPreview() {
-  const [facts, setFacts] = useState<AppendixFacts>(fixtureFacts);
+export default function AppendixPreview({ initialFacts }: { initialFacts?: AppendixFacts } = {}) {
+  const [facts, setFacts] = useState<AppendixFacts>(initialFacts ?? fixtureFacts);
+  // The same review gate the real facts page applies to its Next button.
+  const openReview = partADigest(facts).needReview;
+  const reviewBlockReason = openReview > 0
+    ? "Resolve all items marked 'need review' to continue."
+    : undefined;
 
   return (
     <div className="min-h-screen bg-background">
@@ -60,10 +66,15 @@ export default function AppendixPreview() {
       <div className="fixed inset-x-0 bottom-0 border-t border-border bg-background px-6 py-3">
         <FooterBarGrid
           right={
-            <Button variant="primary" onClick={() => { /* preview only */ }}>
-              Next
-              <ArrowRight className="h-4 w-4" />
-            </Button>
+            <>
+              {reviewBlockReason && (
+                <span className="mr-1 text-[12.5px] text-ds-ink-secondary">{reviewBlockReason}</span>
+              )}
+              <Button variant="primary" disabled={openReview > 0} title={reviewBlockReason} onClick={() => { /* preview only */ }}>
+                Next
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </>
           }
         />
       </div>
