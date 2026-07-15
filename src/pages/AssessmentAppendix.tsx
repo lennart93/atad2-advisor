@@ -297,7 +297,7 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
   const openHomeState = page === 'facts' && appendix?.facts && !appendix.facts_skipped
     ? openHomeStateCount(factsToShow) : 0;
   const homeStateBlockTitle = openHomeState > 0
-    ? `Set the home-state classification for ${openHomeState} ${openHomeState === 1 ? 'entity' : 'entities'} before continuing.`
+    ? `Set the home-jurisdiction classification for ${openHomeState} ${openHomeState === 1 ? 'entity' : 'entities'} before continuing.`
     : undefined;
 
   // The facts step cannot be left while any item on the page is still marked

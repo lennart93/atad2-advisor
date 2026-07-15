@@ -44,7 +44,7 @@ const REGISTER_INFO =
 const ACTING_INFO =
   'For ATAD2, a shareholder is associated from 25%. Separate holders that act together count as one group, so small stakes can cross the line together. Define any groups that act together in the meaning of the law.';
 const TX_SECTION_INFO =
-  'Intra-group flows tested for ATAD2. A flow with an open risk category needs assessment; the rest are recorded as no risk for completeness.';
+  'Intra-group transactions tested for ATAD2. A transaction with an open risk category needs assessment; the rest are recorded as no risk for completeness.';
 
 /**
  * The appendix-V2 shell for Part A (spec §4-§5). Page digest + a page-level

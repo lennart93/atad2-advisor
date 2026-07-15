@@ -162,7 +162,7 @@ describe('characteristicReason: one grounded sentence per preliminary value', ()
   it('explains a cross-border seed with both jurisdictions', () => {
     const f = base();
     expect(characteristicReason(f, f.transactions[0], 'crossBorder'))
-      .toBe('HoldCo B.V. is located in NL and USCo Inc. in US, so the flow crosses a border.');
+      .toBe('HoldCo B.V. is located in NL and USCo Inc. in US, so the transaction crosses a border.');
   });
 
   it('explains a domestic seed and the N/A categories it relaxes', () => {
@@ -171,9 +171,9 @@ describe('characteristicReason: one grounded sentence per preliminary value', ()
       [tx('T2', 'E1', 'E3')],
     );
     expect(characteristicReason(f, f.transactions[0], 'crossBorder'))
-      .toBe('Both parties are located in NL, so the flow stays within one jurisdiction.');
+      .toBe('Both parties are located in NL, so the transaction stays within one jurisdiction.');
     expect(characteristicReason(f, f.transactions[0], 'importedMismatch'))
-      .toBe('An imported mismatch requires a cross-border element, which this domestic flow lacks.');
+      .toBe('An imported mismatch requires a cross-border element, which this domestic transaction lacks.');
   });
 
   it('explains an unknown jurisdiction as the open point', () => {
@@ -188,7 +188,7 @@ describe('characteristicReason: one grounded sentence per preliminary value', ()
   it('names the party whose home-state view is missing', () => {
     const f = base();
     expect(characteristicReason(f, f.transactions[0], 'hybridEntityMismatch'))
-      .toBe('The home-state classification of USCo Inc. is not yet recorded, so a hybrid entity mismatch cannot be ruled out.');
+      .toBe('The home-jurisdiction classification of USCo Inc. is not yet recorded, so a hybrid entity mismatch cannot be ruled out.');
   });
 
   it('names the confirmed hybrid party', () => {
@@ -198,7 +198,7 @@ describe('characteristicReason: one grounded sentence per preliminary value', ()
       [cls('E2', { homeClass: 'opaque' })],
     );
     expect(characteristicReason(f, f.transactions[0], 'hybridEntityMismatch'))
-      .toBe('USCo Inc. is classified differently for Dutch purposes and in its home state.');
+      .toBe('USCo Inc. is classified differently for Dutch purposes and in its home jurisdiction.');
   });
 
   it('points at the instrument when the AI flag has no entity-level cause', () => {
@@ -208,7 +208,7 @@ describe('characteristicReason: one grounded sentence per preliminary value', ()
       [cls('E2', { homeClass: 'opaque' })],
     );
     expect(characteristicReason(f, f.transactions[0], 'hybridInstrument'))
-      .toBe('The documents flag this flow while neither party shows an entity-level mismatch, so the treatment of the shareholder loan itself is the open question.');
+      .toBe('The documents flag this transaction while neither party shows an entity-level mismatch, so the treatment of the shareholder loan itself is the open question.');
   });
 
   it('returns null once the advisor has set the characteristic', () => {

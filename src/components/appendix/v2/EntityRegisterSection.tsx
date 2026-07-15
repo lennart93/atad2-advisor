@@ -129,7 +129,7 @@ export function EntityRegisterSection({ facts, onChange, selectedId, onSelect }:
               className="mt-[3px] flex items-center gap-[7px] text-[12.5px] font-medium text-brand-terracotta transition-colors hover:text-brand-terracotta-deep"
             >
               <span className="h-[5px] w-[5px] rounded-full bg-brand-terracotta" aria-hidden />
-              Set {jur ?? 'home-state'} classification
+              Set {jur ?? 'home-jurisdiction'} classification
             </button>
           ) : localMismatch ? (
             <span className="mt-[3px] block text-[12.5px] text-brand-warning-deep">hybrid difference</span>

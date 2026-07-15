@@ -204,7 +204,7 @@ export function EntityDetail({ facts, entity: e, classification: c, onChange }: 
 
       {/* Home-state classification (foreign entities) */}
       {!isNl && (
-        <PanelGroup label={`Classification${jur ? ` (${jur})` : ''} · home state`}>
+        <PanelGroup label={`Classification${jur ? ` (${jur})` : ''} · home jurisdiction`}>
           <ClassSelect
             id={`v2-home-state-select-${e.id}`}
             value={localQual}
@@ -216,7 +216,7 @@ export function EntityDetail({ facts, entity: e, classification: c, onChange }: 
           <div className="mt-2">
             <ReasoningField
               value={localReason}
-              placeholder="How the home state views this entity."
+              placeholder="How the home jurisdiction views this entity."
               onCommit={(text) => onChange(withEntityEdit(facts, e.id, 'localReason', text))}
             />
           </div>
@@ -254,7 +254,7 @@ export function EntityDetail({ facts, entity: e, classification: c, onChange }: 
               </div>
               <ReasoningField
                 value={localReason}
-                placeholder="How this other state classifies the entity, and why it matters here."
+                placeholder="How this other jurisdiction classifies the entity, and why it matters here."
                 onCommit={(text) => onChange(withEntityEdit(facts, e.id, 'localReason', text))}
               />
             </div>

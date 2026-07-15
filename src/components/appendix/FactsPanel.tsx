@@ -699,11 +699,11 @@ export function FactsPanel({ facts, onChange, generated, refining, embedded, hid
                 <button
                   type="button"
                   onClick={(ev) => { ev.stopPropagation(); openHomeState(e.id); }}
-                  title={`Set how ${jur ?? 'the home state'} classifies ${e.name}`}
+                  title={`Set how ${jur ?? 'the home jurisdiction'} classifies ${e.name}`}
                   className="mt-[3px] flex items-center gap-[7px] text-[12.5px] font-medium text-brand-terracotta transition-colors hover:text-brand-terracotta-deep"
                 >
                   <span className="h-[5px] w-[5px] rounded-full bg-brand-terracotta" aria-hidden />
-                  Set {jur ?? 'home-state'} classification
+                  Set {jur ?? 'home-jurisdiction'} classification
                 </button>
               ) : localQual !== 'undetermined' ? (
                 <span className="mt-[3px] block text-[12.5px] text-muted-foreground">
@@ -826,7 +826,7 @@ export function FactsPanel({ facts, onChange, generated, refining, embedded, hid
                   {!isNl && (
                     <>
                     <hr className="my-4 border-t border-ds-hairline" />
-                    <DetailBlock label={`Classification${jur ? ` (${jur})` : ''}`} tag="home state" required={editable && localQual === 'undetermined'}>
+                    <DetailBlock label={`Classification${jur ? ` (${jur})` : ''}`} tag="home jurisdiction" required={editable && localQual === 'undetermined'}>
                       {editable ? (
                         <Select
                           value={localQual}
@@ -840,7 +840,7 @@ export function FactsPanel({ facts, onChange, generated, refining, embedded, hid
                         >
                           <SelectTrigger
                             id={`home-state-select-${e.id}`}
-                            aria-label="Home-state classification"
+                            aria-label="Home-jurisdiction classification"
                             className={cn(EDIT_SELECT, localQual === 'undetermined' && EDIT_SELECT_REQUIRED)}
                           >
                             <SelectValue />
@@ -857,8 +857,8 @@ export function FactsPanel({ facts, onChange, generated, refining, embedded, hid
                       <ReasonField
                         value={localReason}
                         editable={editable}
-                        label={`Home-state classification reasoning for ${e.name}`}
-                        placeholder="How the home state views this entity."
+                        label={`Home-jurisdiction classification reasoning for ${e.name}`}
+                        placeholder="How the home jurisdiction views this entity."
                         onCommit={(text) => onChange!(withEntityEdit(facts, e.id, 'localReason', text))}
                       />
                     </DetailBlock>
@@ -872,7 +872,7 @@ export function FactsPanel({ facts, onChange, generated, refining, embedded, hid
                     <>
                     <hr className="my-4 border-t border-ds-hairline" />
                     {showForeign ? (
-                    <DetailBlock label="Foreign classification" tag={foreignCls?.state || 'another state'}>
+                    <DetailBlock label="Foreign classification" tag={foreignCls?.state || 'another jurisdiction'}>
                       {editable ? (
                         <>
                           <div className="flex flex-wrap items-center gap-2.5">
@@ -916,7 +916,7 @@ export function FactsPanel({ facts, onChange, generated, refining, embedded, hid
                             value={localReason}
                             editable={editable}
                             label={`Foreign classification reasoning for ${e.name}`}
-                            placeholder="How this other state classifies the entity, and why it matters here."
+                            placeholder="How this other jurisdiction classifies the entity, and why it matters here."
                             onCommit={(text) => onChange!(withEntityEdit(facts, e.id, 'localReason', text))}
                           />
                         </>
@@ -1303,7 +1303,7 @@ export function FactsPanel({ facts, onChange, generated, refining, embedded, hid
                       value={t.assessment?.rationale ?? null}
                       editable={editable}
                       label={`Assessment rationale for ${t.id}`}
-                      placeholder="Explain the assessment of this flow. This text is used in the memo."
+                      placeholder="Explain the assessment of this transaction. This text is used in the memo."
                       onCommit={(text) => onChange!(withTxRationale(facts, t.id, text))}
                     />
                   </DetailBlock>
@@ -1407,11 +1407,11 @@ export function FactsPanel({ facts, onChange, generated, refining, embedded, hid
           <button
             type="button"
             onClick={() => { const first = openHomeStateEntities[0]; if (first) openHomeState(first.id); }}
-            title="Jump to the first entity that still needs a home-state classification"
+            title="Jump to the first entity that still needs a home-jurisdiction classification"
             className="inline-flex items-center gap-2 rounded-full bg-brand-terracotta-soft px-[13px] py-1.5 text-[12.5px] font-medium text-brand-terracotta-deep transition-colors hover:brightness-95"
           >
             <span className="h-1.5 w-1.5 rounded-full bg-brand-terracotta" aria-hidden />
-            {openHomeStateEntities.length} home-state {openHomeStateEntities.length === 1 ? 'classification' : 'classifications'} open
+            {openHomeStateEntities.length} home-jurisdiction {openHomeStateEntities.length === 1 ? 'classification' : 'classifications'} open
           </button>
         ) : undefined}
         {...sectionProps('entityRegister')}

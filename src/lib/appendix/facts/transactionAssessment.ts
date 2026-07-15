@@ -50,16 +50,16 @@ export const TX_CHARACTERISTICS: CharacteristicMeta[] = [
   {
     key: 'crossBorder', label: 'Cross-border', states: 'tri',
     hint: 'The two parties sit in different jurisdictions.',
-    reasonYes: 'cross-border flow', reasonTbd: 'cross-border status to be determined',
+    reasonYes: 'cross-border transaction', reasonTbd: 'cross-border status to be determined',
   },
   {
     key: 'hybridInstrument', label: 'Hybrid financial instrument', states: 'tri',
-    hint: 'The instrument is treated differently (debt vs equity) across the two states.',
+    hint: 'The instrument is treated differently (debt vs equity) across the two jurisdictions.',
     reasonYes: 'hybrid financial instrument', reasonTbd: 'possible hybrid financial instrument',
   },
   {
     key: 'hybridEntityMismatch', label: 'Hybrid entity mismatch', states: 'quad',
-    hint: 'A party is transparent in one state and non-transparent in the other.',
+    hint: 'A party is transparent in one jurisdiction and non-transparent in the other.',
     reasonYes: 'hybrid entity mismatch', reasonTbd: 'possible hybrid entity mismatch',
   },
   {
@@ -222,7 +222,7 @@ function listNames(ents: (FactEntity | undefined)[]): string {
 }
 
 function needsCrossBorder(what: string): string {
-  return `${capitalise(what)} requires a cross-border element, which this domestic flow lacks.`;
+  return `${capitalise(what)} requires a cross-border element, which this domestic transaction lacks.`;
 }
 
 /**
@@ -248,28 +248,28 @@ export function characteristicReason(
         return `The jurisdiction of ${listNames(missing)} is unknown, so the cross-border status cannot be assessed yet.`;
       }
       return fj.toUpperCase() !== tj.toUpperCase()
-        ? `${nameOrFallback(from)} is located in ${fj} and ${nameOrFallback(to)} in ${tj}, so the flow crosses a border.`
-        : `Both parties are located in ${fj}, so the flow stays within one jurisdiction.`;
+        ? `${nameOrFallback(from)} is located in ${fj} and ${nameOrFallback(to)} in ${tj}, so the transaction crosses a border.`
+        : `Both parties are located in ${fj}, so the transaction stays within one jurisdiction.`;
     }
     case 'hybridEntityMismatch': {
       if (cb === 'no') return needsCrossBorder('a hybrid entity mismatch');
       const confirmed = [from, to].filter((e) => partyHasConfirmedMismatch(facts, e));
       if (confirmed.length > 0) {
-        return `${listNames(confirmed)} ${confirmed.length === 1 ? 'is' : 'are'} classified differently for Dutch purposes and in ${confirmed.length === 1 ? 'its' : 'their'} home state.`;
+        return `${listNames(confirmed)} ${confirmed.length === 1 ? 'is' : 'are'} classified differently for Dutch purposes and in ${confirmed.length === 1 ? 'its' : 'their'} home jurisdiction.`;
       }
       const undetermined = [from, to].filter((e) => partyLocalUndetermined(facts, e));
       if (isTransactionRelevant(t) && undetermined.length > 0) {
-        return `The home-state classification of ${listNames(undetermined)} is not yet recorded, so a hybrid entity mismatch cannot be ruled out.`;
+        return `The home-jurisdiction classification of ${listNames(undetermined)} is not yet recorded, so a hybrid entity mismatch cannot be ruled out.`;
       }
-      return 'Neither party shows a classification difference between the Netherlands and its home state.';
+      return 'Neither party shows a classification difference between the Netherlands and its home jurisdiction.';
     }
     case 'hybridInstrument': {
       if (cb === 'no') return needsCrossBorder('a hybrid instrument mismatch');
       const advisorSetEntity = t.assessment?.hybridEntityMismatch != null;
       if (isTransactionRelevant(t) && !advisorSetEntity && effHybridEntityMismatch(facts, t) === 'no') {
-        return `The documents flag this flow while neither party shows an entity-level mismatch, so the treatment of ${instrumentLabel} itself is the open question.`;
+        return `The documents flag this transaction while neither party shows an entity-level mismatch, so the treatment of ${instrumentLabel} itself is the open question.`;
       }
-      return `There is no indication that ${instrumentLabel} is treated differently (debt versus equity) in the two states.`;
+      return `There is no indication that ${instrumentLabel} is treated differently (debt versus equity) in the two jurisdictions.`;
     }
     case 'importedMismatch': {
       if (cb === 'no') return needsCrossBorder('an imported mismatch');
@@ -277,7 +277,7 @@ export function characteristicReason(
     }
     case 'permanentEstablishment': {
       if (cb === 'no') return needsCrossBorder('a permanent establishment mismatch');
-      return 'Neither party is recorded as acting through a permanent establishment for this flow.';
+      return 'Neither party is recorded as acting through a permanent establishment for this transaction.';
     }
   }
 }

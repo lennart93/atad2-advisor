@@ -250,7 +250,7 @@ export function buildAppendixPrintHtml(
     const txIdHeader = internal ? `<th class="c-num">Ref</th>` : '';
     const flowsNarrative = narrative('flows');
     const flowsTable = relevantRows
-      ? `<table><tr>${txIdHeader}<th>Flow</th><th>Type</th><th>Instrument</th><th>Why relevant</th><th>Article(s)</th></tr>${relevantRows}</table>`
+      ? `<table><tr>${txIdHeader}<th>Transaction</th><th>Type</th><th>Instrument</th><th>Why relevant</th><th>Article(s)</th></tr>${relevantRows}</table>`
       : ((accountedTx.length > 0 || flowsNarrative) ? `<p class="accounted">No relevant intra-group transactions identified.</p>` : '');
     const accountedTxLines = accountedTx.map((g) =>
       `<p class="accounted">${g.transactions.length} ${g.transactions.length === 1 ? 'transaction' : 'transactions'}, no risk identified: ${esc(g.reason)}</p>`,

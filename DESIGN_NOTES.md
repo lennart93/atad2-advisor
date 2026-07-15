@@ -139,3 +139,19 @@ unfinished). Hierarchy now comes from fill + weight, not pill shape.
 - Admin question-flow edge legibility (ink shades vs. the old green/red) — revisit if it hurts.
 - A number of pre-existing raw `stone-*` / `border-subtle` neutrals in the structure inspectors and
   facts panel were tokenized opportunistically; any missed ones are neutral already (not blue).
+
+## Terminology (hard rules)
+
+- Use "transaction", never "flow". No exceptions.
+  Rewrites: "this flow" -> "this transaction";
+  "the flow crosses a border" -> "the transaction crosses a border".
+- Use "jurisdiction(s)", never "state(s)" or "country/countries" in
+  assessment and classification context.
+  Rewrites: "in the two states" -> "in the two jurisdictions";
+  "home-state classification" -> "home-jurisdiction classification".
+- Section title is "The taxpayer and the group" (taxpayer first).
+
+## Section headers (hard rule)
+
+- Section headers show the title only; no inline counts or status summaries.
+- The only element right of a section title is the "N need review" badge when N > 0.

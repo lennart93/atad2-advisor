@@ -28,7 +28,7 @@ const STATUS_OPTIONS = [
 ];
 
 const CHAR_INFO =
-  'Cross-border is context (a precondition); the four mismatch categories are what make a flow "needs assessment". Any category answered Yes or To be determined keeps the flow flagged; all cleared yields "No risk identified".';
+  'Cross-border is context (a precondition); the four mismatch categories are what make a transaction "needs assessment". Any category answered Yes or To be determined keeps the transaction flagged; all cleared yields "No risk identified".';
 
 /** The detail-panel body for one transaction. Reuses the exact assessment logic and
  *  setters from the current inline editor, so behaviour and autosave are identical. */

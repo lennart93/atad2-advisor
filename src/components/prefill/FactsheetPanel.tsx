@@ -178,7 +178,7 @@ function FactsheetBody({ sheet }: { sheet: NonNullable<Awaited<ReturnType<typeof
       )}
 
       {sheet.flows.length > 0 && (
-        <Section title="Flows">
+        <Section title="Transactions">
           <ul className="space-y-0.5 text-xs text-ds-ink">
             {sheet.flows.map((f, i) => (
               <li key={i}>
