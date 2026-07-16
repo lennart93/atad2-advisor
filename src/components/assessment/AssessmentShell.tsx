@@ -212,7 +212,10 @@ export default function AssessmentShell() {
         <div className="shrink-0 border-b border-ds-hairline bg-ds-card">
           <div className="mx-auto max-w-6xl px-4 py-3">
             <div className="flex items-center gap-4">
-              {sessionId && (
+              {/* The Overview page states the taxpayer and year prominently in
+                  its own header, so the dossier anchor would only repeat them.
+                  Every earlier step keeps it. */}
+              {sessionId && !onOverview && (
                 <DossierTag
                   sessionId={sessionId}
                   taxpayerName={session?.taxpayer_name ?? null}

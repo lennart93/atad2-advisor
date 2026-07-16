@@ -787,7 +787,12 @@ const AssessmentReport = () => {
           {/* Memorandum cover */}
           <section className="space-y-6">
             <div className="space-y-3">
-              <span className={EYEBROW}>Assessment report</span>
+              {/* The dossier chip is hidden on this step, so the year lives
+                  here: the one glanceable "which file" line above the title. */}
+              <span className={EYEBROW}>
+                Assessment report <span aria-hidden="true">·</span>{" "}
+                <span className="ds-tabular-nums">FY{formatFiscalYears(sessionData.fiscal_year)}</span>
+              </span>
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
                 {/* The container title. No serif face exists in the system; the
                     title keeps the Neue Haas Grotesk Display treatment already
