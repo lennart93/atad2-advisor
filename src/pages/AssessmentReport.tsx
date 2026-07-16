@@ -110,18 +110,21 @@ function EntityPill({ name, taxpayer }: { name: string; taxpayer?: boolean }) {
 // A clean full-width inclusion row for the "Generate memorandum" card: a filled
 // sage checkbox + label, rows separated by hairlines. The sage fill maps the
 // spec's --sage to the brand's canonical ds-green so the screen stays consistent.
+// A disabled row with a reason (e.g. a skipped appendix) explains itself on hover.
 function MemoInclusionRow({
   checked,
   disabled,
+  disabledReason,
   onToggle,
   children,
 }: {
   checked: boolean;
   disabled?: boolean;
+  disabledReason?: string;
   onToggle: () => void;
   children: React.ReactNode;
 }) {
-  return (
+  const row = (
     <button
       type="button"
       role="checkbox"
@@ -142,6 +145,18 @@ function MemoInclusionRow({
       </span>
       <span className="text-[14px] text-ds-ink">{children}</span>
     </button>
+  );
+  if (!disabled || !disabledReason) return row;
+  // Disabled buttons swallow pointer events, so the tooltip hangs off a span.
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className="block w-full">{row}</span>
+      </TooltipTrigger>
+      <TooltipContent>
+        <p className="max-w-[260px]">{disabledReason}</p>
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -263,8 +278,15 @@ const AssessmentReport = () => {
   const appendixConfirmed = appendixForDownload?.review_status === 'confirmed';
   const factsAppendixAvailable = !!appendixConfirmed && (appendixForDownload?.facts?.entities?.length ?? 0) > 0;
   const checklistAppendixAvailable = !!appendixConfirmed && (appendixForDownload?.rows?.some((r) => !r.excludedFromClient) ?? false);
-  const includeFactsAppendix = includeFactsOverride ?? !(appendixForDownload?.facts_skipped ?? false);
-  const includeChecklistAppendix = includeChecklistOverride ?? !(appendixForDownload?.checklist_skipped ?? false);
+  // A skipped appendix can never ride along in the memorandum: its row renders
+  // disabled and unchecked (with a hover explanation) and no local override can
+  // switch it back on. Non-skipped appendices default on; the override wins.
+  const factsSkipped = appendixForDownload?.facts_skipped ?? false;
+  const checklistSkipped = appendixForDownload?.checklist_skipped ?? false;
+  const includeFactsAppendix = !factsSkipped && (includeFactsOverride ?? true);
+  const includeChecklistAppendix = !checklistSkipped && (includeChecklistOverride ?? true);
+  const skippedAppendixReason =
+    "This appendix was skipped during the assessment, so it is not part of the memorandum.";
   // Date-only label for the memorandum meta line (e.g. "26 June 2026").
   const generatedDateLabel = latestReport?.generated_at
     ? new Date(latestReport.generated_at).toLocaleDateString('en-GB', {
@@ -1011,7 +1033,8 @@ const AssessmentReport = () => {
                         {factsAppendixAvailable && (
                           <MemoInclusionRow
                             checked={includeFactsAppendix}
-                            disabled={isGeneratingReport}
+                            disabled={isGeneratingReport || factsSkipped}
+                            disabledReason={factsSkipped ? skippedAppendixReason : undefined}
                             onToggle={() => setIncludeFactsOverride(!includeFactsAppendix)}
                           >
                             Appendix 1 · Facts &amp; relationships
@@ -1020,7 +1043,8 @@ const AssessmentReport = () => {
                         {checklistAppendixAvailable && (
                           <MemoInclusionRow
                             checked={includeChecklistAppendix}
-                            disabled={isGeneratingReport}
+                            disabled={isGeneratingReport || checklistSkipped}
+                            disabledReason={checklistSkipped ? skippedAppendixReason : undefined}
                             onToggle={() => setIncludeChecklistOverride(!includeChecklistAppendix)}
                           >
                             Appendix 2 · Condition assessment
