@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { deriveConclusions, inScopeEntityIds, localQualification, effLocalQualification, displayLocalQualification, foreignDefaultClassification, entityHasQualificationDifference, dutchForeignClassification, isForeignHomeStateOpen, openHomeStateCount } from '@/lib/appendix/facts/conclusions';
+import { deriveConclusions, inScopeEntityIds, localQualification, effLocalQualification, displayLocalQualification, foreignDefaultClassification, homeStateDerivedBasis, entityHasQualificationDifference, dutchForeignClassification, isForeignHomeStateOpen, openHomeStateCount } from '@/lib/appendix/facts/conclusions';
 import type { AppendixFacts, FactEntity, TransactionItem, ClassificationItem } from '@/lib/appendix/types';
 
 const ent = (id: string, patch: Partial<FactEntity> = {}): FactEntity => ({
@@ -208,6 +208,28 @@ describe('displayLocalQualification / foreignDefaultClassification', () => {
     const unknown = ent('E6', { jurisdiction: 'BE', name: 'Mystery Vorm', entityType: null, nlTaxStatus: null });
     expect(foreignDefaultClassification(nl, undefined)).toBeNull();
     expect(displayLocalQualification(unknown, undefined)).toBe('undetermined');
+  });
+});
+
+describe('homeStateDerivedBasis', () => {
+  const luSa = ent('E7', { jurisdiction: 'LU', name: 'Duhco S.A.', entityType: 'corporation', nlTaxStatus: null });
+  it('gives the deterministic basis while the view is still unset', () => {
+    expect(homeStateDerivedBasis(luSa, undefined)).toMatch(/S\.A\./);
+  });
+  it('keeps the basis when a STORED view agrees with the default (the persisted default carries no reason of its own)', () => {
+    // The edge function persists homeClass 'non-transparent' for a known form;
+    // the shown motivation must not disappear because of that.
+    expect(homeStateDerivedBasis(luSa, cls('E7', { homeState: 'LU', homeClass: 'non-transparent' })))
+      .toMatch(/non-transparent under its own law/);
+    // Raw agreement counts too (US LLC stored as 'disregarded' = the default).
+    const usLlc = ent('E4', { jurisdiction: 'US', name: 'Delaware Holdings LLC', entityType: 'partnership' });
+    expect(homeStateDerivedBasis(usLlc, cls('E4', { homeState: 'US', homeClass: 'disregarded' })))
+      .toMatch(/LLC/);
+  });
+  it('stays silent when the stored view contradicts the default, or nothing is known', () => {
+    expect(homeStateDerivedBasis(luSa, cls('E7', { homeState: 'LU', homeClass: 'transparent' }))).toBeNull();
+    expect(homeStateDerivedBasis(ent('E1', { jurisdiction: 'BE', name: 'Mystery Vorm', entityType: null }), undefined)).toBeNull();
+    expect(homeStateDerivedBasis(ent('E2', { jurisdiction: 'NL', name: 'Dutch B.V.' }), undefined)).toBeNull();
   });
 });
 

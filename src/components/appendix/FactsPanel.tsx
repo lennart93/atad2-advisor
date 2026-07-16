@@ -18,7 +18,7 @@ import {
 } from '@/lib/appendix/facts/entitySet';
 import { actingInClientReport } from '@/lib/appendix/facts/actingAnnex';
 import { ActingTogetherSection } from '@/components/appendix/ActingTogetherSection';
-import { effLocalQualification, displayLocalQualification, entityHasQualificationDifference, dutchForeignClassification, foreignDefaultClassification, isForeignHomeStateOpen } from '@/lib/appendix/facts/conclusions';
+import { effLocalQualification, displayLocalQualification, entityHasQualificationDifference, dutchForeignClassification, homeStateDerivedBasis, isForeignHomeStateOpen } from '@/lib/appendix/facts/conclusions';
 import { roleLabel } from '@/lib/appendix/facts/roleLabel';
 import { relevantTransactions } from '@/lib/appendix/facts/relevance';
 import {
@@ -614,7 +614,7 @@ export function FactsPanel({ facts, onChange, generated, refining, embedded, hid
     // sees why, and that it still wants a check), else nothing.
     const localDerivedReason = mismatch
       ? `Hybrid difference: ${nlQualificationLabel(nlQual).toLowerCase()} for Dutch purposes, ${nlQualificationLabel(localQual).toLowerCase()}${c?.homeState ? ` in ${c.homeState}` : ' locally'}.`
-      : foreignDefaultClassification(e, c)?.basis ?? null;
+      : homeStateDerivedBasis(e, c);
     const localReason = effLocalReason(e, localDerivedReason);
 
     const detailValue = 'text-[14.5px] text-foreground';

@@ -99,6 +99,31 @@ export function foreignDefaultClassification(
 }
 
 /**
+ * The derived reasoning to SHOW for a foreign entity's home-state view when the
+ * advisor has not written one: the deterministic jurisdiction + legal-form basis.
+ * Shown both while the view is still unset (the default IS what is displayed) and
+ * when a STORED view agrees with that default, because a stored classification row
+ * carries no reasoning of its own (the edge function's persisted default, or a bare
+ * model row). Null when the stored view contradicts the default: a wrong
+ * explanation is worse than none.
+ */
+export function homeStateDerivedBasis(
+  e: FactEntity,
+  c: ForeignClsFields | null | undefined,
+): string | null {
+  const open = foreignDefaultClassification(e, c);
+  if (open) return open.basis;
+  if (isDutchEntity(e)) return null;
+  const form = `${e.name ?? ''} ${effEntityType(e) ?? ''}`.trim();
+  const def = defaultClassification(effJurisdiction(e), form);
+  if (!def) return null;
+  const stored = (c?.homeClass ?? '').trim().toLowerCase();
+  const defQual: NlQualification = def.homeClass === 'non-transparent' ? 'non-transparent' : 'transparent';
+  const agrees = stored === def.homeClass || localQualification(stored) === defQual;
+  return agrees ? def.basis : null;
+}
+
+/**
  * The local qualification to SHOW for an entity (register + memo): the stored view
  * when there is one, else the deterministic default for a foreign entity's
  * jurisdiction + legal form, so a well-known form never displays a bare "To be

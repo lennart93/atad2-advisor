@@ -14,7 +14,7 @@ import { withLocalQualification, withForeignClassificationState, clearForeignCla
 import { effRelevanceOverride, setEntityRelated, deleteEntity } from '@/lib/appendix/facts/entitySet';
 import {
   effLocalQualification, displayLocalQualification, entityHasQualificationDifference,
-  dutchForeignClassification, foreignDefaultClassification, isForeignHomeStateOpen,
+  dutchForeignClassification, homeStateDerivedBasis, isForeignHomeStateOpen,
 } from '@/lib/appendix/facts/conclusions';
 import { roleLabel } from '@/lib/appendix/facts/roleLabel';
 import { PanelGroup, ReasoningField } from './panelParts';
@@ -125,7 +125,7 @@ export function EntityDetail({ facts, entity: e, classification: c, onChange }: 
   const nlReason = effNlReason(e);
   const localDerivedReason = mismatch
     ? `Hybrid difference: ${nlQualificationLabel(nlQual).toLowerCase()} for Dutch purposes, ${nlQualificationLabel(localQual).toLowerCase()}${c?.homeState ? ` in ${c.homeState}` : ' locally'}.`
-    : foreignDefaultClassification(e, c)?.basis ?? null;
+    : homeStateDerivedBasis(e, c);
   const localReason = effLocalReason(e, localDerivedReason);
 
   return (
