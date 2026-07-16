@@ -10,6 +10,14 @@ import { SKELETON_ROWS } from '../../../../supabase/functions/generate-appendix/
 import { mootNaRowIds as mootDeno } from '../../../../supabase/functions/generate-appendix/mootness';
 import { buildEntityRegister as registerFrontend } from '@/lib/appendix/facts/entityRegister';
 import { buildEntityRegister as registerDeno } from '../../../../supabase/functions/generate-appendix/factsBuild';
+import {
+  defaultClassification as defaultsFrontend,
+  defaultNlClassification as nlDefaultsFrontend,
+} from '@/lib/appendix/classificationDefaults';
+import {
+  defaultClassification as defaultsDeno,
+  defaultNlClassification as nlDefaultsDeno,
+} from '../../../../supabase/functions/generate-appendix/classificationDefaults';
 import type { StructureEntity, StructureEdge } from '@/lib/structure/types';
 
 // Repo root from this file: __tests__ -> appendix -> lib -> src -> root
@@ -105,6 +113,36 @@ describe('cross-mirror: entity register incl. multiple taxpayers (frontend vs De
       const front = shape(registerFrontend(c.entities as unknown as StructureEntity[], c.edges as unknown as StructureEdge[], [], c.name));
       const deno = shape(registerDeno(c.entities as never, c.edges as never, [], c.name));
       expect(deno, `diverged on: ${c.label}`).toEqual(front);
+    }
+  });
+});
+
+describe('cross-mirror: classification defaults (frontend vs Deno)', () => {
+  // A battery over jurisdictions and forms, including the exclusions and the
+  // ambiguous short tokens, so a drifting rule table fails loudly.
+  const cases: Array<[string | null, string, number?]> = [
+    ['LU', 'Duhco S.A. corporation'], ['LU', 'Finco S.à r.l.'], ['LU', 'Fund SCSp'],
+    ['LU', 'Holdco S.C.A.'], ['BE', 'Duvel Moortgat N.V. corporation'], ['BE', 'Brouwerij BVBA'],
+    ['BE', 'Mystery Vorm'], ['DE', 'Brau GmbH'], ['DE', 'Brau AG'], ['DE', 'Beteiligungs KG'],
+    ['US', 'WMC Energy Corp.', undefined], ['US', 'Delaware Holdings LLC', 1],
+    ['US', 'Delaware Holdings LLC', 2], ['US', 'Brewery Ommegang corporation'],
+    ['US', 'Salsa Brands corporation'], ['HK', 'WMC Group Asia Limited corporation'],
+    ['IE', 'Joshua Energy One Designated Activity Company'], ['CH', 'Uhren AG'],
+    ['CN', 'Duvel Moortgat Shanghai Ltd. corporation'], ['GB', 'Beer Group Plc'],
+    ['IT', 'Birra S.p.A.'], ['FR', 'Brasserie SAS'], ['SE', 'Bryggeri AB'],
+    ['NO', 'Bryggeri AS'], ['FI', 'Panimo Oy'], ['DK', 'Bryghus ApS'],
+    ['NL', 'Duhco Nederland B.V. corporation'], [null, 'Duhco S.A.'],
+  ];
+  it('produces the same home-state default on both copies', () => {
+    for (const [jur, form, members] of cases) {
+      expect(defaultsDeno(jur, form, members), `diverged on ${jur}/${form}`)
+        .toEqual(defaultsFrontend(jur, form, members));
+    }
+  });
+  it('produces the same NL-view default on both copies', () => {
+    for (const [jur, form] of cases) {
+      expect(nlDefaultsDeno(jur, form), `diverged on ${jur}/${form}`)
+        .toEqual(nlDefaultsFrontend(jur, form));
     }
   });
 });

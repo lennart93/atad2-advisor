@@ -125,8 +125,13 @@ describe("defaultClassification (F9b)", () => {
     expect(defaultClassification("IE", "DAC")!.homeClass).toBe("non-transparent");
     expect(defaultClassification("CH", "AG")!.homeClass).toBe("non-transparent");
   });
-  it("returns null for an unknown jurisdiction/form", () => {
+  it("FR SARL -> non-transparent via the generic corporate-form fallback", () => {
+    // Used to be null before the corporate-form table (16 jul 2026); a French
+    // SARL is a well-known capital form, opaque under its own law.
+    expect(defaultClassification("FR", "SARL")!.homeClass).toBe("non-transparent");
+  });
+  it("returns null for a Dutch entity or an unknown form", () => {
     expect(defaultClassification("NL", "BV")).toBeNull();
-    expect(defaultClassification("FR", "SARL")).toBeNull();
+    expect(defaultClassification("BE", "Mystery Vorm")).toBeNull();
   });
 });

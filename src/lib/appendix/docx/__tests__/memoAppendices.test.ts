@@ -61,8 +61,9 @@ const facts: AppendixFacts = {
     ent({ id: 'E4', name: 'Swiss Finance AG', role: 'Group entity', jurisdiction: 'CH', relatedViaPct: 30, related: false, nlTaxStatus: 'resident' }),
     // Below 25%, no difference; name exercises XML escaping.
     ent({ id: 'E5', name: 'Acme & Sons <Holding>', role: 'Group entity', jurisdiction: 'BE', ownershipPct: 10, related: false, nlTaxStatus: 'resident' }),
-    // Party to a relevant transaction, local qualification undetermined -> "To be determined".
-    ent({ id: 'E6', name: 'Jersey Co Ltd', role: 'Group entity', jurisdiction: 'JE', related: false, nlTaxStatus: 'resident' }),
+    // Party to a relevant transaction, local qualification undetermined -> "To be determined"
+    // (no statutory suffix in the name, so the corporate-form default stays silent).
+    ent({ id: 'E6', name: 'Jersey Co', role: 'Group entity', jurisdiction: 'JE', related: false, nlTaxStatus: 'resident' }),
   ],
   actingTogether: [
     // A manually-built group (origin 'manual') reaches the client appendix + memo.
@@ -131,14 +132,14 @@ describe('buildMemoAppendicesXml', () => {
     expect(xml).not.toContain('below the 25% threshold');
     expect(xml).not.toContain('no qualification difference');
     // E5 + E6 are below threshold and must both appear, not be collapsed.
-    expect(xml).toContain('Jersey Co Ltd');
+    expect(xml).toContain('Jersey Co');
   });
 
   it('renders the Other entities in the same ink as every other row (not dimmed)', () => {
     // A muted row used to print its name in faint grey; every name run is now ink.
     const nameRun = (name: string) =>
       new RegExp(`<w:rPr><w:b/><w:color w:val="([0-9A-F]{6})"/>(?:<w:sz[^>]*/><w:szCs[^>]*/>)?</w:rPr><w:t xml:space="preserve">${name}`);
-    const other = xml.match(nameRun('Jersey Co Ltd'));
+    const other = xml.match(nameRun('Jersey Co'));
     const taxpayer = xml.match(nameRun('Dutch BidCo BV'));
     expect(other?.[1]).toBe('1A1A1A');
     expect(taxpayer?.[1]).toBe('1A1A1A');
@@ -154,7 +155,10 @@ describe('buildMemoAppendicesXml', () => {
     // Every foreign entity always carries a home-state line, using the same
     // 4-value vocabulary Appendix 1 shows on screen, even when still undetermined.
     expect(xml).toContain('JE: To be determined'); // unset local view still shows a line
-    expect(xml).toContain('LU: To be determined'); // no classification entry -> still a line
+    // No classification entry, but the S.a r.l. suffix drives the deterministic
+    // corporate-form default (16 jul 2026): the memo mirrors the on-screen register.
+    expect(xml).toContain('LU: Non-transparent');
+    expect(xml).not.toContain('LU: To be determined');
     expect(xml).toContain('CH: Transparent'); // the hybrid mismatch entity
     // The old "not set" wording is gone; the shared vocabulary is used instead.
     expect(xml).not.toContain('qualification not set');

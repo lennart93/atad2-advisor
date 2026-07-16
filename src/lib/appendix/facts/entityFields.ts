@@ -1,5 +1,6 @@
 import type { AppendixFacts, FactEntity } from '@/lib/appendix/types';
 import { nlQualification, type NlQualification } from './nlTaxStatus';
+import { defaultNlClassification } from '@/lib/appendix/classificationDefaults';
 
 // Effective field accessors: the advisor's edit wins over the chart/AI base.
 // Used everywhere the register is read (panel, matrix, exports) so a single
@@ -36,25 +37,52 @@ function defaultsToNonTransparentNl(e: FactEntity): boolean {
 }
 
 /**
+ * The deterministic foreign-entity NL default: a well-known corporate form
+ * (S.A., N.V., GmbH, Ltd, ...) is comparable to a Dutch N.V./B.V. on the Dutch
+ * classification lists and therefore non-transparent naar Nederlandse
+ * maatstaven, before and after 2025 alike. Null for a Dutch entity or any form
+ * that is a genuine judgment call (LLC, LP, SCS(p), KG, CV, ...).
+ */
+function foreignNlDefault(e: FactEntity) {
+  return defaultNlClassification(effJurisdiction(e), `${e.name ?? ''} ${effEntityType(e) ?? ''}`);
+}
+
+/**
+ * True when no DECIDED status stands for this entity: nothing stored at all, or
+ * the AI answered "unknown" (an absent answer, not a decision) with no advisor
+ * edit on top. An advisor's explicit pick, including an explicit "To be
+ * determined", always counts as decided and blocks the deterministic defaults.
+ */
+function nlStatusUndecided(e: FactEntity): boolean {
+  if (e.edits?.nlTaxStatus !== undefined) return false;
+  const status = e.nlTaxStatus;
+  return !status || nlQualification(status) === 'undetermined';
+}
+
+/**
  * The NL qualification to display for an entity. An explicit status (advisor edit
- * or AI) always wins; absent one, a Dutch corporation falls back to non-transparent
- * and everything else stays undetermined.
+ * or AI) always wins; absent one, a Dutch corporation falls back to
+ * non-transparent, a foreign entity with a well-known corporate form falls back
+ * to the classification-list default, and everything else stays undetermined.
  */
 export function effNlQualification(e: FactEntity): NlQualification {
   const status = effNlTaxStatus(e);
-  if (status) return nlQualification(status);
-  return defaultsToNonTransparentNl(e) ? 'non-transparent' : 'undetermined';
+  if (status && !nlStatusUndecided(e)) return nlQualification(status);
+  if (defaultsToNonTransparentNl(e)) return 'non-transparent';
+  return foreignNlDefault(e) ? 'non-transparent' : 'undetermined';
 }
 
 /**
  * The "why" behind the NL classification: the AI/advisor reason when present, else
- * the standard line for a Dutch corporation taken by the default. Null when there
- * is nothing to explain.
+ * the standard line for a Dutch corporation taken by the default, else the
+ * classification-list basis for a foreign corporate form. Null when there is
+ * nothing to explain.
  */
 export function effNlQualificationReason(e: FactEntity): string | null {
   if (e.nlTaxStatusReason) return e.nlTaxStatusReason;
-  if (!effNlTaxStatus(e) && defaultsToNonTransparentNl(e)) return DEFAULT_NL_NON_TRANSPARENT_REASON;
-  return null;
+  if (!nlStatusUndecided(e)) return null;
+  if (defaultsToNonTransparentNl(e)) return DEFAULT_NL_NON_TRANSPARENT_REASON;
+  return foreignNlDefault(e)?.basis ?? null;
 }
 
 /**

@@ -13,7 +13,7 @@ import { loadEffectiveAnswers } from "../_shared/effectiveAnswersDb.ts";
 import { answersFingerprint } from "../_shared/effectiveAnswers.ts";
 import { buildFactsheetBlock } from "./factsheetBlock.ts";
 import { loadSessionFactsheet, linkFactsheetToRegister, borrowerAttributionWarnings } from "./factsheetLink.ts";
-import { defaultClassification } from "./classificationDefaults.ts";
+import { defaultClassification, defaultNlClassification } from "./classificationDefaults.ts";
 import { missingRowIds, checkStatusReasoningConsistency, type AppendixStatus } from "./appendixValidators.ts";
 import {
   buildEntityRegister,
@@ -186,8 +186,12 @@ function dedupeStrings(arr: string[]): string[] {
 
 /**
  * F9b: fill a missing / "to be determined" home-state classification from the
- * deterministic defaults (US per-se corp, SMLLC, HK Ltd, Irish DAC, CH AG). Only
- * ever a PROPOSAL (status 'proposed'); the advisor confirms. Returns the warnings.
+ * deterministic defaults (US per-se corp, SMLLC, HK Ltd, Irish DAC, CH AG, plus
+ * the generic well-known corporate suffixes: S.A., N.V., GmbH, Ltd, ...). Also
+ * fills the NL-side status for a foreign entity the model left "unknown" but
+ * whose statutory form the Dutch classification lists place (non-transparent
+ * naar Nederlandse maatstaven, pre- and post-2025 alike). Only ever a PROPOSAL
+ * (status 'proposed'; the advisor overrides freely). Returns the warnings.
  */
 function applyClassificationDefaults(facts: AppendixFacts): string[] {
   const warnings: string[] = [];
@@ -195,12 +199,29 @@ function applyClassificationDefaults(facts: AppendixFacts): string[] {
   const byEntity = new Map(facts.classifications.map((c) => [c.entityId, c]));
   const meaningful = (homeClass: string | null | undefined) =>
     !!homeClass && !/to be determined|unknown|tbd|^$/i.test(homeClass.trim());
+  // NL view first: the model's "unknown" is an absent answer, not a decision.
+  // An advisor edit (any value, including an explicit unknown) always blocks it.
+  for (const e of facts.entities) {
+    if (e.role === "Taxpayer" || e.hidden) continue;
+    if (e.edits?.nlTaxStatus !== undefined) continue;
+    if (e.nlTaxStatus && e.nlTaxStatus !== "unknown") continue;
+    const jur = e.edits?.jurisdiction ?? e.jurisdiction;
+    const d = defaultNlClassification(jur, `${e.name} ${e.edits?.entityType ?? e.entityType ?? ""}`);
+    if (!d) continue;
+    e.nlTaxStatus = "non_transparent";
+    // Keep a reason the model already wrote (it usually reaches the same
+    // conclusion in its own words); only fill the gap with the list basis.
+    if (!e.nlTaxStatusReason) e.nlTaxStatusReason = d.basis;
+    warnings.push(`NL classification for ${e.name} defaulted to non-transparent (${d.basis}). Proposed, to verify.`);
+  }
   for (const e of facts.entities) {
     if (e.role === "Taxpayer" || e.hidden) continue;
     const existing = byEntity.get(e.id);
     if (existing && meaningful(existing.homeClass)) continue;
     const jur = e.edits?.jurisdiction ?? e.jurisdiction;
-    const form = e.edits?.entityType ?? e.entityType;
+    // The statutory suffix normally sits in the NAME; the chart entity type
+    // alone stays meaningful for the US per-se rules.
+    const form = `${e.name} ${e.edits?.entityType ?? e.entityType ?? ""}`;
     const d = defaultClassification(jur, form);
     if (!d) continue;
     if (existing) {

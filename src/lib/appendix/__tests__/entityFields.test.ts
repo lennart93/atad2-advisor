@@ -51,9 +51,9 @@ describe('effNlQualification - deterministic NL default', () => {
     expect(effNlQualification({ ...nlCorp, entityType: 'reverse_hybrid' })).toBe('undetermined');
     expect(effNlQualificationReason({ ...nlCorp, entityType: 'partnership' })).toBeNull();
   });
-  it('does NOT default a foreign entity', () => {
+  it('does NOT default a foreign entity without a recognisable statutory form', () => {
     expect(effNlQualification(base)).toBe('non-transparent'); // base has nlTaxStatus 'resident' -> explicit
-    expect(effNlQualification({ ...base, nlTaxStatus: null })).toBe('undetermined'); // DE corp, no status -> open
+    expect(effNlQualification({ ...base, nlTaxStatus: null })).toBe('undetermined'); // DE corp, no suffix -> open
   });
   it('lets an explicit status (or advisor edit) win over the default', () => {
     expect(effNlQualification({ ...nlCorp, nlTaxStatus: 'transparent' })).toBe('transparent');
@@ -63,6 +63,38 @@ describe('effNlQualification - deterministic NL default', () => {
   });
   it('prefers an AI/advisor reason over the synthesized default reason', () => {
     expect(effNlQualificationReason({ ...nlCorp, nlTaxStatusReason: 'Custom reason.' })).toBe('Custom reason.');
+  });
+});
+
+describe('effNlQualification - deterministic foreign corporate-form default', () => {
+  // The Duhco S.A. case: the AI answered "unknown" while its own reason already
+  // concluded non-transparent. A well-known corporate form settles the NL view.
+  const luSa: FactEntity = {
+    id: 'E7', chartEntityId: 'c7', name: 'Duhco S.A.', jurisdiction: 'LU',
+    entityType: 'corporation', role: 'Parent', ownershipPct: 100, related: true, nlTaxStatus: null,
+  };
+  it('defaults a foreign well-known corporate form to non-transparent, with the list basis as reason', () => {
+    expect(effNlQualification(luSa)).toBe('non-transparent');
+    expect(effNlQualificationReason(luSa)).toMatch(/comparable to a Dutch N\.V\./);
+  });
+  it("treats the AI's 'unknown' as an absent answer, not a decision", () => {
+    const aiUnknown = { ...luSa, nlTaxStatus: 'unknown', nlTaxStatusReason: 'Appears non-transparent as a foreign corporate entity.' };
+    expect(effNlQualification(aiUnknown)).toBe('non-transparent');
+    // The AI's own words stay the shown reason when it wrote one.
+    expect(effNlQualificationReason(aiUnknown)).toBe('Appears non-transparent as a foreign corporate entity.');
+  });
+  it("keeps an advisor's explicit 'To be determined' (edit) as undetermined", () => {
+    expect(effNlQualification({ ...luSa, edits: { nlTaxStatus: 'unknown' } })).toBe('undetermined');
+  });
+  it('leaves the year-dependent forms (LLC, SCSp, ...) open', () => {
+    expect(effNlQualification({ ...luSa, name: 'Fund SCSp', entityType: 'partnership' })).toBe('undetermined');
+    expect(effNlQualification({ ...luSa, name: 'Delaware Holdings LLC', jurisdiction: 'US' })).toBe('undetermined');
+  });
+  it('follows an advisor jurisdiction edit (a form is only defaulted in its own state system)', () => {
+    // Edited to NL: the entity is Dutch now, so the foreign default no longer applies
+    // (and the NL-corp default takes over via the chart type).
+    expect(effNlQualification({ ...luSa, edits: { jurisdiction: 'NL' } })).toBe('non-transparent');
+    expect(effNlQualificationReason({ ...luSa, edits: { jurisdiction: 'NL' } })).toBe(DEFAULT_NL_NON_TRANSPARENT_REASON);
   });
 });
 
