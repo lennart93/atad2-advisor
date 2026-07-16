@@ -89,44 +89,21 @@ const EYEBROW = "text-[11px] font-normal uppercase tracking-[0.16em] text-ds-ink
 const ROSTER_CAP = 8;
 
 /**
- * One entity in the "Entities in scope" roster: a hairline-bordered, subtly
- * filled chip carrying the entity name plus two OPTIONAL adornments the design
- * calls for — a short role tag (when role data exists) and a risk marker (a
- * danger dot + tinted border when the entity carries a flagged mismatch). With
- * neither, it renders the name alone.
+ * One entity in the "Entities in scope" roster: a quiet, fully rounded pill
+ * carrying just the entity name — no fill, hairline border, so the roster
+ * reads as one or two lines instead of a wall of cards. The taxpayer (lead)
+ * entity gets a small uppercase tag as its only distinction.
  */
-function EntityChip({
-  name,
-  role,
-  flagged,
-}: {
-  name: string;
-  role?: string | null;
-  flagged?: boolean;
-}) {
+function EntityPill({ name, taxpayer }: { name: string; taxpayer?: boolean }) {
   return (
-    <div
-      className={`flex items-center justify-between gap-2 rounded-ds-card border px-3 py-2 ${
-        flagged
-          ? "border-brand-warning bg-brand-warning-soft"
-          : "border-ds-hairline bg-ds-card"
-      }`}
-    >
-      <span className="flex min-w-0 items-center gap-2">
-        {flagged && (
-          <span
-            aria-hidden="true"
-            className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-warning"
-          />
-        )}
-        <span className="truncate text-[14px] text-ds-ink">{name}</span>
-      </span>
-      {role && (
+    <span className="inline-flex max-w-full items-center gap-2 rounded-full border-[0.5px] border-ds-hairline px-3 py-1">
+      <span className="truncate text-[14px] text-ds-ink">{name}</span>
+      {taxpayer && (
         <span className="shrink-0 text-[10px] font-medium uppercase tracking-[0.12em] text-ds-ink-tertiary">
-          {role}
+          Taxpayer
         </span>
       )}
-    </div>
+    </span>
   );
 }
 
@@ -856,24 +833,9 @@ const AssessmentReport = () => {
             {isMultiEntity && (
               <div className="border-t border-ds-hairline pt-4">
                 <p className={`${EYEBROW} mb-3`}>Entities in scope</p>
-                <div className="grid gap-2 grid-cols-[repeat(auto-fit,minmax(185px,1fr))]">
+                <div className="flex flex-wrap gap-2">
                   {visibleEntities.map((name, i) => (
-                    <EntityChip
-                      key={`${name}-${i}`}
-                      name={name}
-                      // TODO(roster-role): entity roles are modeled on the
-                      // FactEntity register (appendix facts) for the whole
-                      // structure, not on the taxpayer-subject list that drives
-                      // this roster. Wire a name-matched lookup here once the
-                      // facts appendix is a reliable header dependency.
-                      role={undefined}
-                      // TODO(roster-risk): per-entity risk is not modeled. The
-                      // assessment result carries a single aggregate outcome and
-                      // per-condition appendix rows, not a per-entity mismatch
-                      // flag. Wire the marker here once a per-entity flag exists;
-                      // omitted rather than fabricated for now.
-                      flagged={undefined}
-                    />
+                    <EntityPill key={`${name}-${i}`} name={name} taxpayer={name === leadEntity} />
                   ))}
                 </div>
                 {rosterCollapses && (
