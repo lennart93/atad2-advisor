@@ -90,7 +90,7 @@ function json(body: unknown, status = 200) {
   });
 }
 
-interface Answer { question_id: string; answer: string; explanation: string | null; }
+interface Answer { question_id: string; answer: string; explanation: string | null; question_text: string | null; }
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -246,6 +246,7 @@ async function runGeneration(c: SupabaseClient, appendixId: string, sessionId: s
     const answersFp = await answersFingerprint(effective);
     const answers: Answer[] = effective.map((a) => ({
       question_id: a.question_id, answer: a.answer, explanation: a.explanation,
+      question_text: a.question_text ?? null,
     }));
     const answersByQ = new Map(answers.map((a) => [a.question_id, a]));
 
@@ -268,8 +269,12 @@ async function runGeneration(c: SupabaseClient, appendixId: string, sessionId: s
       .filter((a) => a.explanation && a.explanation.trim())
       .map((a) => `- (Q${a.question_id}) ${a.explanation!.trim()}`)
       .join("\n");
+    // Include the question text: without it "Q19 answer: No" is meaningless to
+    // the model and an explicit client "No" on the double-deduction question
+    // can never ground a "Not triggered" (rows drifted to "Insufficient
+    // information" while the questionnaire outcome said no risk).
     const answersBlock = answers
-      .map((a) => `Q${a.question_id} answer: ${a.answer}${a.explanation ? `\n  Explanation: ${a.explanation}` : ""}`)
+      .map((a) => `Q${a.question_id}${a.question_text ? ` (${a.question_text})` : ""} answer: ${a.answer}${a.explanation ? `\n  Explanation: ${a.explanation}` : ""}`)
       .join("\n");
 
     // Part A — deterministic entity register, then ask the model to propose the
@@ -378,9 +383,15 @@ async function runGeneration(c: SupabaseClient, appendixId: string, sessionId: s
       sectionGroups.set(key, arr);
     }
 
+    // drivenByQuestionIds ties each row to the intake questions that test its
+    // condition, so a recorded "No"/"Yes" in ANSWERS_BLOCK can decide the row
+    // (prompt v10). Older prompts simply ignore the extra field.
     const mkSkeletonUser = (secRows: ServerSkeletonRow[]) =>
       baseFilled.replace("{{SKELETON_ROWS}}", JSON.stringify(
-        secRows.map((r) => ({ rowId: r.rowId, legalBasis: r.legalBasis, conditionTested: r.conditionTested, allowedStates: r.allowedStates })),
+        secRows.map((r) => ({
+          rowId: r.rowId, legalBasis: r.legalBasis, conditionTested: r.conditionTested, allowedStates: r.allowedStates,
+          ...(r.drivenByQuestionIds.length ? { drivenByQuestionIds: r.drivenByQuestionIds } : {}),
+        })),
       ));
 
     const perSection = await Promise.all([...sectionGroups.values()].map(async (secRows) => {
@@ -603,7 +614,7 @@ async function callWithRetry(call: () => Promise<{ text: string }>): Promise<App
 async function loadSkeletonRows(c: SupabaseClient): Promise<ServerSkeletonRow[]> {
   const { data, error } = await c
     .from("atad2_appendix_skeleton")
-    .select("row_id, legal_basis, condition_tested, allowed_states, render_if")
+    .select("row_id, legal_basis, condition_tested, allowed_states, driven_by_question_ids, render_if")
     .eq("is_active", true)
     .order("sort_order", { ascending: true });
   if (error || !data || data.length === 0) return SKELETON_ROWS;
@@ -612,7 +623,7 @@ async function loadSkeletonRows(c: SupabaseClient): Promise<ServerSkeletonRow[]>
     legalBasis: r.legal_basis as string,
     conditionTested: r.condition_tested as string,
     allowedStates: (Array.isArray(r.allowed_states) ? r.allowed_states : []) as string[],
-    drivenByQuestionIds: [],
+    drivenByQuestionIds: (Array.isArray(r.driven_by_question_ids) ? r.driven_by_question_ids : []) as string[],
     renderIfQuestionEquals: (r.render_if as ServerSkeletonRow["renderIfQuestionEquals"]) ?? undefined,
   }));
 }
