@@ -829,9 +829,6 @@ const AssessmentReport = () => {
                   <span className="text-[12px] font-normal opacity-80">(adjusted)</span>
                 )}
               </div>
-              <p className="max-w-2xl text-[15px] text-ds-ink-secondary">
-                The ATAD2 position for this structure, ready to compile into a memorandum.
-              </p>
             </div>
 
             {/* The structure name is the page title and the outcome is the hero
@@ -899,8 +896,6 @@ const AssessmentReport = () => {
                 </span>
               </p>
             )}
-
-            <p className="max-w-2xl text-[13px] text-ds-ink-secondary">{riskOutcome.description}</p>
 
               {/* Reasoning and additions - full width grid below the main content */}
               {(sessionData.outcome_overridden && sessionData.override_reason) || sessionData.additional_context ? (
@@ -1056,6 +1051,9 @@ const AssessmentReport = () => {
           <Card>
             <CardHeader className="space-y-1.5">
               <CardTitle as="h2">Generate memorandum</CardTitle>
+              {/* The one place the "what you can generate" line lives: next to
+                  the action it describes, not repeated under the page title. */}
+              <CardDescription>{riskOutcome.description}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-5">
