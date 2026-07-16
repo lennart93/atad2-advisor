@@ -826,30 +826,6 @@ const AssessmentReport = () => {
               </div>
             </dl>
 
-            {/* Entities in scope. Only shown for a multi-entity assessment; a
-                single-entity one is fully described by the title + STRUCTURE
-                field. A responsive chip grid, capped at ROSTER_CAP with a
-                Show-all toggle for large structures. */}
-            {isMultiEntity && (
-              <div className="border-t border-ds-hairline pt-4">
-                <p className={`${EYEBROW} mb-3`}>Entities in scope</p>
-                <div className="flex flex-wrap gap-2">
-                  {visibleEntities.map((name, i) => (
-                    <EntityPill key={`${name}-${i}`} name={name} taxpayer={name === leadEntity} />
-                  ))}
-                </div>
-                {rosterCollapses && (
-                  <button
-                    type="button"
-                    onClick={() => setShowAllEntities((v) => !v)}
-                    className="mt-3 text-[13px] text-ds-ink-secondary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent focus-visible:ring-offset-2"
-                  >
-                    {showAllEntities ? "Show fewer" : `Show all ${entityCount}`}
-                  </button>
-                )}
-              </div>
-            )}
-
             {sessionData.is_custom_period && sessionData.period_start_date && sessionData.period_end_date && (
               <p className="text-[13px] text-ds-ink-secondary">
                 Period:{" "}
@@ -1131,6 +1107,31 @@ const AssessmentReport = () => {
               </div>
             </CardContent>
           </Card>
+
+          {/* Entities in scope. Only shown for a multi-entity assessment; a
+              single-entity one is fully described by the title. Sits after the
+              generate action (conclusion, action, then supporting detail): a
+              wrap of pills, capped at ROSTER_CAP with a Show-all toggle for
+              large structures. */}
+          {isMultiEntity && (
+            <section className="border-t border-ds-hairline pt-4">
+              <p className={`${EYEBROW} mb-3`}>Entities in scope</p>
+              <div className="flex flex-wrap gap-2">
+                {visibleEntities.map((name, i) => (
+                  <EntityPill key={`${name}-${i}`} name={name} taxpayer={name === leadEntity} />
+                ))}
+              </div>
+              {rosterCollapses && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllEntities((v) => !v)}
+                  className="mt-3 text-[13px] text-ds-ink-secondary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent focus-visible:ring-offset-2"
+                >
+                  {showAllEntities ? "Show fewer" : `Show all ${entityCount}`}
+                </button>
+              )}
+            </section>
+          )}
 
           {/* Memorandum. No `overflow-hidden` on the section: an overflow
               ancestor would become the sticky metadata rail's scroll container
