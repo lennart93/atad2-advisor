@@ -411,6 +411,8 @@ const AssessmentReport = () => {
   // Determine the final outcome - use override if applicable
   type OutcomeDisplay = {
     text: string;
+    /** Fuller phrasing for the hero banner under the page title. */
+    heroText: string;
     icon: JSX.Element;
     status: "triggered" | "insufficient" | "complete";
     description: string;
@@ -422,18 +424,21 @@ const AssessmentReport = () => {
       const outcomeMap: Record<string, OutcomeDisplay> = {
         'risk_identified': {
           text: "ATAD2 risk identified",
+          heroText: "ATAD2 hybrid-mismatch risk identified",
           icon: <AlertTriangle />,
           status: "triggered",
           description: "This outcome was manually selected based on your expert assessment."
         },
         'insufficient_information': {
           text: "Insufficient information",
+          heroText: "Insufficient information for a full ATAD2 analysis",
           icon: <Info />,
           status: "insufficient",
           description: "This outcome was manually selected based on your expert assessment."
         },
         'low_risk': {
           text: "No risk identified",
+          heroText: "No ATAD2 hybrid-mismatch risk identified",
           icon: <CheckCircle />,
           status: "complete",
           description: "This outcome was manually selected based on your expert assessment."
@@ -448,6 +453,7 @@ const AssessmentReport = () => {
     if (points >= 1.0) {
       return {
         text: "ATAD2 risk identified",
+        heroText: "ATAD2 hybrid-mismatch risk identified",
         icon: <AlertTriangle />,
         status: "triggered",
         description: "You can generate a memorandum highlighting potential ATAD2 risk areas for further review."
@@ -455,6 +461,7 @@ const AssessmentReport = () => {
     } else if (points >= 0.2) {
       return {
         text: "Insufficient information",
+        heroText: "Insufficient information for a full ATAD2 analysis",
         icon: <Info />,
         status: "insufficient",
         description: "You can generate a memorandum outlining which information is missing to complete a full ATAD2 analysis."
@@ -462,6 +469,7 @@ const AssessmentReport = () => {
     } else {
       return {
         text: "No risk identified",
+        heroText: "No ATAD2 hybrid-mismatch risk identified",
         icon: <CheckCircle />,
         status: "complete",
         description: "You can generate a memorandum confirming that no ATAD2 hybrid-mismatch risk was identified based on the information provided."
@@ -470,6 +478,14 @@ const AssessmentReport = () => {
   };
 
   const riskOutcome = getFinalOutcome();
+
+  // Chrome for the hero outcome banner, from the existing status palette:
+  // sage/success = no risk, warning = risk, info = insufficient information.
+  const heroTone = {
+    triggered: "border-brand-warning bg-brand-warning-soft text-brand-warning-deep",
+    insufficient: "border-brand-info bg-brand-info-soft text-brand-info-deep",
+    complete: "border-ds-green bg-ds-green-bg text-ds-green-text",
+  }[riskOutcome.status];
 
   // The memo lock also freezes the responses (no edits after generation).
   const responsesLocked = isGeneratingReport || !!latestReport;
@@ -807,6 +823,18 @@ const AssessmentReport = () => {
                   </span>
                 )}
               </div>
+              {/* The conclusion is the page's answer, so it reads directly under
+                  the title as a hero banner instead of the smallest metadata cell. */}
+              <div className={`inline-flex items-center gap-2.5 rounded-ds-control border px-3.5 py-2 ${heroTone}`}>
+                {React.cloneElement(riskOutcome.icon, {
+                  className: "h-4 w-4 shrink-0",
+                  "aria-hidden": true,
+                })}
+                <span className="text-[15px] font-medium">{riskOutcome.heroText}</span>
+                {sessionData.outcome_overridden && (
+                  <span className="text-[12px] font-normal opacity-80">(adjusted)</span>
+                )}
+              </div>
               <p className="max-w-2xl text-[15px] text-ds-ink-secondary">
                 The ATAD2 position for this structure, ready to compile into a memorandum.
               </p>
@@ -831,34 +859,6 @@ const AssessmentReport = () => {
               <div>
                 <dt className={EYEBROW}>Completed</dt>
                 <dd className="mt-1.5 text-[15px] tabular-nums text-ds-ink">{formatDateTime(sessionData.created_at)}</dd>
-              </div>
-              <div>
-                <dt className={EYEBROW}>Outcome</dt>
-                <dd className="mt-1.5 flex items-center gap-2">
-                  <span
-                    className={`h-1.5 w-1.5 shrink-0 rounded-full ${
-                      riskOutcome.status === "triggered"
-                        ? "bg-brand-warning"
-                        : riskOutcome.status === "insufficient"
-                          ? "bg-brand-info"
-                          : "bg-brand-sage"
-                    }`}
-                  />
-                  <span
-                    className={`text-[15px] ${
-                      riskOutcome.status === "triggered"
-                        ? "text-brand-warning-deep"
-                        : riskOutcome.status === "insufficient"
-                          ? "text-brand-info-deep"
-                          : "text-ds-green-text"
-                    }`}
-                  >
-                    {riskOutcome.text}
-                  </span>
-                  {sessionData.outcome_overridden && (
-                    <span className="text-[12px] text-ds-ink-secondary">(adjusted)</span>
-                  )}
-                </dd>
               </div>
             </dl>
 
