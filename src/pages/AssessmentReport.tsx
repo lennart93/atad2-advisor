@@ -8,7 +8,7 @@ import { toast } from "@/components/ui/sonner";
 import { formatDate, formatDateTime } from "@/utils/formatDate";
 import { formatFiscalYears } from "@/utils/formatFiscalYears";
 import { taxpayerDisplayName, parseTaxpayerNames, dedupeEntityNames } from "@/lib/taxpayer";
-import { ArrowLeft, ArrowRight, Loader2, AlertTriangle, Info, CheckCircle, Pencil, X, Check, Layers } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, AlertTriangle, Info, CheckCircle, Pencil, X, Check } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { EditableAnswer } from "@/components/EditableAnswer";
@@ -816,12 +816,6 @@ const AssessmentReport = () => {
                 <h1 className="text-4xl font-normal leading-[1.02] tracking-[-0.02em] text-ds-ink sm:text-5xl">
                   {leadEntity}
                 </h1>
-                {isMultiEntity && (
-                  <span className="inline-flex items-center gap-1.5 rounded-ds-control border border-ds-hairline bg-ds-fill-muted px-2.5 py-1 text-[12px] font-medium text-ds-ink-secondary">
-                    <Layers className="h-3.5 w-3.5 text-ds-ink-tertiary" aria-hidden="true" />
-                    Multi-entity · {entityCount}
-                  </span>
-                )}
               </div>
               {/* The conclusion is the page's answer, so it reads directly under
                   the title as a hero banner instead of the smallest metadata cell. */}
@@ -840,17 +834,13 @@ const AssessmentReport = () => {
               </p>
             </div>
 
-            <dl className="grid grid-cols-2 gap-x-6 gap-y-4 border-t border-ds-ink pt-4 sm:grid-cols-4">
+            {/* The structure name is the page title and the outcome is the hero
+                banner, so the row carries only what is stated nowhere else:
+                the entity count, the year and the completion moment. */}
+            <dl className="grid grid-cols-2 gap-x-6 gap-y-4 border-t border-ds-ink pt-4 sm:grid-cols-3">
               <div>
-                <dt className={EYEBROW}>Structure</dt>
-                <dd className="mt-1.5 text-[15px] text-ds-ink">
-                  {leadEntity}
-                  {isMultiEntity && (
-                    <span className="mt-0.5 block text-[13px] text-ds-ink-tertiary">
-                      + {entityCount - 1} {entityCount - 1 === 1 ? "entity" : "entities"}
-                    </span>
-                  )}
-                </dd>
+                <dt className={EYEBROW}>Entities in scope</dt>
+                <dd className="mt-1.5 text-[15px] tabular-nums text-ds-ink">{entityCount}</dd>
               </div>
               <div>
                 <dt className={EYEBROW}>Tax year</dt>
@@ -868,7 +858,7 @@ const AssessmentReport = () => {
                 Show-all toggle for large structures. */}
             {isMultiEntity && (
               <div className="border-t border-ds-hairline pt-4">
-                <p className={`${EYEBROW} mb-3`}>Entities in scope ({entityCount})</p>
+                <p className={`${EYEBROW} mb-3`}>Entities in scope</p>
                 <div className="grid gap-2 grid-cols-[repeat(auto-fit,minmax(185px,1fr))]">
                   {visibleEntities.map((name, i) => (
                     <EntityChip
