@@ -51,7 +51,10 @@ BEGIN
     SELECT 1 FROM atad2_prompts
     WHERE key = 'appendix_facts_system' AND version = 22 AND is_active = true
       AND system_prompt LIKE '%Lead with the legal-form comparison and stop there%'
-      AND system_prompt NOT LIKE '%nothing indicates Dutch residence%'
+      -- Check for the EXAMPLE tail specifically: item 1 legitimately keeps
+      -- "nothing indicates Dutch residence or a Dutch PE" as the decision rule
+      -- for the status KEY, so a broad match on that phrase false-alarms.
+      AND system_prompt NOT LIKE '%permanent establishment, so it sits outside the scope of Dutch CIT%'
   ) THEN
     RAISE EXCEPTION 'v22 REPLACE did not apply: the v21 example anchor changed on the live v21 prompt. Inspect the live v21 system_prompt and update the anchor.';
   END IF;
