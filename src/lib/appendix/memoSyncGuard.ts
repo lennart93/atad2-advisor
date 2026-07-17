@@ -29,6 +29,12 @@ export function checkAppendixSync(appendix: StoredAppendix | null): MemoSyncResu
     };
   }
 
+  // A skipped page is deliberately left out of the memo, so it cannot gate it.
+  // With both pages skipped the memo carries no appendix content at all.
+  const factsIncluded = !appendix.facts_skipped;
+  const checklistIncluded = !appendix.checklist_skipped;
+  if (!factsIncluded && !checklistIncluded) return { ok: true };
+
   // Until the appendix is confirmed, gate on where it is in generation. Once it is
   // confirmed it already has valid content in the DB, so a transient background
   // regeneration must NOT block the memo; genuine drift in the conditions is caught
@@ -46,20 +52,26 @@ export function checkAppendixSync(appendix: StoredAppendix | null): MemoSyncResu
         reason: 'The appendix failed to generate. Open the appendix step to regenerate it, then confirm it.',
       };
     }
-    return {
-      ok: false,
-      reason: 'The appendix is not confirmed yet. Review and confirm the appendix before generating the memo.',
-    };
+    // Confirmation happens on the checklist page. When that page is skipped there
+    // is no confirm step; the memo then carries the facts page only.
+    if (checklistIncluded) {
+      return {
+        ok: false,
+        reason: 'The appendix is not confirmed yet. Review and confirm the appendix before generating the memo.',
+      };
+    }
   }
 
   // Appendix 2: any row flagged stale because a driving answer changed since it
-  // was generated.
-  const staleRows = appendix.rows.filter((r) => r.stale && !r.excludedFromClient);
-  if (staleRows.length) {
-    return {
-      ok: false,
-      reason: `Appendix 2 (conditions) is out of date with the answers: ${staleRows.length} ${staleRows.length === 1 ? 'condition needs' : 'conditions need'} review. Regenerate the appendix and confirm it again.`,
-    };
+  // was generated. Only relevant while the checklist page is in the memo.
+  if (checklistIncluded) {
+    const staleRows = appendix.rows.filter((r) => r.stale && !r.excludedFromClient);
+    if (staleRows.length) {
+      return {
+        ok: false,
+        reason: `Appendix 2 (conditions) is out of date with the answers: ${staleRows.length} ${staleRows.length === 1 ? 'condition needs' : 'conditions need'} review. Regenerate the appendix and confirm it again.`,
+      };
+    }
   }
 
   return { ok: true };

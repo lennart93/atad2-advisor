@@ -91,23 +91,23 @@ export async function saveRowEdit(
   if (logErr) throw logErr;
 }
 
-export async function saveFacts(appendixId: string, facts: AppendixFacts): Promise<void> {
+/**
+ * Persist the rows array without a change-log entry. Used for the review
+ * sign-off toggle: the edits table's field CHECK does not cover it, and the
+ * who/when audit already lives on the row itself (reviewedBy/reviewedAt).
+ */
+export async function saveRows(appendixId: string, rows: AppendixRow[]): Promise<void> {
   const { error } = await supabase
     .from('atad2_appendix')
-    .update({ facts: facts as unknown as never, updated_at: new Date().toISOString() })
+    .update({ rows: rows as unknown as never, updated_at: new Date().toISOString() })
     .eq('id', appendixId);
   if (error) throw error;
 }
 
-/**
- * Drop the Part A cache key so the next generation recomputes the facts from
- * scratch (re-asking the model for acting-together) instead of reusing the
- * stored, possibly-empty result. Used by the "Re-check relationships" action.
- */
-export async function clearAppendixFactsCache(appendixId: string): Promise<void> {
+export async function saveFacts(appendixId: string, facts: AppendixFacts): Promise<void> {
   const { error } = await supabase
     .from('atad2_appendix')
-    .update({ facts_input_hash: null as unknown as never, updated_at: new Date().toISOString() })
+    .update({ facts: facts as unknown as never, updated_at: new Date().toISOString() })
     .eq('id', appendixId);
   if (error) throw error;
 }

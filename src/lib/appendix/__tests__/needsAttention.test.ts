@@ -8,7 +8,7 @@ import {
   txNeedsAttention, splitTransactions,
   entityNeedsAttention, classificationsById,
   groupNeedsAttention, actingSectionNeedsAttention, clientGroupCount,
-  conditionNeedsAttention, partADigest, partBDigest, sectionWorstStatus,
+  conditionNeedsAttention, conditionReviewPending, partADigest, partBReviewProgress, sectionWorstStatus,
 } from '@/lib/appendix/needsAttention';
 
 const ent = (id: string, jur: string | null, patch: Partial<FactEntity> = {}): FactEntity => ({
@@ -142,11 +142,39 @@ describe('digests', () => {
     // E9 (missing jur) + T1 (cross-border) flagged; T2 domestic, manual group settled.
     expect(d.needReview).toBe(2);
   });
-  it('partBDigest counts conditions and flagged findings', () => {
-    const rows = [row('1.1', 'Triggered'), row('3.1', 'Triggered'), row('3.2', 'Not triggered')];
-    const d = partBDigest(rows);
-    expect(d.conditions).toBe(3);
-    expect(d.needReview).toBe(1); // only 3.1
+  it('partBReviewProgress counts flagged conditions and their sign-off', () => {
+    const rows = [
+      row('1.1', 'Triggered'),                                  // gate -> routine
+      row('3.1', 'Triggered'),                                  // flagged, unreviewed
+      row('3.2', 'Insufficient information', { reviewed: true }), // flagged, signed off
+      row('3.3', 'Not triggered'),                              // routine
+    ];
+    const p = partBReviewProgress(rows);
+    expect(p.total).toBe(4);
+    expect(p.flagged).toBe(2);
+    expect(p.reviewed).toBe(1);
+    expect(p.pending).toBe(1);
+  });
+  it('partBReviewProgress skips rows excluded from the client', () => {
+    const rows = [row('3.1', 'Triggered', { excludedFromClient: true })];
+    const p = partBReviewProgress(rows);
+    expect(p.flagged).toBe(0);
+    expect(p.total).toBe(0);
+  });
+});
+
+describe('conditionReviewPending', () => {
+  const moot = (rows: AppendixRow[]) => appendixMootRowIds(rows.map((r) => ({ rowId: r.rowId, status: r.status })));
+  it('a flagged, unreviewed condition is pending', () => {
+    const r = row('3.1', 'Insufficient information');
+    expect(conditionReviewPending(r, moot([r]))).toBe(true);
+  });
+  it('a reviewed or excluded condition is not pending', () => {
+    const reviewed = row('3.1', 'Insufficient information', { reviewed: true });
+    const excluded = row('3.2', 'Triggered', { excludedFromClient: true });
+    const set = moot([reviewed, excluded]);
+    expect(conditionReviewPending(reviewed, set)).toBe(false);
+    expect(conditionReviewPending(excluded, set)).toBe(false);
   });
 });
 

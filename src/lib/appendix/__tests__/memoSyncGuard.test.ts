@@ -59,4 +59,40 @@ describe('checkAppendixSync', () => {
     const r = checkAppendixSync(appendix());
     expect(r.ok).toBe(true);
   });
+
+  it('passes when both pages are skipped, even unconfirmed and mid-generation', () => {
+    // Nothing appendix-wise reaches the memo, so nothing can gate it.
+    const r = checkAppendixSync(appendix({
+      review_status: 'draft', generation_status: 'generating',
+      facts_skipped: true, checklist_skipped: true,
+    }));
+    expect(r.ok).toBe(true);
+  });
+
+  it('does not require confirmation when the checklist page is skipped', () => {
+    // The confirm step lives on the (skipped) checklist page; facts-only export.
+    const r = checkAppendixSync(appendix({ review_status: 'draft', checklist_skipped: true }));
+    expect(r.ok).toBe(true);
+  });
+
+  it('ignores stale rows when the checklist page is skipped', () => {
+    const r = checkAppendixSync(appendix({
+      checklist_skipped: true,
+      rows: [baseRow({ stale: true, staleReason: 'Q1 changed' })],
+    }));
+    expect(r.ok).toBe(true);
+  });
+
+  it('still blocks a facts-only export while generation is running', () => {
+    const r = checkAppendixSync(appendix({
+      review_status: 'draft', generation_status: 'generating', checklist_skipped: true,
+    }));
+    expect(r.ok).toBe(false);
+  });
+
+  it('still requires confirmation when only the facts page is skipped', () => {
+    const r = checkAppendixSync(appendix({ review_status: 'draft', facts_skipped: true }));
+    expect(r.ok).toBe(false);
+    expect(r.reason).toMatch(/not confirmed/i);
+  });
 });

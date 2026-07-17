@@ -88,6 +88,17 @@ export interface AppendixRow {
    */
   ungrounded?: boolean;
   excludedFromClient: boolean;    // advisor hid this row; dropped + renumbered in the client export
+  /**
+   * Advisor sign-off on a flagged condition (Triggered, Insufficient information
+   * or not assessed): the row was looked at and its status stands, including the
+   * deliberate choice to keep it "Insufficient information". Set by the explicit
+   * "Mark reviewed" action or implicitly by a status change. Lives only in the
+   * rows JSONB; a regeneration that rebuilds an AI row drops it, so fresh output
+   * is reviewed again. Gates "Confirm appendix" (see confirmGuard.ts).
+   */
+  reviewed?: boolean;
+  reviewedBy?: string | null;     // user id
+  reviewedAt?: string | null;     // ISO timestamp
   source: 'ai' | 'edited';
   stale: boolean;
   staleReason: string | null;
@@ -361,6 +372,13 @@ export interface AppendixFacts {
    * simply never comes back).
    */
   removedChartEntityIds?: string[];
+  /**
+   * AI-identified transactions the advisor deleted outright, recorded by their
+   * merge key `fromEntityId|toEntityId|kind` (the same key mergeFacts uses for
+   * edit survival), so a later regeneration can skip re-adding them. A manual
+   * transaction is simply removed; it has no AI counterpart to suppress.
+   */
+  removedTxKeys?: string[];
   /**
    * Deterministic validation warnings (F6/F8/F9a): shareholder percentages that
    * do not sum to ~100%, transactions whose borrower disagrees with the

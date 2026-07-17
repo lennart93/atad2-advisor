@@ -1,14 +1,20 @@
 import { Button } from '@/components/ds';
-import type { PartAReviewProgress } from '@/lib/appendix/needsAttention';
+
+/** The count shape both appendix pages feed this cluster (Part A and Part B progress fit it). */
+export interface ReviewProgressCounts {
+  total: number;
+  reviewed: number;
+  open: number;
+}
 
 /**
- * The quiet review-progress cluster next to the facts page's Next button:
+ * The quiet review-progress cluster next to the footer's forward button:
  * "5 of 18 reviewed" with a thin muted bar, plus a "Review next" action that
  * takes the advisor to the first unresolved item instead of just naming it.
  * Renders nothing once every item is reviewed.
  */
 export function ReviewProgress({ progress, onReviewNext }: {
-  progress: PartAReviewProgress;
+  progress: ReviewProgressCounts;
   onReviewNext?: () => void;
 }) {
   if (progress.open === 0) return null;

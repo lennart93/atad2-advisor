@@ -6,7 +6,6 @@ import { effJurisdiction } from './facts/entityFields';
 import { isForeignHomeStateOpen } from './facts/conclusions';
 import { transactionNeedsAssessment } from './facts/transactionAssessment';
 import { isSelfTransaction } from './facts/transactionSet';
-import { actingTogetherCandidateCount } from './facts/actingCandidates';
 import { actingInClientReport } from './facts/actingAnnex';
 import { controlTypeFor, appendixMootRowIds } from './controlType';
 import { rowTone } from './conditionPolarity';
@@ -83,14 +82,13 @@ export function groupNeedsAttention(a: ActingTogetherCluster): boolean {
 }
 
 /**
- * The whole acting-together section needs attention when there is a suggestion to
- * act on, or when related shareholders are present but no group has been built.
+ * The whole acting-together section needs attention only when there is a
+ * suggestion to act on. An empty section is settled: having eligible
+ * shareholders without a group is the normal state, not an open review item
+ * (the section's empty-state text carries the nudge instead).
  */
 export function actingSectionNeedsAttention(facts: AppendixFacts): boolean {
-  const hasHint = facts.actingTogether.some(groupNeedsAttention);
-  const hasManual = facts.actingTogether.some((a) => a.origin === 'manual');
-  const candidates = actingTogetherCandidateCount(facts.entities) >= 2;
-  return hasHint || (!hasManual && candidates);
+  return facts.actingTogether.some(groupNeedsAttention);
 }
 
 /** The groups that surface in the client report (the digest's "N groups"). */
@@ -176,17 +174,36 @@ export function openItemsPhrase(p: PartAReviewProgress): string | null {
   return `${list} still ${p.open === 1 ? 'needs' : 'need'} review`;
 }
 
-export interface PartBDigest {
-  conditions: number;
-  needReview: number;
+/**
+ * A flagged condition still owes the advisor's sign-off: it needs attention, it is
+ * in client scope, and it has not been marked reviewed (explicitly, or implicitly
+ * via a status change). This is what the section chips count and what gates
+ * "Confirm appendix".
+ */
+export function conditionReviewPending(
+  row: AppendixRow,
+  mootSet: ReadonlySet<string>,
+): boolean {
+  return !row.excludedFromClient && !row.reviewed && conditionNeedsAttention(row, mootSet);
 }
 
-export function partBDigest(rows: AppendixRow[]): PartBDigest {
+export interface PartBReviewProgress {
+  /** All conditions in client scope, the footer's denominator (routine rows count as reviewed, like Part A). */
+  total: number;
+  /** In-scope conditions that need the advisor's review. */
+  flagged: number;
+  /** Of those, the ones already signed off. */
+  reviewed: number;
+  /** flagged - reviewed; 0 means the appendix can be confirmed. */
+  pending: number;
+}
+
+export function partBReviewProgress(rows: AppendixRow[]): PartBReviewProgress {
   const mootSet = appendixMootRowIds(rows.map((r) => ({ rowId: r.rowId, status: r.status })));
-  return {
-    conditions: rows.length,
-    needReview: rows.filter((r) => conditionNeedsAttention(r, mootSet)).length,
-  };
+  const inScope = rows.filter((r) => !r.excludedFromClient);
+  const flagged = inScope.filter((r) => conditionNeedsAttention(r, mootSet));
+  const pending = flagged.filter((r) => !r.reviewed);
+  return { total: inScope.length, flagged: flagged.length, reviewed: flagged.length - pending.length, pending: pending.length };
 }
 
 /** The worst status inside a set of condition rows, for a Part B section header. */

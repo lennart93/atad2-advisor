@@ -7,7 +7,7 @@ import { Button, ProcessChecklist, type ProcessStep } from '@/components/ds';
 import { useAuth } from '@/hooks/useAuth';
 import { AssessmentFooterSlot } from '@/components/assessment/AssessmentFooterSlot';
 import {
-  loadAppendix, startAppendixGeneration, pollAppendixUntilReady, saveRowEdit, confirmAppendix, saveFacts, setAppendixSkip, clearAppendixFactsCache,
+  loadAppendix, startAppendixGeneration, pollAppendixUntilReady, saveRowEdit, saveRows, confirmAppendix, saveFacts, setAppendixSkip,
 } from '@/lib/appendix/client';
 import type { StoredAppendix, AppendixRow, EditableField, AppendixFacts } from '@/lib/appendix/types';
 import { useAppendixSkeleton } from '@/lib/appendix/skeletonStore';
@@ -18,7 +18,6 @@ import { ChecklistV2 } from '@/components/appendix/v2/ChecklistV2';
 import { AppendixLoadingCard } from '@/components/appendix/AppendixLoadingCard';
 import { buildEntityRegister } from '@/lib/appendix/facts/entityRegister';
 import { emptyFacts } from '@/lib/appendix/facts/emptyFacts';
-import { actingTogetherCandidateCount } from '@/lib/appendix/facts/actingCandidates';
 import { openHomeStateCount } from '@/lib/appendix/facts/conclusions';
 import { appendixConfirmReadiness } from '@/lib/appendix/confirmGuard';
 import { partAReviewProgress, openItemsPhrase } from '@/lib/appendix/needsAttention';
@@ -34,23 +33,6 @@ const STALE_GENERATING_MS = 90_000;
 function isStaleGenerating(updatedAt: string | null): boolean {
   if (!updatedAt) return true;
   return Date.now() - new Date(updatedAt).getTime() > STALE_GENERATING_MS;
-}
-
-// Adopt the server's refreshed appendix, but keep any rows/facts the advisor has
-// edited in this session so a background refine never clobbers an in-flight edit
-// on screen (the edge function also preserves edited rows server-side).
-function mergeServerUpdate(
-  prev: StoredAppendix | null,
-  upd: StoredAppendix,
-  dirtyRowIds: Set<string>,
-  factsDirty: boolean,
-): StoredAppendix {
-  if (!prev) return upd;
-  const rows = upd.rows.map((sr) =>
-    dirtyRowIds.has(sr.rowId) ? (prev.rows.find((pr) => pr.rowId === sr.rowId) ?? sr) : sr,
-  );
-  const facts = factsDirty ? prev.facts : upd.facts;
-  return { ...upd, rows, facts };
 }
 
 export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' | 'checklist' }) {
@@ -70,11 +52,6 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
   // The session's declared taxpayer. Used to anchor the register when extraction
   // flagged no is_taxpayer, so Part A does not fall back to an empty state.
   const [taxpayerName, setTaxpayerName] = useState<string | null>(null);
-  // Rows/facts the advisor edited this session, so a background refine poll does
-  // not overwrite them on screen.
-  const dirtyRowIds = useRef<Set<string>>(new Set());
-  const factsDirty = useRef(false);
-
   // While generating, spin the top-left app logo instead of a local spinner.
   useUiBusySignal(phase === 'loading' || phase === 'generating');
 
@@ -173,14 +150,39 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
       source: 'edited',
       editedBy: user.id,
       editedAt: new Date().toISOString(),
+      // Changing the status is itself the review: the advisor made an explicit call.
+      ...(field === 'status' ? { reviewed: true, reviewedBy: user.id, reviewedAt: new Date().toISOString() } : {}),
     };
-    dirtyRowIds.current.add(rowId);
     const rows = appendix.rows.map((r, i) => (i === idx ? updated : r));
     setAppendix({ ...appendix, rows }); // optimistic
     try {
       await saveRowEdit(appendix.id, rows, rowId, field, oldValue, value, user.id);
     } catch (e) {
       toast.error('Could not save edit', { description: String(e) });
+    }
+  };
+
+  // The advisor's sign-off on a flagged condition: the status stands as it is
+  // (including deliberately keeping "Insufficient info"). Workflow state, not a
+  // content edit: `source` stays as-is and no change-log entry is written; the
+  // who/when audit lives on the row itself.
+  const handleToggleReviewed = async (rowId: string, reviewed: boolean) => {
+    if (!appendix || !user) return;
+    const idx = appendix.rows.findIndex((r) => r.rowId === rowId);
+    if (idx < 0) return;
+    const old = appendix.rows[idx];
+    const updated: AppendixRow = {
+      ...old,
+      reviewed,
+      reviewedBy: reviewed ? user.id : null,
+      reviewedAt: reviewed ? new Date().toISOString() : null,
+    };
+    const rows = appendix.rows.map((r, i) => (i === idx ? updated : r));
+    setAppendix({ ...appendix, rows }); // optimistic
+    try {
+      await saveRows(appendix.id, rows);
+    } catch (e) {
+      toast.error('Could not save review', { description: String(e) });
     }
   };
 
@@ -191,7 +193,6 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
     const old = appendix.rows[idx];
     // Exclusion is a scope flag, not a content edit, so we do not touch `source`.
     const updated: AppendixRow = { ...old, excludedFromClient: excluded };
-    dirtyRowIds.current.add(rowId);
     const rows = appendix.rows.map((r, i) => (i === idx ? updated : r));
     setAppendix({ ...appendix, rows }); // optimistic
     try {
@@ -213,25 +214,6 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
     } catch (e) {
       setPhase('error');
       toast.error('Appendix generation failed', { description: String(e) });
-    }
-  };
-
-  // Advisor-driven "re-ask the model for acting-together". Drops the Part A cache
-  // key first so the generation genuinely recomputes rather than reusing the
-  // stored empty result, then regenerates and folds the fresh facts in.
-  const handleRecheckRelationships = async () => {
-    if (!sessionId || !appendix) return;
-    setPhase('generating');
-    try {
-      await clearAppendixFactsCache(appendix.id);
-      await startAppendixGeneration(sessionId);
-      await pollAppendixUntilReady(sessionId, (upd) => {
-        setAppendix((prev) => mergeServerUpdate(prev, upd, dirtyRowIds.current, factsDirty.current));
-        setPhase(upd.generation_status === 'generating' ? 'generating' : upd.generation_status);
-      });
-    } catch (e) {
-      setPhase('error');
-      toast.error('Could not re-check relationships', { description: String(e) });
     }
   };
 
@@ -273,7 +255,6 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
 
   const handleFactsChange = (next: AppendixFacts) => {
     if (!appendix) return;
-    factsDirty.current = true;
     setAppendix({ ...appendix, facts: next }); // optimistic
     pendingFactsSave.current = { id: appendix.id, facts: next };
     void flushFactsSave();
@@ -311,18 +292,10 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
   // The panel hands us its "jump to the first unresolved item" action.
   const reviewNextRef = useRef<(() => void) | null>(null);
 
-  // Gate confirm: a no-risk appendix (nothing Triggered) may not be confirmed
-  // while conditions are still "Insufficient info" (they must be resolved first).
+  // Gate confirm on the advisor's sign-off: every flagged condition (Triggered,
+  // Insufficient info, or not assessed) must be reviewed first, by changing its
+  // status or explicitly marking it reviewed (keeping it as it is).
   const confirmGuard = appendixConfirmReadiness(appendix?.rows ?? []);
-
-  // Part A landed with no acting-together group while related shareholders are
-  // present. It is left as-is (no automatic rebuild); the advisor can re-ask the
-  // model on demand with the button below.
-  const actingEmptyWithCandidates =
-    page === 'facts' &&
-    !!appendix?.facts &&
-    (appendix.facts.actingTogether?.length ?? 0) === 0 &&
-    actingTogetherCandidateCount(appendix.facts.entities) >= 2;
 
   if (phase === 'loading' || (phase === 'generating' && !hasContent)) {
     const steps: ProcessStep[] = [
@@ -343,7 +316,7 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
         steps={steps}
         {...(phase === 'generating' ? {
           title: 'Processing your answers',
-          description: 'The appendix is being brought in line with the assessment answers. This usually takes a moment; you can stay on this page.',
+          description: 'The appendix is being brought in line with the assessment answers. This usually takes a moment. You can stay on this page.',
         } : {})}
       />
     );
@@ -377,17 +350,40 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
   }
 
   const skipped = page === 'facts' ? !!appendix.facts_skipped : !!appendix.checklist_skipped;
-  const handleToggleSkip = async () => {
-    if (!appendix) return;
-    const next = !skipped;
+
+  // Where "forward" is from this page: facts -> checklist, checklist -> structure,
+  // and an edit-from-overview visit returns to the overview.
+  const navigateForward = () => {
+    if (fromOverview) {
+      queryClient.invalidateQueries({ queryKey: ['appendix-download', sessionId] });
+      navigate(`/assessment-report/${sessionId}`);
+    } else if (page === 'facts') {
+      navigate(`/assessment-appendix/${sessionId}/checklist`);
+    } else {
+      navigate(`/assessment/structure/${sessionId}`);
+    }
+  };
+
+  const persistSkip = async (next: boolean): Promise<boolean> => {
     setAppendix({ ...appendix, ...(page === 'facts' ? { facts_skipped: next } : { checklist_skipped: next }) }); // optimistic
     try {
       await setAppendixSkip(appendix.id, page, next);
+      // The overview seeds its download options from these flags; drop its cache.
+      queryClient.invalidateQueries({ queryKey: ['appendix-download', sessionId] });
+      return true;
     } catch (e) {
       setAppendix({ ...appendix, ...(page === 'facts' ? { facts_skipped: !next } : { checklist_skipped: !next }) });
       toast.error('Could not update skip', { description: (e as { message?: string })?.message ?? String(e) });
+      return false;
     }
   };
+
+  // Skip means: move on without confirming this page; it is left out of the report.
+  // The content is kept, so Unskip (on revisit) restores it in place.
+  const handleSkip = async () => {
+    if (await persistSkip(true)) navigateForward();
+  };
+  const handleUnskip = () => { void persistSkip(false); };
 
   return (
     <div className="space-y-4">
@@ -396,15 +392,6 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
         <p className="rounded-md border border-[hsl(var(--border-subtle))] bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
           This page is skipped and will be left out of the report. The content is kept and can be restored with Unskip.
         </p>
-      )}
-
-      {actingEmptyWithCandidates && !refining && (
-        <div className="flex items-center justify-between gap-3 rounded-md border border-[hsl(var(--border-subtle))] bg-muted/30 px-3 py-2 text-xs text-ds-ink-secondary">
-          <span>No acting-together group was found, although related shareholders are present. Re-check if one is expected.</span>
-          <Button variant="secondary" size="sm" className="shrink-0" onClick={handleRecheckRelationships}>
-            Re-check relationships
-          </Button>
-        </div>
       )}
 
       <div className={skipped ? 'opacity-60' : undefined}>
@@ -421,10 +408,11 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
           // relatedParties is null on purpose: the associated-enterprises panel
           // is gone, the Part A master table already carries that overview.
           <div className="space-y-3">
-            <ChecklistV2 rows={appendix.rows} skeleton={skeleton ?? []} onEdit={handleEdit} onToggleExclude={handleToggleExclude} sessionId={sessionId} />
-            {!confirmGuard.canConfirm && confirmGuard.reason && (
+            <ChecklistV2 rows={appendix.rows} skeleton={skeleton ?? []} onEdit={handleEdit} onToggleExclude={handleToggleExclude} onToggleReviewed={handleToggleReviewed} sessionId={sessionId} registerReviewNext={(fn) => { reviewNextRef.current = fn; }} />
+            {!skipped && !confirmGuard.canConfirm && confirmGuard.reason && (
               // The confirm block, stated where it can be seen: a disabled
-              // button's title tooltip never fires in most browsers.
+              // button's title tooltip never fires in most browsers. A skipped
+              // page is not confirmed, so the block does not apply.
               <p className="text-[12.5px] text-ds-ink-secondary">{confirmGuard.reason}</p>
             )}
           </div>
@@ -456,9 +444,19 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
             {!fromOverview && page === 'facts' && !skipped && reviewProgress && (
               <ReviewProgress progress={reviewProgress} onReviewNext={() => reviewNextRef.current?.()} />
             )}
+            {/* The same quiet progress cluster as the facts page: every in-scope
+                condition counts, routine rows count as reviewed, open ones gate
+                Confirm, and Review next jumps to the first pending condition. */}
+            {!fromOverview && page === 'checklist' && !skipped && (
+              <ReviewProgress
+                progress={{ total: confirmGuard.total, reviewed: confirmGuard.total - confirmGuard.pending, open: confirmGuard.pending }}
+                onReviewNext={() => reviewNextRef.current?.()}
+              />
+            )}
             {/* Skip page sits to the left of the dark primary, which stays
-                right-most: the two forward actions are grouped on the right. */}
-            <Button variant="secondary" onClick={handleToggleSkip}>
+                right-most: the two forward actions are grouped on the right.
+                Skip moves on immediately; Unskip restores the page in place. */}
+            <Button variant="secondary" onClick={skipped ? handleUnskip : handleSkip}>
               {skipped ? 'Unskip page' : 'Skip page'}
             </Button>
             {fromOverview ? (
@@ -493,6 +491,13 @@ export default function AssessmentAppendix({ page = 'facts' }: { page?: 'facts' 
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </span>
+            ) : skipped ? (
+              // A skipped checklist is not confirmed: the page is left out of the
+              // report, so moving on is a plain navigation without the confirm gate.
+              <Button variant="primary" onClick={() => navigate(`/assessment/structure/${sessionId}`)}>
+                Next
+                <ArrowRight className="h-4 w-4" />
+              </Button>
             ) : (
               <Button
                 variant="primary"

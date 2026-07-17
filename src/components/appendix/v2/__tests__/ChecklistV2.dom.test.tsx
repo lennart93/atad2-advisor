@@ -43,20 +43,40 @@ function condSection(id: string): HTMLElement {
 }
 
 describe('ChecklistV2 — Part B resting state + panel', () => {
-  it('opens the section with a finding and collapses the verified one', () => {
+  it('every section starts open, findings or not', () => {
     render(<ChecklistV2 rows={rows} skeleton={skeleton} onEdit={vi.fn()} onToggleExclude={vi.fn()} sessionId="s1" />);
-    // Section 3 (has a triggered finding) is open; ALL its rows are visible
-    // directly (no roll-up layer): one click on the section header is enough.
+    // ALL rows are visible directly (no roll-up layer, no collapsed sections):
+    // the advisor reads the checklist top to bottom.
     expect(within(condSection('3')).getByText('A deduction without inclusion arises.')).toBeInTheDocument();
     expect(within(condSection('3')).getByText('The mismatch is attributable to the taxpayer.')).toBeInTheDocument();
-    // Section 1 (only a gate, no finding) starts collapsed: its body is not rendered.
-    expect(within(condSection('1')).queryByText('The taxpayer is within scope.')).not.toBeInTheDocument();
+    expect(within(condSection('1')).getByText('The taxpayer is within scope.')).toBeInTheDocument();
   });
 
-  it('digest counts conditions and findings', () => {
+  it('shows no counters above the sections', () => {
     render(<ChecklistV2 rows={rows} skeleton={skeleton} onEdit={vi.fn()} onToggleExclude={vi.fn()} sessionId="s1" />);
-    expect(screen.getByText('3 conditions')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /1 need review/i })).toBeInTheDocument();
+    expect(screen.queryByText('3 conditions')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /1 need review/i })).not.toBeInTheDocument();
+  });
+
+  it('a flagged row carries Mark reviewed; clicking signs it off', () => {
+    const onToggleReviewed = vi.fn();
+    render(<ChecklistV2 rows={rows} skeleton={skeleton} onEdit={vi.fn()} onToggleExclude={vi.fn()} onToggleReviewed={onToggleReviewed} sessionId="s1" />);
+    // Only the flagged condition (3.1, Triggered) gets the review control.
+    const btn = screen.getByRole('button', { name: 'Mark 3.1 reviewed' });
+    expect(screen.queryByRole('button', { name: /Mark 3\.2 reviewed/ })).not.toBeInTheDocument();
+    fireEvent.click(btn);
+    expect(onToggleReviewed).toHaveBeenCalledWith('3.1', true);
+  });
+
+  it('a reviewed row shows an undoable Reviewed check and the section reads Complete', () => {
+    const onToggleReviewed = vi.fn();
+    const reviewedRows = rows.map((r) => (r.rowId === '3.1' ? { ...r, reviewed: true } : r));
+    render(<ChecklistV2 rows={reviewedRows} skeleton={skeleton} onEdit={vi.fn()} onToggleExclude={vi.fn()} onToggleReviewed={onToggleReviewed} sessionId="s2" />);
+    // No pending review anywhere: the chips read Complete; the section is open by default.
+    expect(screen.queryByText(/need review/i)).not.toBeInTheDocument();
+    const undo = within(condSection('3')).getByRole('button', { name: 'Undo review for 3.1' });
+    fireEvent.click(undo);
+    expect(onToggleReviewed).toHaveBeenCalledWith('3.1', false);
   });
 
   it('opens the reasoning/source/visibility panel on row click', () => {
