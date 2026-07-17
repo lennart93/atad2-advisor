@@ -154,6 +154,13 @@ export interface AppendixFacts {
   transactions: TransactionItem[];
   /** Whole Part A sections the advisor excluded from the client export. */
   excludedSections?: string[];
+  /** Chart-derived entities the advisor deleted outright, by chartEntityId; the
+   * merge skips re-adding them on regeneration. Mirror of src/lib/appendix/types.ts. */
+  removedChartEntityIds?: string[];
+  /** AI-identified transactions the advisor deleted outright, by merge key
+   * `fromEntityId|toEntityId|kind`; the merge skips re-adding them on
+   * regeneration. Mirror of src/lib/appendix/types.ts. */
+  removedTxKeys?: string[];
   /** Deterministic validation warnings (F6/F8/F9a): sum-check, borrower mismatch,
    * duplicate entities. Facts-page only, never in the client export. Mirror of
    * src/lib/appendix/types.ts. */
@@ -504,4 +511,44 @@ export function buildEntityRegister(entities: RawEntity[], edges: RawEdge[], gro
   }
 
   return out;
+}
+
+/** The transaction merge key mergeFacts keys edit survival and delete tombstones on. */
+export function txMergeKey(t: { fromEntityId: string; toEntityId: string; kind: string }): string {
+  return `${t.fromEntityId}|${t.toEntityId}|${t.kind}`;
+}
+
+/**
+ * Apply the advisor's delete tombstones to a freshly rebuilt facts object, BEFORE
+ * mergeFacts runs its keep-edits logic. Pure and vitest-importable (tested from
+ * src/lib/appendix/__tests__/removalTombstones.test.ts).
+ *
+ * - An entity whose chartEntityId is in `removedChartEntityIds` is dropped,
+ *   cascading to its classification, any fresh transaction it is a party to, and
+ *   its acting-together memberships (a group left empty disappears).
+ * - A transaction whose merge key is in `removedTxKeys` is dropped.
+ */
+export function applyRemovalTombstones(
+  existing: Pick<AppendixFacts, "removedChartEntityIds" | "removedTxKeys"> | null,
+  fresh: AppendixFacts,
+): AppendixFacts {
+  const removedChart = new Set(existing?.removedChartEntityIds ?? []);
+  const removedTx = new Set(existing?.removedTxKeys ?? []);
+  if (!removedChart.size && !removedTx.size) return fresh;
+  const removedIds = new Set(
+    fresh.entities.filter((e) => removedChart.has(e.chartEntityId)).map((e) => e.id),
+  );
+  return {
+    ...fresh,
+    entities: fresh.entities.filter((e) => !removedIds.has(e.id)),
+    classifications: fresh.classifications.filter((c) => !removedIds.has(c.entityId)),
+    transactions: fresh.transactions.filter(
+      (t) =>
+        !removedIds.has(t.fromEntityId) && !removedIds.has(t.toEntityId) &&
+        !removedTx.has(txMergeKey(t)),
+    ),
+    actingTogether: fresh.actingTogether
+      .map((a) => ({ ...a, memberEntityIds: a.memberEntityIds.filter((m) => !removedIds.has(m)) }))
+      .filter((a) => a.memberEntityIds.length > 0),
+  };
 }

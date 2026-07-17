@@ -5,7 +5,8 @@ import {
   effCrossBorder, effHybridEntityMismatch, effHybridInstrument, effImportedMismatch,
   needsAssessmentTransactions, noRiskTransactions,
   withTxCharacteristic, withTxRationale, withTxLineRationale, withTxStatusOverride, withTxField,
-  isTxStatusOverridden, isTxAssessmentEdited, characteristicReason,
+  isTxStatusOverridden, isTxAssessmentEdited, characteristicReason, txRiskShortLabel,
+  canAcceptPreliminary, acceptPreliminaryAssessment, effPermanentEstablishment,
 } from '@/lib/appendix/facts/transactionAssessment';
 
 const ent = (id: string, jur: string | null, patch: Partial<FactEntity> = {}): FactEntity => ({
@@ -33,17 +34,20 @@ describe('seed reproduces the AI bucket while naming the reason', () => {
     expect(txStatusReason(f, f.transactions[0])).toBe('possible hybrid entity mismatch');
   });
 
-  it('cross-border, AI-relevant, no entity reason -> needs, possible hybrid financial instrument', () => {
-    // Both classifications resolved and equal: no entity mismatch, so the open item
-    // is the instrument itself.
+  it('cross-border, AI-relevant, no entity reason -> needs, but no invented instrument risk', () => {
+    // Both classifications resolved and equal: no entity mismatch. The AI flag
+    // alone keeps the flow in "Needs assessment", but names no specific category:
+    // a broad relevance flag is not evidence of a hybrid instrument.
     const f = facts(
       [ent('E1', 'NL', { role: 'Taxpayer' }), ent('E2', 'US', { nlTaxStatus: 'resident' })],
       [tx('T1', 'E1', 'E2')],
       [cls('E2', { homeClass: 'opaque' })], // local non-transparent == NL non-transparent, no diff
     );
     expect(effHybridEntityMismatch(f, f.transactions[0])).toBe('no');
-    expect(effHybridInstrument(f, f.transactions[0])).toBe('tbd');
-    expect(txStatusReason(f, f.transactions[0])).toBe('possible hybrid financial instrument');
+    expect(effHybridInstrument(f, f.transactions[0])).toBe('no');
+    expect(effTxStatus(f, f.transactions[0])).toBe('needs');
+    expect(txStatusReason(f, f.transactions[0])).toBe('cross-border transaction, not yet assessed');
+    expect(txRiskShortLabel(f, f.transactions[0])).toBe('not yet assessed');
   });
 
   it('confirmed hybrid difference -> needs, hybrid entity mismatch', () => {
@@ -103,6 +107,20 @@ describe('editing a characteristic moves the status and the memo line', () => {
     expect(effTxStatus(next, t)).toBe('no_risk');
   });
 
+  it('answering any risk category hands the status to the characteristics', () => {
+    // AI-flagged flow, no entity mismatch (classifications equal): it sits in
+    // "needs, not yet assessed". Once the advisor answers a risk category, the
+    // characteristics rule; with everything at No the flow clears.
+    const f = facts(
+      [ent('E1', 'NL', { role: 'Taxpayer' }), ent('E2', 'US', { nlTaxStatus: 'resident' })],
+      [tx('T1', 'E1', 'E2')],
+      [cls('E2', { homeClass: 'opaque' })],
+    );
+    expect(effTxStatus(f, f.transactions[0])).toBe('needs');
+    const next = withTxCharacteristic(f, 'T1', 'importedMismatch', 'no');
+    expect(effTxStatus(next, next.transactions[0])).toBe('no_risk');
+  });
+
   it('setting cross-border = No relaxes the mismatch seeds to N/A', () => {
     const f = facts([ent('E1', 'NL', { role: 'Taxpayer' }), ent('E2', 'US')], [tx('T1', 'E1', 'E2')]);
     expect(effTxStatus(f, f.transactions[0])).toBe('needs');
@@ -111,6 +129,51 @@ describe('editing a characteristic moves the status and the memo line', () => {
     expect(effHybridEntityMismatch(next, t)).toBe('na');
     expect(effImportedMismatch(next, t)).toBe('na');
     expect(effTxStatus(next, t)).toBe('no_risk');
+  });
+});
+
+describe('accepting the preliminary assessment', () => {
+  // The "not yet assessed" flow: cross-border, AI-relevant, every category clears.
+  const clean = () => facts(
+    [ent('E1', 'NL', { role: 'Taxpayer' }), ent('E2', 'US', { nlTaxStatus: 'resident' })],
+    [tx('T1', 'E1', 'E2')],
+    [cls('E2', { homeClass: 'opaque' })],
+  );
+
+  it('is offered exactly in the "not yet assessed" state', () => {
+    const f = clean();
+    expect(txStatusReason(f, f.transactions[0])).toBe('cross-border transaction, not yet assessed');
+    expect(canAcceptPreliminary(f, f.transactions[0])).toBe(true);
+  });
+
+  it('is not offered while a category is genuinely open', () => {
+    // Foreign view unset: hybrid entity mismatch seeds to "to be determined".
+    const f = facts([ent('E1', 'NL', { role: 'Taxpayer' }), ent('E2', 'US')], [tx('T1', 'E1', 'E2')]);
+    expect(effHybridEntityMismatch(f, f.transactions[0])).toBe('tbd');
+    expect(canAcceptPreliminary(f, f.transactions[0])).toBe(false);
+  });
+
+  it('is not offered once the advisor answered a category or overrode the status', () => {
+    const touched = withTxCharacteristic(clean(), 'T1', 'importedMismatch', 'no');
+    expect(canAcceptPreliminary(touched, touched.transactions[0])).toBe(false);
+    const overridden = withTxStatusOverride(clean(), 'T1', 'no_risk', 'Reviewed.');
+    expect(canAcceptPreliminary(overridden, overridden.transactions[0])).toBe(false);
+  });
+
+  it('adopts every preliminary answer and moves the flow to "No risk identified"', () => {
+    const next = acceptPreliminaryAssessment(clean(), 'T1');
+    const t = next.transactions[0];
+    expect(t.assessment?.crossBorder).toBe('yes');
+    expect(t.assessment?.hybridInstrument).toBe('no');
+    expect(t.assessment?.hybridEntityMismatch).toBe('no');
+    expect(t.assessment?.importedMismatch).toBe('no');
+    expect(t.assessment?.permanentEstablishment).toBe('no');
+    expect(effPermanentEstablishment(next, t)).toBe('no');
+    expect(t.source).toBe('edited');
+    expect(isTxAssessmentEdited(t)).toBe(true);
+    expect(effTxStatus(next, t)).toBe('no_risk');
+    expect(txMemoReason(next, t)).toBe('No hybrid element identified');
+    expect(canAcceptPreliminary(next, t)).toBe(false);
   });
 });
 
@@ -201,14 +264,14 @@ describe('characteristicReason: one grounded sentence per preliminary value', ()
       .toBe('USCo Inc. is classified differently for Dutch purposes and in its home jurisdiction.');
   });
 
-  it('points at the instrument when the AI flag has no entity-level cause', () => {
+  it('reads as "no indication" when nothing points at the instrument, even on an AI-flagged flow', () => {
     const f = facts(
       [ent('E1', 'NL', { role: 'Taxpayer' }), ent('E2', 'US')],
       [tx('T1', 'E1', 'E2', { instrument: 'the shareholder loan' })],
       [cls('E2', { homeClass: 'opaque' })],
     );
     expect(characteristicReason(f, f.transactions[0], 'hybridInstrument'))
-      .toBe('The documents flag this transaction while neither party shows an entity-level mismatch, so the treatment of the shareholder loan itself is the open question.');
+      .toBe('There is no indication that the shareholder loan is treated differently (debt versus equity) in the two jurisdictions.');
   });
 
   it('returns null once the advisor has set the characteristic', () => {

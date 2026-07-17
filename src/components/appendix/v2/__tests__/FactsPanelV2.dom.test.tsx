@@ -180,11 +180,46 @@ describe('FactsPanelV2 — resting state + master-detail (section 3)', () => {
     expect(within(panel).getByRole('combobox', { name: 'Correct counterparty' })).toBeInTheDocument();
   });
 
-  it('offers no delete on an AI-identified transaction', () => {
+  it('confirms a preliminary all-clear assessment in one click', () => {
+    const onChange = vi.fn();
+    // With USCo's classification recorded and matching the NL view, every category
+    // clears and T1 sits in "not yet assessed": the one-click confirm is offered.
+    const withCls: AppendixFacts = {
+      ...facts(),
+      classifications: [{
+        entityId: 'E2', homeState: 'US', homeClass: 'opaque', sourceState: 'NL', sourceClass: 'opaque',
+        hybrid: false, status: 'proposed', excludedFromClient: false, source: 'ai',
+      }],
+    };
+    render(<FactsPanelV2 facts={withCls} onChange={onChange} generated sessionId="s1" />);
+    fireEvent.click(rows()[0]); // T1
+    const panel = screen.getByRole('complementary');
+    fireEvent.click(within(panel).getByRole('button', { name: /Confirm assessment/i }));
+    const next = onChange.mock.calls.at(-1)![0] as AppendixFacts;
+    const t = next.transactions.find((x) => x.id === 'T1')!;
+    expect(t.assessment?.hybridEntityMismatch).toBe('no');
+    expect(t.assessment?.crossBorder).toBe('yes');
+    expect(t.source).toBe('edited');
+  });
+
+  it('offers no one-click confirm while a category is genuinely open', () => {
     render(<FactsPanelV2 facts={facts()} onChange={vi.fn()} generated sessionId="s1" />);
+    fireEvent.click(rows()[0]); // T1: USCo has no recorded home-state view -> entity mismatch open
+    const panel = screen.getByRole('complementary');
+    expect(within(panel).queryByRole('button', { name: /Confirm assessment/i })).not.toBeInTheDocument();
+  });
+
+  it('deletes an AI-identified transaction too, leaving a regenerate tombstone', () => {
+    const onChange = vi.fn();
+    render(<FactsPanelV2 facts={facts()} onChange={onChange} generated sessionId="s1" />);
     fireEvent.click(rows()[0]); // T1, source 'ai'
     const panel = screen.getByRole('complementary');
-    expect(within(panel).queryByRole('button', { name: /Delete transaction/i })).not.toBeInTheDocument();
+    fireEvent.click(within(panel).getByRole('button', { name: /^Delete transaction$/i }));
+    fireEvent.click(within(panel).getByRole('button', { name: /Confirm delete/i }));
+    const next = onChange.mock.calls.at(-1)![0] as AppendixFacts;
+    expect(next.transactions.some((t) => t.id === 'T1')).toBe(false);
+    // The merge key is tombstoned so the next regeneration does not resurrect the flow.
+    expect(next.removedTxKeys).toEqual(['E1|E2|financing']);
   });
 });
 

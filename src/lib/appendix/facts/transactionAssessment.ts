@@ -12,9 +12,10 @@ import { effLocalQualification, entityHasQualificationDifference } from './concl
 // answered Yes or To be determined => "Needs assessment"; all cleared => "No risk
 // identified". An advisor can override the derived status with a mandatory reason.
 //
-// Untouched transactions fall back to a seed derived from the facts and the AI
-// funnel flag, so the buckets an existing dossier already shows do not shift; the
-// characteristics simply name why a flow needs assessment.
+// Untouched transactions fall back to a seed derived from the facts. The AI
+// funnel flag does not seed any specific category: it only keeps an untouched
+// cross-border flow in "Needs assessment" as "not yet assessed", because the
+// flag alone is no evidence for one mismatch category over another.
 // ---------------------------------------------------------------------------
 
 /** Whether a flow's raw AI funnel flag reads as relevant. Missing = relevant (old sessions / partial output). */
@@ -148,14 +149,6 @@ function hybridEntityMismatchSeed(facts: AppendixFacts, t: TransactionItem, cros
   return 'no';
 }
 
-function hybridInstrumentSeed(crossBorder: TriState, aiRelevant: boolean, hybridEntity: QuadState): TriState {
-  if (crossBorder === 'no') return 'no';
-  // The AI flagged the flow but no entity-level reason fired: the open question is
-  // the instrument itself, so name it rather than a vague "risk indicators present".
-  if (aiRelevant && hybridEntity === 'no') return 'tbd';
-  return 'no';
-}
-
 // ---------------------------------------------------------------------------
 // Effective characteristic values: the advisor's edit wins; otherwise the seed.
 // Downstream seeds read the effective upstream value, so setting Cross-border = No
@@ -171,19 +164,10 @@ export function effHybridEntityMismatch(facts: AppendixFacts, t: TransactionItem
 }
 
 export function effHybridInstrument(facts: AppendixFacts, t: TransactionItem): TriState {
-  if (t.assessment?.hybridInstrument != null) return t.assessment.hybridInstrument;
-  // The AI nudge that names the instrument as the open item only makes sense while
-  // the entity question is still untouched. Once the advisor has answered the
-  // hybrid-entity characteristic themselves (e.g. resolved it to "No"), do NOT
-  // re-open the instrument in its place: that made clearing one category silently
-  // re-flag the same flow under another reason, so the advisor's outcome looked
-  // like it was ignored.
-  const advisorSetEntity = t.assessment?.hybridEntityMismatch != null;
-  return hybridInstrumentSeed(
-    effCrossBorder(facts, t),
-    isTransactionRelevant(t) && !advisorSetEntity,
-    effHybridEntityMismatch(facts, t),
-  );
+  // No seed can point at the instrument: the AI funnel flag is not evidence of a
+  // hybrid instrument (it only marks a cross-border related-party flow), so an
+  // untouched flow reads "No" here and the flow-level flag carries the review duty.
+  return t.assessment?.hybridInstrument ?? 'no';
 }
 
 export function effImportedMismatch(facts: AppendixFacts, t: TransactionItem): QuadState {
@@ -265,10 +249,6 @@ export function characteristicReason(
     }
     case 'hybridInstrument': {
       if (cb === 'no') return needsCrossBorder('a hybrid instrument mismatch');
-      const advisorSetEntity = t.assessment?.hybridEntityMismatch != null;
-      if (isTransactionRelevant(t) && !advisorSetEntity && effHybridEntityMismatch(facts, t) === 'no') {
-        return `The documents flag this transaction while neither party shows an entity-level mismatch, so the treatment of ${instrumentLabel} itself is the open question.`;
-      }
       return `There is no indication that ${instrumentLabel} is treated differently (debt versus equity) in the two jurisdictions.`;
     }
     case 'importedMismatch': {
@@ -286,10 +266,36 @@ export function characteristicReason(
 // Derived status + reason
 // ---------------------------------------------------------------------------
 
+/**
+ * True while the AI funnel flagged this cross-border flow and the advisor has not
+ * answered any risk category yet. The flow then stays in "Needs assessment" as
+ * simply "not yet assessed": the flag alone does not justify claiming a SPECIFIC
+ * mismatch category. Once the advisor answers any risk category (or sets
+ * cross-border to No), the characteristics rule.
+ */
+export function awaitingAssessment(facts: AppendixFacts, t: TransactionItem): boolean {
+  if (!isTransactionRelevant(t)) return false;
+  if (effCrossBorder(facts, t) === 'no') return false;
+  return !TX_RISK_KEYS.some((k) => t.assessment?.[k] != null);
+}
+
 /** The status the characteristics imply, ignoring any override. */
 export function deriveTxStatus(facts: AppendixFacts, t: TransactionItem): TxStatus {
   const open = TX_RISK_KEYS.some((k) => isOpenState(effCharacteristic(facts, t, k)));
-  return open ? 'needs' : 'no_risk';
+  return open || awaitingAssessment(facts, t) ? 'needs' : 'no_risk';
+}
+
+/**
+ * True when the ONLY thing keeping this flow in "Needs assessment" is that the
+ * advisor has not looked at it yet: every preliminary answer clears its category,
+ * and no override is in play. This is exactly the "not yet assessed" state, and
+ * the moment a one-click accept makes sense; with any category actually open the
+ * advisor has a real question to answer instead.
+ */
+export function canAcceptPreliminary(facts: AppendixFacts, t: TransactionItem): boolean {
+  return effTxStatus(facts, t) === 'needs'
+    && awaitingAssessment(facts, t)
+    && !TX_RISK_KEYS.some((k) => isOpenState(effCharacteristic(facts, t, k)));
 }
 
 /** The status shown and used everywhere: the advisor's override, else the derived one. */
@@ -325,7 +331,9 @@ export function txStatusReason(facts: AppendixFacts, t: TransactionItem): string
       return v === 'yes' ? meta.reasonYes : meta.reasonTbd;
     }
   }
-  // Overridden to "needs" with every category cleared: no derived clause to name.
+  // No category is open: either the flow simply has not been assessed yet, or it
+  // was overridden to "needs" with every category cleared.
+  if (awaitingAssessment(facts, t)) return 'cross-border transaction, not yet assessed';
   return 'flagged for assessment';
 }
 
@@ -346,7 +354,8 @@ export function txRiskShortLabel(facts: AppendixFacts, t: TransactionItem): stri
       }
     }
   }
-  // Overridden to "needs" with every category cleared.
+  // Not yet assessed, or overridden to "needs" with every category cleared.
+  if (awaitingAssessment(facts, t)) return 'not yet assessed';
   return 'flagged';
 }
 
@@ -420,6 +429,22 @@ function patchTx(
 
 function withAssessment(t: TransactionItem, patch: Partial<TransactionAssessment>): TransactionItem {
   return { ...t, assessment: { ...t.assessment, ...patch }, source: 'edited' };
+}
+
+/**
+ * Accept the preliminary answers as the advisor's own assessment: every
+ * characteristic's current effective value is written into the assessment, so the
+ * flow is advisor-set from here on. On a flow where every category clears (the
+ * "not yet assessed" state) this moves it to "No risk identified" in one step.
+ */
+export function acceptPreliminaryAssessment(facts: AppendixFacts, id: string): AppendixFacts {
+  return patchTx(facts, id, (t) => withAssessment(t, {
+    crossBorder: effCrossBorder(facts, t),
+    hybridInstrument: effHybridInstrument(facts, t),
+    hybridEntityMismatch: effHybridEntityMismatch(facts, t),
+    importedMismatch: effImportedMismatch(facts, t),
+    permanentEstablishment: effPermanentEstablishment(facts, t),
+  }));
 }
 
 /** Set one characteristic. */

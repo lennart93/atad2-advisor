@@ -6,7 +6,6 @@ import {
   splitTransactions,
   classificationsById, entityNeedsAttention, actingSectionNeedsAttention,
 } from '@/lib/appendix/needsAttention';
-import { actingTogetherCandidateCount } from '@/lib/appendix/facts/actingCandidates';
 import { ManualGroupCard } from '@/components/appendix/ActingTogetherSection';
 import { SectionRow } from './SectionRow';
 import { TransactionTable } from './TransactionTable';
@@ -64,9 +63,9 @@ export function FactsPanelV2({ facts, onChange, generated, refining, sessionId, 
   const entityReview = facts.entities.filter((e) => entityNeedsAttention(e, clsById.get(e.id))).length;
   const txReview = flagged.length;
 
-  const manualGroups = facts.actingTogether.filter((c) => c.origin === 'manual');
-  const hints = facts.actingTogether.filter((c) => c.origin !== 'manual');
-  const actingReview = hints.length + (manualGroups.length === 0 && actingTogetherCandidateCount(facts.entities) >= 2 ? 1 : 0);
+  // Only undismissed AI suggestions count as review work; an empty section
+  // (no group recorded) is settled, not an open item.
+  const actingReview = facts.actingTogether.filter((c) => c.origin !== 'manual').length;
 
   const sectionState = useSectionOpenState(sessionId, {
     register: entityReview > 0,

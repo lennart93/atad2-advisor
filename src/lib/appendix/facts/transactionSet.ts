@@ -2,10 +2,13 @@ import type { AppendixFacts, TransactionItem } from '@/lib/appendix/types';
 
 // ---------------------------------------------------------------------------
 // Managing the transaction set by hand: the AI identifies flows from the dossier,
-// but the advisor can add one it missed and delete a hand-added one again. The
+// but the advisor can add one it missed and delete any flow again. The
 // counterpart of entitySet.ts for section 3. A hand-added flow is stamped
 // `manual: true` + `source: 'edited'`, so mergeFacts carries it across
-// regeneration instead of rebuilding it from the AI output.
+// regeneration instead of rebuilding it from the AI output. Deleting an
+// AI-identified flow records its merge key in `removedTxKeys`, so the next
+// regeneration does not resurrect it (the counterpart of `removedChartEntityIds`
+// for entities).
 // ---------------------------------------------------------------------------
 
 /** The next free "T{n}" id, one past the highest numeric suffix in use. */
@@ -59,13 +62,40 @@ export function addManualTransaction(
     excludedFromClient: false,
     source: 'edited',
   };
-  return { facts: { ...facts, transactions: [...facts.transactions, tx] }, id };
+  // Hand-adding a flow the advisor previously deleted revokes its tombstone, so a
+  // later regeneration is free to match this flow again instead of suppressing it.
+  const removedTxKeys = facts.removedTxKeys?.filter((k) => k !== txMergeKey(tx));
+  return {
+    facts: {
+      ...facts,
+      transactions: [...facts.transactions, tx],
+      ...(removedTxKeys ? { removedTxKeys } : {}),
+    },
+    id,
+  };
 }
 
-/** Delete a hand-added transaction outright. An AI-identified flow is left alone
- *  (it would only be resurrected by the next regeneration); hide it instead. */
-export function deleteManualTransaction(facts: AppendixFacts, id: string): AppendixFacts {
+/** The merge key the edge function's mergeFacts uses for edit survival and delete
+ *  tombstones. Mirror of txMergeKey in supabase/functions/generate-appendix/factsBuild.ts. */
+export function txMergeKey(t: Pick<TransactionItem, 'fromEntityId' | 'toEntityId' | 'kind'>): string {
+  return `${t.fromEntityId}|${t.toEntityId}|${t.kind}`;
+}
+
+/**
+ * Delete a transaction outright. A hand-added flow is simply removed (it has no AI
+ * counterpart that could bring it back); an AI-identified flow additionally records
+ * its merge key in `removedTxKeys` so the next regeneration does not resurrect it.
+ * Same limitation as every merge-key mechanism here: a later run that names the
+ * parties or the kind differently produces a new key the tombstone cannot match.
+ */
+export function deleteTransaction(facts: AppendixFacts, id: string): AppendixFacts {
   const target = facts.transactions.find((t) => t.id === id);
-  if (!target?.manual) return facts;
-  return { ...facts, transactions: facts.transactions.filter((t) => t.id !== id) };
+  if (!target) return facts;
+  const transactions = facts.transactions.filter((t) => t.id !== id);
+  if (target.manual) return { ...facts, transactions };
+  const key = txMergeKey(target);
+  const removedTxKeys = facts.removedTxKeys?.includes(key)
+    ? facts.removedTxKeys
+    : [...(facts.removedTxKeys ?? []), key];
+  return { ...facts, transactions, removedTxKeys };
 }

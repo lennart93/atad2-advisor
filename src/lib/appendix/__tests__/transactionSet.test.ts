@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  nextTransactionId, addManualTransaction, deleteManualTransaction, isSelfTransaction,
+  nextTransactionId, addManualTransaction, deleteTransaction, txMergeKey, isSelfTransaction,
 } from '@/lib/appendix/facts/transactionSet';
 import { effTxStatus, withTxField } from '@/lib/appendix/facts/transactionAssessment';
 import { emptyFacts } from '@/lib/appendix/facts/emptyFacts';
@@ -55,18 +55,44 @@ describe('addManualTransaction', () => {
   });
 });
 
-describe('deleteManualTransaction', () => {
-  it('removes a hand-added flow outright', () => {
+describe('deleteTransaction', () => {
+  it('removes a hand-added flow outright, without a tombstone', () => {
     const { facts: withTx, id } = addManualTransaction(facts([aiTx]), {
       fromEntityId: 'E1', toEntityId: 'E2', kind: 'services',
     });
-    const out = deleteManualTransaction(withTx, id);
+    const out = deleteTransaction(withTx, id);
     expect(out.transactions.map((t) => t.id)).toEqual(['T1']);
+    expect(out.removedTxKeys ?? []).toHaveLength(0);
   });
 
-  it('leaves an AI-identified flow alone', () => {
-    const out = deleteManualTransaction(facts([aiTx]), 'T1');
+  it('removes an AI-identified flow and records its merge key so a regenerate skips it', () => {
+    const out = deleteTransaction(facts([aiTx]), 'T1');
+    expect(out.transactions).toHaveLength(0);
+    expect(out.removedTxKeys).toEqual(['E1|E2|loan']);
+  });
+
+  it('does not record the same tombstone twice', () => {
+    const twice = deleteTransaction(deleteTransaction(facts([aiTx, { ...aiTx, id: 'T2' }]), 'T1'), 'T2');
+    expect(twice.removedTxKeys).toEqual(['E1|E2|loan']);
+  });
+
+  it('is a no-op for an unknown id', () => {
+    const out = deleteTransaction(facts([aiTx]), 'T99');
     expect(out.transactions).toHaveLength(1);
+    expect(out.removedTxKeys).toBeUndefined();
+  });
+
+  it('hand-adding a previously deleted flow revokes its tombstone', () => {
+    const deleted = deleteTransaction(facts([aiTx]), 'T1');
+    const { facts: out } = addManualTransaction(deleted, {
+      fromEntityId: 'E1', toEntityId: 'E2', kind: 'loan',
+    });
+    expect(out.removedTxKeys).toEqual([]);
+    expect(out.transactions).toHaveLength(1);
+  });
+
+  it('txMergeKey matches the mergeFacts key shape', () => {
+    expect(txMergeKey(aiTx)).toBe('E1|E2|loan');
   });
 });
 

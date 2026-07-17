@@ -3,10 +3,11 @@ import { Trash2 } from 'lucide-react';
 import type { AppendixFacts, TransactionItem, QuadState } from '@/lib/appendix/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import { deleteManualTransaction } from '@/lib/appendix/facts/transactionSet';
+import { deleteTransaction } from '@/lib/appendix/facts/transactionSet';
 import {
   TX_CHARACTERISTICS, effCharacteristic, characteristicReason, withTxCharacteristic, withTxRationale, withTxLineRationale, withTxStatusOverride,
   withTxField, effTxStatus, isTxStatusOverridden, txMemoReason, isOpenState, stateOptions, stateLabel,
+  canAcceptPreliminary, acceptPreliminaryAssessment,
   type TxCharacteristicKey,
 } from '@/lib/appendix/facts/transactionAssessment';
 import { isSelfTransaction } from '@/lib/appendix/facts/transactionSet';
@@ -85,6 +86,24 @@ export function TransactionDetail({ facts, tx, onChange }: {
 
       {/* Assessment */}
       <PanelGroup label="Assessment" info={CHAR_INFO}>
+        {/* The answers below are seeded from the recorded facts, not advisor-set, so
+            the flow reads "not yet assessed" even though every line shows a value.
+            When every preliminary answer clears its category, one click adopts them
+            as the advisor's assessment and the flow moves to "No risk identified". */}
+        {canAcceptPreliminary(facts, tx) && (
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-[4px] bg-muted/60 px-3 py-2">
+            <p className="text-[12px] leading-snug text-muted-foreground">
+              These answers are preliminary, derived from the recorded facts. Adjust any of them, or confirm them as the assessment.
+            </p>
+            <button
+              type="button"
+              onClick={() => onChange(acceptPreliminaryAssessment(facts, tx.id))}
+              className="rounded-[4px] bg-brand-sage-soft px-2.5 py-1.5 text-[12.5px] text-ds-green-text transition-colors hover:brightness-95"
+            >
+              Confirm assessment
+            </button>
+          </div>
+        )}
         <div>
           {TX_CHARACTERISTICS.map((meta) => {
             const v = effCharacteristic(facts, tx, meta.key);
@@ -133,33 +152,23 @@ export function TransactionDetail({ facts, tx, onChange }: {
         </div>
       </PanelGroup>
 
-      {/* Transaction-level rationale (the per-line notes live on their own lines above). */}
-      <PanelGroup label="Rationale">
-        <ReasoningField
-          value={tx.assessment?.rationale ?? null}
-          placeholder="e.g. Foreign classification of D.R.C. S.A. not yet confirmed; requested from local advisor."
-          onCommit={(text) => onChange(withTxRationale(facts, tx.id, text))}
-        />
-        {!tx.assessment?.rationale?.trim() && (
-          <button
-            type="button"
-            onClick={() => {
-              // Deterministic draft seeded from the current dropdown answers: the
-              // derived one-liners joined into an editable starting point.
-              const sentences = TX_CHARACTERISTICS
-                .map((m) => characteristicReason(facts, tx, m.key))
-                .filter(Boolean);
-              if (sentences.length) onChange(withTxRationale(facts, tx.id, sentences.join(' ')));
-            }}
-            className="mt-1.5 block text-[12px] text-muted-foreground transition-colors hover:text-foreground"
-          >
-            Draft from the current answers
-          </button>
-        )}
-        <p className="mt-1.5 text-[11.5px] leading-snug text-muted-foreground/70">
-          Documented rationale is included in the memo and working paper.
-        </p>
-      </PanelGroup>
+      {/* Transaction-level rationale: legacy only. Documentation now lives on the
+          per-line "Add rationale" under each characteristic; a floating group with
+          its own duplicate "Add rationale" read as belonging to nothing. It still
+          renders when an earlier dossier stored an overall rationale, so that text
+          stays visible and editable (clearing it removes the group for good). */}
+      {!!tx.assessment?.rationale?.trim() && (
+        <PanelGroup label="Rationale">
+          <ReasoningField
+            value={tx.assessment.rationale}
+            placeholder="e.g. Foreign classification of D.R.C. S.A. not yet confirmed; requested from local advisor."
+            onCommit={(text) => onChange(withTxRationale(facts, tx.id, text))}
+          />
+          <p className="mt-1.5 text-[11.5px] leading-snug text-muted-foreground/70">
+            Documented rationale is included in the memo and working paper.
+          </p>
+        </PanelGroup>
+      )}
 
       {/* Status */}
       <PanelGroup label="Status">
@@ -182,40 +191,38 @@ export function TransactionDetail({ facts, tx, onChange }: {
         )}
       </PanelGroup>
 
-      {/* Delete: only a hand-added flow can be removed outright (an AI-identified
-          one would be resurrected by the next regeneration; hide it instead).
+      {/* Delete removes the transaction outright. An AI-identified flow leaves a
+          tombstone (removedTxKeys) so a later regeneration does not resurrect it.
           Two-step to avoid an accidental loss; the panel closes as it disappears. */}
-      {tx.manual && (
-        <div className="flex justify-end border-t border-border pt-4">
-          {confirmDelete ? (
+      <div className="flex justify-end border-t border-border pt-4">
+        {confirmDelete ? (
             <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => onChange(deleteManualTransaction(facts, tx.id))}
-                className="inline-flex items-center gap-1.5 rounded-[4px] border border-brand-terracotta bg-brand-terracotta-soft px-2.5 py-1.5 text-[12.5px] text-brand-terracotta-deep transition-colors hover:brightness-95"
-              >
-                <Trash2 className="h-3.5 w-3.5" /> Confirm delete
-              </button>
-              <button
-                type="button"
-                onClick={() => setConfirmDelete(false)}
-                className="rounded-[4px] px-2.5 py-1.5 text-[12.5px] text-muted-foreground transition-colors hover:text-foreground"
-              >
-                Cancel
-              </button>
-            </div>
-          ) : (
             <button
               type="button"
-              onClick={() => setConfirmDelete(true)}
-              title="Delete this transaction from the assessment"
-              className="inline-flex items-center gap-1.5 rounded-[4px] border border-border px-2.5 py-1.5 text-[12.5px] text-muted-foreground transition-colors hover:border-brand-terracotta hover:text-brand-terracotta-deep"
+              onClick={() => onChange(deleteTransaction(facts, tx.id))}
+              className="inline-flex items-center gap-1.5 rounded-[4px] border border-brand-terracotta bg-brand-terracotta-soft px-2.5 py-1.5 text-[12.5px] text-brand-terracotta-deep transition-colors hover:brightness-95"
             >
-              <Trash2 className="h-3.5 w-3.5" /> Delete transaction
+              <Trash2 className="h-3.5 w-3.5" /> Confirm delete
             </button>
-          )}
-        </div>
-      )}
+            <button
+              type="button"
+              onClick={() => setConfirmDelete(false)}
+              className="rounded-[4px] px-2.5 py-1.5 text-[12.5px] text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setConfirmDelete(true)}
+            title="Delete this transaction from the assessment"
+            className="inline-flex items-center gap-1.5 rounded-[4px] border border-border px-2.5 py-1.5 text-[12.5px] text-muted-foreground transition-colors hover:border-brand-terracotta hover:text-brand-terracotta-deep"
+          >
+            <Trash2 className="h-3.5 w-3.5" /> Delete transaction
+          </button>
+        )}
+      </div>
     </div>
   );
 }

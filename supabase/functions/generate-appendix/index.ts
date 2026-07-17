@@ -19,6 +19,7 @@ import {
   buildEntityRegister,
   countActingTogetherCandidates,
   taxpayerDisplayName,
+  applyRemovalTombstones,
   type RawEntity, type RawEdge, type RawGroup, type AppendixFacts, type FactEntity, type ActingLikelihood,
   type Narrative, type NarrativeKey,
 } from "./factsBuild.ts";
@@ -919,6 +920,11 @@ async function buildFacts(
 /** On regenerate, keep advisor decisions (confirmed/dismissed/edited/excluded); refresh the rest. */
 function mergeFacts(existing: AppendixFacts | null, fresh: AppendixFacts): AppendixFacts {
   if (!existing) return renumberFacts(fresh);
+  // Advisor deletes first: drop tombstoned entities (with their classification,
+  // transactions and acting-together memberships) and tombstoned transactions from
+  // the fresh rebuild, so everything below (edit survival, manual carry-over) runs
+  // on the set the advisor actually kept.
+  fresh = applyRemovalTombstones(existing, fresh);
   // The register is rebuilt deterministically each run; re-apply the advisor's
   // hidden flag and field edits (keyed by chart entity id) so "mark irrelevant"
   // and the editable jurisdiction/type/NL-status survive regeneration.
@@ -1025,13 +1031,17 @@ function mergeFacts(existing: AppendixFacts | null, fresh: AppendixFacts): Appen
         .filter((t) => !freshKeys.has(txKey(t)) && knownIds.has(t.fromEntityId) && knownIds.has(t.toEntityId)),
     ];
   }
-  // Section-level exclusions are an advisor scope decision; carry them across regen.
+  // Section-level exclusions and delete tombstones are advisor scope decisions;
+  // carry them across regen (dropping the tombstones would resurrect deleted
+  // entities/transactions one regeneration later).
   return renumberFacts({
     entities: outEntities,
     classifications: outClassifications,
     transactions: outTransactions,
     actingTogether: outActingTogether,
     excludedSections: existing.excludedSections,
+    removedChartEntityIds: existing.removedChartEntityIds,
+    removedTxKeys: existing.removedTxKeys,
     narratives: Object.keys(narratives).length ? narratives : undefined,
   });
 }
