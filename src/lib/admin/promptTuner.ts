@@ -4,6 +4,9 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import type { PromptKey } from "@/lib/admin/promptKeys";
+import { parseAnalyzeResponseText } from "@/lib/admin/promptTunerStream";
+
+const FUNCTIONS_BASE = import.meta.env.VITE_SUPABASE_URL + "/functions/v1";
 
 export type TunerOutputType = "memo" | "appendix";
 
@@ -87,21 +90,46 @@ export async function findAppendixEdits(): Promise<AppendixCandidate[]> {
   return (data?.candidates ?? []) as AppendixCandidate[];
 }
 
+/**
+ * Direct fetch instead of supabase.functions.invoke: the analyze call can run
+ * for several minutes, so the edge function streams NDJSON heartbeats to keep
+ * the connection alive and ends with the payload line. invoke() cannot read
+ * that shape; parseAnalyzeResponseText handles both the stream and the plain
+ * JSON body of the previously deployed function.
+ */
 export async function analyzeImprovement(args: {
   outputType: TunerOutputType;
   originalText: string;
   improvedText: string;
 }): Promise<TuningAnalysis> {
-  const { data, error } = await supabase.functions.invoke("analyze-prompt-improvement", {
-    body: {
+  const { data: { session } } = await supabase.auth.getSession();
+  const r = await fetch(`${FUNCTIONS_BASE}/analyze-prompt-improvement`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${session?.access_token ?? ""}`,
+    },
+    body: JSON.stringify({
       action: "analyze",
       output_type: args.outputType,
       prompt_key: OUTPUT_TYPE_TO_KEY[args.outputType],
       original_text: args.originalText,
       improved_text: args.improvedText,
-    },
+    }),
   });
-  if (error) throw new Error(await extractFunctionErrorMessage(error));
-  if (!data?.analysis) throw new Error("The analyzer returned no result.");
-  return data.analysis as TuningAnalysis;
+  const text = await r.text();
+  if (!r.ok) {
+    let msg = `Prompt Tuner request failed (${r.status})`;
+    try {
+      const body = JSON.parse(text);
+      if (body?.error) msg = String(body.error);
+    } catch {
+      // Non-JSON error body (e.g. a gateway timeout page); keep the status message.
+    }
+    throw new Error(msg);
+  }
+  const payload = parseAnalyzeResponseText(text);
+  if (payload.error) throw new Error(String(payload.error));
+  if (!payload.analysis) throw new Error("The analyzer returned no result.");
+  return payload.analysis as TuningAnalysis;
 }

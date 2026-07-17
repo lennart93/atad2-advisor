@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Loader2, Search, Sparkles } from "lucide-react";
 import { Seo } from "@/components/Seo";
@@ -78,12 +78,19 @@ export default function PromptTuner() {
     onError: (e) => toast.error("Load failed", { description: String(e instanceof Error ? e.message : e) }),
   });
 
+  // Failure is rendered inline (not as a toast): the analysis runs for
+  // minutes, and a transient toast is gone by the time the admin looks back.
   const analyze = useMutation({
     mutationFn: (pair: ConfirmedPair) =>
       analyzeImprovement({ outputType: tab, originalText: pair.original, improvedText: pair.improved }),
     onSuccess: (a) => setAnalysis(a),
-    onError: (e) => toast.error("Analysis failed", { description: String(e instanceof Error ? e.message : e) }),
   });
+
+  // The result panel renders below a tall diff card; bring it into view.
+  const analysisRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (analysis) analysisRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [analysis]);
 
   const confirmMemoSelection = () => {
     const c = memoCandidates?.find((x) => x.source_row_id === selectedId);
@@ -231,7 +238,7 @@ export default function PromptTuner() {
               {!analysis && (
                 <div className="flex items-center justify-end gap-3 mt-3">
                   {analyze.isPending && (
-                    <span className="text-xs text-muted-foreground">This can take 30 to 90 seconds...</span>
+                    <span className="text-xs text-muted-foreground">This can take a few minutes. Keep this tab open.</span>
                   )}
                   <Button disabled={analyze.isPending} onClick={() => analyze.mutate(confirmed)}>
                     {analyze.isPending ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
@@ -239,10 +246,21 @@ export default function PromptTuner() {
                   </Button>
                 </div>
               )}
+              {analyze.isError && !analysis && !analyze.isPending && (
+                <div role="alert" className="mt-3 border border-destructive/40 bg-destructive/5 rounded-md p-3 text-sm">
+                  <span className="text-destructive font-normal">Analysis failed.</span>{" "}
+                  <span className="text-foreground">
+                    {String(analyze.error instanceof Error ? analyze.error.message : analyze.error)}
+                  </span>
+                  <span className="text-muted-foreground"> Use the button above to run it again.</span>
+                </div>
+              )}
             </AdminCard>
 
             {analysis && (
-              <AnalysisPanel analysis={analysis} targetKey={targetKey} onCreateDraft={openDraft} />
+              <div ref={analysisRef}>
+                <AnalysisPanel analysis={analysis} targetKey={targetKey} onCreateDraft={openDraft} />
+              </div>
             )}
           </>
         )}

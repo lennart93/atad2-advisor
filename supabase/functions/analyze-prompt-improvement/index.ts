@@ -167,11 +167,42 @@ async function handleAnalyze(c: SupabaseClient, raw: unknown) {
     improved: req.improved_text,
   });
 
-  const analysis = await callWithRetry(() => callClaude({ cachedSystem: META_SYSTEM, user }));
-  return json({
-    analysis,
-    target_prompt_version: target.version as number,
-    target_prompt_key: target.key as string,
+  // The full analysis (Opus with thinking, rewriting a several-thousand-token
+  // system prompt) regularly runs past Kong's read timeout, which killed the
+  // request as a 504 with nothing shown to the admin. Streaming NDJSON
+  // heartbeats keeps the connection alive for as long as the model needs;
+  // the last line carries the payload or the error. The client scans for the
+  // final non-heartbeat line (parseAnalyzeResponseText).
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      const beat = setInterval(() => {
+        try {
+          controller.enqueue(encoder.encode('{"heartbeat":true}\n'));
+        } catch {
+          clearInterval(beat);
+        }
+      }, 10_000);
+      (async () => {
+        try {
+          const analysis = await callWithRetry(() => callClaude({ cachedSystem: META_SYSTEM, user }));
+          controller.enqueue(encoder.encode(JSON.stringify({
+            analysis,
+            target_prompt_version: target.version as number,
+            target_prompt_key: target.key as string,
+          }) + "\n"));
+        } catch (err) {
+          console.error(JSON.stringify({ level: "error", event: "prompt_tuner_failed", action: "analyze", message: String(err).slice(0, 500) }));
+          controller.enqueue(encoder.encode(JSON.stringify({ error: String(err).slice(0, 500) }) + "\n"));
+        } finally {
+          clearInterval(beat);
+          try { controller.close(); } catch { /* stream already closed by the client */ }
+        }
+      })();
+    },
+  });
+  return new Response(stream, {
+    headers: { ...corsHeaders, "Content-Type": "application/x-ndjson" },
   });
 }
 
