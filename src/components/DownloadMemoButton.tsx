@@ -6,6 +6,7 @@ import Docxtemplater from 'docxtemplater';
 // @ts-ignore - no TS types ship with docxtemplater-image-module-free
 import ImageModule from 'docxtemplater-image';
 import { captureChartPng } from '@/components/structure/exports/exportToPng';
+import { autocropPngBase64 } from '@/lib/structure/autocropPng';
 
 // HTML to Docxtemplater inline formatting converter
 function htmlToDocxFormatting(input: string): string {
@@ -387,9 +388,25 @@ export default function DownloadMemoButton({
         }
       }
 
+      // Trim the transparent border off the snapshot so the embedded chart hugs
+      // the entities. The capture frames the chart with padding and a minimum
+      // canvas; placed at content width that framing reads as dead whitespace
+      // around the chart. Cropping here also fixes snapshots stored before the
+      // tighter capture settings, without a re-finalize.
+      if (structureChartBase64) {
+        const cropped = await autocropPngBase64(structureChartBase64);
+        if (cropped) {
+          structureChartBase64 = cropped.base64;
+          console.log('[DownloadMemoButton] snapshot autocropped to', `${cropped.width}x${cropped.height}`);
+        }
+      }
+
       // Size the chart to the body content width (2 cm margins -> ~6.69in -> 642px)
       // at its real aspect ratio, read from the PNG header. This avoids the old
-      // upscaling blur and keeps it inside the margins.
+      // upscaling blur and keeps it inside the margins. A small chart (one or two
+      // entities, now tightly cropped) must not be blown up to fill the width:
+      // a third of the raster width approximates its natural on-screen size
+      // (captures target pixelRatio 2-4), so that is the ceiling for small ones.
       if (structureChartBase64) {
         try {
           const head = base64ToBytes(structureChartBase64.slice(0, 64));
@@ -398,7 +415,8 @@ export default function DownloadMemoButton({
           const h = rd(20); // PNG IHDR height (bytes 20-23)
           if (w > 0 && h > 0) {
             const CONTENT_W_PX = 642;
-            chartDisplaySize = [CONTENT_W_PX, Math.round((CONTENT_W_PX * h) / w)];
+            const displayW = Math.min(CONTENT_W_PX, Math.max(1, Math.round(w / 3)));
+            chartDisplaySize = [displayW, Math.round((displayW * h) / w)];
           }
         } catch {
           /* keep the default size */
@@ -423,8 +441,11 @@ export default function DownloadMemoButton({
         try {
           const [appendix, appendixSkeleton] = await Promise.all([loadAppendix(sessionId), loadAppendixSkeleton()]);
           const confirmed = !!appendix && appendix.review_status === 'confirmed';
+          // A skipped checklist page has no confirm step, so the facts appendix
+          // stands on its own; the checklist rows always require a real confirm.
+          const factsSettled = confirmed || (!!appendix && appendix.checklist_skipped);
           appendicesXml = buildMemoAppendicesXml(
-            confirmed ? appendix!.facts : null,
+            factsSettled ? appendix!.facts : null,
             confirmed ? appendix!.rows : [],
             appendixSkeleton,
             {

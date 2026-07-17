@@ -75,7 +75,11 @@ export async function captureChartSnapshot(
   try {
     const bounds = getNodesBounds(nodes);
     const vp = computeSnapshotViewport(bounds, {
-      padding: 0.1,
+      // Hug the entities: barely any framing whitespace. The memo places the
+      // image at content width, so every padded pixel reads as dead margin
+      // around the chart there (and the memo build autocrops the transparent
+      // border anyway, see autocropPng.ts).
+      padding: 0.02,
       maxWidth: 2400,
       maxHeight: 2400,
       // Minimum canvas so a one- or two-entity chart renders at its natural

@@ -42,12 +42,15 @@ function removeEmptyParaById(documentXml: string, paraId: string): string {
   return documentXml.replace(re, '');
 }
 
-// The two stray blank paragraphs in the memo body, by paraId:
+// The stray blank paragraphs in the memo body, by paraId:
 //  - 6284A575: between the conclusion intro ("... We require:") and the bullets.
 //  - 11AAEE03: below the structure-chart image, before the next heading.
-const BLANK_PARA_IDS = ['6284A575', '11AAEE03'];
+//  - 7843DA51: between the conclusion text and the closing "This memorandum is
+//    based on ..." disclaimer; it made that one gap taller than every other
+//    paragraph gap in the memo. The normal spacing-after now carries the gap.
+const BLANK_PARA_IDS = ['6284A575', '11AAEE03', '7843DA51'];
 
-/** Drop the two extra blank lines (conclusion bullets + structure chart). */
+/** Drop the extra blank lines (conclusion bullets, structure chart, disclaimer). */
 export function removeExtraBlankParagraphs(documentXml: string): string {
   return BLANK_PARA_IDS.reduce(removeEmptyParaById, documentXml);
 }

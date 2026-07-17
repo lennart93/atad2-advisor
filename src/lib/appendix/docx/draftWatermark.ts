@@ -49,22 +49,22 @@ const TEXTPATH_SHAPETYPE =
   '<o:lock v:ext="edit" text="t" shapetype="t"/>' +
   '</v:shapetype>';
 
-// The watermark itself: rotated silver "DRAFT" at 50% opacity, centered on the
-// page, behind the text (negative z-index). The VML (v:) and Office (o:)
-// namespaces are declared on the <w:pict> so the fragment is valid in any
-// header part. fitshape stretches the text to fill the shape box exactly, so
-// the box keeps the natural aspect ratio of "DRAFT" (about 4.6:1) to avoid
-// visibly elongated letters; a bit smaller than Word's stock 527.85pt so it
-// does not dominate the page.
+// The watermark itself: a large, bold, light-grey "DRAFT" running corner to
+// corner, centered on the page, behind the text (negative z-index). The VML
+// (v:) and Office (o:) namespaces are declared on the <w:pict> so the fragment
+// is valid in any header part. fitshape stretches the text to fill the shape
+// box exactly, so the box keeps the natural aspect ratio of bold "DRAFT"
+// (about 4.7:1) to avoid visibly elongated letters. Sized well above Word's
+// stock 527.85pt: the stamp should read across the whole page, in a grey light
+// enough to sit quietly behind the body text.
 function watermarkShape(): string {
   return (
     `<v:shape id="${WATERMARK_SHAPE_ID}" o:spid="_x0000_s2049" type="#_x0000_t136" ` +
-    'style="position:absolute;margin-left:0;margin-top:0;width:460pt;height:100pt;' +
+    'style="position:absolute;margin-left:0;margin-top:0;width:560pt;height:120pt;' +
     'rotation:315;z-index:-251654144;mso-position-horizontal:center;' +
     'mso-position-horizontal-relative:margin;mso-position-vertical:center;' +
-    'mso-position-vertical-relative:margin" o:allowincell="f" fillcolor="silver" stroked="f">' +
-    '<v:fill opacity=".5"/>' +
-    '<v:textpath style="font-family:&quot;Calibri&quot;;font-size:1pt" string="DRAFT"/>' +
+    'mso-position-vertical-relative:margin" o:allowincell="f" fillcolor="#e3e5e4" stroked="f">' +
+    '<v:textpath style="font-family:&quot;Arial&quot;;font-size:1pt;font-weight:bold" string="DRAFT"/>' +
     '</v:shape>'
   );
 }

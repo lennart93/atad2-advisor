@@ -65,8 +65,8 @@ const STATUS_WARN = { fill: 'E9EDF0', fg: '4A5B6B' } as const;
 const STATUS_BAD = { fill: 'F8F0DA', fg: '8A6A1C' } as const;
 const STATUS_NA = { fill: 'F4F2EC', fg: '8A857B' } as const;
 
-const BODY_SZ = 19; //      9.5pt primary body content in every appendix table cell
-const HEAD_SZ = 19; //      column headers + group headings (~12.5px)
+const BODY_SZ = 18; //      9pt primary body content in every appendix table cell
+const HEAD_SZ = 18; //      column headers + group headings (9pt, same as the body)
 const ROLE_SZ = 18; //      9pt second line under an entity name
 const COUNT_SZ = 16; //     the quiet right-hand count on a group heading
 const BODY_LINE = 264; //   ~1.1 line spacing for body cells
@@ -345,10 +345,29 @@ function factsAppendix(rawFacts: AppendixFacts, pageBreakBefore: boolean): strin
     out.push(subHead('The taxpayer and the group'));
     out.push(
       textPara(
-        'The overview below shows the taxpayer(s) and the group entities relevant to this assessment, with their jurisdiction, tax classification and effective related-party interest. A local qualification is shown only where an entity is foreign.',
+        'The overview below shows the taxpayer(s) and the group entities relevant to this assessment, with their jurisdiction, tax classification and effective related-party interest. For a foreign entity the classification is shown twice: the qualification for Dutch tax purposes (NL) first, then the qualification under the law of its home jurisdiction.',
         { color: INTRO_GREY, line: BODY_LINE },
       ),
     );
+
+    // The relation rationale the register detail panel shows under "Relation to
+    // the taxpayer": the advisor's edited reason always wins; otherwise a group
+    // entity carries its derived sister-entity note or the AI-written position
+    // clause. Parents/subsidiaries only print a rationale when the advisor wrote
+    // one, their role label is self-explanatory.
+    const relationRationaleOf = (e: FactEntity): string | null => {
+      if (e.role === 'Taxpayer' || e.memberOfUnityId) return null;
+      const edited = e.edits?.relationReason?.trim();
+      if (edited) return edited;
+      if (e.role !== 'Group entity') return null;
+      if (e.relatedVia) {
+        const viaName = nameOf(rawFacts, e.relatedVia);
+        return e.relatedViaPct != null
+          ? `Sister entity: ${viaName} holds ${pct(e.relatedViaPct)} here and more than 25% in the taxpayer.`
+          : `Sister entity via ${viaName}.`;
+      }
+      return e.position?.trim() || null;
+    };
 
     const headerRow = row(
       ['#', 'Entity', 'Jurisdiction', 'Classification', 'Related %'].map((t, i) =>
@@ -367,20 +386,24 @@ function factsAppendix(rawFacts: AppendixFacts, pageBreakBefore: boolean): strin
       const c = clsByEntity.get(e.id);
       const isNl = (jur ?? '').toUpperCase() === 'NL';
       const isMember = !!e.memberOfUnityId;
-      // Entity name on line one; fiscal-unity note and role drop to a quiet second line.
+      // Entity name on line one; fiscal-unity note and role drop to a quiet second
+      // line. When the entity carries a relation rationale (why it is in the
+      // register), that description IS the second line: a short role label
+      // ("Lender", "Group company") next to a full description adds nothing.
       const nameRuns = run(normalizeEntityName(e.name), { bold: true, color: INK, sz: BODY_SZ });
-      const role = roleLabel(e);
+      const rationaleRaw = relationRationaleOf(e);
+      const roleText = rationaleRaw ? noEmDash(rationaleRaw) : roleLabel(e);
       const fuNote = e.inTaxpayerFiscalUnity || isMember
         ? 'Fiscal unity with the taxpayer. '
         : e.isFiscalUnity
           ? 'Fiscal unity. '
           : '';
-      const hasRoleLine = !!(role || fuNote);
+      const hasRoleLine = !!(roleText || fuNote);
       const namePara = para(nameRuns, { line: BODY_LINE, spacingAfter: hasRoleLine ? 20 : 0 });
       const rolePara = hasRoleLine
         ? para(
             (fuNote ? run(fuNote, { color: FAINT, sz: ROLE_SZ }) : '') +
-              (role ? run(role, { color: WARM_GREY, sz: ROLE_SZ }) : ''),
+              (roleText ? run(roleText, { color: WARM_GREY, sz: ROLE_SZ }) : ''),
             { line: 240, spacingAfter: 0 },
           )
         : '';
@@ -390,7 +413,10 @@ function factsAppendix(rawFacts: AppendixFacts, pageBreakBefore: boolean): strin
       // on screen (effLocalQualification -> the 4-value vocabulary). The line is
       // shown even when the view is still "To be determined" or matches the Dutch
       // view: no separate raw-class or "not set" wording, so the memo reads exactly
-      // like the on-screen appendix.
+      // like the on-screen appendix. When that second line is present, the Dutch
+      // view gets an explicit "NL:" prefix so the two lines read as a labelled
+      // pair; on screen the difference is carried by colour, which the flat black
+      // Word table does not have.
       const nlQ = effNlQualification(e);
       let clsSecond = '';
       if (!isNl) {
@@ -405,8 +431,9 @@ function factsAppendix(rawFacts: AppendixFacts, pageBreakBefore: boolean): strin
         const foreign = dutchForeignClassification(e, c);
         if (foreign) clsSecond = `${foreign.state}: ${nlQualificationLabel(foreign.qual)}`;
       }
+      const clsFirst = clsSecond ? `NL: ${nlQualificationLabel(nlQ)}` : nlQualificationLabel(nlQ);
       const clsParas =
-        para(run(nlQualificationLabel(nlQ), { color: CLS_INK, sz: BODY_SZ }), {
+        para(run(clsFirst, { color: CLS_INK, sz: BODY_SZ }), {
           line: BODY_LINE,
           spacingAfter: clsSecond ? 20 : 0,
         }) +
@@ -534,27 +561,17 @@ function factsAppendix(rawFacts: AppendixFacts, pageBreakBefore: boolean): strin
         );
       };
 
+      // Group headings carry no counts, and they only render when BOTH groups
+      // are present: with a single group the per-row verdict already says it
+      // all, and a lone heading would just repeat that verdict.
+      const showTxBands = needsTx.length > 0 && assessedTx.length > 0;
       const txRows: string[] = [txHeader];
       if (needsTx.length) {
-        txRows.push(
-          bandRow(
-            'Needs assessment',
-            `${needsTx.length} ${needsTx.length === 1 ? 'transaction' : 'transactions'}, risk ${needsTx.length === 1 ? 'indicator' : 'indicators'} present`,
-            4,
-            CONTENT_W,
-          ),
-        );
+        if (showTxBands) txRows.push(bandRow('Needs assessment', null, 4, CONTENT_W));
         needsTx.forEach((t) => txRows.push(txRow(t, true)));
       }
       if (assessedTx.length) {
-        txRows.push(
-          bandRow(
-            'No risk identified',
-            `${assessedTx.length} ${assessedTx.length === 1 ? 'transaction' : 'transactions'}, listed in full`,
-            4,
-            CONTENT_W,
-          ),
-        );
+        if (showTxBands) txRows.push(bandRow('No risk identified', null, 4, CONTENT_W));
         assessedTx.forEach((t) => txRows.push(txRow(t, false)));
       }
       out.push(table(txRows, TX_COLS, TABLE_OPTS));

@@ -91,18 +91,13 @@ const ROSTER_CAP = 8;
 /**
  * One entity in the "Entities in scope" roster: a quiet, fully rounded pill
  * carrying just the entity name — no fill, hairline border, so the roster
- * reads as one or two lines instead of a wall of cards. The taxpayer (lead)
- * entity gets a small uppercase tag as its only distinction.
+ * reads as one or two lines instead of a wall of cards. No taxpayer tag: in a
+ * multi-entity assessment every listed entity is a taxpayer.
  */
-function EntityPill({ name, taxpayer }: { name: string; taxpayer?: boolean }) {
+function EntityPill({ name }: { name: string }) {
   return (
     <span className="inline-flex max-w-full items-center gap-2 rounded-full border-[0.5px] border-ds-hairline px-3 py-1">
       <span className="truncate text-[14px] text-ds-ink">{name}</span>
-      {taxpayer && (
-        <span className="shrink-0 text-[10px] font-medium uppercase tracking-[0.12em] text-ds-ink-tertiary">
-          Taxpayer
-        </span>
-      )}
     </span>
   );
 }
@@ -276,7 +271,11 @@ const AssessmentReport = () => {
   // Appendix availability + the effective per-download include choice. Default on
   // (unless a page was skipped); a local override wins for this download only.
   const appendixConfirmed = appendixForDownload?.review_status === 'confirmed';
-  const factsAppendixAvailable = !!appendixConfirmed && (appendixForDownload?.facts?.entities?.length ?? 0) > 0;
+  // Confirmation happens on the checklist page; when that page is skipped no
+  // confirm step exists, so the facts appendix stands on its own. The checklist
+  // appendix itself always requires a real confirm (skipped = never reviewed).
+  const appendixSettled = !!appendixConfirmed || !!appendixForDownload?.checklist_skipped;
+  const factsAppendixAvailable = appendixSettled && (appendixForDownload?.facts?.entities?.length ?? 0) > 0;
   const checklistAppendixAvailable = !!appendixConfirmed && (appendixForDownload?.rows?.some((r) => !r.excludedFromClient) ?? false);
   // A skipped appendix can never ride along in the memorandum: its row renders
   // disabled and unchecked (with a hover explanation) and no local override can
@@ -1130,7 +1129,7 @@ const AssessmentReport = () => {
               <p className={`${EYEBROW} mb-3`}>Entities in scope</p>
               <div className="flex flex-wrap gap-2">
                 {visibleEntities.map((name, i) => (
-                  <EntityPill key={`${name}-${i}`} name={name} taxpayer={name === leadEntity} />
+                  <EntityPill key={`${name}-${i}`} name={name} />
                 ))}
               </div>
               {rosterCollapses && (

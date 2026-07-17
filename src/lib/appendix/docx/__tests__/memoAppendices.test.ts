@@ -162,9 +162,41 @@ describe('buildMemoAppendicesXml', () => {
     expect(xml).toContain('CH: Transparent'); // the hybrid mismatch entity
     // The old "not set" wording is gone; the shared vocabulary is used instead.
     expect(xml).not.toContain('qualification not set');
-    // A Dutch entity prints its classification exactly once, no local echo.
-    expect(xml).not.toContain('NL: Non-transparent');
-    expect(xml).not.toContain('NL: To be determined');
+    // A foreign entity labels its Dutch view explicitly, so the NL/home pair is
+    // unambiguous in the flat Word table.
+    expect(xml).toContain('NL: Non-transparent');
+    // A Dutch entity prints its classification exactly once, unprefixed.
+    expect(xml).toContain('<w:t xml:space="preserve">Non-transparent</w:t>');
+  });
+
+  it('prints the relation rationale under a group company', () => {
+    const groupFacts: AppendixFacts = {
+      ...facts,
+      entities: [
+        ...facts.entities,
+        ent({
+          id: 'E11', name: 'Duvel Moortgat Shanghai Ltd.', role: 'Group entity', jurisdiction: 'CN',
+          position: 'Group company (China); intercompany receivable of IPack B.V.',
+        }),
+      ],
+    };
+    const out = buildMemoAppendicesXml(groupFacts, rows, skeleton);
+    expect(out).toContain('intercompany receivable of IPack B.V.');
+    // The rationale opens with the role label, so it replaces the role line
+    // rather than stacking "Group company" twice for this entity. The only bare
+    // "Group company" role run left is Jersey Co's (the fixture's fallback label).
+    const bareRoleRuns = (out.match(/<w:t xml:space="preserve">Group company<\/w:t>/g) ?? []).length;
+    expect(bareRoleRuns).toBe(1);
+    // An advisor-edited relation reason wins over the derived clause.
+    const editedFacts: AppendixFacts = {
+      ...groupFacts,
+      entities: groupFacts.entities.map((e) =>
+        e.id === 'E11' ? { ...e, edits: { relationReason: 'Holds the Chinese distribution contract.' } } : e,
+      ),
+    };
+    const editedOut = buildMemoAppendicesXml(editedFacts, rows, skeleton);
+    expect(editedOut).toContain('Holds the Chinese distribution contract.');
+    expect(editedOut).not.toContain('intercompany receivable of IPack B.V.');
   });
 
   it('shows the manual acting-together group and never the candidate-grouping line', () => {
@@ -179,11 +211,13 @@ describe('buildMemoAppendicesXml', () => {
 
   it('splits transactions into needs-assessment and no-risk groups, all listed', () => {
     expect(xml).toContain('Needs assessment');
-    expect(xml).toContain('1 transaction, risk indicator present');
     expect(xml).toContain('Interest deduction in NL'); // its reason line
     expect(xml).toContain('No risk identified'); // the assessed group + verdict use the shared vocabulary
-    expect(xml).toContain('1 transaction, listed in full');
     expect(xml).toContain('Within same tax group');
+    // The group headings carry no transaction counts.
+    expect(xml).not.toContain('listed in full');
+    expect(xml).not.toContain('risk indicator present');
+    expect(xml).not.toContain('risk indicators present');
     // Jurisdictions ride inline with the two parties.
     expect(xml).toContain('(NL)');
     expect(xml).toContain('(JE)');
@@ -193,6 +227,21 @@ describe('buildMemoAppendicesXml', () => {
     expect(xml).not.toContain('Assessed, no risk indicator');
     expect(xml).not.toContain('Why relevant');
     expect(xml).not.toContain('Transactions assessed as not relevant');
+  });
+
+  it('drops the group headings when only one transaction group is present', () => {
+    // Only no-risk transactions: the per-row verdict already says "No risk
+    // identified", so a lone group heading would just repeat it. Group headings
+    // are the only gridSpan-4 rows in the transactions table.
+    const onlyAssessed: AppendixFacts = {
+      ...facts,
+      transactions: facts.transactions.filter((t) => t.id === 'T2'),
+    };
+    const out = buildMemoAppendicesXml(onlyAssessed, rows, skeleton);
+    expect(out).not.toContain('Needs assessment');
+    expect(out).not.toContain('<w:gridSpan w:val="4"/>');
+    // With both groups present, both headings render (the base fixture).
+    expect((xml.match(/<w:gridSpan w:val="4"\/>/g) ?? []).length).toBe(2);
   });
 
   it('lists proposed (unconfirmed) transactions too, none summarised away', () => {
@@ -226,7 +275,9 @@ describe('buildMemoAppendicesXml', () => {
     expect(xml).not.toContain('w:color="BFBFBF"'); // the old full grey grid is gone
     // Column headers: normal weight, dark ink, sentence case; no bold, no caps
     // eyebrow, no letter-spacing, no teal. Only the near-black rule separates.
-    expect(xml).toContain('<w:color w:val="1A1A1A"/><w:sz w:val="19"/>');
+    // One 9pt size (sz 18) across all appendix table text; nothing at 9.5pt.
+    expect(xml).toContain('<w:color w:val="1A1A1A"/><w:sz w:val="18"/>');
+    expect(xml).not.toContain('<w:sz w:val="19"/>');
     expect(xml).toContain('<w:bottom w:val="single" w:sz="8" w:space="0" w:color="111111"/>');
     expect(xml).not.toContain('455F5B'); // teal eyebrow gone (headers + underline)
     expect(xml).not.toContain('<w:spacing w:val="24"/>');
@@ -234,9 +285,8 @@ describe('buildMemoAppendicesXml', () => {
     expect(xml).not.toContain('<w:b/><w:color w:val="7A756B"/>'); // old grey caps header
     // Group headings carry no shaded band.
     expect(xml).not.toContain('w:fill="FBFAF9"');
-    // The transaction group counts sit flush right on a right tab stop.
-    expect(xml).toContain('<w:tab w:val="right" w:pos="9518"/>');
-    expect(xml).toContain('<w:r><w:tab/></w:r>');
+    // Group headings carry no right-hand count caption at all.
+    expect(xml).not.toContain('<w:r><w:tab/></w:r>');
   });
 
   it('shades the whole Appendix 2 status cell with the tool palette', () => {
@@ -285,7 +335,7 @@ describe('buildMemoAppendicesXml', () => {
     const gateSkeleton: SkeletonRow[] = [{ ...skeleton[0], rowId: '1.1' }];
     const gateXml = buildMemoAppendicesXml(null, [condRow('1.1', 'N/A', 'In scope.')], gateSkeleton, { includeChecklist: true });
     expect(gateXml).toContain(
-      '<w:rPr><w:color w:val="1A1A1A"/><w:sz w:val="19"/><w:szCs w:val="19"/></w:rPr><w:t xml:space="preserve"> (gateway question)</w:t>',
+      '<w:rPr><w:color w:val="1A1A1A"/><w:sz w:val="18"/><w:szCs w:val="18"/></w:rPr><w:t xml:space="preserve"> (gateway question)</w:t>',
     );
     // Non-gateway rows (the base fixture) never carry the note.
     expect(xml).not.toContain('gateway question');

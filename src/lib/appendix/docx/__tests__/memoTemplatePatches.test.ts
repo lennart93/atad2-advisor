@@ -40,16 +40,18 @@ describe('simplifyFooterPageNumber', () => {
 describe('removeExtraBlankParagraphs', () => {
   const doc = () => zipOf().file('word/document.xml')!.asText();
 
-  it('removes the two stray blank paragraphs (conclusion + structure chart)', () => {
+  it('removes the stray blank paragraphs (conclusion, structure chart, disclaimer)', () => {
     const before = doc();
     expect(before).toContain('w14:paraId="6284A575"');
     expect(before).toContain('w14:paraId="11AAEE03"');
+    expect(before).toContain('w14:paraId="7843DA51"');
 
     const after = removeExtraBlankParagraphs(before);
     expect(after).not.toContain('w14:paraId="6284A575"');
     expect(after).not.toContain('w14:paraId="11AAEE03"');
-    // Exactly two paragraphs removed; everything else preserved and balanced.
-    expect(count(after, /<w:p\b/g)).toBe(count(before, /<w:p\b/g) - 2);
+    expect(after).not.toContain('w14:paraId="7843DA51"');
+    // Exactly three paragraphs removed; everything else preserved and balanced.
+    expect(count(after, /<w:p\b/g)).toBe(count(before, /<w:p\b/g) - 3);
     expect(count(after, /<w:p\b/g)).toBe(count(after, /<\/w:p>/g));
     // Neighbouring real content is still there.
     expect(after).toContain('{{%structureChart}}');
@@ -71,5 +73,6 @@ describe('preprocessMemoTemplate', () => {
     expect(footer).not.toContain('SECTIONPAGES');
     expect(document).not.toContain('w14:paraId="6284A575"');
     expect(document).not.toContain('w14:paraId="11AAEE03"');
+    expect(document).not.toContain('w14:paraId="7843DA51"');
   });
 });
