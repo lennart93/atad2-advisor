@@ -1,6 +1,7 @@
 import { type RefObject, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
+import { getAppScale } from "@/lib/appScale";
 
 /**
  * Transient coachmark that points at the "Open questions" button and reminds
@@ -117,16 +118,22 @@ export function OpenQuestionsHint({
     const anchor = anchorRef.current;
     const pop = popRef.current;
     if (!anchor || !pop) return;
+    // getBoundingClientRect meet in gezoomde scherm-px, maar dit fixed element
+    // staat zelf ook onder html { zoom }, dus zijn top/left worden nog eens
+    // met die factor vermenigvuldigd. Terugdelen, anders drijft het wolkje
+    // 15% naar rechtsonder weg van de chip (zelfde ziekte als de
+    // Radix-popper-drift, zie appScale.ts). offsetWidth is al ongezoomd.
+    const scale = getAppScale();
     const rect = anchor.getBoundingClientRect();
     const width = pop.offsetWidth;
-    const top = rect.bottom + ANCHOR_GAP;
+    const top = rect.bottom / scale + ANCHOR_GAP;
     // Right-align to the button, then clamp inside the viewport so it never
     // runs off-screen on narrow widths.
-    let left = rect.right - width;
-    const maxLeft = window.innerWidth - width - VIEWPORT_MARGIN;
+    let left = rect.right / scale - width;
+    const maxLeft = window.innerWidth / scale - width - VIEWPORT_MARGIN;
     left = Math.max(VIEWPORT_MARGIN, Math.min(left, maxLeft));
     // Keep the caret under the centre of the button even after a left shift.
-    const caretCentre = rect.left + rect.width / 2 - left;
+    const caretCentre = (rect.left + rect.width / 2) / scale - left;
     const caretLeft = Math.max(CARET_INSET, Math.min(caretCentre, width - CARET_INSET));
     setPos({ top, left, caretLeft });
   }, [anchorRef]);
