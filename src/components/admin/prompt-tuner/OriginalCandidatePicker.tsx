@@ -11,14 +11,16 @@ interface Props {
   onSelect: (id: string) => void;
   onConfirm: () => void;
   onManual: () => void;
+  /** What the candidates are, for the empty state. Defaults to "memo". */
+  noun?: string;
 }
 
-export function OriginalCandidatePicker({ candidates, selectedId, onSelect, onConfirm, onManual }: Props) {
+export function OriginalCandidatePicker({ candidates, selectedId, onSelect, onConfirm, onManual, noun = "memo" }: Props) {
   if (candidates.length === 0) {
     return (
       <AdminCard>
         <p className="text-sm text-muted-foreground">
-          No matching memo found. You can paste the original by hand instead.
+          No matching {noun} found. You can paste the original by hand instead.
         </p>
         <div className="flex justify-end mt-3">
           <Button variant="outline" onClick={onManual}>Paste original manually</Button>

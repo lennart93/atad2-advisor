@@ -14,7 +14,7 @@ import { OriginalCandidatePicker } from "@/components/admin/prompt-tuner/Origina
 import { AppendixEditPicker } from "@/components/admin/prompt-tuner/AppendixEditPicker";
 import { PROMPT_DESCRIPTORS, type PromptKey } from "@/lib/admin/promptKeys";
 import {
-  analyzeImprovement, findAppendixEdits, findMemoOriginals,
+  analyzeImprovement, findAppendixEdits, findAppendixOriginals, findMemoOriginals,
   OUTPUT_TYPE_TO_KEY,
   type AppendixCandidate, type MemoCandidate, type TuningAnalysis, type TunerOutputType,
 } from "@/lib/admin/promptTuner";
@@ -76,6 +76,17 @@ export default function PromptTuner() {
       setSelectedId(rows[0]?.edit_id ?? null);
     },
     onError: (e) => toast.error("Load failed", { description: String(e instanceof Error ? e.message : e) }),
+  });
+
+  // Paste flow for the appendix tab; candidates share the memo shape, so they
+  // reuse the same state and picker as the memo flow.
+  const findAppendix = useMutation({
+    mutationFn: () => findAppendixOriginals(improvedText),
+    onSuccess: (rows) => {
+      setMemoCandidates(rows);
+      setSelectedId(rows[0]?.source_row_id ?? null);
+    },
+    onError: (e) => toast.error("Search failed", { description: String(e instanceof Error ? e.message : e) }),
   });
 
   // Failure is rendered inline (not as a toast): the analysis runs for
@@ -201,12 +212,64 @@ export default function PromptTuner() {
         {!confirmed && tab === "appendix" && (
           <>
             <AdminCard>
+              <label htmlFor="tuner-improved-appendix" className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground font-normal block mb-2">
+                Improved appendix
+              </label>
+              <Textarea
+                id="tuner-improved-appendix"
+                rows={12}
+                className="font-mono text-xs"
+                placeholder="Paste your hand-improved appendix text here (one or more rows, or the whole appendix)..."
+                value={improvedText}
+                onChange={(e) => setImprovedText(e.target.value)}
+              />
+              <div className="flex justify-end mt-3">
+                <Button
+                  disabled={!improvedText.trim() || findAppendix.isPending}
+                  onClick={() => { resetFlow(); findAppendix.mutate(); }}
+                >
+                  {findAppendix.isPending ? <Loader2 className="size-4 animate-spin" /> : <Search className="size-4" />}
+                  <span className="ml-1.5">Find original</span>
+                </Button>
+              </div>
+            </AdminCard>
+
+            {manualMode ? (
+              <AdminCard>
+                <label htmlFor="tuner-original-appendix" className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground font-normal block mb-2">
+                  Paste the original (AI) appendix
+                </label>
+                <Textarea
+                  id="tuner-original-appendix"
+                  rows={10}
+                  className="font-mono text-xs"
+                  placeholder="Paste the original AI appendix text here..."
+                  value={manualOriginal}
+                  onChange={(e) => setManualOriginal(e.target.value)}
+                />
+                <div className="flex justify-between mt-3">
+                  <Button variant="ghost" size="sm" onClick={() => setManualMode(false)}>Back to search</Button>
+                  <Button disabled={!manualOriginal.trim()} onClick={confirmManual}>Use this original</Button>
+                </div>
+              </AdminCard>
+            ) : memoCandidates ? (
+              <OriginalCandidatePicker
+                candidates={memoCandidates}
+                selectedId={selectedId}
+                onSelect={setSelectedId}
+                onConfirm={confirmMemoSelection}
+                onManual={() => setManualMode(true)}
+                noun="appendix"
+              />
+            ) : null}
+
+            <AdminCard>
               <p className="text-sm text-ds-ink-secondary">
-                Appendix corrections are already stored per row. Load recent manual edits and pick one to learn from.
-                No pasting needed.
+                Row-level corrections made in the app are also stored automatically. Load recent manual edits
+                and pick one to learn from instead of pasting.
               </p>
               <div className="flex justify-end mt-3">
-                <Button disabled={loadAppendix.isPending} onClick={() => loadAppendix.mutate()}>
+                <Button variant="outline" disabled={loadAppendix.isPending} onClick={() => { resetFlow(); loadAppendix.mutate(); }}>
                   {loadAppendix.isPending ? <Loader2 className="size-4 animate-spin" /> : <Search className="size-4" />}
                   <span className="ml-1.5">Load recent corrections</span>
                 </Button>

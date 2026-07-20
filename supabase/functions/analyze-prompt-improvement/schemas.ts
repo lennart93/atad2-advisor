@@ -6,8 +6,10 @@ export type OutputTypeT = z.infer<typeof OutputType>;
 export const FindRequest = z.object({
   action: z.literal("find"),
   output_type: OutputType,
-  // Only used for memo (lexical match against recent reports). Appendix lists
-  // recent edits, which already carry the original/improved pair.
+  // memo: required, lexically matched against recent reports.
+  // appendix: optional. When present, matched against recent appendices
+  // (rows flattened to text); when absent, recent atad2_appendix_edits are
+  // listed, which already carry the original/improved pair.
   improved_text: z.string().optional(),
 });
 

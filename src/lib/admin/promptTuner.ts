@@ -91,6 +91,19 @@ export async function findAppendixEdits(): Promise<AppendixCandidate[]> {
 }
 
 /**
+ * Paste flow for the appendix tab, mirroring the memo flow: the pasted improved
+ * appendix text is lexically matched server-side against recent appendices
+ * (rows flattened to text). Candidates come back in the memo shape.
+ */
+export async function findAppendixOriginals(improvedText: string): Promise<MemoCandidate[]> {
+  const { data, error } = await supabase.functions.invoke("analyze-prompt-improvement", {
+    body: { action: "find", output_type: "appendix", improved_text: improvedText },
+  });
+  if (error) throw new Error(await extractFunctionErrorMessage(error));
+  return (data?.candidates ?? []) as MemoCandidate[];
+}
+
+/**
  * Direct fetch instead of supabase.functions.invoke: the analyze call can run
  * for several minutes, so the edge function streams NDJSON heartbeats to keep
  * the connection alive and ends with the payload line. invoke() cannot read

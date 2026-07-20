@@ -39,7 +39,7 @@ Return exactly this JSON shape:
 }`;
 
 const APPENDIX_NOTE = `
-Note on this output type: it is ONE row of the ATAD2 technical appendix, made of three fields (decision, reasoning, reference). The reference field is internal only and never reaches the client export, so do not move client-facing content into it. Improve appendix_system so the decision and reasoning come out like the improved version.`;
+Note on this output type: the pair is either ONE row of the ATAD2 technical appendix (decision, reasoning, reference) or the WHOLE appendix flattened as "Row x.y - Status: ..." blocks followed by the row's reasoning. The reference field is internal only and never reaches the client export, so do not move client-facing content into it. Improve appendix_system so the statuses and reasoning come out like the improved version.`;
 
 /** Soft guard against pathological inputs; memos are well within this. */
 function clip(s: string, max = 80_000): string {

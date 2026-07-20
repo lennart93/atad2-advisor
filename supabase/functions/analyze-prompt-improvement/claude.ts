@@ -25,7 +25,13 @@ const MODEL = "claude-opus-4-8";
 // The proposed revision is a FULL drop-in replacement of the target system
 // prompt (memo_system is several thousand tokens) plus the analysis, so the
 // cap is generous. It is a ceiling, not a target: short answers stay short.
-const MAX_TOKENS = 16384;
+// NB: with adaptive thinking the THINKING tokens also count against this cap.
+// At 16384 a long thinking pass left only ~3-4k tokens for the JSON payload,
+// which was then cut off mid-string ("Unterminated string in JSON").
+const MAX_TOKENS = 32768;
+// 32k tokens can take a while to generate; the SDK's default 10-minute
+// non-streaming guard would otherwise refuse or time the request out.
+const REQUEST_TIMEOUT_MS = 600_000;
 
 const RATE_LIMIT_BACKOFF_MS = [2000, 4000, 8000];
 
@@ -40,6 +46,8 @@ export interface CachedSegment {
 
 export interface CallResult {
   text: string;
+  /** Anthropic stop_reason; "max_tokens" means the output was truncated. */
+  stopReason: string | null;
   inputTokens: number;
   cachedInputTokens: number;
   cacheCreationInputTokens: number;
@@ -82,7 +90,7 @@ export async function callClaude(seg: CachedSegment): Promise<CallResult> {
       // (The old SDK types don't know `thinking`; cast past them.)
       (request as unknown as { thinking?: unknown }).thinking = { type: "adaptive" };
 
-      const response = await client.messages.create(request);
+      const response = await client.messages.create(request, { timeout: REQUEST_TIMEOUT_MS });
 
       const text = response.content
         .filter((b): b is { type: "text"; text: string } => b.type === "text")
@@ -102,6 +110,7 @@ export async function callClaude(seg: CachedSegment): Promise<CallResult> {
 
       return {
         text,
+        stopReason: (response as unknown as { stop_reason?: string | null }).stop_reason ?? null,
         inputTokens: usage.input_tokens,
         cachedInputTokens: usage.cache_read_input_tokens ?? 0,
         cacheCreationInputTokens: usage.cache_creation_input_tokens ?? 0,
@@ -139,5 +148,47 @@ export function extractJson(text: string): string {
   if (start === -1 || end === -1 || end < start) {
     throw new Error("No JSON object found in model output");
   }
-  return t.slice(start, end + 1);
+  return escapeControlCharsInStrings(t.slice(start, end + 1));
+}
+
+/**
+ * JSON.parse rejects raw control characters inside string values, and a model
+ * writing a multi-line system prompt occasionally emits a real newline instead
+ * of \n — which surfaces as "Unterminated string in JSON". Escape control
+ * characters only INSIDE strings; structural whitespace stays untouched.
+ */
+export function escapeControlCharsInStrings(s: string): string {
+  let out = "";
+  let inString = false;
+  let escaped = false;
+  for (const ch of s) {
+    if (!inString) {
+      if (ch === '"') inString = true;
+      out += ch;
+      continue;
+    }
+    if (escaped) {
+      out += ch;
+      escaped = false;
+      continue;
+    }
+    if (ch === "\\") {
+      out += ch;
+      escaped = true;
+      continue;
+    }
+    if (ch === '"') {
+      inString = false;
+      out += ch;
+      continue;
+    }
+    const code = ch.charCodeAt(0);
+    if (code < 0x20) {
+      out += code === 10 ? "\\n" : code === 13 ? "\\r" : code === 9 ? "\\t"
+        : "\\u" + code.toString(16).padStart(4, "0");
+      continue;
+    }
+    out += ch;
+  }
+  return out;
 }

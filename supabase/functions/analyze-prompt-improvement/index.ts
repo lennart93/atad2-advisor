@@ -3,7 +3,10 @@
 // Two synchronous actions on one POST endpoint, gated on the admin role:
 //   - find:    locate the original AI output the admin improved.
 //                memo     -> lexical match of improved_text against recent reports.
-//                appendix -> recent rows from atad2_appendix_edits (old/new pair).
+//                appendix + improved_text -> lexical match against recent
+//                             appendices (rows flattened to text), like memo.
+//                appendix without improved_text -> recent rows from
+//                             atad2_appendix_edits (old/new pair).
 //   - analyze: one Claude call diffing original vs improved and proposing a
 //                sharpened replacement for the target prompt. Returns the
 //                analysis JSON directly (no persistence, no polling).
@@ -68,6 +71,28 @@ async function loadSessionMeta(c: SupabaseClient, sessionIds: string[]): Promise
   ]));
 }
 
+/** The few appendix-row fields the tuner needs; rows JSONB mirrors AppendixRow. */
+interface AppendixRowLite {
+  rowId?: string;
+  status?: string | null;
+  reasoning?: string | null;
+}
+
+/**
+ * Flatten an appendix's rows to plain text so it can be diffed against a pasted
+ * improved version and lexically matched. Keeps the client-facing fields only
+ * (no provenance, no internal references).
+ */
+function flattenAppendixRows(rows: AppendixRowLite[]): string {
+  return rows
+    .map((r) => {
+      const head = `Row ${r.rowId ?? "?"} - Status: ${r.status ?? "(not set)"}`;
+      const reasoning = (r.reasoning ?? "").trim();
+      return reasoning ? `${head}\n${reasoning}` : head;
+    })
+    .join("\n\n");
+}
+
 async function handleFind(c: SupabaseClient, raw: unknown) {
   const req = FindRequest.parse(raw);
 
@@ -106,8 +131,43 @@ async function handleFind(c: SupabaseClient, raw: unknown) {
     return json({ candidates });
   }
 
-  // appendix: every human correction in atad2_appendix_edits is already an
-  // original (old_value) -> improved (new_value) pair. No pasting needed.
+  // appendix, paste mode: mirror the memo flow. The admin pastes a hand-improved
+  // appendix text (rows or the whole Part B); we lexically match it against the
+  // recent appendices' flattened rows and return memo-shaped candidates.
+  const improvedAppendix = (req.improved_text ?? "").trim();
+  if (req.output_type === "appendix" && improvedAppendix) {
+    const { data: appendices } = await c
+      .from("atad2_appendix")
+      .select("id, session_id, rows, prompt_version, updated_at")
+      .order("updated_at", { ascending: false })
+      .limit(100);
+
+    const rows = (appendices ?? []).filter((a) => Array.isArray(a.rows) && (a.rows as unknown[]).length > 0);
+    const meta = await loadSessionMeta(c, rows.map((a) => a.session_id as string));
+
+    const candidates = rows
+      .map((a) => {
+        const original = flattenAppendixRows(a.rows as AppendixRowLite[]);
+        const m = meta.get(a.session_id as string);
+        return {
+          source_row_id: a.id as string,
+          session_id: a.session_id as string,
+          taxpayer_name: m?.taxpayer_name ?? null,
+          fiscal_year: m?.fiscal_year ?? null,
+          prompt_version: a.prompt_version == null ? null : String(a.prompt_version),
+          original_text: original,
+          snippet: original.slice(0, 240),
+          score: similarity(improvedAppendix, original),
+        };
+      })
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5);
+
+    return json({ candidates });
+  }
+
+  // appendix, no pasted text: every human correction in atad2_appendix_edits is
+  // already an original (old_value) -> improved (new_value) pair.
   const { data: edits } = await c
     .from("atad2_appendix_edits")
     .select("id, appendix_id, row_id, field, old_value, new_value, edited_at")
@@ -206,12 +266,27 @@ async function handleAnalyze(c: SupabaseClient, raw: unknown) {
   });
 }
 
-async function callWithRetry(call: () => Promise<{ text: string }>): Promise<TuningAnalysisT> {
+async function callWithRetry(
+  call: () => Promise<{ text: string; stopReason: string | null }>,
+): Promise<TuningAnalysisT> {
+  // A truncated response (stop_reason max_tokens) is guaranteed-invalid JSON;
+  // fail it with a readable message instead of a JSON.parse SyntaxError. The
+  // single retry still applies: thinking length varies per run, so a second
+  // attempt can land under the cap.
+  const attempt = async () => {
+    const res = await call();
+    if (res.stopReason === "max_tokens") {
+      throw new Error(
+        "The model ran out of output tokens before finishing the analysis (stop_reason max_tokens).",
+      );
+    }
+    return TuningAnalysis.parse(JSON.parse(extractJson(res.text)));
+  };
   try {
-    return TuningAnalysis.parse(JSON.parse(extractJson((await call()).text)));
+    return await attempt();
   } catch (first) {
     try {
-      return TuningAnalysis.parse(JSON.parse(extractJson((await call()).text)));
+      return await attempt();
     } catch {
       throw first;
     }
